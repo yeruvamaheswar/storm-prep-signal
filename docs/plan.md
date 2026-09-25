@@ -51,7 +51,7 @@ flowchart TD
 ## Functions
 
 The names in AGENTS.md are fixed. `format_decision` was added by the owner, and
-`to_signal` is proposed by the agent (see Slice 1).
+`to_signal` was proposed by the agent and approved.
 
 | Function | Module | Pure? | Job | Slice |
 | --- | --- | --- | --- | --- |
@@ -120,6 +120,9 @@ Every successful run prints one line. The values below are examples only:
 
 - A LOW risk uses the same line with `[NORMAL]` and a negative margin, for example `(-1,210 MW; ...)`.
 - `format_decision` gets `now` passed in, because the data age needs the clock.
+- In either file mode (`--fixture`, `--file`), the line includes `clock: pinned to posting`.
+  The stale check is effectively skipped when the clock is pinned, so the line must never
+  hide that (approved guardrail).
 - The source label is one of:
   - `source: ERCOT NP3-233-CD` in live mode.
   - `source: fixture` for the real saved file.
@@ -155,7 +158,7 @@ The log is JSON Lines: one object per line, in `var/logs/<run_id>.jsonl`.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `ts` | string | Local time, ISO 8601 with UTC offset, for example `2026-09-25T11:47:02-05:00` |
-| `run_id` | string | Same for every event in one run, for example `20260925-114702` |
+| `run_id` | string | Same for every event in one run, for example `20260925-114702-123456` (microseconds, so runs in the same second don't share a file) |
 | `stage` | string | `run`, `load_signal`, `fetch_outages`, `validate`, `compute_risk`, `decide_mode`, `apply_to_batteries`, `fail_safe` or `prompt` |
 | `event` | string | Short snake_case name: `started`, `ok`, `rejected`, `mode_set`, `entered`, `operator_choice`, `finished` |
 | `ok` | bool | `false` for any failure |
@@ -236,7 +239,8 @@ Each slice is one thin, working, end-to-end path. Each slice keeps its diff unde
   - A missing zone field gives `schema changed`.
   - 47 rows from the current hour on gives `window too short`.
   - A negative or non-numeric MW value is rejected.
-  - A posting 91 min old gives stale.
+  - A posting 91 min old gives stale. The test passes `now` directly to `to_signal`/`validate`,
+    because file modes pin the clock.
   - A missing current hour gives `current hour not in report`.
   - Timeout and poison runs end in RESERVE.
   - The retry limit holds, and no answer exits 2.
@@ -318,3 +322,12 @@ var/               logs and state (git-ignored)
    - 2: live fetch and auth.
    - 3: validation, `fail_safe` and A/R/S, and the simulations.
 10. **Approved**: `current hour not in report` as a validate reason; `compute_risk` stays pure.
+
+2026-09-25, fourth round:
+
+11. **Approved**:
+    - The pure `to_signal(raw, now)` helper.
+    - The clock pinned in both file modes, with `clock: pinned to posting` on the decision line.
+    - A minimal `fail_safe` in Slice 2.
+    - The source label taken from a top-level `_note`.
+    - The +500 MW Houston HE16 spike.

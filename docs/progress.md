@@ -65,3 +65,33 @@
   - Pinning the clock for `--file` as well as `--fixture`.
   - A minimal `fail_safe` in Slice 2, so live errors go to RESERVE.
 - Next: owner confirmation. Slice 1 has not started.
+
+## 2026-09-25: Slice 1 done, fixture tracer bullet (not committed)
+
+- Built the `storm_prep` package:
+  - `signal.py`: `load_signal` and `to_signal`.
+  - `risk.py`: `compute_risk`, `RiskResult` and a simple `decide_mode`.
+  - `batteries.py`: `apply_to_batteries`.
+  - `decision.py`: `format_decision`.
+  - `events.py`: `log_event`, writing `var/logs/<run_id>.jsonl`.
+  - `__main__.py`: the CLI, with `--fixture` and `--file`.
+  - Also added `pytest.ini`.
+- Added `tests/fixtures/np3_spike_synthetic.json`: the real fixture plus 500 MW on
+  `totalResourceMWZoneHouston` at 2026-09-25 HE16 (2745 → 3245), labeled in `_note`.
+- `pytest -q`: 6 passed. The tests cover:
+  - The `>=` boundary (HIGH), 1 MW below (LOW), and a peak at hour 6 of the window.
+  - The real fixture gives the same line on every run and gets one log file per run.
+  - The synthetic spike gives HIGH and RESERVE.
+  - Every stage is logged.
+- A mutation check (`>` instead of `>=`) makes the boundary test fail, as it should.
+- Real fixture line: `[NORMAL] risk LOW | peak outages 22,194 MW at HE15 ... (-154 MW; week median 18,623 MW +20%) | driving zone: North 9,429 MW | ... | clock: pinned to posting | quality: unchecked | source: fixture`.
+- Synthetic line: `[RESERVE] risk HIGH | peak outages 22,539 MW at HE16 ... (+191 MW; ...) | driving zone: North 9,294 MW | ... | source: fixture (synthetic)`.
+- Choices made during the slice:
+  - The line says `quality: unchecked` until `validate()` exists (Slice 3), so it doesn't
+    claim checks that never ran.
+  - `run_id` now includes microseconds. Two runs in the same second had shared one log
+    file; this was found and fixed during the slice.
+  - `decide_mode(risk)` takes no state yet (Slice 5 adds it).
+- Size: 273 lines of app code (including docstrings and comments) plus 86 lines of tests.
+  That is slightly over the ~250 budget.
+- Next: Slice 2 (live fetch, auth, minimal `fail_safe`, no-secrets test). Not started.
