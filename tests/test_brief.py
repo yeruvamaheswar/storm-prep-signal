@@ -102,3 +102,34 @@ def test_clear_tick_names_the_floor_and_has_no_reason_clause():
         )
     )
     assert text == "Delivered 0.20 of 0.20 MW. Floor 30%."
+
+
+def test_zone_floor_above_the_fleet_floor_is_named_before_the_reasons():
+    text = write_brief(
+        tick(
+            delivered_mw=0.40,
+            missed_mw=0.00,
+            reserve_pct=30.0,
+            policy_reason="normal",
+            risk_level="LOW",
+            reasons=["timed_out:1"],
+            zone_reserve_pct={"Houston": 60.0, "North": 30.0},
+            zone_reasons={"Houston": "weather_alert", "North": "normal"},
+        )
+    )
+    assert text == "Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert); timed out 1."
+
+
+def test_live_brief_names_a_zone_floor_from_the_tick_dict():
+    stamped = apply_tick_brief(
+        {
+            "delivered_mw": 0.40,
+            "target_mw": 0.40,
+            "reserve_pct": 30,
+            "policy_reason": "normal",
+            "reasons": [],
+            "zone_reserve_pct": {"Houston": 60, "North": 30},
+            "zone_reasons": {"Houston": "weather_alert", "North": "normal"},
+        }
+    )
+    assert stamped["brief"] == "Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert)."

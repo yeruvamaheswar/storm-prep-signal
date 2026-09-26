@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
 
 from check_margin import FetchFailed, build_baseline, fetch_postings, windows  # noqa: E402
+from server.api.prices import LOAD_ZONE_POINTS  # noqa: E402
 from server.engine.cli import read_settings  # noqa: E402
 from server.engine.signal import CENTRAL  # noqa: E402
 
@@ -90,12 +91,18 @@ def posting_fixture(posted, rows):
             "data": [[stamp if name == "postedDatetime" else row[name] for name in names] for row in rows]}
 
 
-def build_frames(postings, prices, start, end, tick_minutes, zone):
-    """Tape frames every tick_minutes from start to end, and the postings they point at."""
+def build_frames(postings, prices, start, end, tick_minutes, zone, zone_prices=None):
+    """Tape frames every tick_minutes from start to end, and the postings they point at.
+
+    zone_prices maps each load-zone name to its (interval_ending, price) list. A zone with no
+    row for a tick is left out of that frame's zone_prices; it never borrows another zone's price.
+    """
     frames, used = [], {}
     ts, tick = start, 1
     while ts <= end:
         price = price_at(prices, ts)
+        by_zone = {name: price_at(rows, ts) for name, rows in (zone_prices or {}).items()}
+        by_zone = {name: usd for name, usd in by_zone.items() if usd is not None}
         posting = latest_posting(postings, ts)
         fixture = None
         if posting:
@@ -105,7 +112,9 @@ def build_frames(postings, prices, start, end, tick_minutes, zone):
                        "target_mw": TARGET_MW, "target_label": "synthetic",
                        "price_usd_mwh": price,
                        "price_label": f"recorded:ERCOT NP6-905-CD {zone}" if price is not None else "none",
-                       "risk_fixture": fixture, "events": {}})
+                       "risk_fixture": fixture, "events": {},
+                       "zone_prices": by_zone,
+                       "zone_price_label": "recorded:ERCOT NP6-905-CD" if by_zone else "none"})
         ts += timedelta(minutes=tick_minutes)
         tick += 1
     return frames, used
@@ -144,19 +153,23 @@ def main(argv=None):
     try:
         postings = fetch_postings(url, key, EVENT)
         prices = fetch_prices(url, key, args.zone, start, end)
+        zone_prices = {name: fetch_prices(url, key, point, start, end)
+                       for name, point in LOAD_ZONE_POINTS.items()}
         _, _, base_first, base_last = windows()[EVENT]
         baseline = baseline_file(postings, base_first, base_last)
     except (FetchFailed, ValueError) as exc:
         print(f"build_tape_skipped: {exc}")
         return 0
 
-    frames, used = build_frames(postings, prices, start, end, settings["tick_minutes"], args.zone)
+    frames, used = build_frames(postings, prices, start, end, settings["tick_minutes"], args.zone,
+                                zone_prices)
     for path, (posted, rows) in used.items():
         write_json(path, posting_fixture(posted, rows))
     write_json(FIXTURE_DIR / "baseline.json", baseline)
     write_json(TAPE_PATH, {
         "label": (f"ERCOT replay, Winter Storm Heather, {args.start} to {args.end} CT. Risk: recorded NP3-233-CD."
-                  f" Price: recorded NP6-905-CD {args.zone}. Target: synthetic."),
+                  f" Price: recorded NP6-905-CD {args.zone}; zone_prices: the four load zones."
+                  " Target: synthetic."),
         "frames": frames})
     priced = sum(frame["price_usd_mwh"] is not None for frame in frames)
     print(f"wrote {TAPE_PATH}: {len(frames)} frames ({priced} priced), {len(used)} postings in {FIXTURE_DIR},"

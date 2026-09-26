@@ -917,3 +917,26 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Named gap: persist and `/fleet` last-reading columns existed, but nothing wrote `var/fleet/telemetry.json`, so Charge state / Power / Last seen stayed empty.
 - Added `scripts/stream_telemetry.py`: builds a realistic 10k last-reading snapshot (HOLDING-heavy, 5–8% silent, live/stale/dead ages, power sign locked to `charge_state`), writes the JSON, and persist-upserts each pulse. `--loop` repeats every 15 s. The engine does not import it.
 - Tests: `tests/test_stream_telemetry.py`. Notes: `docs/agents/persist-telemetry.md`, `docs/agents/code-flow.md`, `docs/humans/fleet-telemetry.md`.
+
+## 2026-09-26: Brief names a zone floor that differs from the fleet floor
+
+- `server/engine/brief.py`: `zone_floor_notes(result)`; `write_brief` puts `Floor 30% (Houston 60%: weather_alert)` first among the reason clauses when any zone's floor differs from `reserve_pct`. When all zones match, the text is unchanged. `write_brief_from_tick` now passes `zone_reserve_pct` and `zone_reasons`, so the snapshot's Live brief names the zone too. Text only; no policy, floor, or dispatch change.
+- Demo tape: tick 4 now reads `Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert); timed out 1; duplicates ignored 1; over delivery 1.` The other 11 lines are byte-identical.
+- Not done: the wall's TypeScript twin `tickBrief` in `web/src/format.ts` (Live rail) does not name the zone yet.
+- Tests: 2 in `tests/test_brief.py`, 1 demo-tape test in `tests/test_replay_offline.py`. `pytest -q`: 408 passed.
+
+## 2026-09-26: Per-zone dollars at each zone's recorded market price (Rajat's lane; OK'd in person)
+
+- `contracts.py` (add-only): `TapeFrame.zone_prices` / `zone_price_label` and the same two on `TickResult`. Same name and meaning as the snapshot's `zone_prices`.
+- `loop.py`: copies the frame's zone prices to each tick in a tape run; `--live` leaves them empty so a recorded price is never shown as now.
+- `score.py`: `totals.by_zone[zone]` gains `dollars` and `dollars_label` at that zone's own price (reuses `add_dollars`); a zone with no price stays `None`, never another zone's price.
+- `scripts/build_tape.py` records LZ_HOUSTON, LZ_NORTH, LZ_SOUTH, LZ_WEST per frame (zone names from `server/api/prices.LOAD_ZONE_POINTS`). `tapes/heather.json` rebuilt: 145 frames, all four zones priced; the Houston zone price equals the old single price on every frame. Widest spread 2024-01-15 18:15 CT: South $291.18, West $6.34. West dips to -$1.99 once (a real negative price).
+- Heather replay: zones add to $126.50; the fleet `dollars` (every MWh at the LZ_HOUSTON price, as before) is $87.00. Unchanged here; see the PR.
+- Docs: `docs/agents/price-live.md`, `docs/agents/code-flow.md` (totals shape).
+- `pytest -q`: 417 passed after merging main.
+
+## 2026-09-26: Fleet dollars equal the sum of zone dollars (Rajat's lane)
+
+- `score.py`: on a tick with `zone_prices` where every delivering zone is priced, the fleet `dollars` adds the zone dollars (label `zone_price_label`); a zone-priced tick that delivered nothing adds $0 under that label. Otherwise the tick's one price, as before. New `add_usd` helper shared by fleet and zones.
+- Heather replay: fleet `dollars` $126.50 `recorded:ERCOT NP6-905-CD`, equal to the four zones (was $87.00 at LZ_HOUSTON only). Demo tape has no zone prices, so it is unchanged.
+- Tests: 4 in `tests/test_score.py`. `pytest -q`: 421 passed.

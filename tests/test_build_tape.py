@@ -51,6 +51,46 @@ def test_frames_carry_labels_and_an_offset(no_network):
     assert all(frame["price_label"] == "recorded:ERCOT NP6-905-CD LZ_HOUSTON" for frame in frames[:-2])
 
 
+def test_frames_carry_each_zones_own_price_and_skip_zones_without_one(no_network):
+    zone_prices = {"Houston": PRICES, "West": [(central(2024, 1, 15, 13, 0), 20.0)], "North": []}
+    frames, _ = build.build_frames(POSTINGS, PRICES, central(2024, 1, 15, 12, 50),
+                                   central(2024, 1, 15, 13, 20), 5, "LZ_HOUSTON", zone_prices)
+    by_ts = {frame["ts"][11:16]: frame for frame in frames}
+    assert by_ts["12:50"]["zone_prices"] == {"Houston": 80.0, "West": 20.0}
+    assert by_ts["12:50"]["zone_price_label"] == "recorded:ERCOT NP6-905-CD"
+    assert by_ts["13:05"]["zone_prices"] == {"Houston": 95.5}
+    # No zone has a row for 13:15, so the frame says so instead of guessing.
+    assert by_ts["13:15"]["zone_prices"] == {} and by_ts["13:15"]["zone_price_label"] == "none"
+
+
+def test_frames_without_zone_prices_keep_the_old_shape(no_network):
+    frames, _ = build.build_frames(POSTINGS, PRICES, central(2024, 1, 15, 12, 50),
+                                   central(2024, 1, 15, 13, 0), 5, "LZ_HOUSTON")
+    assert all(frame["zone_prices"] == {} and frame["zone_price_label"] == "none" for frame in frames)
+
+
+def test_main_fetches_all_four_load_zones(tmp_path, monkeypatch, capsys):
+    asked = []
+    monkeypatch.setattr(build, "fetch_postings", lambda url, key, event: POSTINGS)
+    monkeypatch.setattr(build, "windows", lambda: {build.EVENT: (None, None, POSTINGS[0][0].date(),
+                                                                 POSTINGS[-1][0].date())})
+    monkeypatch.setattr(build, "build_baseline", lambda before: {"postings": len(before),
+                                                                "median_mw_by_lead": {}})
+
+    def fake_prices(url, key, zone, start, end):
+        asked.append(zone)
+        return PRICES
+    monkeypatch.setattr(build, "fetch_prices", fake_prices)
+    monkeypatch.setattr(build, "ROOT", tmp_path)
+    monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "key")
+
+    assert build.main(["--start", "2024-01-15T12:50", "--end", "2024-01-15T13:00"]) == 0
+    assert sorted(set(asked)) == ["LZ_HOUSTON", "LZ_NORTH", "LZ_SOUTH", "LZ_WEST"]
+    tape = json.loads((tmp_path / build.TAPE_PATH).read_text())
+    assert tape["frames"][0]["zone_prices"] == {"Houston": 80.0, "North": 80.0, "South": 80.0, "West": 80.0}
+
+
 def test_risk_fixture_is_the_latest_posting_at_or_before_the_frame(no_network):
     frames, used = build.build_frames(POSTINGS, PRICES, central(2024, 1, 15, 12, 0),
                                       central(2024, 1, 15, 13, 5), 5, "LZ_HOUSTON")

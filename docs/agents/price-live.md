@@ -14,6 +14,8 @@
 
 `server/api/prices.py` binds `LZ_HOUSTON|NORTH|SOUTH|WEST` from archive/live rows keyed by `(settlement_point, interval_ending)`. It ignores `LZ_AEN|CPS|LCRA|RAYBN`. The tick's `zone_prices` map holds only zones that have a row. `price_label` is `ercot` only when the stamped number came from a row. `GET /v1/snapshot?zone=` and the wall drill-in use that zone's number.
 
+The engine carries the same map. `TapeFrame.zone_prices` / `zone_price_label` (add-only) are copied to `TickResult` in a tape run; `--live` leaves them empty (`none`) so a recorded price is never shown as now. `scripts/build_tape.py` records all four zones on `tapes/heather.json` (label `recorded:ERCOT NP6-905-CD`); a zone with no row is left out. `score.py` prices `totals.by_zone[zone].dollars` at that zone's own price, never another zone's.
+
 ## Failure
 
 A failed live price must not paint tape 185. The tick shows no $/MWh and label `none`. Price picks `Policy.intent` (`docs/agents/policy-intent.md`). It does not pick allocate. The 185 in console fixtures stays a Demo number.

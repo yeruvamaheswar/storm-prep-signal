@@ -46,8 +46,12 @@ def update(board, result, homes=None):
         board["delivery_pct"] = 100 * board["delivered_mwh"] / board["target_mwh"]
     board["hold_ticks"] += result.mode == "HOLD"
     board["breaches"] += result.breaches
-    add_dollars(board, delivered_mwh, result.price_usd_mwh, result.price_label)
-    add_zones(board, result.zone_delivered_mw, hours)
+    zone_usd = zone_priced_dollars(result, hours)
+    if zone_usd is None:
+        add_dollars(board, delivered_mwh, result.price_usd_mwh, result.price_label)
+    else:
+        add_usd(board, zone_usd, result.zone_price_label)
+    add_zones(board, result, hours)
     if homes is not None:
         track_lowest_soc(board, homes)
     return board
@@ -57,7 +61,12 @@ def add_dollars(board, delivered_mwh, price, label):
     """Dollars come only from priced ticks. A missing price adds nothing, never a fake $0."""
     if price is None:
         return
-    board["dollars"] = (board["dollars"] or 0.0) + delivered_mwh * price
+    add_usd(board, delivered_mwh * price, label)
+
+
+def add_usd(board, usd, label):
+    """Add known dollars to a board (or a zone entry) and keep its price label honest."""
+    board["dollars"] = (board["dollars"] or 0.0) + usd
     # Keep the price source visible. If priced ticks came from different sources, say so.
     if board["dollars_label"] in ("none", label):
         board["dollars_label"] = label
@@ -65,11 +74,28 @@ def add_dollars(board, delivered_mwh, price, label):
         board["dollars_label"] = "mixed"
 
 
-def add_zones(board, zone_delivered_mw, hours):
-    """Per-zone delivered MWh. The target is fleet-wide, so zones only track delivery."""
-    for zone, mw in zone_delivered_mw.items():
-        entry = board["by_zone"].setdefault(zone, {"delivered_mwh": 0.0})
+def zone_priced_dollars(result, hours):
+    """This tick's dollars summed over zones at each zone's own price, so the fleet figure
+    matches the zones. A zone-priced tick that delivered nothing is $0 under the zone label.
+    None when the tick has no zone prices or a delivering zone has none: then the fleet
+    figure uses the tick's one price, as before.
+    """
+    delivering = {zone: mw for zone, mw in result.zone_delivered_mw.items() if mw > 0}
+    if not result.zone_prices or any(result.zone_prices.get(zone) is None for zone in delivering):
+        return None
+    return sum(mw * hours * result.zone_prices[zone] for zone, mw in delivering.items())
+
+
+def add_zones(board, result, hours):
+    """Per-zone delivered MWh, and dollars at that zone's own price. The target is fleet-wide.
+
+    A zone with no price this tick adds no dollars. It never borrows another zone's price.
+    """
+    for zone, mw in result.zone_delivered_mw.items():
+        entry = board["by_zone"].setdefault(
+            zone, {"delivered_mwh": 0.0, "dollars": None, "dollars_label": "none"})
         entry["delivered_mwh"] += mw * hours
+        add_dollars(entry, mw * hours, result.zone_prices.get(zone), result.zone_price_label)
 
 
 def track_lowest_soc(board, homes):

@@ -24,6 +24,9 @@ class TapeFrame:
     events: dict = field(default_factory=dict)
     # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO")
     weather_fixture: Optional[str] = None  # path to a saved weather alerts response
+    # Load-zone name to $/MWh, only zones with a price (same map as the snapshot's zone_prices).
+    zone_prices: dict = field(default_factory=dict)
+    zone_price_label: str = "none"   # source of zone_prices, for example "recorded:<source>"
 
 @dataclass
 class Policy:
@@ -75,3 +78,5 @@ class TickResult:
     price_as_of: Optional[str] = None  # Central interval end when price_label is ercot
     # Zone name to {acked, held, silent, dead, unconfirmed}. In-process rollup until devices exist.
     zone_acks: dict = field(default_factory=dict)
+    zone_prices: dict = field(default_factory=dict)  # load-zone name to $/MWh, copied from the frame
+    zone_price_label: str = "none"
