@@ -16,10 +16,10 @@
 
 ## Failure
 
-A failed live price must not paint tape 185. The tick shows no $/MWh and label `none`. Price does not pick allocate. The 185 in console fixtures stays a Demo number.
+A failed live price must not paint tape 185. The tick shows no $/MWh and label `none`. Price picks `Policy.intent` (`docs/agents/policy-intent.md`). It does not pick allocate. The 185 in console fixtures stays a Demo number.
 
 ## Not this pass
 
 - A second public GET for the other three LZs (live fetch stays LZ_NORTH)
 - DAM NP4-190-CD
-- Using price to choose discharge
+- A charge controller (`allocate` still only discharges)

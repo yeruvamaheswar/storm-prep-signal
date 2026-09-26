@@ -1,44 +1,36 @@
 # Constraints (frozen)
 
-Fields may be added, never renamed or removed. Change only with Uma.
+Fields may be added, never renamed or removed.
 
 Source: `docs/reservegate.md` section 2. The data shapes live in `server/engine/contracts.py`.
 
-## Files and owners (one owner per file; nobody else edits it)
+## How work is chosen
 
-| Owner | Files |
-|---|---|
-| **Uma** (policy core, glue, and merges) | `server/engine/contracts.py`, `CONSTRAINTS.md`, `server/engine/policy.py`, `server/engine/loop.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `cli.py`, `batteries.py` (frozen, left alone). HTTP: `server/app.py`. Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `test_server.py`, `tests/fixtures/np3_*.json` |
-| **Rajat** (controller and stress) | `server/engine/controller.py`, `server/engine/fleet.py`, `server/engine/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `server/engine/tape.py`, `server/engine/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/ci.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md`, `server/api/`, `render.yaml` |
-
-Only Uma merges into main. No direct pushes.
-
-If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
+File ownership is retired. The desired end state and the next gap live in `docs/agents/gap-work.md`. A gap may edit any file it needs. Contract fields can be added, never renamed or removed.
 
 ## Function contracts
 
-| Function | Owner | Signature and promise |
-|---|---|---|
-| `reserve_policy` | Uma | `(risk: RiskResult \| None, settings, alerted=None) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
-| `new_fleet` | Rajat | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
-| `apply_events` | Rajat | `(homes, events) -> None`: sets status only. |
-| `allocate` | Rajat | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
-| `discharge` | Rajat | `(homes, alloc, policy, settings) -> int breaches`: lowers soc by `kw × tick_minutes / 60`. |
-| `new_board` / `update` | Rajat | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
-| `load_tape` | Sunny | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
-| `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
-| `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
+| Function | Signature and promise |
+|---|---|
+| `reserve_policy` | `(risk: RiskResult \| None, settings, alerted=None, mode="AUTO", price_usd_mwh=None, price_label=None) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). `Policy.intent` is `charge` \| `hold` \| `discharge` when `price_label` is passed. HOLD is hold. Missing price (`none`) is hold with `intent_reason` `price_unavailable`. HIGH or a missing signal may charge when the LZ price is at or below `charge_threshold_usd_mwh`; they never discharge. LOW + AUTO uses the charge and discharge bands. Floor-only callers omit `price_label` and stay hold. `allocate` still only discharges. |
+| `new_fleet` | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
+| `apply_events` | `(homes, events) -> None`: sets status only. |
+| `allocate` | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
+| `discharge` | `(homes, alloc, policy, settings) -> int breaches`: for each signed `per_home_kw`, a positive value lowers `soc_kwh` by `kw × tick_minutes / 60` and never crosses the floor; a negative value raises `soc_kwh` by `|kw| × tick_minutes / 60` and never fills past `capacity_kwh`. `breaches` counts homes discharged below their floor and must be 0. |
+| `new_board` / `update` | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
+| `load_tape` | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
+| `write_brief` | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
+| `log_event` | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
 
 `alerted` is a dict of zone name to NWS event name; statewide reasons outrank zone alerts.
 
-## UI (Sunny). The engine stays the backend.
+## UI. The engine stays the backend.
 
 There is no screen module in the engine. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change, except the backend set below. The UI does not allocate, set the reserve, or read the brief to make a decision.
 
 ## Backend (`server/`)
 
-Approved by Uma on 2026-09-26: `fastapi`, `uvicorn`, and `httpx2` (test client only) join `requirements.txt`. No other dependency is added without the same approval.
+`fastapi`, `uvicorn`, and `httpx2` (test client only) join `requirements.txt` (added 2026-09-26). No other dependency is added without updating this section.
 
 - `server/` serves the `/v1` API in `docs/agents/plans/operator-console.md`. That plan's contracts are the API contract. Fields may be added, never renamed.
 - HTTP routes in `server/api/` do not allocate, rate risk, or set a reserve floor. Those stay in `server/engine/`. Routes only read their output and record operator writes.
@@ -49,17 +41,17 @@ Approved by Uma on 2026-09-26: `fastapi`, `uvicorn`, and `httpx2` (test client o
 How they connect:
 
 1. The engine still writes the JSONL log. Each `stage == "tick"` line carries a `TickResult` inside `data`, plus `brief`.
-2. At the end of the run, `server/engine/loop.py` (Uma) writes `var/runs/<run_id>.json` from those tick lines. Shape: `{ "run_id", "decision_line", "ticks" }`. Each tick is the `TickResult` fields plus `brief`. Field names match `server/engine/contracts.py`. They may be added, never renamed or removed.
+2. At the end of the run, `server/engine/loop.py` writes `var/runs/<run_id>.json` from those tick lines. Shape: `{ "run_id", "decision_line", "ticks" }`. Each tick is the `TickResult` fields plus `brief`. Field names match `server/engine/contracts.py`. They may be added, never renamed or removed.
 3. `demo.sh` copies that file to `web/public/runs/latest.json`. The app fetches `/runs/latest.json`. `web/src/contracts.ts` repeats those field names for TypeScript. `contracts.py` wins if they disagree.
 4. HOLD and AUTO are already `TickResult.mode`, set from the tape. Buttons on screen do not call the engine.
 
 ```
-server/engine/contracts.py  TickResult and the other shapes (Uma)
-server/engine/loop.py       writes var/runs/<run_id>.json (Uma)
-server/api/                 /v1 HTTP routes (Sunny)
-server/app.py               FastAPI entry (Uma)
+server/engine/contracts.py  TickResult and the other shapes
+server/engine/loop.py       writes var/runs/<run_id>.json
+server/api/                 /v1 HTTP routes
+server/app.py               FastAPI entry
 var/runs/<run_id>.json      generated, not committed
-web/                        Vite + React + TypeScript (Sunny)
+web/                        Vite + React + TypeScript
   src/contracts.ts          same field names as TickResult
   src/design/               tokens
   src/components/atoms/
@@ -71,17 +63,18 @@ web/                        Vite + React + TypeScript (Sunny)
 DESIGN.md                   how the wall looks
 ```
 
-## Allocation rule (Rajat implements it; Uma must be able to say it out loud)
+## Allocation rule (must be sayable out loud)
 
 1. If mode is HOLD, give every home 0 kW, set missed to the target, and add reason `operator_hold`.
 2. A home is eligible only if it's `live`. Dead and stale homes get 0, because we don't send work to a home we can't hear from.
 3. Headroom is `soc_kwh − reserve_pct/100 × capacity_kwh`. A home's cap is `min(max_kw, headroom_kwh × 60 / tick_minutes)`, and a home with no headroom has cap 0.
 4. If the sum of caps is at or below the target, every home runs at its cap. Otherwise each home gets `cap × target / sum_caps` (proportional).
 5. `missed = target − delivered`. Add reason codes whenever missed is above 0.
+6. `per_home_kw` is signed on one field (not `per_home_charge_kw` / `per_home_discharge_kw`). A positive value is discharge (sell). A negative value is charge (absorb). Charge raises `soc_kwh` by `|kw| × tick_minutes / 60` and must not fill past `capacity_kwh`. Discharge still never crosses the floor. Charge is not a breach. `breaches == 0` on every tick.
 
 ## Invariants (the tests and `CONSTRAINTS.md` both state these)
 
-- No home is ever discharged below its floor, so `breaches == 0` on every tick of every tape.
+- No home is ever discharged below its floor, so `breaches == 0` on every tick of every tape. Charge raises state of charge; it does not count as a breach.
 - `0 ≤ delivered ≤ target` and `missed == target − delivered`, compared with a small tolerance.
 - Dead and stale homes get 0 kW, and HOLD delivers 0.
 - Nothing reads the brief. It's written after the decision.
@@ -94,6 +87,10 @@ Setting `ZONES` in `.env.example`: `ZONES=Houston:48201,North:48113,South:48355,
 New contract fields, all with defaults:
 
 - `Home.zone: str = ""`
+- `Home.updated_at: str = ""` (ISO 8601 with UTC offset; empty until the fleet stamps a write)
+- `Policy.intent: str = "hold"` and `Policy.intent_reason: str = ""` (`charge` \| `discharge` \| `hold`)
+- `TickResult.intent: str = "hold"` and `TickResult.intent_reason: str = ""`
+- `Allocation.per_home_kw` stays one dict; values are now signed (`>0` discharge, `<0` charge)
 - `TapeFrame.weather_fixture: Optional[str] = None`
 - `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)
 - `TickResult.zone_reserve_pct`, `zone_reasons`, `zone_delivered_mw: dict` (all `default_factory=dict`) and `weather_label: str = "none"`
@@ -103,6 +100,8 @@ Rule: zones react only to weather alerts; there is no per-zone ERCOT threshold.
 ## Stale data
 
 Setting `STALE_AFTER_MIN` in `.env.example`: `STALE_AFTER_MIN=90`. `read_settings()` returns it as `"stale_after_min"` (an int) and defaults to 90.
+
+Setting `CHARGE_BELOW_USD` and `DISCHARGE_ABOVE_USD` in `.env.example`: `CHARGE_BELOW_USD=25`, `DISCHARGE_ABOVE_USD=60`. `read_settings()` returns them as `"charge_threshold_usd_mwh"` and `"discharge_threshold_usd_mwh"`. Simulation bands, not Base specs. They pick `Policy.intent` only. They do not change `allocate`.
 
 - `--live` only: if the newest posting is more than `stale_after_min` minutes old, the signal is unavailable with reason `data is <N> min old (limit 90)`. Risk is None, so the floor is `storm_reserve_pct` with reason `signal_unavailable`.
 - `--fixture` and `--file` are recorded on purpose. Their clock is pinned to the posting, and they are never rejected for age.
@@ -159,6 +158,7 @@ Shape:
       "reserve_pct": 0.0, "policy_reason": "", "risk_level": null,
       "live_homes": 0, "stale_homes": 0, "dead_homes": 0,
       "breaches": 0, "reasons": [],
+      "intent": "hold", "intent_reason": "",
       "brief": ""
     }
   ],

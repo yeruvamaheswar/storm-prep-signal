@@ -2,7 +2,7 @@
 
 The banner under the metrics is one line: discharge or hold. It reads the tick. It does not allocate, set the floor, or send kilowatts.
 
-Charge is not a fleet action. The frozen plan says the fleet only discharges. There is no charge controller to merge.
+Charge is not a fleet action. The frozen plan says `allocate` only discharges. There is no charge controller to merge. `Policy.intent` may still say `charge` when the LZ price is cheap (`docs/agents/policy-intent.md`). That label does not send kilowatts into a home.
 
 ## What the three names were
 
@@ -16,7 +16,7 @@ The side brief stays. It is written after the tick and is not an input. The bann
 
 1. **Outage posting.** `signal.py` reads NP3-233-CD (live, or a saved posting). Twelve MW fields, four load zones. There is no total field. `risk.py` rates the next 6 hours against the lead-matched baseline. That posting is the forecast. There is no second forecast feed.
 2. **Floor.** `reserve_policy` turns HIGH, LOW, or nothing into 60% or 30%.
-3. **Call and price.** The Demo tape keeps `TapeFrame.target_mw` (0.40 MW peak at 100 homes). Live/archive scale that call against `FLEET_SIZE * HOME_MAX_KW / 1000` and `CALL_TARGET_MW` (`docs/agents/fleet-rollups.md`). Live `--live` and `/v1/snapshot` stamp `price_usd_mwh` from NP6-905-CD at LZ_NORTH (`docs/agents/price-live.md`). A failed pull is none, not tape 185. Price is shown. It does not pick the action.
+3. **Call and price.** The Demo tape keeps `TapeFrame.target_mw` (0.40 MW peak at 100 homes). Live/archive scale that call against `FLEET_SIZE * HOME_MAX_KW / 1000` and `CALL_TARGET_MW` (`docs/agents/fleet-rollups.md`). Live `--live` and `/v1/snapshot` stamp `price_usd_mwh` from NP6-905-CD at LZ_NORTH (`docs/agents/price-live.md`). A failed pull is none, not tape 185. Price picks `Policy.intent` (`docs/agents/policy-intent.md`). `allocate` still only discharges.
 4. **Homes.** `Home` is id, capacity, soc, max kW, status (`live`, `stale`, `dead`), and zone. The wall's 100 cells are a reading of the tick counts. They are not device telemetry. Zone acks are an in-process rollup after allocate (`docs/agents/zone-acks.md`).
 5. **Mode.** AUTO or HOLD, from `var/state.json` (and tape `events.operator`, which sticks until the next operator event). HOLD gives every home 0 kW. Live Hold/Auto write the file through `POST /v1/fleet/mode`. Demo Hold/Auto may still jump to the tape ticks that already carry that mode.
 6. **Plan.** `Allocation` is per-home kW, delivered MW, missed MW, and reason codes. HOLD is 0 kW and `operator_hold`. Live homes only. Cap is `min(max_kw, headroom × 60 / tick_minutes)`. Under the sum of caps, every home runs at its cap; otherwise the split is proportional.

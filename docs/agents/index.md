@@ -22,6 +22,7 @@ Open this index, then the one file the task needs.
 | `calm-meter.md` | You are changing the calm N/2 meter or the Risk caption on the wall |
 | `zone-lens.md` | You are changing zone drill-in from the map or the ack row |
 | `fleet-intent.md` | You are changing the fleet intent line on the banner |
+| `policy-intent.md` | You are changing charge / hold / discharge intent from price and floor |
 | `fleet-scale.md` | You are changing how the map, ack rail, or fleet list handle large fleets |
 | `zone-acks.md` | You are changing zone ack totals, the supervisor rollup, or the AckRail bars |
 | `fleet-rollups.md` | You are seeding a large fleet, persisting `var/fleet/`, or serving `GET /v1/fleet/rollups` |
