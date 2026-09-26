@@ -1,5 +1,7 @@
 # ReserveGate Ã— Storm Prep: merged attack plan
 
+**File ownership is retired.** Weekend file locks in this note are a record, not a live rule. How work is chosen now: `docs/agents/gap-work.md`.
+
 Written Fri Sep 25, 7:30 PM CT, by Agent Review. I checked it against `main` at `401713f` "Slice 1: fixture tracer bullet". Slice 1b is not pushed yet.
 This doc replaces the team split in `team-onboarding.md` (its setup steps and merge checklist still apply). It does not rewrite plan v3. Here is what happens to v3's slices:
 - Slice 1b (rule v2) stays exactly as written.
@@ -37,17 +39,11 @@ Still open from earlier: ask an organizer about the pre-event commits (Slices 0â
 
 Command: `python -m storm_prep.engine --tape tapes/demo.json`. The existing `python -m storm_prep --fixture` keeps working unchanged.
 
-### Files and owners (one owner per file; nobody else edits it)
+### How work is chosen
 
-| Owner | Files |
-|---|---|
-| **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
-| **Rajat** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
+File ownership is retired. Live process: `docs/agents/gap-work.md`. Contract fields can be added, never renamed or removed. The shapes below are the Friday freeze record; live shapes are in `server/engine/contracts.py` and `CONSTRAINTS.md`.
 
-If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
-
-### `storm_prep/contracts.py` (Uma writes this tonight; everyone imports from it)
+### `storm_prep/contracts.py` (Friday freeze record; everyone imports from it)
 ```python
 """Shared data shapes. Fields may be added, never renamed or removed."""
 from dataclasses import dataclass, field
