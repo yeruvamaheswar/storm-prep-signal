@@ -816,3 +816,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `server/engine/loop.py`: every tick runs `orchestrate_tick`, and the scoreboard (`new_board`, `update`, `totals` in both run-file writes, `run total:` line) is kept. The unused `supervisor` import is gone.
 - Docs: `docs/agents/code-flow.md` diagrams and steps now show `orchestrate_tick` then `score.update`; the "New here?" steps 4 to 6 describe the orchestrator. `docs/agents/system-design.md`: the second floor guard is the orchestration worker's `safe_kw` clamp, a failure row for lost orders, a "Confirmed MW" glossary line.
 - Demo tape: all 12 tick lines and `run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1` are byte-identical to the pre-merge branch. `pytest -q`: 405 passed. `policy.py`, `controller.py`, and `fleet.py` untouched.
+
+## 2026-09-26: Brief names a zone floor that differs from the fleet floor
+
+- `server/engine/brief.py`: `zone_floor_notes(result)`; `write_brief` puts `Floor 30% (Houston 60%: weather_alert)` first among the reason clauses when any zone's floor differs from `reserve_pct`. When all zones match, the text is unchanged. `write_brief_from_tick` now passes `zone_reserve_pct` and `zone_reasons`, so the snapshot's Live brief names the zone too. Text only; no policy, floor, or dispatch change.
+- Demo tape: tick 4 now reads `Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert); timed out 1; duplicates ignored 1; over delivery 1.` The other 11 lines are byte-identical.
+- Not done: the wall's TypeScript twin `tickBrief` in `web/src/format.ts` (Live rail) does not name the zone yet.
+- Tests: 2 in `tests/test_brief.py`, 1 demo-tape test in `tests/test_replay_offline.py`. `pytest -q`: 408 passed.
