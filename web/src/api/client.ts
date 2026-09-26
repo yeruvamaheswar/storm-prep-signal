@@ -1,10 +1,18 @@
-import { parseAttention, parseHome, parsePlayback, parseTape, parseTick, parseZone } from "../domain/parse"
-import type { Attention, AttentionChoice, Home, HomeStatus, Playback, Tape, Tick, Zone } from "../domain/types"
+import { parseAttention, parseFleet, parseHome, parsePlayback, parseTape, parseTick, parseZone } from "../domain/parse"
+import type { Attention, AttentionChoice, Fleet, Home, HomeStatus, Playback, Tape, Tick, Zone } from "../domain/types"
+
+export type FeedStream = {
+  quality: string
+  as_of: string | null
+  feed: string | null
+  rows: unknown[]
+}
 
 export type LiveStreamEvent =
   | { type: "tick"; tick: Tick }
   | { type: "attention"; attention: Attention }
-  | { type: "home"; home: Home }
+  | { type: "home"; home: Home | Fleet }
+  | { type: "feeds"; feeds: FeedStream }
   | { type: "error"; message: string }
 
 export type ConsoleClient = {
@@ -74,6 +82,26 @@ function parseFrame(raw: string): Frame | null {
   return { event, data: dataLines.join("\n") }
 }
 
+function parseFeeds(value: unknown): FeedStream {
+  if (!isRecord(value)) throw new Error("expected feeds")
+  const asOf = value.as_of
+  const feed = value.feed
+  const rows = value.rows
+  return {
+    quality: typeof value.quality === "string" ? value.quality : "unavailable",
+    as_of: typeof asOf === "string" ? asOf : null,
+    feed: typeof feed === "string" ? feed : null,
+    rows: Array.isArray(rows) ? rows : [],
+  }
+}
+
+function parseHomeEvent(value: unknown): Home | Fleet {
+  if (isRecord(value) && typeof value.home_id === "string") {
+    return parseHome(value)
+  }
+  return parseFleet(value)
+}
+
 function publishFrame(raw: string, onEvent: (event: LiveStreamEvent) => void): void {
   const frame = parseFrame(raw)
   if (!frame) return
@@ -94,8 +122,12 @@ function publishFrame(raw: string, onEvent: (event: LiveStreamEvent) => void): v
       onEvent({ type: "attention", attention: parseAttention(payload) })
       return
     }
+    if (frame.event === "feeds") {
+      onEvent({ type: "feeds", feeds: parseFeeds(payload) })
+      return
+    }
     if (frame.event === "home") {
-      onEvent({ type: "home", home: parseHome(payload) })
+      onEvent({ type: "home", home: parseHomeEvent(payload) })
       return
     }
   } catch (err) {

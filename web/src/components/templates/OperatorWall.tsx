@@ -1,25 +1,26 @@
 import { useCallback, useEffect, useState } from "react"
-import { useApiHealth } from "../../api/health"
+import { createClient } from "../../api/client"
+import { apiBaseUrl, useApiHealth } from "../../api/health"
 import { calmStreak } from "../../calmStreak"
-import type { Mode, RunFile } from "../../contracts"
+import type { Mode, RunFile, WallMeta } from "../../contracts"
 import { feedChip, formatTs } from "../../format"
 import { scenes, type SceneId } from "../../fixtures/scenes"
-import { useLiveStamp, viewTick } from "../../liveStamp"
-import { readSuppliedFeeds, reportFeeds } from "../../reportFeeds"
-import { stormTickIndex } from "../../loadRun"
+import { liveSafeTick, useLiveStamp } from "../../liveStamp"
+import { loadFeedCatalog, readSuppliedFeeds, reportFeeds, type FeedProduct } from "../../reportFeeds"
+import { isArchiveEvent, loadMeta, requestedMode, resolveWallEvent, stormTickIndex } from "../../loadRun"
 import { stressReading } from "../../stressReading"
 import { fleetIntent, type FleetAction } from "../../fleetIntent"
 import {
   ercotIntervalLabel,
-  hasErcotCredentials,
   ingestHealth,
-  liveBrief,
   liveRailStamp,
   liveSelectable,
   readingForMode,
   resolveRuntimeMode,
   type RuntimeMode,
 } from "../../runtimeMode"
+import { wallOrigin } from "../../wallOrigin"
+import { planModeChange } from "../../wallMode"
 import { outageLine } from "../../wallLines"
 import { wallSnapshot } from "../../wallSnapshot"
 import { zoneBrief, zoneCallout, zoneFacts } from "../../zoneLens"
@@ -27,7 +28,6 @@ import type { LoadZone } from "../../zonePaint"
 import { AckRail } from "../organisms/AckRail"
 import { ControlBar } from "../organisms/ControlBar"
 import { FleetBoard } from "../organisms/FleetBoard"
-import { modeTickIndex } from "../organisms/modeTicks"
 import { SideRail } from "../organisms/SideRail"
 import { TopStrip } from "../organisms/TopStrip"
 
@@ -36,6 +36,11 @@ type OperatorWallProps = {
 }
 
 type WallScene = SceneId | "high"
+
+function tapeTickClock(run: RunFile, selected: number): string | null {
+  const tick = run.ticks[selected] ?? run.ticks[0]
+  return typeof tick?.ts === "string" ? tick.ts : null
+}
 
 function intentClass(action: FleetAction): string {
   switch (action) {
@@ -58,56 +63,114 @@ export function OperatorWall({ run }: OperatorWallProps) {
   const [ackRound, setAckRound] = useState(0)
   const [zone, setZone] = useState<LoadZone | null>(null)
   const [choice, setChoice] = useState<RuntimeMode | null>(null)
+  const [liveMode, setLiveMode] = useState<Mode | null>(null)
+  const [meta, setMeta] = useState<WallMeta | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [catalog, setCatalog] = useState<FeedProduct[]>([])
   const api = useApiHealth()
+  const preferred = requestedMode()
+  const demoChosen = (choice ?? preferred) === "demo"
+  const selectedEvent = resolveWallEvent(
+    typeof window === "undefined" ? "" : window.location.search,
+    demoChosen,
+    meta?.event,
+  )
+  const archiveOn = isArchiveEvent(selectedEvent)
+  const tapeChosen = demoChosen && !archiveOn
+  const pollLive = !tapeChosen
+  const metaMode = meta?.source === "archive" || archiveOn ? "live" : (meta?.mode ?? null)
   const selectZone = useCallback((next: LoadZone) => {
     setZone(next)
   }, [])
   const clearZone = useCallback(() => {
     setZone(null)
   }, [])
-  const watch = useLiveStamp()
-  const credentials = hasErcotCredentials(
-    import.meta.env.VITE_ERCOT_SUBSCRIPTION_KEY,
-    import.meta.env.VITE_ERCOT_ID_TOKEN,
-  )
+  const watch = useLiveStamp(pollLive, archiveOn ? selectedEvent : null, archiveOn ? null : tapeTickClock(run, selected))
+  // The API holds ERCOT keys. A down API, or a failed first snapshot, falls back to Demo.
+  const credentials = api.state !== "down"
   const health = ingestHealth(watch.latest === null ? null : watch.latest.quality)
   const sawSuccess = watch.lastOk !== null
-  const runtime = resolveRuntimeMode(credentials, health, sawSuccess, choice)
+  const runtime = resolveRuntimeMode(credentials, health, sawSuccess, choice, preferred, metaMode)
   const canLive = liveSelectable(credentials, health, sawSuccess)
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
-  const overlay = runtime === "demo" ? scenes.find((item) => item.id === scene) : undefined
+  useEffect(() => {
+    let cancelled = false
+    void loadMeta().then((next) => {
+      if (!cancelled && next !== null) setMeta(next)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  useEffect(() => {
+    let cancelled = false
+    void loadFeedCatalog(window.fetch.bind(window), apiBaseUrl()).then((products) => {
+      if (!cancelled) setCatalog(products)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [api.state])
+  const overlay = runtime === "demo" && !archiveOn ? scenes.find((item) => item.id === scene) : undefined
   const tapeTick = run.ticks[selected] ?? run.ticks[0]
-  // Demo keeps the fixture tick. Live lays the ERCOT pull over it and does not follow the scrubber.
-  const tick = overlay?.tick ?? (runtime === "live" ? viewTick(tapeTick, watch) : tapeTick)
+  // Demo tape stays fixture-only. Archive and Live read GET /v1/snapshot.
+  const liveTick = watch.tick ?? liveSafeTick(tapeTick)
+  const engineTick = overlay?.tick ?? (runtime === "live" || archiveOn ? liveTick : tapeTick)
+  const tick =
+    runtime === "live" && liveMode !== null ? { ...engineTick, mode: liveMode } : engineTick
   const reading = readingForMode(stressReading(tick), runtime)
+  const wantedLive = (choice ?? preferred ?? metaMode) !== "demo"
+  const fallbackQuality =
+    runtime === "demo" && wantedLive && watch.latest !== null && watch.latest.quality !== "ok"
+      ? watch.latest.quality
+      : null
   const ingestQuality =
-    overlay === undefined && credentials && watch.latest !== null ? watch.latest.quality : null
+    overlay === undefined && (runtime === "live" || fallbackQuality !== null) && watch.latest !== null
+      ? watch.latest.quality
+      : null
   const quality = overlay?.quality ?? (ingestQuality ?? (runtime === "live" ? reading.quality : "ok"))
   const line = outageLine(reading)
   const intent = fleetIntent(tick, quality, line)
-  const feed = runtime === "live" ? "LIVE" : feedChip(tick.target_label, tick.price_label)
+  const sourceHint = tapeChosen
+    ? "fixture"
+    : archiveOn
+      ? "archive"
+      : typeof watch.tick?.source === "string"
+        ? watch.tick.source
+        : (meta?.source ?? null)
+  const origin = wallOrigin({
+    runtime: tapeChosen ? "demo" : runtime,
+    source: sourceHint,
+    event: tapeChosen ? null : (archiveOn ? selectedEvent : (typeof watch.tick?.event === "string" ? watch.tick.event : meta?.event)),
+    clock: tapeChosen ? null : (archiveOn ? "archive" : (typeof watch.tick?.clock === "string" ? watch.tick.clock : meta?.clock)),
+    runId: run.run_id,
+    intervalLabel: ercotIntervalLabel(now),
+  })
+  const feed = origin.kind === "fixture" ? feedChip(tick.target_label, tick.price_label) : "LIVE"
   const supplied = readSuppliedFeeds((tick as typeof tick & { feeds?: unknown }).feeds)
   const feeds = reportFeeds(reading, feed, intent.line, runtime, {
     ingestQuality,
     lastOkAsOf: watch.lastOk?.asOfLabel ?? null,
     supplied,
+    catalog,
   })
   const status = feeds.quality
   // A scene is a staged tick with no history. Live is one interval, not a tape prefix.
   const calm =
     runtime === "live" || overlay ? calmStreak([tick], quality) : calmStreak(run.ticks.slice(0, selected + 1))
   const snapshot = wallSnapshot({
-    runtime,
-    tick: overlay?.tick ?? tapeTick,
+    runtime: archiveOn ? "demo" : runtime,
+    tick,
     calm,
     watch,
+    fallbackQuality,
+    zone,
   })
   const lens = zone === null ? null : zoneFacts(tick, zone)
-  const brief = lens === null ? (runtime === "live" ? liveBrief(tick, reading.asOfLabel) : tick.brief) : zoneBrief(lens)
+  const brief = lens === null ? snapshot.brief : zoneBrief(lens)
   const stamp =
     runtime === "live"
       ? liveRailStamp(status.label, reading.asOfLabel)
@@ -125,31 +188,43 @@ export function OperatorWall({ run }: OperatorWallProps) {
   }
 
   function showMode(next: Mode) {
-    if (runtime === "live") return
-    if (tick.mode === next) {
-      setScene(null)
-      return
+    const plan = planModeChange(runtime, run.ticks, tick.mode, next, selected)
+    switch (plan.kind) {
+      case "noop":
+        if (runtime === "demo") setScene(null)
+        return
+      case "demo":
+        setScene(null)
+        setSelected(plan.index)
+        return
+      case "live":
+        setLiveMode(plan.mode)
+        void createClient({
+          fetch: window.fetch.bind(window),
+          baseUrl: `${apiBaseUrl()}/v1`,
+          operatorId: "operator-demo",
+        }).mode(plan.mode)
+        return
+      default: {
+        const neverPlan: never = plan
+        return neverPlan
+      }
     }
-    const index = modeTickIndex(run.ticks, next, selected)
-    if (index === null) {
-      return
-    }
-    setScene(null)
-    setSelected(index)
   }
 
   function pickRuntime(next: RuntimeMode) {
     if (next === "live" && !canLive) return
     setChoice(next)
     if (next === "live") setScene(null)
+    if (next === "demo") setLiveMode(null)
   }
 
   return (
     <main className="wall has-banner" data-runtime={runtime}>
       <TopStrip
         tick={tick}
-        runId={run.run_id}
-        decisionLine={run.decision_line}
+        runId={origin.kind === "fixture" ? run.run_id : origin.event ?? origin.kind}
+        decisionLine={origin.kind === "fixture" ? run.decision_line : null}
         tickCount={run.ticks.length}
         calm={calm}
         sceneLabel={overlay?.label}
@@ -159,6 +234,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
         clockLabel={formatTs(new Date(now).toISOString())}
         feeds={feeds}
         api={api}
+        origin={origin}
       />
       <p className={intentClass(intent.action)} role="status">
         {intent.line}
@@ -193,7 +269,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
         scene={scene}
         radar={radar}
         onSelect={(index) => {
-          if (runtime === "live") return
+          if (!origin.showScrubber) return
           setScene(null)
           setSelected(index)
         }}
@@ -205,9 +281,10 @@ export function OperatorWall({ run }: OperatorWallProps) {
         zone={zone}
         zoneTick={tick}
         runtime={runtime}
-        intervals={[]}
+        intervals={origin.showScrubber ? [] : (watch.intervals ?? [])}
         liveSelectable={canLive}
         onRuntime={pickRuntime}
+        showTapeChrome={origin.showScrubber}
       />
     </main>
   )

@@ -8,7 +8,7 @@ The chart math lives in `web/src/chartPlot.ts`. Tape columns and tick-button cop
 
 An interval is a clock window (SCED or 15-minute), not a tape index. The wall keeps the last `INTERVAL_WINDOW` (12) points. Each point carries `targetMw`, `deliveredMw`, `reservedMw`, and zero or more marks: risk HIGH, floor raised, homes offline, hold. Marks come from the series (risk, reserve, dead homes, mode), not from brief text.
 
-`OperatorWall` passes `intervals={[]}` until a live feed writes those points. Filling the strip from `run.ticks` is a fallback and is not allowed.
+`OperatorWall` passes intervals from `useLiveStamp()` in Live. Each `/v1/snapshot` poll appends or replaces a point (`pushLiveInterval`). Filling the strip from `run.ticks` is a fallback and is not allowed. Demo still uses the tape spark, not this series.
 
 ## Demo playback
 

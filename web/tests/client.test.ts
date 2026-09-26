@@ -90,4 +90,52 @@ describe("createClient", () => {
 
     expect(event).toEqual({ type: "error", message: "socket closed" })
   })
+
+  it("yields a fleet rollup from a home event without 10k rows", async () => {
+    const rollup = { live: 100, stale: 0, dead: 0, unconfirmed: 0, breaches: 0 }
+    const frame = `event: home\ndata: ${JSON.stringify(rollup)}\n\n`
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(frame))
+        controller.close()
+      },
+    })
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(stream, { status: 200 }))
+    const client = createClient({ fetch: fetchMock, baseUrl: BASE, operatorId: OPERATOR })
+
+    const event = await new Promise<unknown>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timed out waiting for home")), 1000)
+      const stop = client.liveStream((next) => {
+        clearTimeout(timer)
+        stop()
+        resolve(next)
+      })
+    })
+
+    expect(event).toEqual({ type: "home", home: rollup })
+  })
+
+  it("yields a feeds frame for Live ingest health", async () => {
+    const feeds = { quality: "ok", as_of: "23:00 CT", feed: "LIVE", rows: [] }
+    const frame = `event: feeds\ndata: ${JSON.stringify(feeds)}\n\n`
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(frame))
+        controller.close()
+      },
+    })
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(stream, { status: 200 }))
+    const client = createClient({ fetch: fetchMock, baseUrl: BASE, operatorId: OPERATOR })
+
+    const event = await new Promise<unknown>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timed out waiting for feeds")), 1000)
+      const stop = client.liveStream((next) => {
+        clearTimeout(timer)
+        stop()
+        resolve(next)
+      })
+    })
+
+    expect(event).toEqual({ type: "feeds", feeds })
+  })
 })

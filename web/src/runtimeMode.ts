@@ -1,5 +1,5 @@
 import type { TickView } from "./contracts"
-import { formatMw } from "./format"
+import { tickBrief } from "./format"
 import type { StressReading } from "./stressReading"
 
 /** Live follows the ERCOT clock. Demo is the 12-tick tape. */
@@ -17,10 +17,6 @@ const CENTRAL = new Intl.DateTimeFormat("en-US", {
   hourCycle: "h23",
 })
 
-export function hasErcotCredentials(subscriptionKey: string | undefined, idToken: string | undefined): boolean {
-  return Boolean(subscriptionKey?.trim()) && Boolean(idToken?.trim())
-}
-
 /** A missing pull is unknown. Only a passed check is up. */
 export function ingestHealth(quality: string | null): IngestHealth {
   if (quality === null) return "unknown"
@@ -28,19 +24,30 @@ export function ingestHealth(quality: string | null): IngestHealth {
   return "down"
 }
 
+/** Query `?mode=` wins over VITE_DEFAULT_MODE. Anything else is unset. */
+export function preferredMode(query: string | null, env: string | undefined): RuntimeMode | null {
+  if (query === "live" || query === "demo") return query
+  if (env === "live" || env === "demo") return env
+  return null
+}
+
 /**
- * Live when credentials are present and the first pull has not failed.
- * A later failure stays Live so the as-of time can remain the last success.
- * Demo is the fallback when there are no credentials, or that first pull fails.
- * An explicit Demo choice stays on the tape even when the pull is healthy.
+ * Explicit Demo stays on the tape. Live needs a reachable API and a first pull
+ * that has not failed. A later failure stays Live so as-of can remain the last success.
+ * preferred is ?mode= or VITE_DEFAULT_MODE. metaMode is GET /v1/meta.
  */
 export function resolveRuntimeMode(
   hasCredentials: boolean,
   ingest: IngestHealth,
   sawSuccess: boolean,
   choice: RuntimeMode | null,
+  preferred: RuntimeMode | null = null,
+  metaMode: RuntimeMode | null = null,
 ): RuntimeMode {
-  if (choice === "demo" || !hasCredentials) return "demo"
+  if (choice === "demo" || preferred === "demo") return "demo"
+  const want = choice ?? preferred ?? metaMode
+  if (want === "demo") return "demo"
+  if (want !== "live" && !hasCredentials) return "demo"
   if (ingest === "down" && !sawSuccess) return "demo"
   return "live"
 }
@@ -93,12 +100,11 @@ export function readingForMode(reading: StressReading, mode: RuntimeMode): Stres
   return { ...reading, asOfLabel: null, ageMin: null, clockPinned: false }
 }
 
-/** The rail brief in Live. The fixture sentence stays on the Demo tape. */
+/** The rail brief in Live. Built from reason codes; the fixture sentence stays on Demo. */
 export function liveBrief(tick: TickView, asOf: string | null): string {
-  const delivered = `Delivered ${formatMw(tick.delivered_mw)} of ${formatMw(tick.target_mw)} MW`
-  const floor = `Floor ${String(tick.reserve_pct)}%`
-  if (asOf === null) return `${delivered}. ${floor}.`
-  return `${delivered}. ${floor}. As of ${asOf}.`
+  const body = tickBrief(tick)
+  if (asOf === null) return body
+  return `${body} As of ${asOf}.`
 }
 
 /** Rail footer in Live. It names feed health and the last as-of, never a tape index. */

@@ -170,11 +170,8 @@ export function headerIdentity(runId: string, decisionLine: string | null): Head
 }
 
 /** The brief footer is the decision line. A fixture disclaimer is not a decision. */
-export function briefDecision(decisionLine: string | null): string | null {
-  if (decisionLine === null) {
-    return null
-  }
-  const text = decisionLine.trim()
+export function briefDecision(decisionLine: string | null | undefined): string | null {
+  const text = decisionLine?.trim() ?? ""
   if (text === "" || isFixtureDisclaimer(text)) {
     return null
   }
@@ -243,6 +240,39 @@ export function headerReason(code: string): ReasonCopy {
   }
   const words = code.replaceAll("_", " ").replaceAll(":", " ")
   return { label: words.charAt(0).toUpperCase() + words.slice(1) }
+}
+
+export type BriefTick = {
+  delivered_mw: number
+  target_mw: number
+  reserve_pct: number
+  reasons: string[]
+  policy_reason: string
+}
+
+function briefCodes(tick: BriefTick): string[] {
+  if (tick.policy_reason === "signal_unavailable" && !tick.reasons.includes("signal_unavailable")) {
+    return ["signal_unavailable", ...tick.reasons]
+  }
+  return [...tick.reasons]
+}
+
+function joinReasonClauses(lines: string[]): string {
+  const [first, ...rest] = lines
+  if (first === undefined) {
+    return ""
+  }
+  return [first, ...rest.filter(Boolean).map((line) => `${line.slice(0, 1).toLowerCase()}${line.slice(1)}`)].join("; ")
+}
+
+/** One or two sentences from TickResult codes. Live uses this; Demo keeps the tape brief. */
+export function tickBrief(tick: BriefTick): string {
+  const delivered = `Delivered ${formatMw(tick.delivered_mw)} of ${formatMw(tick.target_mw)} MW`
+  const codes = briefCodes(tick)
+  if (codes.length === 0) {
+    return `${delivered}. Floor ${String(tick.reserve_pct)}%.`
+  }
+  return `${delivered}. ${joinReasonClauses(codes.map(reasonText))}.`
 }
 
 export function reasonText(code: string): string {

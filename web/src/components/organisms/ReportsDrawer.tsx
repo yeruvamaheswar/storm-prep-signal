@@ -1,4 +1,12 @@
-import { feedStateLabel, feedStateTone, type FeedRow, type ReportFeeds } from "../../reportFeeds"
+import {
+  feedChipSource,
+  feedChipTitle,
+  feedStateLabel,
+  feedStateTone,
+  type FeedProduct,
+  type FeedRow,
+  type ReportFeeds,
+} from "../../reportFeeds"
 
 type ReportsDrawerProps = {
   feeds: ReportFeeds
@@ -9,6 +17,26 @@ export function openWhenBad(node: HTMLDetailsElement | null) {
   if (node !== null) {
     node.open = true
   }
+}
+
+/** Read-only archive products. file_name set is a zip; null is an API posting. */
+export function FeedChips({ products }: { products: FeedProduct[] }) {
+  if (products.length === 0) {
+    return null
+  }
+  return (
+    <ul className="feed-chips" aria-label="Loaded ERCOT products">
+      {products.map((product) => {
+        const source = feedChipSource(product)
+        return (
+          <li key={product.report} className="feed-chip" title={feedChipTitle(product)}>
+            <span>{product.report}</span>
+            {source !== null ? <span className="feed-chip-src">{source}</span> : null}
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 /** Product, LZ, as-of, last success, state. Never EMIL columns. */
@@ -49,6 +77,7 @@ export function ReportsDrawer({ feeds }: ReportsDrawerProps) {
     >
       <summary>Feeds</summary>
       {feeds.purpose !== null ? <p className="reports-purpose">{feeds.purpose}</p> : null}
+      <FeedChips products={feeds.chips} />
       <FeedsList rows={feeds.rows} />
     </details>
   )

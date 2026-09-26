@@ -26,6 +26,8 @@ type ControlBarProps = {
   intervals?: readonly IntervalPoint[]
   liveSelectable?: boolean
   onRuntime?: (mode: RuntimeMode) => void
+  /** 01–12 tape chrome. False for live and archive-clocked sources. */
+  showTapeChrome?: boolean
 }
 
 export function ControlBar({
@@ -44,8 +46,10 @@ export function ControlBar({
   intervals = [],
   liveSelectable = false,
   onRuntime,
+  showTapeChrome,
 }: ControlBarProps) {
-  const live = runtime === "live"
+  const tape = showTapeChrome ?? runtime !== "live"
+  const live = !tape
 
   return (
     <footer className="control-bar">
@@ -81,7 +85,7 @@ export function ControlBar({
           <Button
             pressed={mode === "HOLD"}
             armed={mode === "HOLD"}
-            disabled={live || modeTickIndex(ticks, "HOLD", selected) === null}
+            disabled={!live && modeTickIndex(ticks, "HOLD", selected) === null}
             label="Hold. Discharge stays at zero until Auto."
             onClick={() => {
               onMode("HOLD")
@@ -91,7 +95,6 @@ export function ControlBar({
           </Button>
           <Button
             pressed={mode === "AUTO"}
-            disabled={live}
             label="Auto. The controller dispatches to live homes."
             onClick={() => {
               onMode("AUTO")

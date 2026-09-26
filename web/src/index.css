@@ -310,19 +310,20 @@ button.ack-zone.is-selected .label {
   font-weight: 600;
 }
 
-.ack-ticks {
-  display: grid;
-  grid-template-columns: repeat(25, minmax(0, 1fr));
-  gap: var(--space-1);
+.ack-bar {
+  display: flex;
   height: var(--space-4);
-}
-
-.ack-tick {
-  display: block;
   min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-board);
   background: var(--field);
+}
+
+.ack-seg {
+  display: block;
+  min-width: 0;
+  height: 100%;
 }
 
 .ack-acked {
@@ -335,7 +336,8 @@ button.ack-zone.is-selected .label {
   background: var(--reserved);
 }
 
-.ack-silent {
+.ack-silent,
+.ack-unconfirmed {
   border-style: dashed;
   border-color: var(--stale);
   background: var(--stale);
@@ -716,6 +718,35 @@ button.ack-zone.is-selected .label {
   padding: var(--space-3);
   background: var(--field);
   border: 1px solid var(--line);
+}
+
+.feed-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feed-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.feed-chip-src {
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: lowercase;
 }
 
 .reason-list {

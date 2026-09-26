@@ -33,13 +33,31 @@ describe("zone lens", () => {
     expect(zoneCallout(facts)).toBe("North · outage 9,429 MW · 42 $/MWh · floor 30% · 10 discharging · 0 reserved")
   })
 
-  it("keeps a live price on North and leaves the other zones unread", () => {
+  it("keeps a live North-only price unread on the other zones", () => {
     const live = { ...tapeTick(1), price_usd_mwh: 42.25, price_label: "ercot" }
     expect(zoneFacts(live, "North")).toMatchObject({ priceUsdMwh: 42.25, priceCaption: "LZ_NORTH settlement" })
     expect(zoneFacts(live, "Houston")).toMatchObject({
       priceUsdMwh: null,
-      priceCaption: "no LZ price; this wall reads LZ_NORTH",
+      priceCaption: "no LZ price for this interval",
       outageMw: 3427,
+    })
+  })
+
+  it("binds each zone to its own LZ row when zone_prices has that interval", () => {
+    const live = {
+      ...tapeTick(1),
+      price_usd_mwh: 42.25,
+      price_label: "ercot",
+      zone_prices: { Houston: 20.63, North: 42.25, South: 18.5, West: 31.1 },
+    }
+    expect(zoneFacts(live, "Houston")).toMatchObject({
+      priceUsdMwh: 20.63,
+      priceCaption: "LZ_HOUSTON settlement",
+    })
+    expect(zoneFacts(live, "West")).toMatchObject({ priceUsdMwh: 31.1, priceCaption: "LZ_WEST settlement" })
+    expect(zoneFacts({ ...live, zone_prices: { North: 42.25 } }, "Houston")).toMatchObject({
+      priceUsdMwh: null,
+      priceCaption: "no LZ price for this interval",
     })
   })
 

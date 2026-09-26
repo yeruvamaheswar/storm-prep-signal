@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { TickView } from "../src/contracts"
 import { scenes } from "../src/fixtures/scenes"
 import run from "../src/fixtures/layout-run.json"
-import { briefDecision, headerIdentity, headerReason, lossCaption, reasonText, tapeStamp } from "../src/format"
+import { briefDecision, headerIdentity, headerReason, lossCaption, reasonText, tapeStamp, tickBrief } from "../src/format"
 
 const ticks = run.ticks as TickView[]
 
@@ -22,6 +22,24 @@ describe("reason text", () => {
     expect(reasonText("homes_stale:1")).toBe("1 home is stale")
     expect(reasonText("operator_hold")).toBe("Operator hold")
     expect(reasonText("holding_spare_energy")).toBe("Holding spare energy")
+  })
+
+  it("writes a short brief from the same codes, not the tape sentence", () => {
+    expect(tickBrief(tapeTick(5))).toBe(
+      "Delivered 0.31 of 0.40 MW. Storm reserve raised; not enough headroom above the floor.",
+    )
+    expect(tickBrief(tapeTick(5))).not.toContain("missed on purpose")
+    expect(tickBrief(tapeTick(5))).not.toContain("synthetic")
+    expect(tickBrief(tapeTick(1))).toBe("Delivered 0.20 of 0.20 MW. Floor 30%.")
+    expect(
+      tickBrief({
+        ...tapeTick(5),
+        policy_reason: "signal_unavailable",
+        reasons: ["storm_reserve"],
+        delivered_mw: 0.2,
+        target_mw: 0.2,
+      }),
+    ).toBe("Delivered 0.20 of 0.20 MW. Storm signal could not be read; storm reserve raised.")
   })
 
   it("turns floor and risk reason codes into sentence-case labels", () => {
@@ -71,6 +89,7 @@ describe("reason text", () => {
     })
     expect(briefDecision(line)).toBe(line)
     expect(briefDecision(null)).toBeNull()
+    expect(briefDecision(undefined)).toBeNull()
     expect(briefDecision("  ")).toBeNull()
   })
 

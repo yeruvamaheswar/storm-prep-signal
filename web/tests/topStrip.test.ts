@@ -10,6 +10,7 @@ import { scenes } from "../src/fixtures/scenes"
 import { feedChip } from "../src/format"
 import { reportFeeds } from "../src/reportFeeds"
 import { stressReading } from "../src/stressReading"
+import { wallOrigin } from "../src/wallOrigin"
 import { liveSnapshot, wallSnapshot } from "../src/wallSnapshot"
 
 const run = layoutRun as RunFile
@@ -231,6 +232,33 @@ describe("fixture chrome", () => {
     expect(html).not.toContain("185")
     expect(html).not.toContain("22,539")
     expect(html).not.toContain("Demo data")
+  })
+
+  it("shows ARCHIVE, the event, and the pinned clock instead of LIVE or Demo", () => {
+    const current = tick(5)
+    const origin = wallOrigin({ runtime: "live", source: "archive", event: "beryl", clock: "archive" })
+    const html = renderToStaticMarkup(
+      createElement(TopStrip, {
+        tick: current,
+        runId: "beryl-replay",
+        tickCount: run.ticks.length,
+        calm: 0,
+        snapshot: liveSnapshot(current, { latest: null, lastOk: null }, 0),
+        runtime: "live",
+        intervalLabel: "14:30–14:45 CT",
+        clockLabel: "Sep 26, 14:32 CDT",
+        origin,
+        api: apiOk,
+      }),
+    )
+    expect(html).toContain(">ARCHIVE<")
+    expect(html).toContain("ARCHIVE · Beryl")
+    expect(html).toContain("Jul 08, 14:20 CDT")
+    expect(html).not.toContain(">LIVE<")
+    expect(html).not.toContain("Live · 14:30–14:45 CT")
+    expect(html).not.toContain("Sep 26, 14:32 CDT")
+    expect(html).not.toContain("demo-badge")
+    expect(html).not.toContain("SYNTHETIC")
   })
 
   it("keeps a real decision line under the brief", () => {
