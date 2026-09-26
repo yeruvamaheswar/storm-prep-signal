@@ -133,7 +133,7 @@ These are suggestions, not edits. File ownership is retired; a later gap may tou
   - When Stories 3.1 to 3.3 land, delete the TEMP block for `new_fleet`, `apply_events`, `allocate` and `discharge` and import ours. The tracer then shows real delivered MW.
   - In that path, `Allocation.delivered_mw` means planned safe delivery, and `discharge` applies it exactly.
   - Optional, later: replace `allocate` then `discharge` with one call, `orchestrate_tick(homes, frame, policy, mode, settings, seed)`, and read `cycle.allocation` and `cycle.breaches`.
-  - `totals` in the run file is filled by `score.py` (`new_board`, `update(board, result, homes=None)`; pass `homes` to get lowest charge). Please have the engine write it.
+  - Done 2026-09-26: `loop.py` fills `totals` from `score.py` (`new_board`, then `update(board, result, homes)` every tick). See `docs/agents/code-flow.md` step 9.
   - A `seed` setting (default 1) would help replays. Optional.
 - **Contracts, add-only:** planned, confirmed and unconfirmed MW, and per-zone versions, on `TickResult`. Reason codes `timed_out:<n>`, `unknown_zone`, `duplicates_ignored:<n>`, `short_delivery:<n>`. We will send exact names when they are needed.
 - **Still open:** the zone-assignment rule (default is round-robin by home index), and three new files if the runtime stories land: `scheduler.py`, `channel.py`, `orchestration.py`.

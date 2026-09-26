@@ -20,7 +20,7 @@ Build one thin end-to-end slice at a time. Research, then plan, then implement, 
 
 Start a new chat by reading `docs/agents/progress.md`. Append a short entry to it after each change.
 
-When you add, remove, or rename a module, entry point, data file, or call between modules, update `docs/agents/code-flow.md` in the same PR, including its Mermaid diagrams, not only the text (rule: `.cursor/rules/code-flow.mdc`).
+When you add, remove, or rename a module, entry point, data file, or call between modules, update `docs/agents/code-flow.md` in the same PR, including its Mermaid diagrams, not only the text (rule: `.cursor/rules/code-flow.mdc`). When you add a part of the system, a store, a setting, a dependency, a contract shape, or change failure handling or deploy, update `docs/agents/system-design.md` in the same PR (rule: `.cursor/rules/system-design.mdc`; its section 12 says which section).
 
 Catch network errors in one place and route every failure to `fail_safe(reason)`. Every network call has a timeout.
 

@@ -16,6 +16,8 @@ The engine plays a tape. For each tick it rates storm risk, picks how much charg
 
 The API reads that run file, checks the newest ERCOT posting (or a saved one in Demo), and hands the wall one tick. The wall asks again every 20 seconds.
 
-Still placeholders: the tape reader, the scoreboard totals, and weather alerts.
+The run file ends with run totals: energy delivered against the target, floor breaches, and hold ticks.
+
+Still placeholders: the tape reader and weather alerts.
 
 More detail for agents: `docs/agents/code-flow.md`.

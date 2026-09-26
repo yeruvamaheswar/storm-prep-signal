@@ -772,7 +772,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 ## 2026-09-26: Telemetry feed spec (Rajat's lane, docs only)
 
-- Wrote `docs/agents/telemetry-vpp.md`: simulated batteries and network, real VPP. Readings every 10 virtual s in the OpenTelemetry metrics shape, an intake, per-home state (stale at 180 s, dead at 600 s, suspect on an energy mismatch), and zone and plant rollups. The controller plans only from reported data.
+- Wrote `docs/agents/telemetry-vpp.md`: VPP control logic (simulated batteries and network). Readings every 10 virtual s in the OpenTelemetry metrics shape, an intake, per-home state (stale at 180 s, dead at 600 s, suspect on an energy mismatch), and zone and plant rollups. The controller plans only from reported data.
 - Reviewed by Codex; fixes applied (tick-level energy check, feed stops at 300 s, separate true and reported battery objects).
 - Asks for Uma (approve `telemetry.py`, wire the engine, add settings) and Sunny (`grid_down` tape key, show the rollups) are listed in the spec.
 - Added a line to `docs/agents/index.md`.
@@ -785,3 +785,19 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Runner: `python -m server.engine.orchestration --tape tests/fixtures/tape_tiny.json --seed 1 --telemetry`.
 - `pytest -q`: 218 passed. Feed fuzz (30 seeds x 12 ticks): 0 breaches, 0 honest homes flagged, 3.14 s. The feed fuzz runs 30 seeds by default (`TELEMETRY_FUZZ_SEEDS`).
 - Details: `docs/agents/telemetry-vpp.md`.
+
+## 2026-09-26: Engine writes the scoreboard into `totals` (Uma)
+
+- `server/engine/loop.py`: `run()` starts `score.new_board(settings)` and calls `score.update(board, result, homes)` after every tick; the run file's `totals` is that board (also on a zero-tick run). `loop.main` prints one `run total: delivered X of Y MWh (Z%) | floor breaches N | hold ticks N` line.
+- `server/engine/score.py`: two add-only board fields, `delivery_pct` (cumulative delivered / target x 100, None until a target is asked for) and `hold_ticks` (ticks with `mode == "HOLD"`). Existing names kept: `ticks`, `target_mwh`, `delivered_mwh`, `breaches`. Totals are MWh, not MW.
+- Tests: `tests/test_score.py` covers the two new fields; `tests/test_replay_offline.py` asserts totals are identical across two runs and adds `test_demo_run_writes_scoreboard_totals` (demo tape: non-empty, 0 breaches, delivered <= target, 1 hold tick, file matches return).
+- `policy.py`, `controller.py`, and reserve logic untouched. Demo tape: `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`.
+- Docs: `docs/agents/code-flow.md` (both diagrams, steps 8 and 9, file map, stubs), `docs/humans/code-flow.md`, `docs/agents/epic-3-controller.md`. `CONSTRAINTS.md` line "`totals` stays `{}` until `score.py` fills it in" left as is (frozen). `pytest -q`: 396 passed.
+
+## 2026-09-26: System design doc and newcomer path (Uma)
+
+- New `docs/agents/system-design.md`: plain-English problem, glossary, context and parts diagrams, design decisions and why, the risk, floor, and allocation rules with a worked example, data shapes and stores, run modes, a failure-handling table, deploy diagram, settings, dependencies, security, testing, and a "which change updates which doc" table. Links to `code-flow.md`, `CONSTRAINTS.md`, and `team-manifest.md` instead of copying them.
+- New `docs/humans/system-design.md` (one-minute page). `docs/agents/code-flow.md` gained a "New here? One tick in plain words" section with the demo-tape story (from a real run: 0 breaches, 51.9% delivered). Pointers added to `docs/agents/index.md`, `docs/humans/start-here.md`, `docs/agents/working-rules.md`.
+- Keep-current: `.cursor/rules/system-design.mdc`, and `tests/test_system_design.py` fails when a `.env.example` setting, a Python or web runtime dependency, a `contracts.py` dataclass, or a Render service is missing from the doc, or a diagram is deleted. Checked that an undocumented setting fails the test.
+- All 4 new Mermaid blocks rendered with `@mermaid-js/mermaid-cli`. `pytest -q`: 398 passed. No application code changed.
+- Seen, not fixed: on demo tick 4 (Houston at 60%) the brief still says "Floor 30%"; `write_brief` reports the fleet floor only.
