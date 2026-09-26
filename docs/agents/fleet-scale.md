@@ -2,7 +2,7 @@
 
 **Status: approved 2026-09-26. Slice 1 done. Slices 2–5 not started.**
 
-Owner choices: the ack rail is stacked bars at every fleet size (no per-home ticks, even at 100). The map cap is `MAX_VISIBLE_POINTS = 500`. One slice at a time, stop after each.
+Choices already made: the ack rail is stacked bars at every fleet size (no per-home ticks, even at 100). The map cap is `MAX_VISIBLE_POINTS = 500`. One slice at a time, stop after each.
 
 **Decision.** The wall reads the fleet as load-zone aggregates, never as one element per home. The map draws cluster badges plus a capped sample of dots. The ack rail draws one stacked bar per zone. Home ids appear only in an exception list (silent, dead, nack) and in a virtualized search on `/fleet`. The header, brief, and tick chart stay at tick and zone grain.
 
@@ -44,7 +44,7 @@ Not measurable in Node, and likely the real freeze:
 - `homesInZone`, and through it `zoneFacts` and `zoneOutageSeries` (`zoneLens.ts`)
 - Console: `wall-squares` (`WallPage.tsx`), table rows (`FleetPage.tsx`), `homesFor` filter (`features/fleet/main.tsx`)
 
-## Proposed slices (each near 250 lines, web only, Sunny's files)
+## Proposed slices (each near 250 lines, web only)
 
 1. **Done. Aggregates, no visual change.** `fleetCounts(tick)` in `fleetCells.ts` holds the per-state math; `fleetCells` now expands it in `FLEET_RUNS` order. `web/src/fleetAggregate.ts` `zoneAggregates(tick)` returns per zone `homes, reserved, discharging, ok, stale, dead, unconfirmed, supplyingMw` from the closed form of `index % 4` over each run, O(zones). `zoneLens`, `FleetLegend` (now takes `counts`), and the call caption read it. `zoneOutageSeries` reads `zonePaint` directly. `web/tests/fleetAggregate.test.ts` checks it against the per-home walk for every tape tick, both scenes, 10,000 and 10,003 homes. The cluster hover moved to slice 3: South has two metro clusters, so zone totals do not map onto it.
 2. **Done. Ack rail as bars.** One stacked bar per zone: acked, held, silent, unconfirmed, dead, fail-safe. Live counts come from `TickResult.zone_acks` (`docs/agents/zone-acks.md`). A tape without that field still uses `zoneAggregates`, not 100 spans. `ackSummary` stays. No per-home DOM.
@@ -54,7 +54,7 @@ Not measurable in Node, and likely the real freeze:
 
 Feeder and hex aggregates are left out. There is no feeder field, and home points are mock, so a hex grid would claim geography we do not have.
 
-## Needs other owners (not in these slices)
+## Not in these slices
 
-- Per-zone fleet counts on the tick, so zones stop being `index % 4`. The engine now fills `TickResult.zone_delivered_mw` and `GET /v1/fleet/rollups` (`docs/agents/fleet-rollups.md`). Live/archive tape targets scale with `FLEET_SIZE` against that cap; the Demo tape stays 100 / 0.40. The map and ack rail still paint `index % 4` until Sunny reads those rollups.
-- `GET /v1/homes` paging, `q`, and an exceptions filter, plus a server zone aggregate, so the browser never holds 10k rows: Rajath for the fleet, Uma for the contract.
+- Per-zone fleet counts on the tick, so zones stop being `index % 4`. The engine now fills `TickResult.zone_delivered_mw` and `GET /v1/fleet/rollups` (`docs/agents/fleet-rollups.md`). Live/archive tape targets scale with `FLEET_SIZE` against that cap; the Demo tape stays 100 / 0.40. The map and ack rail still paint `index % 4` until a later gap reads those rollups.
+- `GET /v1/homes` paging, `q`, and an exceptions filter, plus a server zone aggregate, so the browser never holds 10k rows.

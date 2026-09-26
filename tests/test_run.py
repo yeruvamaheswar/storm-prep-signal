@@ -52,6 +52,10 @@ def test_read_settings_defaults_reserves_to_env_example(monkeypatch):
     monkeypatch.setattr(cli, "load_dotenv", lambda: None)
     monkeypatch.delenv("BASE_RESERVE_PCT", raising=False)
     monkeypatch.delenv("STORM_RESERVE_PCT", raising=False)
+    monkeypatch.delenv("CHARGE_BELOW_USD", raising=False)
+    monkeypatch.delenv("DISCHARGE_ABOVE_USD", raising=False)
     settings = read_settings()
     assert settings["base_reserve_pct"] == 30
     assert settings["storm_reserve_pct"] == 60
+    assert settings["charge_threshold_usd_mwh"] == 25
+    assert settings["discharge_threshold_usd_mwh"] == 60

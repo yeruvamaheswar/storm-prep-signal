@@ -10,6 +10,7 @@ class Home:
     max_kw: float             # fastest it can discharge
     status: str = "live"      # "live" | "stale" | "dead"
     zone: str = ""            # ERCOT load zone name from the ZONES setting, "" if unassigned
+    updated_at: str = ""      # ISO 8601 with UTC offset; "" until the fleet stamps a write
 
 @dataclass
 class TapeFrame:
@@ -31,10 +32,15 @@ class Policy:
     risk_level: Optional[str] # "LOW" | "HIGH" | None
     zone_reserve_pct: dict = field(default_factory=dict)  # zone name to floor percent
     zone_reasons: dict = field(default_factory=dict)      # zone name to reason code
+    # Default hold: floor-only callers omit price, and allocate still only discharges.
+    intent: str = "hold"              # "charge" | "discharge" | "hold"
+    intent_reason: str = ""           # "price_unavailable" | "operator_hold" | ""
 
 @dataclass
 class Allocation:
-    per_home_kw: dict         # home_id to kW, only for homes given work
+    # Signed kW, only for homes given work. >0 discharge (sell), <0 charge (absorb).
+    # One field, not per_home_charge_kw / per_home_discharge_kw. See CONSTRAINTS.md.
+    per_home_kw: dict
     delivered_mw: float
     missed_mw: float          # target_mw minus delivered_mw, never negative
     reasons: list = field(default_factory=list)
@@ -60,6 +66,8 @@ class TickResult:
     dead_homes: int
     breaches: int             # homes discharged below their floor this tick; must be 0
     reasons: list = field(default_factory=list)
+    intent: str = "hold"              # "charge" | "discharge" | "hold"
+    intent_reason: str = ""           # policy reason, or "operator_hold" when mode is HOLD
     zone_reserve_pct: dict = field(default_factory=dict)   # zone name to floor percent
     zone_reasons: dict = field(default_factory=dict)       # zone name to reason code
     zone_delivered_mw: dict = field(default_factory=dict)  # zone name to MW delivered

@@ -1,6 +1,6 @@
-# Epic 3: the controller, fleet and scoring lane (Rajat)
+# Epic 3: the controller, fleet and scoring
 
-What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on how to adjust. Source of truth for the lane. Open this file when a task touches `controller.py`, `fleet.py`, `score.py`, `scheduler.py`, `channel.py`, `orchestration.py` or their tests.
+What this epic builds, plus notes on how the rest of the product should adjust. Source of truth for the controller path. Open this file when a task touches `controller.py`, `fleet.py`, `score.py`, `scheduler.py`, `channel.py`, `orchestration.py` or their tests.
 
 
 **Why it exists:** the grid asks for a total amount of power. Someone has to decide which homes give how much, never break a home's backup floor, and keep working when homes go offline, messages get lost, or a zone stalls. This epic is the "orchestration" in the Orchestration track.
@@ -111,7 +111,7 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
 
 ---
 
-**What this epic needs from others:** Uma's zone-assignment answer, OK for three new files (`scheduler.py`, `channel.py`, `orchestration.py`), and add-only fields for the new per-zone numbers. Sunny's tape can carry fault events later. None of it blocks 3.1 to 3.5.
+**What this epic still needs:** a zone-assignment answer, three new files (`scheduler.py`, `channel.py`, `orchestration.py`) if the runtime stories land, and add-only fields for the new per-zone numbers. The tape can carry fault events later. None of it blocks 3.1 to 3.5.
 
 **How Epic 3 connects to the others:** the storm signal (Epic 1) and zone floors (Epic 2) set each home's floor. This epic splits and executes the work under those floors. Epic 4 shows what happened per zone.
 
@@ -119,7 +119,7 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
 
 ## Notes for the team: how to adjust for what Epic 3 is doing
 
-These are suggestions, not edits. Each person owns their own epic and files. Anything marked "optional" can be ignored without breaking the tracer.
+These are suggestions, not edits. File ownership is retired; a later gap may touch whatever it needs. Anything marked "optional" can be ignored without breaking the tracer.
 
 ### General rules for everyone
 - **Treat new fields as optional.** The extra numbers (planned, confirmed, unconfirmed, per-zone) arrive as add-only fields. If a field is missing, show what you have. A cut line might drop it.
@@ -136,7 +136,7 @@ These are suggestions, not edits. Each person owns their own epic and files. Any
   - `totals` in the run file is filled by `score.py` (`new_board`, `update(board, result, homes=None)`; pass `homes` to get lowest charge). Please have the engine write it.
   - A `seed` setting (default 1) would help replays. Optional.
 - **Contracts, add-only:** planned, confirmed and unconfirmed MW, and per-zone versions, on `TickResult`. Reason codes `timed_out:<n>`, `unknown_zone`, `duplicates_ignored:<n>`, `short_delivery:<n>`. We will send exact names when they are needed.
-- **Asks that need your OK:** the zone-assignment rule (default is round-robin by home index), and three new files owned by Rajat: `scheduler.py`, `channel.py`, `orchestration.py`.
+- **Still open:** the zone-assignment rule (default is round-robin by home index), and three new files if the runtime stories land: `scheduler.py`, `channel.py`, `orchestration.py`.
 - **Story 2.4, ship:** the Loom's proof section can use the printed summary line, such as `50 seeds, 600 ticks, 0 floor breaches`, plus one replayed seed.
 - **Epic 1:** nothing to change. If the signal is unreadable (risk None), all zones get the storm floor, and the controller handles that as it is.
 
