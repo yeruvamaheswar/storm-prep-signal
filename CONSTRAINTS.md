@@ -45,6 +45,19 @@ If you need something in a file you don't own, like a new dependency, a new sett
 - Nothing reads the brief. It's written after the decision.
 - Every target and price shown on screen shows its label. No unlabeled $/MWh or MW anywhere.
 
+## Zones
+
+Setting `ZONES` in `.env.example`: `ZONES=Houston:48201,North:48113,South:48355,West:48329`. These are ERCOT's 4 load zones, each with one anchor county (Harris, Dallas, Nueces, Midland). `read_settings()` returns it as `"zones"`, a dict of zone name to county FIPS code (a string), and defaults to the same value.
+
+New contract fields, all with defaults:
+
+- `Home.zone: str = ""`
+- `TapeFrame.weather_fixture: Optional[str] = None`
+- `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)
+- `TickResult.zone_reserve_pct`, `zone_reasons`, `zone_delivered_mw: dict` (all `default_factory=dict`) and `weather_label: str = "none"`
+
+Rule: zones react only to weather alerts; there is no per-zone ERCOT threshold.
+
 ## Tape file format (read by `load_tape`)
 
 A tape is one JSON object with a `label` and a list of `frames`. Each frame holds the `TapeFrame` fields from `storm_prep/contracts.py`.
@@ -64,7 +77,7 @@ A tape is one JSON object with a `label` and a list of `frames`. Each frame hold
 }
 ```
 
-- `risk_fixture` and `events` are optional in a frame; every other `TapeFrame` field is required.
+- `risk_fixture`, `weather_fixture` and `events` are optional in a frame; every other `TapeFrame` field is required.
 - `load_tape` still returns `list[TapeFrame]` (the frames only).
 - Fields may be added, never renamed.
 

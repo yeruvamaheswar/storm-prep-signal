@@ -9,6 +9,7 @@ class Home:
     soc_kwh: float            # energy stored right now
     max_kw: float             # fastest it can discharge
     status: str = "live"      # "live" | "stale" | "dead"
+    zone: str = ""            # ERCOT load zone name from the ZONES setting, "" if unassigned
 
 @dataclass
 class TapeFrame:
@@ -21,12 +22,15 @@ class TapeFrame:
     risk_fixture: Optional[str] = None   # path to an ERCOT outage posting
     events: dict = field(default_factory=dict)
     # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO")
+    weather_fixture: Optional[str] = None  # path to a saved weather alerts response
 
 @dataclass
 class Policy:
     reserve_pct: float        # floor as a percent of capacity
     reason: str               # "normal" | "storm_risk_high" | "signal_unavailable"
     risk_level: Optional[str] # "LOW" | "HIGH" | None
+    zone_reserve_pct: dict = field(default_factory=dict)  # zone name to floor percent
+    zone_reasons: dict = field(default_factory=dict)      # zone name to reason code
 
 @dataclass
 class Allocation:
@@ -56,3 +60,7 @@ class TickResult:
     dead_homes: int
     breaches: int             # homes discharged below their floor this tick; must be 0
     reasons: list = field(default_factory=list)
+    zone_reserve_pct: dict = field(default_factory=dict)   # zone name to floor percent
+    zone_reasons: dict = field(default_factory=dict)       # zone name to reason code
+    zone_delivered_mw: dict = field(default_factory=dict)  # zone name to MW delivered
+    weather_label: str = "none"  # source of the weather alerts, or "none"

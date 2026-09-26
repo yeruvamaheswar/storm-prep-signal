@@ -40,6 +40,9 @@ def read_settings():
         "base_reserve_pct": float(os.getenv("BASE_RESERVE_PCT", "30")),
         "storm_reserve_pct": float(os.getenv("STORM_RESERVE_PCT", "60")),
         "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
+        # Zone name to anchor county FIPS code; codes stay strings to keep leading zeros.
+        "zones": dict(pair.split(":", 1) for pair in
+                      os.getenv("ZONES", "Houston:48201,North:48113,South:48355,West:48329").split(",")),
     }
 
 
