@@ -5,6 +5,7 @@ import pytest
 
 from server.engine.contracts import Home, Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
+from server.engine.scheduler import Scheduler
 from server.engine import telemetry as tm
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
@@ -193,3 +194,70 @@ def test_explicit_outage_window():
     s, homes, state = fleet_and_state(telemetry_outages={"home-001": [(0.0, 50.0)]})
     assert state.offline("home-001", 10.0) and not state.offline("home-001", 50.0)
     assert not state.offline("home-002", 10.0)
+
+
+def run_feed(state, homes, seed=1):
+    sched = Scheduler(seed)
+    state.start_tick(sched, homes)
+    sched.run_until(state.tick_s)
+    state.stop()
+    sched.run_until(math.inf)        # must end: no reading reschedules after stop
+    return sched
+
+
+def test_each_home_reports_about_every_10_seconds():
+    s, homes, state = fleet_and_state()
+    run_feed(state, homes)
+    st = state.stats
+    assert st["accepted"] + st["cut_at_tick_end"] == 3000
+    assert 2900 <= st["accepted"] <= 3000
+    assert st["duplicates"] == st["late"] == st["rejected"] == 0
+
+
+def test_no_reading_is_ingested_after_the_tick_ends():
+    s, homes, state = fleet_and_state()
+    run_feed(state, homes)
+    assert max(hs.last_seen for hs in state.homes.values()) <= state.tick_s
+
+
+def test_same_seed_same_feed():
+    runs = []
+    for _ in range(2):
+        s, homes, state = fleet_and_state(telemetry_dup_rate=0.05, telemetry_late_rate=0.05)
+        run_feed(state, homes, seed=11)
+        runs.append((dict(state.stats), {i: hs.last for i, hs in state.homes.items()}))
+    assert runs[0] == runs[1]
+
+
+def test_faults_show_up_in_the_stats():
+    s, homes, state = fleet_and_state(telemetry_dup_rate=0.05, telemetry_late_rate=0.05)
+    run_feed(state, homes)
+    assert state.stats["duplicates"] > 0 and state.stats["late"] > 0
+
+
+def test_an_offline_home_sends_nothing():
+    s, homes, state = fleet_and_state(telemetry_outages={"home-001": [(0.0, 1000.0)]})
+    before = state.homes["home-001"].last
+    run_feed(state, homes)
+    assert state.homes["home-001"].last is before
+    assert state.stats["dropped"] >= 29
+
+
+def test_a_liar_reports_a_frozen_charge():
+    s, homes, state = fleet_and_state(telemetry_liar_ids=("home-100",))
+    frozen = homes[99].soc_kwh
+    homes[99].soc_kwh -= 2.0
+    run_feed(state, homes)
+    assert state.homes["home-100"].last["soc_kwh"] == frozen
+
+
+def test_readings_report_power_after_an_execution():
+    s, homes, state = fleet_and_state()
+    sched = Scheduler(1)
+    state.start_tick(sched, homes)
+    state.record_execution("home-001", 2.5)
+    sched.run_until(state.tick_s)
+    state.stop()
+    sched.run_until(math.inf)
+    assert state.homes["home-001"].last["power_kw"] == 2.5
+    assert state.homes["home-001"].last["charge_state"] == "DISCHARGING"

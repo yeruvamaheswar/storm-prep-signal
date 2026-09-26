@@ -12,6 +12,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Optional
 
+from server.engine.channel import Channel
 from server.engine.contracts import Home
 
 DEFAULTS = {
@@ -174,6 +175,51 @@ class TelemetryState:
                 "boot_id": 1, "seq": seq, "device_ts": t_abs + self.skew[home.home_id],
                 "soc_kwh": self.frozen.get(home.home_id, home.soc_kwh), "power_kw": power_kw,
                 "charge_state": charge_state, "grid": "connected", "health": "ok"}
+
+    def start_tick(self, sched, homes):
+        """Snapshot what the plan saw, then schedule every home's readings on this tick's clock."""
+        self.sched, self.stopped = sched, False
+        self.sim = {h.home_id: h for h in homes}
+        self.stats = new_stats()
+        self.power = dict.fromkeys(self.homes, 0.0)
+        for hs in self.homes.values():
+            hs.pre_tick = hs.last
+        s = self.settings
+        # Readings get their own channel (same clock and seed) with the telemetry fault rates.
+        self.channel = Channel(sched, drop_rate=0.0, dup_rate=knob(s, "telemetry_dup_rate"),
+                               delay_s=tuple(knob(s, "telemetry_delay_s")),
+                               late_rate=knob(s, "telemetry_late_rate"),
+                               late_extra_s=knob(s, "telemetry_late_extra_s"))
+        for h in homes:
+            sched.schedule(self.phase[h.home_id], self._emit, h.home_id)
+
+    def offline_now(self, home_id):
+        return self.offline(home_id, self.base_s + self.sched.now)
+
+    def record_execution(self, home_id, actual_kw):
+        """Called by HomeWorker.run: from now on this battery reports that it is discharging."""
+        self.power[home_id] += actual_kw
+
+    def stop(self):
+        """End of tick: no new reading is scheduled, and one still in flight is discarded."""
+        self.stopped = True
+
+    def _emit(self, home_id):
+        if self.stopped:
+            return
+        if self.offline_now(home_id):
+            self.stats["dropped"] += 1
+        else:
+            reading = self.make_reading(self.sim[home_id], self.base_s + self.sched.now,
+                                        self.power[home_id])
+            self.channel.send(reading, self._deliver)
+        self.sched.schedule(self.every, self._emit, home_id)
+
+    def _deliver(self, reading):
+        if self.stopped:
+            self.stats["cut_at_tick_end"] += 1
+            return
+        ingest(self.homes[reading["home_id"]], reading, self.base_s + self.sched.now, self.stats)
 
     def reported_homes(self, homes):
         """New Home objects built from the reports, for allocate. Never the simulator's own."""
