@@ -82,3 +82,11 @@ def test_demo_weather_raises_houston_then_missing_signal_raises_every_zone(tmp_p
     assert (missing["reserve_pct"], missing["policy_reason"]) == (60, "signal_unavailable")
     assert set(missing["zone_reserve_pct"].values()) == {60}
     assert set(missing["zone_reasons"].values()) == {"signal_unavailable"}
+
+
+def test_demo_brief_names_a_zone_floor_that_differs_from_the_fleet(tmp_path, connects):
+    ticks = {t["tick"]: t for t in _replay(DEMO, BASELINE_PATH, tmp_path)["ticks"]}
+
+    assert "Floor 30% (Houston 60%: weather_alert)" in ticks[4]["brief"]
+    # Every zone matches the fleet floor on tick 1, so its line stays as it was.
+    assert ticks[1]["brief"] == "Delivered 0.20 of 0.20 MW. timed out 1; duplicates ignored 1; over delivery 1."
