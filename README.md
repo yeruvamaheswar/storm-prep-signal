@@ -1,4 +1,4 @@
-Judges: start here → [docs/JUDGES.md](docs/JUDGES.md)
+Judges: start here → [docs/humans/judges.md](docs/humans/judges.md)
 
 # ReserveGate
 

@@ -17,7 +17,7 @@ python3 -m pytest -q
 
 After the one-time `pip install`, it works offline. Wi-Fi is optional. The tape run needs no API keys and makes no network calls. It prints one line per tick and writes `var/runs/latest.json`.
 
-Each run starts from the battery charge the previous run left in `var/fleet/homes.json`, so a second run prints different numbers. To repeat the demo from a full fleet, run `rm var/fleet/homes.json` first.
+Every tape run starts from a fresh fleet, so the demo prints the same total every time you run it.
 
 ## 3. What you'll see
 
@@ -63,7 +63,7 @@ All test files are in `tests/`.
 |---|---|
 | 0 floor breaches on every tick | `test_invariants.py` (30 seeded random worlds, 12 ticks each, with lost, duplicated and late messages, dead zones, and crashing or lying homes), `test_failures.py`, `test_replay_offline.py` (every tick of the demo and Heather tapes) |
 | Delivered ≤ target, and missed = target − delivered | `test_invariants.py`, `test_failures.py`, `test_replay_offline.py` |
-| The same tape replays identically | `test_replay_offline.py`: two runs of the demo and Heather tapes match tick for tick, and two CLI runs from fresh folders both give 0.164 of 0.317 MWh |
+| The same tape replays identically | `test_replay_offline.py`: two runs of the demo and Heather tapes match tick for tick, and two CLI runs in the same folder both give 0.164 of 0.317 MWh |
 | A tape run needs no network and writes nothing outside its own folder | `test_replay_offline.py` blocks every outbound connection, checks none was attempted, and checks the repo's `var/` is unchanged after CLI runs from other folders |
 
 ## 6. Honest limits
@@ -75,5 +75,5 @@ All test files are in `tests/`.
 
 ## 7. Where to read next
 
-- [System design](agents/system-design.md): the parts, the decisions, and every failure case.
-- [Code flow](agents/code-flow.md): one tick through the code, file by file.
+- [System design](../agents/system-design.md): the parts, the decisions, and every failure case.
+- [Code flow](../agents/code-flow.md): one tick through the code, file by file.
