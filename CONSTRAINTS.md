@@ -10,7 +10,7 @@ Source: `docs/reservegate.md` section 2. The data shapes live in `storm_prep/con
 |---|---|
 | **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
 | **Rajat** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
+| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/ci.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
 
 If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
 
