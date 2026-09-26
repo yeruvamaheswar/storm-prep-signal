@@ -5,7 +5,7 @@ import pytest
 
 from server.engine.contracts import Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import orchestrate_tick
+from server.engine.orchestration import ACK_KEYS, orchestrate_tick, zone_acks
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 
@@ -306,3 +306,67 @@ def test_money_invariants_hold_under_random_faults(seed):
     check_books(result, f.target_mw)
     for home in homes:
         assert home.soc_kwh >= floor_kwh(home, policy()) - 1e-9
+
+
+# --- zone acks: the per-zone counts the wall reads ---------------------------------
+
+def check_acks(acks, homes):
+    """Every zone has all five keys, and each home is counted exactly once in its own zone."""
+    for zone, row in acks.items():
+        assert tuple(row) == ACK_KEYS
+        assert sum(row.values()) == sum(1 for h in homes if (h.zone or "unassigned") == zone)
+    assert sum(sum(row.values()) for row in acks.values()) == len(homes)
+
+
+def test_zone_acks_with_no_faults_acks_every_commanded_home_and_holds_the_rest():
+    result, homes, _ = cycle(0.2, **FAST)
+    acks = zone_acks(homes, result)
+    check_acks(acks, homes)
+    assert set(acks) == set(ZONES)
+    commanded = {h for h, kw in result.allocation.per_home_kw.items() if kw > 0}
+    assert sum(row["acked"] for row in acks.values()) == len(commanded)
+    assert sum(row["held"] for row in acks.values()) == len(homes) - len(commanded)
+    assert all(row["unconfirmed"] == row["dead"] == row["silent"] == 0 for row in acks.values())
+
+
+def test_zone_acks_counts_dead_and_stale_homes_by_their_end_of_tick_status():
+    houston = [h.home_id for h in new_fleet(settings()) if h.zone == "Houston"]
+    result, homes, _ = cycle(0.2, events={"dead": houston[:3], "stale": houston[3:5]},
+                             _fail_home_ids=["home-002"], **FAST)
+    acks = zone_acks(homes, result)
+    check_acks(acks, homes)
+    home_002 = next(h for h in homes if h.home_id == "home-002")
+    assert home_002.status == "dead"  # crashed mid-tick: dead, not unconfirmed
+    dead_by_zone = {z: sum(1 for h in homes if h.zone == z and h.status == "dead") for z in ZONES}
+    assert {z: acks[z]["dead"] for z in ZONES} == dead_by_zone
+    assert acks["Houston"]["dead"] >= 3 and acks["Houston"]["silent"] == 2
+
+
+def test_zone_acks_shows_homes_we_never_heard_back_from_as_unconfirmed():
+    result, homes, _ = cycle(0.2, seed=3, channel_drop_rate=0.5)
+    acks = zone_acks(homes, result)
+    check_acks(acks, homes)
+    heard = {cid.split(":")[0] for cid, state in result.command_states.items() if state == "confirmed"}
+    asked = {cid.split(":")[0] for cid in result.command_states}
+    live_unheard = {h.home_id for h in homes if h.status == "live"} & (asked - heard)
+    assert live_unheard, "the seed should leave some live homes unconfirmed"
+    assert sum(row["unconfirmed"] for row in acks.values()) == len(live_unheard)
+    assert sum(row["acked"] for row in acks.values()) == len(heard & {h.home_id for h in homes
+                                                                       if h.status == "live"})
+
+
+def test_zone_acks_on_hold_counts_every_live_home_as_held():
+    s = settings()
+    homes = new_fleet(s)
+    result = orchestrate_tick(homes, frame(0.2), policy(), "HOLD", s, 1)
+    acks = zone_acks(homes, result)
+    check_acks(acks, homes)
+    assert sum(row["held"] for row in acks.values()) == len(homes)
+
+
+def test_zone_acks_puts_a_home_with_no_zone_under_unassigned():
+    result, homes, _ = cycle(0.2, **FAST)
+    homes[0].zone = ""
+    acks = zone_acks(homes, result)
+    check_acks(acks, homes)
+    assert sum(acks["unassigned"].values()) == 1

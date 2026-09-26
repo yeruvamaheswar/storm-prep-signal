@@ -31,6 +31,8 @@ from server.engine.telemetry import TelemetryState
 OUT_DIR = Path("var") / "orchestration"
 COUNTERS = ("breaches", "timed_out", "retried", "reassigned", "duplicates_ignored", "late",
             "short_delivery", "over_delivery", "charge_mismatch")
+# Per-zone home counts the wall reads from TickResult.zone_acks (same keys as supervisor.ACK_KEYS).
+ACK_KEYS = ("acked", "held", "silent", "dead", "unconfirmed")
 # A report whose kWh differs from the home's real charge drop by more than this is a mismatch.
 CHARGE_TOLERANCE_KWH = 1e-6
 
@@ -399,6 +401,35 @@ def build_result(frame, plan, rt, supervisors, books):
         duplicates_ignored=c["duplicates_ignored"], late=c["late"],
         over_delivery_mw=over_delivery_mw, events=rt.sched.events,
     )
+
+
+def zone_acks(homes, result):
+    """Per zone, how many homes are acked, held, silent, dead or unconfirmed after this tick.
+
+    Status is read at the end of the tick, so a home that crashed mid-tick counts as dead.
+    A home with any confirmed command (its own or a reassignment) is acked; one we sent work
+    to but never heard back from is unconfirmed; a live home given no work is held.
+    """
+    asked, heard = set(), set()
+    for command_id, state in result.command_states.items():
+        home_id = command_id.split(":")[0]   # "home_id:tick" or "home_id:tick:r"
+        asked.add(home_id)
+        if state == "confirmed":
+            heard.add(home_id)
+    acks = {}
+    for home in homes:
+        row = acks.setdefault(home.zone or "unassigned", {key: 0 for key in ACK_KEYS})
+        if home.status == "dead":
+            row["dead"] += 1
+        elif home.status == "stale":
+            row["silent"] += 1
+        elif home.home_id in heard:
+            row["acked"] += 1
+        elif home.home_id in asked:
+            row["unconfirmed"] += 1
+        else:
+            row["held"] += 1
+    return acks
 
 
 # --- runner: python -m server.engine.orchestration --tape PATH --seed N [--floor base|storm] ---
