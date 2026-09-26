@@ -31,4 +31,5 @@ Open this index, then the one file the task needs.
 | `interval-strip.md` | You are changing the bottom tape chart or the live interval strip |
 | `persist-run.md` | You are copying an engine run into Supabase `public.runs` |
 | `archive-feeds.md` | You are serving snapshot price/outage from `ercot_prices` / `ercot_postings` |
+| `live-ingest.md` | You are changing the laptop live worker, `event=live` rows, or Live snapshot ingest |
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime (Rajat's lane) |

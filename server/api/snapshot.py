@@ -582,6 +582,21 @@ def build_snapshot(
         if overlay is not None:
             return overlay
         return _finish(_stamp_origin(_fail(tick, "unavailable"), origin))
+    if ingest is None and origin["source"] == "live":
+        # Worker rows (event=live) are the Live wall's posting. Direct ERCOT is the fallback.
+        try:
+            live = archive_ingest(when, event="live")
+            raw = live.get("raw")
+            if isinstance(raw, dict):
+                risk, signal, policy = _rate(raw, when)
+                stamped = _stamp_risk(tick, live, risk, signal, policy, zone)
+                stamped["clock_pinned"] = False
+                stamped["feed"] = "LIVE"
+                return _finish(_stamp_origin(stamped, origin))
+        except IngestError:
+            pass
+        except (SignalUnavailable, KeyError, TypeError, ValueError):
+            pass
     try:
         live = (ingest or live_ingest)(when)
     except IngestError as exc:

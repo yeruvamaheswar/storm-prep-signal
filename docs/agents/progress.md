@@ -665,6 +665,18 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Not in the ownership table yet: `orchestration.py`, `scheduler.py`, `channel.py` and their tests
   (ask for Uma). Details: `docs/agents/epic-3-controller.md`.
 
+## 2026-09-26: Live worker upserts ERCOT and runs one allocate tick
+
+- `scripts/live_cycle.py` fetches NP3-233-CD and NP6-905-CD, upserts `event=live` into
+  `ercot_postings` / `ercot_prices`, rates that same posting, and calls `loop.run` with one
+  0.40 MW frame. `loop.run` now accepts `frames`, `live_risk`, and `live_price` so the worker
+  does not log in twice. `--loop` sleeps `tick_minutes` on a laptop. No Render worker.
+- `GET /v1/snapshot` on `source=live` reads `event=live` first; direct ERCOT is the fallback.
+  Auto then shows the allocated `latest.json`, not the 2026-09-25 `temp_stub` file.
+- No `ercot_postings` column change. `event` is already text. Archive weeks are not deleted.
+- Notes: `docs/agents/live-ingest.md`, `docs/humans/live-worker.md`.
+- Tests: `tests/test_live_cycle.py`.
+
 ## 2026-09-26: Charge-drop consistency check (Rajat)
 
 - `server/engine/orchestration.py`: each worker records how much its home's charge really fell per

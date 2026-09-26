@@ -42,6 +42,8 @@ SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "s
 # --live with no tape plays this many ticks at a flat synthetic target (not a real grid request).
 SYNTHETIC_TICKS = 12
 SYNTHETIC_TARGET_MW = 0.2
+# live_cycle passes a precomputed risk/price so the engine does not fetch twice.
+_UNSET = object()
 
 
 # TEMP until sunny/tape-brief merge
@@ -146,21 +148,30 @@ def write_run_files(runs_dir, run_id, record):
     (runs_dir / "latest.json").write_text(text)
 
 
-def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, state_path=None):
+def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, state_path=None,
+        frames=None, live_risk=_UNSET, live_price=_UNSET):
     """Play every frame of the tape through the fleet. Returns the run record written to disk.
 
     live=True fetches ERCOT once and uses that risk on every tick, ignoring the frames' risk
-    fixtures. With no tape it plays SYNTHETIC_TICKS synthetic frames.
+    fixtures. With no tape it plays SYNTHETIC_TICKS synthetic frames. A caller that already
+    fetched (the live worker) may pass `frames`, `live_risk`, and `live_price`.
 
     Each tick is apply_events → compute_risk → reserve_policy → allocate → simulate_zone_acks → discharge → TickResult.
     """
     settings = with_fleet_defaults(settings)
     run_id = start_run(log_dir)
     baseline = load_baseline(lookahead_hours=settings["lookahead_hours"])
-    live_risk = read_live_risk(baseline, settings) if live else None
-    # Skip a second login when the outage fetch already failed on the token.
-    live_price = read_live_price(settings) if live and live_risk is not None else None
-    frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
+    if live:
+        if live_risk is _UNSET:
+            live_risk = read_live_risk(baseline, settings)
+        # Skip a second login when the outage fetch already failed on the token.
+        if live_price is _UNSET:
+            live_price = read_live_price(settings) if live_risk is not None else None
+    else:
+        live_risk = None
+        live_price = None
+    if frames is None:
+        frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
     homes = new_fleet(settings)
     mode = read_operator_mode(state_path)
     ticks = []

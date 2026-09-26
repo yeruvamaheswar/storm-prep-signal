@@ -1,6 +1,6 @@
 # Archive price and outage (Demo / Synthetic)
 
-**Decision (2026-09-26).** When the last run is not Live, `GET /v1/snapshot` and `serve_price()` / `serve_outage()` read `public.ercot_postings` and `public.ercot_prices`. Live keeps `server.engine.signal` and `var/signal/`. The archive tables are durable: a tape reset must never truncate them.
+**Decision (2026-09-26).** When the last run is not Live, `GET /v1/snapshot` and `serve_price()` / `serve_outage()` read `public.ercot_postings` and `public.ercot_prices`. Live now reads `event=live` rows from those same tables after `scripts/live_cycle.py` upserts them (`docs/agents/live-ingest.md`). Direct `signal.py` / `var/signal/` is the fallback when that row is missing. The archive tables are durable: a tape reset must never truncate them.
 
 ## Reader
 
@@ -15,7 +15,7 @@ Event is inferred from the clock (`beryl`, `heather`, `tuning-2026`, including e
 
 ## Routing
 
-- `source=live` → `live_ingest` / live `serve_*` (`signal.py`).
+- `source=live` → newest `event=live` posting (`archive_ingest`). Direct `live_ingest` / `signal.py` if that row is missing or stale.
 - `source=archive` → `archive_ingest`: GET `ercot_postings` (same payload `check_margin.py` reads) → wrap as an NP3 body → `compute_risk` → `reserve_policy`. Snapshot sends `trigger_mw`, `peak_mw`, zone hour totals, and `policy_reason` from that rating. It does not copy tape `22348`.
 - Stale windows stay in Python: 90 minutes for the posting vs the archive clock, 30 minutes for price (`read_price`).
 - A missing posting is `signal_unavailable` and floor 60%. A missing price is named and does not hold.
