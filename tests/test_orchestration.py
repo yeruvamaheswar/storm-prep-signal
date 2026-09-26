@@ -210,6 +210,20 @@ def test_an_understated_report_is_flagged_and_booked_at_what_was_reported():
     check_books(result, f.target_mw)
 
 
+def test_a_caught_overstatement_is_booked_exactly_and_is_never_over_delivery():
+    # Fast channel: nothing times out, so nothing is reassigned and nothing can over-deliver.
+    liars = {f"home-{i:03d}": 1.5 for i in range(5, 101, 5)}
+    result, _, f = cycle(0.2, _misreport=liars, **FAST)
+    assert kinds(result, "charge_mismatch")
+    assert not kinds(result, "over_delivery")
+    assert not any(r.startswith("over_delivery") for r in result.allocation.reasons)
+    ran = {e["command_id"]: e["actual_kw"] for e in kinds(result, "executed")}
+    booked = {e["command_id"]: e["actual_kw"] for e in kinds(result, "confirmed")}
+    for e in kinds(result, "charge_mismatch"):
+        assert booked[e["command_id"]] == ran[e["command_id"]]   # exact, no rounding drift
+    check_books(result, f.target_mw)
+
+
 def test_honest_reports_raise_no_charge_mismatch():
     result, _, _ = cycle(0.2, channel_dup_rate=1.0, events={"short_delivery": {"home-010": 0.5}}, **FAST)
     assert not kinds(result, "charge_mismatch")
