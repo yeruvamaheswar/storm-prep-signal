@@ -762,3 +762,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   line 12 comment, `docs/agents/zone-acks.md` line 7. Uma's file: `docs/agents/code-flow.md`
   lines 232 and 370.
 - `pytest -q`: 327 passed. Runner output unchanged.
+
+## 2026-09-26: Tape `weather` event raises only the warned zones (Uma)
+
+- `server/engine/loop.py`: `weather_zones(frame, settings)` reads `events["weather"]` (load-zone names, for example `["Houston"]`) and passes the known ones to `reserve_policy` as `alerted`. `policy.py` already lets a fleet-wide reason win. Unknown names add `unknown_weather_zone` to the tick's `reasons` and log `stage=weather`. The list counts for its own frame only. `policy.py`, `fleet.py`, `controller.py`, `contracts.py` untouched.
+- `tests/test_engine.py`: Houston alone goes to 60 with `weather_alert`; no weather keeps all four at 30; an unknown name is ignored and recorded; a missing signal still sets every zone to 60 `signal_unavailable`.
+- `docs/agents/code-flow.md`: weather event in both diagrams and step 6; `run_cycle` renamed to `orchestrate_tick` (Uma's two lines); `var/state.json` now read and written only by `--live` and the live worker (#11). Sunny's `supervisor.py` line 12 and `zone-acks.md` line 7 still say `orchestration.run_cycle`.
+- Not wired: `TapeFrame.weather_fixture` and live alerts; `weather_label` stays `"none"`.

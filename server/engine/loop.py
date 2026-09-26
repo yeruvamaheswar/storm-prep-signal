@@ -131,6 +131,17 @@ def count(homes, status):
     return sum(home.status == status for home in homes)
 
 
+def weather_zones(frame, settings):
+    """Split the frame's "weather" event into alerted zones and names not in the ZONES setting.
+
+    Only this frame's list counts; unlike "operator", a warning does not carry to the next tick.
+    """
+    named = frame.events.get("weather", [])
+    alerted = {zone: "tape" for zone in named if zone in settings["zones"]}
+    unknown = [zone for zone in named if zone not in settings["zones"]]
+    return alerted, unknown
+
+
 def read_operator_mode(state_path):
     if not state_path:
         return "AUTO"
@@ -186,6 +197,9 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             risk = live_risk
         else:
             risk = read_risk(frame.risk_fixture, baseline, settings) if frame.risk_fixture else None
+        alerted, unknown_weather = weather_zones(frame, settings)
+        if unknown_weather:
+            log_event("weather", "ignored", ok=False, reason="unknown_weather_zone", zones=unknown_weather)
         mode = frame.events.get("operator", mode)
         write_operator_mode(state_path, mode)
         # Stamp price before the policy so intent can read the LZ number. Allocate ignores intent.
@@ -195,8 +209,9 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         else:
             priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
                       "price_as_of": None}
+        # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
         policy = reserve_policy(
-            risk, settings, mode=mode,
+            risk, settings, alerted, mode=mode,
             price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
         )
         # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
@@ -213,7 +228,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
             reserve_pct=policy.reserve_pct, policy_reason=policy.reason, risk_level=policy.risk_level,
             live_homes=count(homes, "live"), stale_homes=count(homes, "stale"), dead_homes=count(homes, "dead"),
-            breaches=breaches, reasons=list(alloc.reasons),
+            breaches=breaches,
+            reasons=list(alloc.reasons) + (["unknown_weather_zone"] if unknown_weather else []),
             zone_reserve_pct=dict(policy.zone_reserve_pct),
             zone_reasons=dict(policy.zone_reasons),
             zone_delivered_mw=zone_delivered(homes, alloc),
