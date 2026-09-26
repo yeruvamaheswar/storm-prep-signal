@@ -1,0 +1,88 @@
+{
+  "source": "Supabase public.ercot_postings, ERCOT NP3-233-CD",
+  "rule_margin_pct": 15.0,
+  "lookahead_hours": 6,
+  "windows": {
+    "beryl": {
+      "rated_from": "2024-07-05",
+      "rated_to": "2024-07-11",
+      "baseline_from": "2024-06-05",
+      "baseline_to": "2024-07-04",
+      "baseline_postings": 720,
+      "in_sample": false,
+      "rated": 168,
+      "skipped": 0,
+      "by_margin": {
+        "10": {
+          "high": 0,
+          "first_high": null,
+          "last_high": null
+        },
+        "15": {
+          "high": 0,
+          "first_high": null,
+          "last_high": null
+        },
+        "20": {
+          "high": 0,
+          "first_high": null,
+          "last_high": null
+        }
+      }
+    },
+    "heather": {
+      "rated_from": "2024-01-12",
+      "rated_to": "2024-01-17",
+      "baseline_from": "2023-12-13",
+      "baseline_to": "2024-01-11",
+      "baseline_postings": 720,
+      "in_sample": false,
+      "rated": 144,
+      "skipped": 0,
+      "by_margin": {
+        "10": {
+          "high": 7,
+          "first_high": "2024-01-15T09:03:11",
+          "last_high": "2024-01-15T17:03:15"
+        },
+        "15": {
+          "high": 1,
+          "first_high": "2024-01-15T13:03:35",
+          "last_high": "2024-01-15T13:03:35"
+        },
+        "20": {
+          "high": 0,
+          "first_high": null,
+          "last_high": null
+        }
+      }
+    },
+    "tuning-2026": {
+      "rated_from": "2026-08-25",
+      "rated_to": "2026-09-25",
+      "baseline_from": "2026-08-25",
+      "baseline_to": "2026-09-25",
+      "baseline_postings": 765,
+      "in_sample": true,
+      "rated": 765,
+      "skipped": 0,
+      "by_margin": {
+        "10": {
+          "high": 92,
+          "first_high": "2026-08-31T00:00:47",
+          "last_high": "2026-09-25T14:00:47"
+        },
+        "15": {
+          "high": 22,
+          "first_high": "2026-09-16T04:00:48",
+          "last_high": "2026-09-25T07:00:45"
+        },
+        "20": {
+          "high": 0,
+          "first_high": null,
+          "last_high": null
+        }
+      }
+    }
+  }
+}
