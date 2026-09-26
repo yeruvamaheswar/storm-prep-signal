@@ -17,6 +17,7 @@ from server.api.archive import event_for_clock
 from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
 from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, read_home_history, table_rollups
+from server.api.operator_settings import persist_mode, table_config
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
 from server.engine.fleet import current_rollups
 from server.engine.fleet_state import write_fleet_mode
@@ -333,8 +334,10 @@ def post_mode(request: Request, body: ModeBody, x_operator_id: Optional[str] = H
     state = _state(request)
     if state.playback:
         raise ApiError(409, "playback_running", "Mode cannot change during playback.")
-    # Persist so the next allocate() and GET /v1/snapshot share this mode.
+    # Local file for this process; table so the laptop live worker sees it.
     write_fleet_mode(body.mode)
+    url, key, timeout_s = table_config()
+    persist_mode(body.mode, url=url, key=key, operator_id=x_operator_id, timeout_s=timeout_s)
     state.mode_requested = body.mode
     return {"mode_requested": body.mode}
 

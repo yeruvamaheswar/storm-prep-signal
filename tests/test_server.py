@@ -18,6 +18,7 @@ def client(monkeypatch):
         "server.api.homes.homes_settings",
         lambda: {"url": "", "key": "", "timeout_s": 3},
     )
+    monkeypatch.setattr("server.api.v1.table_config", lambda: ("", "", 3))
     return TestClient(create_app(FixtureStore()))
 
 
@@ -103,10 +104,31 @@ def test_mode_is_recorded_and_refused_during_playback(client):
 def test_mode_write_persists_to_state(tmp_path, monkeypatch):
     state = tmp_path / "state.json"
     monkeypatch.setattr("server.engine.fleet_state.STATE_PATH", state)
+    monkeypatch.setattr("server.api.v1.table_config", lambda: ("", "", 3))
     client = TestClient(create_app(FixtureStore()))
     res = client.post("/v1/fleet/mode", json={"mode": "HOLD"}, headers=OPERATOR)
     assert res.status_code == 202
     assert json.loads(state.read_text(encoding="utf-8")) == {"mode": "HOLD"}
+
+
+def test_mode_write_upserts_operator_settings(tmp_path, monkeypatch):
+    state = tmp_path / "state.json"
+    monkeypatch.setattr("server.engine.fleet_state.STATE_PATH", state)
+    sent = []
+
+    def fake_persist(mode, url="", key="", operator_id=None, **kwargs):
+        sent.append((mode, operator_id, url, key))
+        return "ok"
+
+    monkeypatch.setattr("server.api.v1.persist_mode", fake_persist)
+    monkeypatch.setattr(
+        "server.api.v1.table_config",
+        lambda: ("https://example.supabase.co", "test-key", 3),
+    )
+    client = TestClient(create_app(FixtureStore()))
+    res = client.post("/v1/fleet/mode", json={"mode": "HOLD"}, headers=OPERATOR)
+    assert res.status_code == 202
+    assert sent == [("HOLD", "op-test", "https://example.supabase.co", "test-key")]
 
 
 def test_playback_start_stop(client):

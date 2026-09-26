@@ -1018,10 +1018,17 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
 
+## 2026-09-26: Persist operator HOLD / AUTO for the live worker
+
+- Named gap: Hold/Auto lived only in `var/state.json`. The wall on Render and the laptop `live_cycle` worker do not share that file, so a wall HOLD never reached `allocate()`.
+- `supabase/migrations/20260926_operator_settings.sql`: one-row `public.operator_settings` (`id=fleet`, `AUTO`|`HOLD`). No default insert. RLS on, no policies.
+- `POST /v1/fleet/mode` still writes `var/state.json`, then best-effort upserts the table. `scripts/live_cycle.py` hydrates the table onto the local file before `loop.run()`, so HOLD delivers 0 on the next tick. The engine never imports Supabase. Empty or failed table leaves the local file.
+- Tests: `tests/test_operator_settings.py`; `tests/test_live_cycle.py` table HOLD overrides local AUTO; `tests/test_server.py` POST upsert. `pytest -q`: 563 passed. Notes: `docs/agents/operator-settings.md`, `docs/humans/operator-settings.md`.
+
 ## 2026-09-26: Charge orders run safely in the runtime (Rajat's lane)
 
 - Found after PR #31: a charge tick (negative kW) went through `orchestrate_tick` as if it were delivery. One 0.2 MW call booked credited -0.515 MW and missed 0.715 MW; with a lossy channel, retries and reassignments charged homes past full (824 cases over 39 seeds). No test set `intent` to charge, so CI stayed green. Live runs charge when the LZ price is at or below $25/MWh.
 - `fleet.room_kw` (room to full, capped by `max_kw`). `HomeWorker.run` caps charge at it (second guard, logs `clamped`); breaches count discharge only, so charging a home under a newly raised floor is not a breach.
 - `orchestration.py`: charge commands sit in `ZoneSupervisor.charges`, sent once, never timed out, retried or reassigned; a home with a charge order is never picked for reassigned work. Reports log `charge_confirmed`. The charge-drop check books the amount nearer zero. Add-only `CycleResult.charged_mw` (positive MW absorbed). Charge stays out of planned, confirmed, credited, `home_confirmed_kw` and rollups; telemetry gets it as negative confirmed kW, so a charging battery is not flagged suspect.
 - Docs: `docs/agents/policy-intent.md` ("How a charge tick runs").
-- Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.164/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q`: 559 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+- Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.164/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q` after merging main: 570 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

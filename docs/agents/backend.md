@@ -65,7 +65,7 @@ pytest -q
 - `GET /v1/live` returns the `CONSOLE_SCENE` fixture, or `playback.json` while a tape is playing.
 - `GET /v1/live/stream` sends scaffold event names `tick`, `attention`, and `home`, plus `feeds`. `home` is a fleet rollup (`live`, `stale`, `dead`, `unconfirmed`, `breaches`), never one row per home. The burst then closes; `createClient().liveStream` falls back to `GET /v1/live`. Live on the wall polls `GET /v1/snapshot` every 20 s instead.
 - `GET /v1/ticks?from=&to=` filters the five tick fixtures by `ts`. Both times need a UTC offset, or the reply is 422.
-- `POST /v1/fleet/mode` writes `AUTO` or `HOLD` to `var/state.json` and returns 202. The route does not allocate. `allocate()` reads that mode on the next tick and delivers 0 on HOLD. `GET /v1/snapshot` overlays `mode` from the same file.
+- `POST /v1/fleet/mode` writes `AUTO` or `HOLD` to `var/state.json` and best-effort upserts `public.operator_settings`, then returns 202. The route does not allocate. `allocate()` reads that mode on the next live tick and delivers 0 on HOLD. `GET /v1/snapshot` overlays `mode` from the local file. Detail: `docs/agents/operator-settings.md`.
 - `POST /v1/attention/{id}` records the choice. A retry marks that attention's retry as spent, and the next `GET /v1/live` shows `retry_spent: true` with choices `approve, skip`. No choice changes the mode.
 - `POST /v1/playback` starts the named tape at tick 0. `POST /v1/playback/stop` clears it.
 - State is in memory and per process. A restart (or a Render free-tier spin-down) returns to live with no playback.

@@ -47,3 +47,4 @@ Open this index, then the one file the task needs.
 | `failure-modes.md` | You are switching on simulated faults (bad network, crashing or lying homes) in a tape or `.env` |
 | `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |
 | `mode-stale-hold.md` | You are changing snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path |
+| `operator-settings.md` | You are changing the operator settings table, the mode POST persist, or how the live worker reads HOLD / AUTO |
