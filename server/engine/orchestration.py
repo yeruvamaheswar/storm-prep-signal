@@ -61,6 +61,10 @@ class CycleResult:
     # both ran). Never credited, never hidden: confirmed + over_delivery = everything heard.
     over_delivery_mw: float = 0.0
     events: list = field(default_factory=list)
+    # Filled only when run_cycle gets a TelemetryState (docs/agents/telemetry-vpp.md R7).
+    plant: dict = field(default_factory=dict)
+    zones: dict = field(default_factory=dict)
+    feed: dict = field(default_factory=dict)
 
 
 class Runtime:
@@ -86,6 +90,7 @@ class Runtime:
         self.suspect = set()       # homes that timed out: kept live, but given no new work
         self.reassigned_to = set() # homes already holding a ":r" command (keeps ids unique)
         self.closed = False
+        self.feed = None           # the TelemetryState for this tick, or None with no feed
 
     def log(self, kind, **data):
         self.sched.log(kind, **data)
@@ -104,6 +109,10 @@ class HomeWorker:
         cmd, rt = msg["command"], self.rt
         if self.home.status == "dead":
             rt.log("home_down", command_id=cmd.command_id, home_id=self.home.home_id)
+            return
+        if rt.feed is not None and rt.feed.offline_now(self.home.home_id):
+            # The battery has lost its link: the order never reaches it.
+            rt.log("home_offline", command_id=cmd.command_id, home_id=self.home.home_id)
             return
         if cmd.command_id in self.seen:
             rt.counts["duplicates_ignored"] += 1
@@ -147,6 +156,8 @@ class HomeWorker:
         if self.fraction < 1.0:
             rt.counts["short_delivery"] += 1
         home.soc_kwh -= actual_kw * rt.settings["tick_minutes"] / 60
+        if rt.feed is not None:
+            rt.feed.record_execution(home.home_id, actual_kw)
         if home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
             rt.counts["breaches"] += 1   # only possible if the clamp above is removed
         rt.log("executed", command_id=cmd.command_id, home_id=home.home_id, actual_kw=actual_kw)
@@ -282,11 +293,31 @@ def build_jobs(homes, plan, rt, fractions):
     return supervisors
 
 
-def run_cycle(homes, frame, policy, mode, settings, seed):
-    """Plan, fan out, wait for the deadlines, and close the books for one tick. Writes no files."""
+def home_books(supervisors):
+    """Per home: confirmed kW this tick, and which homes have a command we never heard back on."""
+    confirmed, unsure = {}, set()
+    for sup in supervisors.values():
+        for cmd in list(sup.shares) + list(sup.children.values()):
+            if cmd.command_id in sup.actual:
+                confirmed[cmd.home_id] = confirmed.get(cmd.home_id, 0.0) + sup.actual[cmd.command_id]
+            else:
+                unsure.add(cmd.home_id)
+    return confirmed, unsure
+
+
+def run_cycle(homes, frame, policy, mode, settings, seed, telemetry=None):
+    """Plan, fan out, wait for the deadlines, and close the books for one tick. Writes no files.
+
+    With a TelemetryState, the plan uses the batteries' reports (never the truth), readings flow
+    until the tick ends at 300 s, and the result carries plant, zones and feed.
+    """
     fractions = short_fractions(frame)
-    plan = allocate(homes, frame, policy, mode, settings)
+    plan_homes = homes if telemetry is None else telemetry.reported_homes(homes)
+    plan = allocate(plan_homes, frame, policy, mode, settings)
     rt = Runtime(settings, policy, frame.tick, seed)
+    if telemetry is not None:
+        telemetry.start_tick(rt.sched, homes)
+        rt.feed = telemetry
     supervisors = build_jobs(homes, plan, rt, fractions)
     for sup in supervisors.values():
         for cmd in sup.shares:
@@ -298,9 +329,17 @@ def run_cycle(homes, frame, policy, mode, settings, seed):
     rt.closed = True
     rt.log("closed")
     books = {zone: sup.close() for zone, sup in supervisors.items()}
+    if telemetry is not None:
+        # Readings keep flowing to the end of the tick, then stop so the drain below can end.
+        rt.sched.run_until(telemetry.tick_s)
+        telemetry.stop()
     # Drain what is still in flight: stragglers can only be logged as late or expired now.
     rt.sched.run_until(math.inf)
-    return build_result(frame, plan, rt, supervisors, books)
+    result = build_result(frame, plan, rt, supervisors, books)
+    if telemetry is not None:
+        confirmed_kw, unsure = home_books(supervisors)
+        telemetry.finish(result, homes, policy, confirmed_kw, unsure)
+    return result
 
 
 def build_result(frame, plan, rt, supervisors, books):

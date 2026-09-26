@@ -204,6 +204,15 @@ class TelemetryState:
         """End of tick: no new reading is scheduled, and one still in flight is discarded."""
         self.stopped = True
 
+    def finish(self, result, homes, policy, confirmed_kw, unsure):
+        """After the drain: fill the result's feed stats, then move our clock to the next tick."""
+        result.feed = {**self.stats, "fault_basis": dict(FAULT_BASIS)}
+        result.events = [e for e in result.events
+                         if not str(e.get("command_id", "")).startswith("telemetry:")]
+        for key, value in self.stats.items():
+            self.totals[key] += value
+        self.base_s += self.tick_s
+
     def _emit(self, home_id):
         if self.stopped:
             return

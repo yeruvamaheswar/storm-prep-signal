@@ -3,8 +3,10 @@ import math
 
 import pytest
 
+from server.engine import orchestration
 from server.engine.contracts import Home, Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
+from server.engine.orchestration import run_cycle
 from server.engine.scheduler import Scheduler
 from server.engine import telemetry as tm
 
@@ -261,3 +263,71 @@ def test_readings_report_power_after_an_execution():
     sched.run_until(math.inf)
     assert state.homes["home-001"].last["power_kw"] == 2.5
     assert state.homes["home-001"].last["charge_state"] == "DISCHARGING"
+
+
+def cycle_with_feed(target_mw=0.2, ticks=1, seed=1, events=None, mode="AUTO", **over):
+    s = settings(**{**QUIET, **FAST, **over})
+    homes = new_fleet(s)
+    state = tm.TelemetryState(homes, s, seed)
+    results = []
+    for tick in range(1, ticks + 1):
+        f = frame(target_mw, events, tick=tick)
+        apply_events(homes, f.events)
+        results.append(run_cycle(homes, f, policy(), mode, s, seed * 100 + tick, telemetry=state))
+    return results, homes, state
+
+
+def test_without_telemetry_the_new_fields_are_empty():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    r = run_cycle(homes, frame(0.2), policy(), "AUTO", s, 1)
+    assert r.plant == {} and r.zones == {} and r.feed == {}
+
+
+def test_the_plan_never_sees_the_simulator_homes(monkeypatch):
+    seen = []
+    real = orchestration.allocate
+
+    def spy(homes, *args):
+        seen.append(list(homes))
+        return real(homes, *args)
+
+    monkeypatch.setattr(orchestration, "allocate", spy)
+    (r,), homes, state = cycle_with_feed()
+    assert seen and all(c is not h for c in seen[0] for h in homes)
+
+
+def test_a_tick_with_the_feed_delivers_and_counts_readings():
+    (r,), homes, state = cycle_with_feed()
+    assert r.credited_mw == pytest.approx(0.2)
+    assert r.breaches == 0
+    assert r.feed["accepted"] > 2900
+    assert state.base_s == state.tick_s
+
+
+def test_telemetry_events_are_kept_out_of_the_result():
+    (r,), homes, state = cycle_with_feed()
+    assert not any(str(e.get("command_id", "")).startswith("telemetry:") for e in r.events)
+    assert any(e["kind"] == "confirmed" for e in r.events)
+
+
+def test_an_offline_home_ignores_orders_then_goes_stale():
+    results, homes, state = cycle_with_feed(target_mw=1.0, ticks=2,
+                                            telemetry_outages={"home-001": [(0.0, 10_000.0)]})
+    first, second = results
+    assert first.command_states.get("home-001:1") == "unconfirmed"
+    assert not any(e["kind"] == "executed" and e.get("home_id") == "home-001" for e in first.events)
+    assert "home-001" not in second.allocation.per_home_kw     # silent 310 s: stale, no work
+
+
+def test_hold_with_feed_sends_nothing_and_flags_nobody():
+    (r,), homes, state = cycle_with_feed(mode="HOLD")
+    assert r.allocation.per_home_kw == {} and r.breaches == 0
+    assert r.feed["accepted"] > 2900
+    assert not any(hs.suspect for hs in state.homes.values())
+
+
+def test_same_seed_same_cycle_with_feed():
+    a = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
+    b = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
+    assert [(x.credited_mw, x.feed) for x in a] == [(y.credited_mw, y.feed) for y in b]
