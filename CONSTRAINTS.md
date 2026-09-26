@@ -32,7 +32,17 @@ If you need something in a file you don't own, like a new dependency, a new sett
 
 ## UI (Sunny). The engine stays the backend.
 
-There is no `storm_prep/screen.py`. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change. The UI does not allocate, set the reserve, or read the brief to make a decision.
+There is no `storm_prep/screen.py`. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change, except the backend set below. The UI does not allocate, set the reserve, or read the brief to make a decision.
+
+## Backend (`server/`)
+
+Approved by Uma on 2026-09-26: `fastapi`, `uvicorn`, and `httpx2` (test client only) join `requirements.txt`. No other dependency is added without the same approval.
+
+- `server/` serves the `/v1` API in `docs/agents/plans/operator-console.md`. That plan's contracts are the API contract. Fields may be added, never renamed.
+- The server does not allocate, rate risk, or set a reserve floor. Those stay in `storm_prep/`. The server only reads their output and records operator writes.
+- No write returns the fleet to `AUTO` or normal selling over a bad reading.
+- Every `POST` needs `X-Operator-Id`. A refused write is `{ "error", "brief" }`.
+- Details for agents: `docs/agents/backend.md`.
 
 How they connect:
 

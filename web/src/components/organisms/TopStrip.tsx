@@ -1,3 +1,4 @@
+import { healthText, type ApiHealth } from "../../api/health"
 import { riskCaption } from "../../calmStreak"
 import type { TickView } from "../../contracts"
 import { feedChip, formatGridMw, formatMw, formatPrice, formatSignedGridMw, formatTs, modeName, riskName } from "../../format"
@@ -12,9 +13,25 @@ type TopStripProps = {
   tickCount: number
   calm: number
   sceneLabel?: string
+  api: ApiHealth
 }
 
-export function TopStrip({ tick, runId, tickCount, calm, sceneLabel }: TopStripProps) {
+function apiTone(api: ApiHealth): string {
+  switch (api.state) {
+    case "checking":
+      return "api-status"
+    case "ok":
+      return "api-status tone-ok"
+    case "down":
+      return "api-status tone-dead"
+    default: {
+      const unreachable: never = api
+      return unreachable
+    }
+  }
+}
+
+export function TopStrip({ tick, runId, tickCount, calm, sceneLabel, api }: TopStripProps) {
   const missed = tick.missed_mw > 0
   const floorTone = tick.policy_reason === "normal" ? "ink" : "reserved"
   const riskTone = tick.risk_level === "HIGH" ? "reserved" : tick.risk_level === "LOW" ? "ok" : "dead"
@@ -34,6 +51,10 @@ export function TopStrip({ tick, runId, tickCount, calm, sceneLabel }: TopStripP
           {modeName(tick.mode)}
           <span className="mast-gap" />
           <span className="run-id">{runId}</span>
+          <span className="mast-gap" />
+          <span className={apiTone(api)} role="status">
+            {healthText(api)}
+          </span>
         </p>
       </div>
       <div key={tick.tick}>

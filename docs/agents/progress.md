@@ -234,3 +234,25 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - One real run, 09:58 CT: `jev-1.13.0`, sample input, yes, P(yes)=0.67, 292 ms. Key not in the
   output file (checked without printing it). A blank `JEV_API_KEY` exits 1 with
   "JEV_API_KEY is not set in .env". `pytest -q`: 30 passed. Not committed.
+
+## 2026-09-26: FastAPI backend scaffold
+
+- Uma approved `fastapi`, `uvicorn`, and `httpx2` (test client) in `requirements.txt`. Recorded in
+  `CONSTRAINTS.md` ("Backend") and `working-rules.md`.
+- New `server/` package (`app.py`, `v1.py`, `fixtures.py`): every `/v1` route from
+  `plans/operator-console.md`, reading `web/src/fixtures/console/*.json` (new `zone.json`). Writes
+  change in-memory state only; no write changes the mode. `/health` for Render.
+- `render.yaml`: one Python web service, `uvicorn server.app:app --host 0.0.0.0 --port $PORT`.
+- `tests/test_server.py` (13 tests). `pytest -q`: 43 passed. uvicorn smoke-tested locally with curl
+  (health, zone, CORS preflight, 401 without operator). Not deployed to Render yet.
+- Notes: `docs/agents/backend.md`, `docs/humans/backend.md`.
+
+## 2026-09-26: Wall talks to the API (`GET /health`)
+
+- Backend health route renamed `/healthz` to `/health` (`server/app.py`, `render.yaml`, tests).
+- `web/src/api/health.ts` (`apiBaseUrl`, `checkHealth`, `healthText`, `useApiHealth`); the masthead
+  line in `TopStrip` shows `api ok` / `api down · <reason>` / `api checking`. New `VITE_API_BASE_URL`.
+- `web/vite.config.ts` proxies `/health` and `/v1` to `localhost:8000` (dev and preview).
+- `web/tests/health.test.ts` (6 tests). `npx vitest run`: 71 passed. `tsc --noEmit` clean.
+  `pytest -q`: 43 passed. Checked in the browser: `API OK` with uvicorn up, `api down · http 500`
+  with it stopped.

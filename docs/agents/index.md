@@ -13,6 +13,7 @@ Open this index, then the one file the task needs.
 | `reservegate.md` | You need the hackathon build plan and the frozen tick |
 | `plan-of-attack.md` | Same build plan as `reservegate.md` |
 | `plans/operator-console.md` | You are designing the operator console past the hackathon data limits |
+| `backend.md` | You are changing `server/`, the `/v1` API, or the Render deploy |
 | `plans/operator-console-prompts.md` | You are launching a parallel agent to build that console |
 | `stress-strip.md` | You are changing the Storm Prep numbers under the wall metrics |
 | `calm-meter.md` | You are changing the calm N/2 meter or the Risk caption on the wall |
