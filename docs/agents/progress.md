@@ -948,3 +948,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - New `tapes/failures.json`: the demo tape plus faults on ticks 3 (40% lost), 5 (five homes crash), 7 (two misreport), 9 (60% lost). 0 floor breaches; recovers to 0.2 of 0.2 on ticks 10-11.
 - Docs: new `docs/agents/failure-modes.md`, `docs/humans/failure-modes.md`, index line; `contracts.py` events comment; code-flow tape node.
 - Tests: 10 in `tests/test_orchestration.py`, 2 in `tests/test_run.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 434 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: A tape run writes nothing under the repo's var/
+
+- `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked, each run with cwd set to its own fresh folder under `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.164 of 0.317 MWh, 0 breaches, 1 hold tick.
+- Each run gets its own folder because a run reloads the last run's `var/fleet/homes.json` (the fleet-persist decision in `docs/agents/fleet-rollups.md`). Two runs in one folder: the second starts drained and delivers 0.128 MWh. That is intended, so the test checks a fresh start, not carry-over.
+- The tape's `risk_fixture` paths are relative to cwd. Without copies, every tick fails safe and the demo delivers 0.076 MWh. The test copies the fixture files that exist into each folder.
+- Settings the demo reads, including the `CHANNEL_*` rates, are pinned in the test, because `read_settings()` loads the repo `.env` whatever the cwd.
+- No `server/` change. `pytest -q`: 486 passed after merging main.
