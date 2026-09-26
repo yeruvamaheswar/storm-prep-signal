@@ -664,3 +664,16 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   gives an identical run.
 - Not in the ownership table yet: `orchestration.py`, `scheduler.py`, `channel.py` and their tests
   (ask for Uma). Details: `docs/agents/epic-3-controller.md`.
+
+## 2026-09-26: Charge-drop consistency check (Rajat)
+
+- `server/engine/orchestration.py`: each worker records how much its home's charge really fell per
+  command (`rt.dropped`). When a report arrives, the zone supervisor compares the reported kWh with
+  that drop. More than `CHARGE_TOLERANCE_KWH` (1e-6) apart: log `charge_mismatch` (reported_kwh,
+  dropped_kwh), count it, add reason `charge_mismatch:<n>`, and book the smaller of the two. A home
+  is never credited above what its battery gave. Honest reports book unchanged.
+- Test hook `_misreport` (home_id to factor) makes a worker lie; off by default, so the runner's
+  output for a seed is byte-identical to before. Mismatching homes are not marked suspect.
+- Tests: new cases in `tests/test_orchestration.py` and `tests/test_failures.py`; the fuzzer mixes
+  in misreporting workers and checks no home is booked above its charge drop.
+  `pytest -q`: 316 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.

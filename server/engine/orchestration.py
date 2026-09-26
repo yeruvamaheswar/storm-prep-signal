@@ -29,7 +29,9 @@ from server.engine.scheduler import Scheduler
 
 OUT_DIR = Path("var") / "orchestration"
 COUNTERS = ("breaches", "timed_out", "retried", "reassigned", "duplicates_ignored", "late",
-            "short_delivery", "over_delivery")
+            "short_delivery", "over_delivery", "charge_mismatch")
+# A report whose kWh differs from the home's real charge drop by more than this is a mismatch.
+CHARGE_TOLERANCE_KWH = 1e-6
 
 
 @dataclass
@@ -80,6 +82,9 @@ class Runtime:
         self.worker_delay_s = tuple(settings.get("worker_delay_s", (1.0, 30.0)))
         # Test hook: these homes' workers raise, to prove the worker boundary contains it.
         self.fail_ids = set(settings.get("_fail_home_ids", ()))
+        # Test hook: home_id to a factor these workers multiply their reported kW by (a lie).
+        self.misreport = dict(settings.get("_misreport", {}))
+        self.dropped = {}          # command_id to kWh the home's charge really fell for it
         self.counts = dict.fromkeys(COUNTERS, 0)
         self.workers = {}          # home_id to HomeWorker
         self.planned_kw = {}       # home_id to kW from the plan (used to find spare headroom)
@@ -146,11 +151,14 @@ class HomeWorker:
         actual_kw = kw * self.fraction
         if self.fraction < 1.0:
             rt.counts["short_delivery"] += 1
+        soc_before = home.soc_kwh
         home.soc_kwh -= actual_kw * rt.settings["tick_minutes"] / 60
+        rt.dropped[cmd.command_id] = soc_before - home.soc_kwh
         if home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
             rt.counts["breaches"] += 1   # only possible if the clamp above is removed
         rt.log("executed", command_id=cmd.command_id, home_id=home.home_id, actual_kw=actual_kw)
-        return {"command_id": cmd.command_id, "home_id": home.home_id, "actual_kw": actual_kw}
+        reported_kw = actual_kw * rt.misreport.get(home.home_id, 1.0)
+        return {"command_id": cmd.command_id, "home_id": home.home_id, "actual_kw": reported_kw}
 
     def send_report(self, report):
         self.rt.channel.send(report, self.supervisor.on_report)
@@ -182,9 +190,24 @@ class ZoneSupervisor:
         if command_id in self.actual:
             rt.log("report_repeat", command_id=command_id)   # a copy of a report already booked
             return
-        self.actual[command_id] = msg["actual_kw"]
+        actual_kw = self.check_charge_drop(msg)
+        self.actual[command_id] = actual_kw
         self.states[command_id] = "confirmed"
-        rt.log("confirmed", command_id=command_id, home_id=msg["home_id"], actual_kw=msg["actual_kw"])
+        rt.log("confirmed", command_id=command_id, home_id=msg["home_id"], actual_kw=actual_kw)
+
+    def check_charge_drop(self, msg):
+        """The kW to book for a report: what it says, unless the home's charge fell by less.
+
+        The drop is read from the runtime (what the battery did), never from the message.
+        """
+        rt, hours = self.rt, self.rt.settings["tick_minutes"] / 60
+        reported_kwh, dropped_kwh = msg["actual_kw"] * hours, rt.dropped[msg["command_id"]]
+        if abs(reported_kwh - dropped_kwh) <= CHARGE_TOLERANCE_KWH:
+            return msg["actual_kw"]
+        rt.counts["charge_mismatch"] += 1
+        rt.log("charge_mismatch", command_id=msg["command_id"], home_id=msg["home_id"],
+               reported_kwh=reported_kwh, dropped_kwh=dropped_kwh)
+        return min(reported_kwh, dropped_kwh) / hours
 
     def check_deadline(self):
         """At 60 s: every planned command still unconfirmed gets one retry and one reassignment.
@@ -313,7 +336,7 @@ def build_result(frame, plan, rt, supervisors, books):
     missed_mw = frame.target_mw - credited_mw
     c = rt.counts
     reasons = list(plan.reasons)
-    for code in ("timed_out", "duplicates_ignored", "short_delivery", "over_delivery"):
+    for code in ("timed_out", "duplicates_ignored", "short_delivery", "over_delivery", "charge_mismatch"):
         if c[code]:
             reasons.append(f"{code}:{c[code]}")
     states = {}

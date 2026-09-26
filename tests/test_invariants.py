@@ -2,7 +2,7 @@
 
 How it works: for each seed 1..N (N from the env var FUZZ_SEEDS, default 30) we build one random
 world from random.Random(seed) (fleet size, per-zone floors that move mid-run, target, channel
-faults, dead and stale homes, whole-zone kills, short deliveries, crashing workers), run 12 ticks of run_cycle, and check the PRD rules after
+faults, dead and stale homes, whole-zone kills, short deliveries, crashing and misreporting workers), run 12 ticks of run_cycle, and check the PRD rules after
 every tick. The only randomness is the seeded Random, so a failing seed fails the same way forever.
 
 Rerun one seed (prints one line per tick, raises on the first broken rule):
@@ -33,6 +33,7 @@ from server.engine.orchestration import run_cycle
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 TICKS = 12
+TICK_MINUTES = 5
 EPS = 1e-9
 # Event kinds the runtime logs when a worker actually runs a command. A worker_error is a run
 # that crashed part way, so it counts as an execution too: a command must never be tried twice.
@@ -49,7 +50,7 @@ def base_settings(rng):
         "fleet_size": rng.randint(20, 120), "home_kwh": 20.0, "home_max_kw": 5.0,
         "home_start_soc_min_pct": 45.0, "home_start_soc_max_pct": 75.0,
         "base_reserve_pct": 30.0, "storm_reserve_pct": 60.0,
-        "tick_minutes": 5, "zones": ZONES,
+        "tick_minutes": TICK_MINUTES, "zones": ZONES,
         "channel_drop_rate": rng.uniform(0.0, 0.5),
         "channel_dup_rate": rng.uniform(0.0, 0.5),
         "channel_late_rate": rng.uniform(0.0, 0.3),
@@ -110,6 +111,15 @@ def check_tick(seed, tick, result, homes, policy, before, status_before, target_
     assert abs(result.confirmed_mw + result.over_delivery_mw - heard) <= EPS, \
         f"{at}: confirmed {result.confirmed_mw} + over {result.over_delivery_mw} != heard {heard}"
 
+    # Honest books under misreporting: no home is booked for more kWh than its charge dropped.
+    booked = {}
+    for e in result.events:
+        if e["kind"] == "confirmed":
+            booked[e["home_id"]] = booked.get(e["home_id"], 0.0) + e["actual_kw"] * TICK_MINUTES / 60
+    for home_id, kwh in booked.items():
+        dropped = before[home_id] - next(h for h in homes if h.home_id == home_id).soc_kwh
+        assert kwh <= dropped + EPS, f"{at}: {home_id} booked {kwh} kWh but dropped only {dropped}"
+
     # Work only moves to a home that answered on time, never to one that timed out.
     timed_out = {e["home_id"] for e in result.events if e["kind"] == "timed_out"}
     moved_to = {e["home_id"] for e in result.events if e["kind"] == "reassigned"}
@@ -151,6 +161,11 @@ def run_scenario(seed, verbose=False):
     if rng.random() < 0.5:
         ids = [h.home_id for h in homes]
         settings["_fail_home_ids"] = rng.sample(ids, rng.randint(1, max(1, len(ids) // 10)))
+    if rng.random() < 0.5:
+        # Some workers misreport what they gave (0.5x to 2x); the books must still follow the charge.
+        ids = [h.home_id for h in homes]
+        liars = rng.sample(ids, rng.randint(1, max(1, len(ids) // 10)))
+        settings["_misreport"] = {home_id: rng.uniform(0.5, 2.0) for home_id in liars}
     for tick in range(1, TICKS + 1):
         # Sometimes one zone's floor moves mid-run (a weather alert starts or ends), so homes
         # already below a newly raised floor must get nothing and not count as breaches.

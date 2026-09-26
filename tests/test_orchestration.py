@@ -76,6 +76,10 @@ def check_books(result, target_mw):
     heard = sum(e["actual_kw"] for e in kinds(result, "confirmed")) / 1000
     assert result.over_delivery_mw >= 0
     assert result.confirmed_mw + result.over_delivery_mw == pytest.approx(heard, abs=eps)
+    # No command is booked above what its battery actually gave.
+    ran = {e["command_id"]: e["actual_kw"] for e in kinds(result, "executed")}
+    for e in kinds(result, "confirmed"):
+        assert e["actual_kw"] <= ran[e["command_id"]] + eps
 
 
 # --- determinism and the happy path ------------------------------------------
@@ -178,6 +182,38 @@ def test_short_delivery_is_booked_at_what_the_home_actually_gave():
     assert report["actual_kw"] == pytest.approx(kw * 0.5)
     assert "short_delivery:1" in result.allocation.reasons
     check_books(result, f.target_mw)
+
+
+def test_an_overstated_report_is_flagged_and_booked_at_the_real_charge_drop():
+    honest, _, _ = cycle(0.2, **FAST)
+    result, _, f = cycle(0.2, _misreport={"home-010": 2.0}, **FAST)
+    kw = result.allocation.per_home_kw["home-010"]
+    [mismatch] = kinds(result, "charge_mismatch")
+    assert mismatch["command_id"] == "home-010:1" and mismatch["home_id"] == "home-010"
+    assert mismatch["dropped_kwh"] == pytest.approx(kw * 5 / 60)
+    assert mismatch["reported_kwh"] == pytest.approx(2 * kw * 5 / 60)
+    assert "charge_mismatch:1" in result.allocation.reasons
+    report = [e for e in kinds(result, "confirmed") if e["command_id"] == "home-010:1"][0]
+    assert report["actual_kw"] == pytest.approx(kw)   # the battery's real kW, not the claim
+    assert result.confirmed_mw == pytest.approx(honest.confirmed_mw)
+    check_books(result, f.target_mw)
+
+
+def test_an_understated_report_is_flagged_and_booked_at_what_was_reported():
+    result, _, f = cycle(0.2, _misreport={"home-010": 0.5}, **FAST)
+    kw = result.allocation.per_home_kw["home-010"]
+    [mismatch] = kinds(result, "charge_mismatch")
+    assert mismatch["reported_kwh"] == pytest.approx(0.5 * mismatch["dropped_kwh"])
+    report = [e for e in kinds(result, "confirmed") if e["command_id"] == "home-010:1"][0]
+    assert report["actual_kw"] == pytest.approx(kw * 0.5)
+    assert "charge_mismatch:1" in result.allocation.reasons
+    check_books(result, f.target_mw)
+
+
+def test_honest_reports_raise_no_charge_mismatch():
+    result, _, _ = cycle(0.2, channel_dup_rate=1.0, events={"short_delivery": {"home-010": 0.5}}, **FAST)
+    assert not kinds(result, "charge_mismatch")
+    assert not any(r.startswith("charge_mismatch") for r in result.allocation.reasons)
 
 
 def test_short_delivery_outside_zero_to_one_is_rejected():
