@@ -1,11 +1,11 @@
-"""Tests for server/engine/orchestration.py: run_cycle fans commands out and closes on a deadline."""
+"""Tests for server/engine/orchestration.py: orchestrate_tick fans commands out and closes on a deadline."""
 from dataclasses import asdict
 
 import pytest
 
 from server.engine.contracts import Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import run_cycle
+from server.engine.orchestration import orchestrate_tick
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 
@@ -41,7 +41,7 @@ def cycle(target_mw=0.2, seed=1, events=None, **over):
     homes = new_fleet(s)
     f = frame(target_mw, events)
     apply_events(homes, f.events)
-    return run_cycle(homes, f, policy(), "AUTO", s, seed), homes, f
+    return orchestrate_tick(homes, f, policy(), "AUTO", s, seed), homes, f
 
 
 def planned(result):
@@ -276,7 +276,7 @@ def test_work_is_never_reassigned_to_a_home_that_also_timed_out():
 def test_hold_sends_nothing_and_still_closes():
     s = settings()
     homes = new_fleet(s)
-    result = run_cycle(homes, frame(0.2), policy(), "HOLD", s, 1)
+    result = orchestrate_tick(homes, frame(0.2), policy(), "HOLD", s, 1)
     assert result.command_states == {} and result.credited_mw == 0
     assert result.allocation.reasons == ["operator_hold"]
     check_books(result, 0.2)

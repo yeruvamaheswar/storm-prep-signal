@@ -9,7 +9,7 @@ In-tick timeline (virtual seconds):
     60   unconfirmed commands are timed_out: one retry (same id), one reassignment (new id)
     120  the books close; anything that arrives later is logged as late and never counted
 
-run_cycle writes no files. The runner at the bottom plays a tape and writes var/orchestration/.
+orchestrate_tick writes no files. The runner at the bottom plays a tape and writes var/orchestration/.
 """
 import argparse
 import json
@@ -305,7 +305,7 @@ def build_jobs(homes, plan, rt, fractions):
     return supervisors
 
 
-def run_cycle(homes, frame, policy, mode, settings, seed):
+def orchestrate_tick(homes, frame, policy, mode, settings, seed):
     """Plan, fan out, wait for the deadlines, and close the books for one tick. Writes no files."""
     fractions = short_fractions(frame)
     plan = allocate(homes, frame, policy, mode, settings)
@@ -383,7 +383,7 @@ def tick_line(frame, result):
 
 
 def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR):
-    """Play every frame through run_cycle, print one line per tick, write one JSON file."""
+    """Play every frame through orchestrate_tick, print one line per tick, write one JSON file."""
     settings = read_settings()
     settings["seed"] = seed
     policy = build_policy(floor, settings)
@@ -393,7 +393,7 @@ def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR):
         apply_events(homes, frame.events)
         mode = frame.events.get("operator", mode)   # HOLD/AUTO stays until the tape changes it
         # A different seed per tick, so each tick sees its own faults, still fixed by --seed.
-        result = run_cycle(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick)
+        result = orchestrate_tick(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick)
         print(tick_line(frame, result))
         ticks.append({"tick": frame.tick, "ts": frame.ts, "mode": mode, "target_mw": frame.target_mw,
                       "target_label": frame.target_label, **asdict(result)})

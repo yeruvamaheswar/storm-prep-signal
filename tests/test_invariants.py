@@ -2,7 +2,7 @@
 
 How it works: for each seed 1..N (N from the env var FUZZ_SEEDS, default 30) we build one random
 world from random.Random(seed) (fleet size, per-zone floors that move mid-run, target, channel
-faults, dead and stale homes, whole-zone kills, short deliveries, crashing and misreporting workers), run 12 ticks of run_cycle, and check the PRD rules after
+faults, dead and stale homes, whole-zone kills, short deliveries, crashing and misreporting workers), run 12 ticks of orchestrate_tick, and check the PRD rules after
 every tick. The only randomness is the seeded Random, so a failing seed fails the same way forever.
 
 Rerun one seed (prints one line per tick, raises on the first broken rule):
@@ -29,7 +29,7 @@ import random
 
 from server.engine.contracts import Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import run_cycle
+from server.engine.orchestration import orchestrate_tick
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 TICKS = 12
@@ -178,7 +178,7 @@ def run_scenario(seed, verbose=False):
         before = {h.home_id: h.soc_kwh for h in homes}
         status_before = {h.home_id: h.status for h in homes}
         # A distinct seed per tick, so each tick draws its own faults, all fixed by `seed`.
-        result = run_cycle(homes, frame, policy, "AUTO", settings, seed * 1000 + tick)
+        result = orchestrate_tick(homes, frame, policy, "AUTO", settings, seed * 1000 + tick)
         if verbose:
             print(f"seed {seed} tick {tick}: target {target_mw:.3f} planned "
                   f"{sum(result.zone_planned_mw.values()):.3f} confirmed {result.confirmed_mw:.3f} "

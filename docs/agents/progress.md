@@ -689,3 +689,15 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests: new cases in `tests/test_orchestration.py` and `tests/test_failures.py`; the fuzzer mixes
   in misreporting workers and checks no home is booked above its charge drop.
   `pytest -q`: 316 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
+
+## 2026-09-26: `orchestration.run_cycle` renamed to `orchestrate_tick` (Rajat)
+
+- `scripts/live_cycle.py` has its own `run_cycle(settings)` (the live worker). To stop the two being
+  confused, the orchestrator's entry point is now `orchestrate_tick(homes, frame, policy, mode,
+  settings, seed) -> CycleResult`. Same arguments, same behavior. `run_cycle` now means only the
+  live worker.
+- Updated: `server/engine/orchestration.py`, `server/engine/fleet.py` (comment),
+  `tests/test_{orchestration,failures,invariants}.py`, `docs/agents/epic-3-controller.md`.
+- Still say `orchestration.run_cycle` (Sunny's files, not edited): `server/engine/supervisor.py`
+  line 12 comment, `docs/agents/zone-acks.md` line 7.
+- `pytest -q`: 327 passed. Runner output unchanged.
