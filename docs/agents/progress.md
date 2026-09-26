@@ -823,3 +823,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Demo tape: tick 4 now reads `Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert); timed out 1; duplicates ignored 1; over delivery 1.` The other 11 lines are byte-identical.
 - Not done: the wall's TypeScript twin `tickBrief` in `web/src/format.ts` (Live rail) does not name the zone yet.
 - Tests: 2 in `tests/test_brief.py`, 1 demo-tape test in `tests/test_replay_offline.py`. `pytest -q`: 408 passed.
+
+## 2026-09-26: Per-zone dollars at each zone's recorded market price (Rajat's lane; OK'd in person)
+
+- `contracts.py` (add-only): `TapeFrame.zone_prices` / `zone_price_label` and the same two on `TickResult`. Same name and meaning as the snapshot's `zone_prices`.
+- `loop.py`: copies the frame's zone prices to each tick in a tape run; `--live` leaves them empty so a recorded price is never shown as now.
+- `score.py`: `totals.by_zone[zone]` gains `dollars` and `dollars_label` at that zone's own price (reuses `add_dollars`); a zone with no price stays `None`, never another zone's price.
+- `scripts/build_tape.py` records LZ_HOUSTON, LZ_NORTH, LZ_SOUTH, LZ_WEST per frame (zone names from `server/api/prices.LOAD_ZONE_POINTS`). `tapes/heather.json` rebuilt: 145 frames, all four zones priced; the Houston zone price equals the old single price on every frame. Widest spread 2024-01-15 18:15 CT: South $291.18, West $6.34. West dips to -$1.99 once (a real negative price).
+- Heather replay: zones add to $126.50; the fleet `dollars` (every MWh at the LZ_HOUSTON price, as before) is $87.00. Unchanged here; see the PR.
+- Docs: `docs/agents/price-live.md`, `docs/agents/code-flow.md` (totals shape).
+- `pytest -q`: 417 passed after merging main.

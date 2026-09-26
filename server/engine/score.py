@@ -47,7 +47,7 @@ def update(board, result, homes=None):
     board["hold_ticks"] += result.mode == "HOLD"
     board["breaches"] += result.breaches
     add_dollars(board, delivered_mwh, result.price_usd_mwh, result.price_label)
-    add_zones(board, result.zone_delivered_mw, hours)
+    add_zones(board, result, hours)
     if homes is not None:
         track_lowest_soc(board, homes)
     return board
@@ -65,11 +65,16 @@ def add_dollars(board, delivered_mwh, price, label):
         board["dollars_label"] = "mixed"
 
 
-def add_zones(board, zone_delivered_mw, hours):
-    """Per-zone delivered MWh. The target is fleet-wide, so zones only track delivery."""
-    for zone, mw in zone_delivered_mw.items():
-        entry = board["by_zone"].setdefault(zone, {"delivered_mwh": 0.0})
+def add_zones(board, result, hours):
+    """Per-zone delivered MWh, and dollars at that zone's own price. The target is fleet-wide.
+
+    A zone with no price this tick adds no dollars. It never borrows another zone's price.
+    """
+    for zone, mw in result.zone_delivered_mw.items():
+        entry = board["by_zone"].setdefault(
+            zone, {"delivered_mwh": 0.0, "dollars": None, "dollars_label": "none"})
         entry["delivered_mwh"] += mw * hours
+        add_dollars(entry, mw * hours, result.zone_prices.get(zone), result.zone_price_label)
 
 
 def track_lowest_soc(board, homes):

@@ -8,7 +8,8 @@ from server.engine.contracts import Home, TickResult
 from server.engine.score import new_board, update
 
 
-def tick(n, target, delivered, price=50.0, label="synthetic", breaches=0, zones=None, mode="AUTO"):
+def tick(n, target, delivered, price=50.0, label="synthetic", breaches=0, zones=None, mode="AUTO",
+         zone_prices=None, zone_price_label="none"):
     # A TickResult with only the fields the scoreboard reads set to interesting values.
     return TickResult(
         tick=n, ts=f"2026-02-01T00:{n * 5:02d}:00-06:00", mode=mode,
@@ -18,6 +19,7 @@ def tick(n, target, delivered, price=50.0, label="synthetic", breaches=0, zones=
         reserve_pct=30.0, policy_reason="normal", risk_level="LOW",
         live_homes=100, stale_homes=0, dead_homes=0,
         breaches=breaches, zone_delivered_mw=zones or {},
+        zone_prices=zone_prices or {}, zone_price_label=zone_price_label,
     )
 
 
@@ -125,6 +127,52 @@ def test_by_zone_sums_delivered_per_zone():
     assert board["by_zone"]["Houston"]["delivered_mwh"] == pytest.approx(0.36 / 12)
     assert board["by_zone"]["North"]["delivered_mwh"] == pytest.approx(0.36 / 12)
     assert board["by_zone"]["West"]["delivered_mwh"] == pytest.approx(0.48 / 12)
+
+
+REC = "recorded:ERCOT NP6-905-CD"
+
+
+def test_each_zone_earns_at_its_own_price_by_hand():
+    # 0.6 MW in Houston at $900 and 0.6 MW in West at $60, one 5-minute tick each (0.05 MWh).
+    board = update(new_board(), tick(1, 1.2, 1.2, zones={"Houston": 0.6, "West": 0.6},
+                                     zone_prices={"Houston": 900.0, "West": 60.0}, zone_price_label=REC))
+    assert board["by_zone"]["Houston"]["dollars"] == pytest.approx(45.0)  # 0.05 x 900
+    assert board["by_zone"]["West"]["dollars"] == pytest.approx(3.0)      # 0.05 x 60
+    assert board["by_zone"]["Houston"]["dollars_label"] == REC
+    board = update(board, tick(2, 0.6, 0.6, zones={"Houston": 0.6},
+                               zone_prices={"Houston": 100.0, "West": 60.0}, zone_price_label=REC))
+    assert board["by_zone"]["Houston"]["dollars"] == pytest.approx(50.0)  # + 0.05 x 100
+    assert board["by_zone"]["West"]["dollars"] == pytest.approx(3.0)
+
+
+def test_a_zone_without_a_price_has_unknown_dollars_never_another_zones_price():
+    board = update(new_board(), tick(1, 1.2, 1.2, price=40.0, zones={"Houston": 0.6, "North": 0.6},
+                                     zone_prices={"Houston": 900.0}, zone_price_label=REC))
+    assert board["by_zone"]["North"]["dollars"] is None
+    assert board["by_zone"]["North"]["dollars_label"] == "none"
+    assert board["by_zone"]["North"]["delivered_mwh"] == pytest.approx(0.05)
+    assert board["by_zone"]["Houston"]["dollars"] == pytest.approx(45.0)
+    # A later tick with a North price starts North's dollars from that tick only.
+    board = update(board, tick(2, 0.6, 0.6, zones={"North": 0.6},
+                               zone_prices={"North": 20.0}, zone_price_label=REC))
+    assert board["by_zone"]["North"]["dollars"] == pytest.approx(1.0)
+    assert board["by_zone"]["North"]["dollars_label"] == REC
+
+
+def test_ticks_with_no_zone_prices_leave_zone_dollars_unknown():
+    board = update(new_board(), tick(1, 0.6, 0.6, price=50.0, zones={"Houston": 0.6}))
+    assert board["by_zone"]["Houston"]["dollars"] is None
+    assert board["by_zone"]["Houston"]["dollars_label"] == "none"
+    # The fleet-wide figure still uses the tick's one price, as before.
+    assert board["dollars"] == pytest.approx(2.5)
+
+
+def test_zone_price_sources_that_differ_are_labeled_mixed():
+    board = update(new_board(), tick(1, 0.6, 0.6, zones={"Houston": 0.6},
+                                     zone_prices={"Houston": 30.0}, zone_price_label=REC))
+    board = update(board, tick(2, 0.6, 0.6, zones={"Houston": 0.6},
+                               zone_prices={"Houston": 30.0}, zone_price_label="ercot"))
+    assert board["by_zone"]["Houston"]["dollars_label"] == "mixed"
 
 
 def test_update_does_not_change_the_board_passed_in():

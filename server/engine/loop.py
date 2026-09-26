@@ -208,6 +208,9 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         else:
             priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
                       "price_as_of": None}
+        # Recorded zone prices belong to the tape's moment. A live run never shows them as now.
+        zone_prices = {} if live else dict(frame.zone_prices)
+        zone_price_label = "none" if live or not zone_prices else frame.zone_price_label
         # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
         policy = reserve_policy(
             risk, settings, alerted, mode=mode,
@@ -238,6 +241,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             zone_acks=zone_acks(homes, cycle),
             intent=policy.intent,
             intent_reason=policy.intent_reason,
+            zone_prices=zone_prices,
+            zone_price_label=zone_price_label,
         )
         board = update(board, result, homes)
         brief = write_brief(result)

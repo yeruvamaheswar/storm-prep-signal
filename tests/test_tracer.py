@@ -17,7 +17,7 @@ TAPE = ROOT / "tests" / "fixtures" / "tape_tiny.json"
 STORM_REASONS = ("storm_risk_high", "signal_unavailable")
 
 
-def traced(tmp_path, monkeypatch, **over):
+def traced(tmp_path, monkeypatch, tape=TAPE, **over):
     """Run the engine and remember the fleet and each tick's floor check."""
     # The tape's risk_fixture paths are relative to the repo root (same as test_engine.py).
     monkeypatch.chdir(ROOT)
@@ -44,7 +44,7 @@ def traced(tmp_path, monkeypatch, **over):
     monkeypatch.setattr(engine, "orchestrate_tick", orchestrate_tick)
     runs_dir = tmp_path / "runs"
     settings = {**read_settings(), **over}
-    record = engine.run(TAPE, settings, log_dir=tmp_path / "logs", runs_dir=runs_dir)
+    record = engine.run(tape, settings, log_dir=tmp_path / "logs", runs_dir=runs_dir)
     return record, runs_dir, seen
 
 
@@ -113,3 +113,30 @@ def test_lost_orders_are_unconfirmed_and_never_counted_as_delivered(tmp_path, mo
     assert sum(calm["zone_delivered_mw"].values()) == pytest.approx(calm["delivered_mw"])
     assert [t["breaches"] for t in record["ticks"]] == [0, 0, 0]
     assert seen["floor_ok"] == [True, True, True]
+
+
+ZONE_PRICES = {"Houston": 900.0, "North": 40.0, "South": 55.0, "West": 20.0}
+
+
+def test_tape_zone_prices_reach_each_tick_and_price_each_zones_dollars(tmp_path, monkeypatch):
+    data = json.loads(TAPE.read_text())
+    for frame in data["frames"]:
+        frame["zone_prices"] = ZONE_PRICES
+        frame["zone_price_label"] = "recorded:ERCOT NP6-905-CD"
+    tape = tmp_path / "tape_zone_prices.json"
+    tape.write_text(json.dumps(data))
+    record, _, _ = traced(tmp_path, monkeypatch, tape=tape)
+    hours = record["totals"]["tick_minutes"] / 60
+    for tick in record["ticks"]:
+        assert tick["zone_prices"] == ZONE_PRICES
+        assert tick["zone_price_label"] == "recorded:ERCOT NP6-905-CD"
+    for zone, entry in record["totals"]["by_zone"].items():
+        mwh = sum(t["zone_delivered_mw"].get(zone, 0.0) for t in record["ticks"]) * hours
+        assert entry["dollars"] == pytest.approx(mwh * ZONE_PRICES[zone])
+        assert entry["dollars_label"] == "recorded:ERCOT NP6-905-CD"
+
+
+def test_a_tape_without_zone_prices_leaves_them_empty(traced_run):
+    record, _, _ = traced_run
+    assert all(t["zone_prices"] == {} and t["zone_price_label"] == "none" for t in record["ticks"])
+    assert all(e["dollars"] is None for e in record["totals"]["by_zone"].values())
