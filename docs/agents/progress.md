@@ -839,3 +839,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `score.py`: on a tick with `zone_prices` where every delivering zone is priced, the fleet `dollars` adds the zone dollars (label `zone_price_label`); a zone-priced tick that delivered nothing adds $0 under that label. Otherwise the tick's one price, as before. New `add_usd` helper shared by fleet and zones.
 - Heather replay: fleet `dollars` $126.50 `recorded:ERCOT NP6-905-CD`, equal to the four zones (was $87.00 at LZ_HOUSTON only). Demo tape has no zone prices, so it is unchanged.
 - Tests: 4 in `tests/test_score.py`. `pytest -q`: 421 passed.
+
+## 2026-09-26: A tape run writes nothing under the repo's var/
+
+- `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked and cwd set to `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.164 of 0.317 MWh, 0 breaches, 1 hold tick.
+- The tape's `risk_fixture` paths are relative to cwd. With cwd set to `tmp_path` and no copies, every tick fails safe and the demo delivers 0.076 MWh. The test copies the fixture files that exist into `tmp_path`.
+- Settings the demo reads are pinned in the test, because `read_settings()` loads the repo `.env` whatever the cwd.
+- No `server/` change. `pytest -q`: 422 passed.

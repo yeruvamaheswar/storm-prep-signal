@@ -1,14 +1,17 @@
 """Replaying a saved tape needs no network and gives the same floors and delivery every run."""
 import json
+import shutil
 import socket
 from pathlib import Path
 
 import pytest
 
+from server.engine.__main__ import run_then_persist
 from server.engine.baseline import BASELINE_PATH
 from server.engine.loop import run, summary_line
 
 ROOT = Path(__file__).parent.parent
+REPO_VAR = ROOT / "var"
 DEMO = ROOT / "tapes" / "demo.json"
 HEATHER = ROOT / "tapes" / "heather.json"
 HEATHER_BASELINE = ROOT / "data" / "fixtures" / "heather" / "baseline.json"
@@ -16,6 +19,10 @@ HEATHER_BASELINE = ROOT / "data" / "fixtures" / "heather" / "baseline.json"
 SETTINGS = {"margin_pct": 15, "lookahead_hours": 6, "fleet_size": 100, "home_kwh": 20,
             "home_max_kw": 5, "base_reserve_pct": 30, "storm_reserve_pct": 60, "tick_minutes": 5}
 COMPARED = ("reserve_pct", "zone_reserve_pct", "policy_reason", "delivered_mw")
+TOTAL_KEYS = ("delivered_mwh", "target_mwh", "delivery_pct", "breaches", "hold_ticks")
+# read_settings() loads the repo .env; load_dotenv never overrides a set variable, so pin the defaults.
+CLI_ENV = {"RISK_MARGIN_PCT": "15", "LOOKAHEAD_HOURS": "6", "FLEET_SIZE": "100", "HOME_KWH": "20",
+           "HOME_MAX_KW": "5", "BASE_RESERVE_PCT": "30", "STORM_RESERVE_PCT": "60", "TICK_MINUTES": "5"}
 
 
 @pytest.fixture
@@ -90,3 +97,45 @@ def test_demo_brief_names_a_zone_floor_that_differs_from_the_fleet(tmp_path, con
     assert "Floor 30% (Houston 60%: weather_alert)" in ticks[4]["brief"]
     # Every zone matches the fleet floor on tick 1, so its line stays as it was.
     assert ticks[1]["brief"] == "Delivered 0.20 of 0.20 MW. timed out 1; duplicates ignored 1; over delivery 1."
+
+
+def _var_files():
+    """Every file under the repo's var/ with its mtime. A missing var/ counts as empty."""
+    if not REPO_VAR.exists():
+        return {}
+    return {str(p.relative_to(REPO_VAR)): p.stat().st_mtime_ns for p in REPO_VAR.rglob("*") if p.is_file()}
+
+
+def _copy_tape_fixtures(dest):
+    """Tape risk_fixture paths are cwd-relative. Copy the ones that exist; the missing one stays missing."""
+    for frame in json.loads(DEMO.read_text())["frames"]:
+        name = frame.get("risk_fixture")
+        if name and (ROOT / name).exists():
+            (dest / name).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / name, dest / name)
+
+
+def _cli_totals(capsys):
+    """One pass through `python3 -m server.engine --tape`, read back from the run file it wrote."""
+    assert run_then_persist(["--tape", str(DEMO)]) == 0
+    totals = json.loads(Path("var/runs/latest.json").read_text())["totals"]
+    assert capsys.readouterr().out.rstrip().endswith(summary_line(totals))
+    return {key: totals[key] for key in TOTAL_KEYS}
+
+
+def test_cli_tape_replay_writes_nothing_under_repo_var(tmp_path, monkeypatch, capsys, connects):
+    for name, value in CLI_ENV.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("CALL_TARGET_MW", raising=False)
+    _copy_tape_fixtures(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    before = _var_files()
+
+    first = _cli_totals(capsys)
+    second = _cli_totals(capsys)
+
+    assert connects == []
+    assert _var_files() == before
+    assert first == second
+    assert (round(first["delivered_mwh"], 3), round(first["target_mwh"], 3)) == (0.164, 0.317)
+    assert (first["breaches"], first["hold_ticks"]) == (0, 1)
