@@ -1,0 +1,1455 @@
+{
+ "label": "ERCOT replay, Winter Storm Heather, 2024-01-15T07:00 to 2024-01-15T19:00 CT. Risk: recorded NP3-233-CD. Price: recorded NP6-905-CD LZ_HOUSTON. Target: synthetic.",
+ "frames": [
+  {
+   "tick": 1,
+   "ts": "2024-01-15T07:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 151.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T060349.json",
+   "events": {}
+  },
+  {
+   "tick": 2,
+   "ts": "2024-01-15T07:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 151.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 3,
+   "ts": "2024-01-15T07:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 151.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 4,
+   "ts": "2024-01-15T07:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 188.29,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 5,
+   "ts": "2024-01-15T07:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 188.29,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 6,
+   "ts": "2024-01-15T07:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 188.29,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 7,
+   "ts": "2024-01-15T07:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 167.5,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 8,
+   "ts": "2024-01-15T07:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 167.5,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 9,
+   "ts": "2024-01-15T07:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 167.5,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 10,
+   "ts": "2024-01-15T07:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 155.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 11,
+   "ts": "2024-01-15T07:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 155.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 12,
+   "ts": "2024-01-15T07:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 155.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 13,
+   "ts": "2024-01-15T08:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 177.92,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T070413.json",
+   "events": {}
+  },
+  {
+   "tick": 14,
+   "ts": "2024-01-15T08:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 177.92,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 15,
+   "ts": "2024-01-15T08:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 177.92,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 16,
+   "ts": "2024-01-15T08:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 149.78,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 17,
+   "ts": "2024-01-15T08:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 149.78,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 18,
+   "ts": "2024-01-15T08:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 149.78,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 19,
+   "ts": "2024-01-15T08:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 159.34,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 20,
+   "ts": "2024-01-15T08:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 159.34,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 21,
+   "ts": "2024-01-15T08:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 159.34,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 22,
+   "ts": "2024-01-15T08:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 123.63,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 23,
+   "ts": "2024-01-15T08:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 123.63,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 24,
+   "ts": "2024-01-15T08:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 123.63,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 25,
+   "ts": "2024-01-15T09:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 127.05,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T080253.json",
+   "events": {}
+  },
+  {
+   "tick": 26,
+   "ts": "2024-01-15T09:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 127.05,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 27,
+   "ts": "2024-01-15T09:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 127.05,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 28,
+   "ts": "2024-01-15T09:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 114.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 29,
+   "ts": "2024-01-15T09:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 114.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 30,
+   "ts": "2024-01-15T09:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 114.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 31,
+   "ts": "2024-01-15T09:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 106.64,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 32,
+   "ts": "2024-01-15T09:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 106.64,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 33,
+   "ts": "2024-01-15T09:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 106.64,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 34,
+   "ts": "2024-01-15T09:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 139.23,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 35,
+   "ts": "2024-01-15T09:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 139.23,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 36,
+   "ts": "2024-01-15T09:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 139.23,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 37,
+   "ts": "2024-01-15T10:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 149.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T090311.json",
+   "events": {}
+  },
+  {
+   "tick": 38,
+   "ts": "2024-01-15T10:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 149.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 39,
+   "ts": "2024-01-15T10:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 149.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 40,
+   "ts": "2024-01-15T10:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 153.02,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 41,
+   "ts": "2024-01-15T10:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 153.02,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 42,
+   "ts": "2024-01-15T10:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 153.02,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 43,
+   "ts": "2024-01-15T10:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 134.26,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 44,
+   "ts": "2024-01-15T10:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 134.26,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 45,
+   "ts": "2024-01-15T10:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 134.26,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 46,
+   "ts": "2024-01-15T10:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 133.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 47,
+   "ts": "2024-01-15T10:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 133.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 48,
+   "ts": "2024-01-15T10:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 133.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 49,
+   "ts": "2024-01-15T11:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 127.83,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T100259.json",
+   "events": {}
+  },
+  {
+   "tick": 50,
+   "ts": "2024-01-15T11:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 127.83,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 51,
+   "ts": "2024-01-15T11:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 127.83,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 52,
+   "ts": "2024-01-15T11:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 128.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 53,
+   "ts": "2024-01-15T11:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 128.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 54,
+   "ts": "2024-01-15T11:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 128.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 55,
+   "ts": "2024-01-15T11:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 139.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 56,
+   "ts": "2024-01-15T11:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 139.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 57,
+   "ts": "2024-01-15T11:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 139.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 58,
+   "ts": "2024-01-15T11:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 130.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 59,
+   "ts": "2024-01-15T11:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 130.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 60,
+   "ts": "2024-01-15T11:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 130.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 61,
+   "ts": "2024-01-15T12:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 117.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T110325.json",
+   "events": {}
+  },
+  {
+   "tick": 62,
+   "ts": "2024-01-15T12:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 117.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 63,
+   "ts": "2024-01-15T12:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 117.09,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 64,
+   "ts": "2024-01-15T12:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 117.95,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 65,
+   "ts": "2024-01-15T12:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 117.95,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 66,
+   "ts": "2024-01-15T12:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 117.95,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 67,
+   "ts": "2024-01-15T12:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 116.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 68,
+   "ts": "2024-01-15T12:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 116.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 69,
+   "ts": "2024-01-15T12:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 116.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 70,
+   "ts": "2024-01-15T12:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 105.04,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 71,
+   "ts": "2024-01-15T12:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 105.04,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 72,
+   "ts": "2024-01-15T12:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 105.04,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 73,
+   "ts": "2024-01-15T13:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 102.46,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T120335.json",
+   "events": {}
+  },
+  {
+   "tick": 74,
+   "ts": "2024-01-15T13:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 102.46,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 75,
+   "ts": "2024-01-15T13:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 102.46,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 76,
+   "ts": "2024-01-15T13:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 92.04,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 77,
+   "ts": "2024-01-15T13:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 92.04,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 78,
+   "ts": "2024-01-15T13:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 92.04,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 79,
+   "ts": "2024-01-15T13:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 87.31,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 80,
+   "ts": "2024-01-15T13:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 87.31,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 81,
+   "ts": "2024-01-15T13:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 87.31,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 82,
+   "ts": "2024-01-15T13:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.77,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 83,
+   "ts": "2024-01-15T13:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.77,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 84,
+   "ts": "2024-01-15T13:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.77,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 85,
+   "ts": "2024-01-15T14:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T130335.json",
+   "events": {}
+  },
+  {
+   "tick": 86,
+   "ts": "2024-01-15T14:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 87,
+   "ts": "2024-01-15T14:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 88,
+   "ts": "2024-01-15T14:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 72.44,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 89,
+   "ts": "2024-01-15T14:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 72.44,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 90,
+   "ts": "2024-01-15T14:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 72.44,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 91,
+   "ts": "2024-01-15T14:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 65.02,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 92,
+   "ts": "2024-01-15T14:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 65.02,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 93,
+   "ts": "2024-01-15T14:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 65.02,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 94,
+   "ts": "2024-01-15T14:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 57.18,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 95,
+   "ts": "2024-01-15T14:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 57.18,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 96,
+   "ts": "2024-01-15T14:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 57.18,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 97,
+   "ts": "2024-01-15T15:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T140324.json",
+   "events": {}
+  },
+  {
+   "tick": 98,
+   "ts": "2024-01-15T15:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 99,
+   "ts": "2024-01-15T15:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 100,
+   "ts": "2024-01-15T15:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 101,
+   "ts": "2024-01-15T15:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 102,
+   "ts": "2024-01-15T15:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 103,
+   "ts": "2024-01-15T15:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 56.41,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 104,
+   "ts": "2024-01-15T15:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 56.41,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 105,
+   "ts": "2024-01-15T15:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 56.41,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 106,
+   "ts": "2024-01-15T15:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 53.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 107,
+   "ts": "2024-01-15T15:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 53.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 108,
+   "ts": "2024-01-15T15:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 53.69,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 109,
+   "ts": "2024-01-15T16:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 56.36,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T150342.json",
+   "events": {}
+  },
+  {
+   "tick": 110,
+   "ts": "2024-01-15T16:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 56.36,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 111,
+   "ts": "2024-01-15T16:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 56.36,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 112,
+   "ts": "2024-01-15T16:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.99,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 113,
+   "ts": "2024-01-15T16:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.99,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 114,
+   "ts": "2024-01-15T16:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.99,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 115,
+   "ts": "2024-01-15T16:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 43.55,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 116,
+   "ts": "2024-01-15T16:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 43.55,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 117,
+   "ts": "2024-01-15T16:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 43.55,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 118,
+   "ts": "2024-01-15T16:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 48.81,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 119,
+   "ts": "2024-01-15T16:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 48.81,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 120,
+   "ts": "2024-01-15T16:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 48.81,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 121,
+   "ts": "2024-01-15T17:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.17,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T160346.json",
+   "events": {}
+  },
+  {
+   "tick": 122,
+   "ts": "2024-01-15T17:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.17,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 123,
+   "ts": "2024-01-15T17:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 55.17,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 124,
+   "ts": "2024-01-15T17:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 65.84,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 125,
+   "ts": "2024-01-15T17:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 65.84,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 126,
+   "ts": "2024-01-15T17:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 65.84,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 127,
+   "ts": "2024-01-15T17:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 67.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 128,
+   "ts": "2024-01-15T17:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 67.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 129,
+   "ts": "2024-01-15T17:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 67.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 130,
+   "ts": "2024-01-15T17:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 80.95,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 131,
+   "ts": "2024-01-15T17:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 80.95,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 132,
+   "ts": "2024-01-15T17:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 80.95,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 133,
+   "ts": "2024-01-15T18:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 70.67,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T170315.json",
+   "events": {}
+  },
+  {
+   "tick": 134,
+   "ts": "2024-01-15T18:05:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 70.67,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 135,
+   "ts": "2024-01-15T18:10:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 70.67,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 136,
+   "ts": "2024-01-15T18:15:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.23,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 137,
+   "ts": "2024-01-15T18:20:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.23,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 138,
+   "ts": "2024-01-15T18:25:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 82.23,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 139,
+   "ts": "2024-01-15T18:30:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 83.01,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 140,
+   "ts": "2024-01-15T18:35:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 83.01,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 141,
+   "ts": "2024-01-15T18:40:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 83.01,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 142,
+   "ts": "2024-01-15T18:45:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 80.42,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 143,
+   "ts": "2024-01-15T18:50:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 80.42,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 144,
+   "ts": "2024-01-15T18:55:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 80.42,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  },
+  {
+   "tick": 145,
+   "ts": "2024-01-15T19:00:00-06:00",
+   "target_mw": 0.2,
+   "target_label": "synthetic",
+   "price_usd_mwh": 70.28,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
+   "risk_fixture": "data/fixtures/heather/np3_233_cd_20240115T180341.json",
+   "events": {}
+  }
+ ]
+}

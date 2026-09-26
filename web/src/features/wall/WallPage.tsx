@@ -9,6 +9,7 @@ import {
   formatSignedMw,
   formatUsd,
 } from "./format"
+import { marginCaption, outageSide } from "../../wallLines"
 import type {
   Attention,
   AttentionChoice,
@@ -461,9 +462,8 @@ function deliveredTone(tick: Tick): Tone {
 }
 
 function marginDetail(margin: number): string {
-  if (margin > 0) return "Above the line"
-  if (margin < 0) return "Under the line"
-  return "On the line"
+  const caption = marginCaption(outageSide(margin))
+  return caption.charAt(0).toUpperCase() + caption.slice(1)
 }
 
 function levelText(level: Tick["stress"]["level"]): string {

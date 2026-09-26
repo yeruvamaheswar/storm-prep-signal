@@ -126,14 +126,14 @@ Reassignment at the 60 s deadline (`ZoneSupervisor.pick_home`) also reads the pl
 - [ ] The plant totals equal the sum of the zone totals, within 1e-9.
 - [ ] With no telemetry, `plant`, `zones` and `feed` are `{}`.
 
-**R8. Continuity across ticks, and a feed that stops at the tick's end.** A `TelemetryState` object holds every HomeState, the fault schedule and the running counters. It is passed into each cycle. Readings reschedule themselves, so an unbounded drain would never end. With the feed on, `run_cycle` runs in three steps:
+**R8. Continuity across ticks, and a feed that stops at the tick's end.** A `TelemetryState` object holds every HomeState, the fault schedule and the running counters. It is passed into each cycle. Readings reschedule themselves, so an unbounded drain would never end. With the feed on, `orchestrate_tick` runs in three steps:
   1. `run_until(cycle_close_s)`, default 120 s: the command books close as today (`rt.closed = True`). After close, command reports are logged as late and never booked, as today.
   2. `run_until(tick_seconds)`, default 300 s: telemetry keeps sending and ingesting until the end of the tick. Then the feed is stopped: no new reading is scheduled, and a reading still in flight is discarded and counted in `FeedStats.cut_at_tick_end`.
   3. The existing `run_until(math.inf)` drain, unchanged. Only command events remain, so it ends. The tick-boundary energy check (R5) and the rollups (R7) run after this step.
 
   With no telemetry, only steps 1 and 3 run, exactly as today.
 - [ ] With the feed on, the drain ends, and no reading is ingested after 300 s.
-- [ ] `run_cycle(...)` with no telemetry argument gives the same `CycleResult` as today, and every existing test passes unchanged.
+- [ ] `orchestrate_tick(...)` with no telemetry argument gives the same `CycleResult` as today, and every existing test passes unchanged.
 
 ### P1: grid-down backup with household load (cut line 2)
 
@@ -158,7 +158,7 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
 
 ## How it plugs in (for Uma's agent)
 
-- `run_cycle(homes, frame, policy, mode, settings, seed, telemetry=None) -> CycleResult`. With a `TelemetryState` passed, the result's new fields `plant` (PlantRollup), `zones` and `feed` (FeedStats) are filled. Without one, they are `{}` and nothing else changes.
+- `orchestrate_tick(homes, frame, policy, mode, settings, seed, telemetry=None) -> CycleResult`. With a `TelemetryState` passed, the result's new fields `plant` (PlantRollup), `zones` and `feed` (FeedStats) are filled. Without one, they are `{}` and nothing else changes.
 - The engine creates one `TelemetryState` per run with `telemetry.new_state(homes, settings, seed)` and passes it into every tick.
 - The engine's run file can add `plant`, `zones` and `feed` to each tick (fields are add-only), and `totals.feed` at the end.
 - The TEMP stand-ins in `loop.py` still need to be replaced with our `new_fleet`, `apply_events`, `allocate` and `discharge`. That is the biggest blocker for the demo.
@@ -206,7 +206,7 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
   1. `telemetry.py` records and the intake (duplicates, late readings, rejects, new `boot_id`).
   2. `reported_homes` (the identity test) and `allocate` on reported copies.
   3. Status from data age (181 s, 601 s, revive, and no revive for tape-dead).
-  4. The feed stopping at 300 s inside `run_cycle` (the drain ends; with no feed, the result is identical to today's).
+  4. The feed stopping at 300 s inside `orchestrate_tick` (the drain ends; with no feed, the result is identical to today's).
   5. The rollups and FeedStats (sum test).
   6. The tick-boundary lying-battery test.
   7. The existing tests unchanged, then the fuzzer with the feed on.

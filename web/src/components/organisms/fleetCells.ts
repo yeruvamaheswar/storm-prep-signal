@@ -10,7 +10,7 @@ const SOC_LO = 45
 const SOC_HI = 75
 
 /** One home tops out at 5 kW, which is 0.005 MW. */
-const MW_PER_HOME = 0.005
+export const MW_PER_HOME = 0.005
 
 function nonNeg(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
@@ -69,14 +69,19 @@ export function packGrid(count: number, width: number, height: number, gap: numb
   return { cols: best.cols, rows: best.rows }
 }
 
+export type FleetCounts = Record<HomeState, number>
+
+/** Index order of the runs in fleetCells. Zone by `index % 4` depends on it. */
+export const FLEET_RUNS = ["reserved", "dead", "stale", "discharging", "ok", "unconfirmed"] as const satisfies readonly HomeState[]
+
 /**
- * Paint one cell per home.
+ * Homes per state for one tick.
  * On HIGH, homes under the raised floor cannot sell. Any other live home that is
- * not discharging is held too, so a storm tick has no all-clear "ok" cells.
- * Delivered MW is drawn as discharging homes, capped by who is still above the floor.
+ * not discharging is held too, so a storm tick has no all-clear "ok" homes.
+ * Delivered MW is read as discharging homes, capped by who is still above the floor.
  * Unconfirmed is not on this tape, so that count stays zero and the legend hides the row.
  */
-export function fleetCells(tick: TickView): HomeState[] {
+export function fleetCounts(tick: TickView): FleetCounts {
   const live = nonNeg(tick.live_homes)
   const stale = nonNeg(tick.stale_homes)
   const dead = nonNeg(tick.dead_homes)
@@ -92,11 +97,11 @@ export function fleetCells(tick: TickView): HomeState[] {
   const reserved = tick.risk_level === "HIGH" ? live - discharging : 0
   const ok = live - reserved - discharging
 
-  return [
-    ...repeat("reserved", reserved),
-    ...repeat("dead", dead),
-    ...repeat("stale", stale),
-    ...repeat("discharging", discharging),
-    ...repeat("ok", ok),
-  ]
+  return { ok, reserved, discharging, stale, dead, unconfirmed: 0 }
+}
+
+/** One cell per home, in FLEET_RUNS order. Grows with the fleet, so views should read fleetCounts. */
+export function fleetCells(tick: TickView): HomeState[] {
+  const counts = fleetCounts(tick)
+  return FLEET_RUNS.flatMap((state) => repeat(state, counts[state]))
 }

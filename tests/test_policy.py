@@ -1,9 +1,11 @@
 """The reserve floor for each risk outcome, including a missing signal."""
-from server.engine.contracts import Policy
+from server.engine.contracts import Home, Policy
 from server.engine.policy import reserve_policy
 from server.engine.risk import RiskResult
 
 SETTINGS = {"base_reserve_pct": 30, "storm_reserve_pct": 60}  # example, not Base specs
+# Charge/discharge bands are simulation knobs, not Base specs.
+INTENT_SETTINGS = {**SETTINGS, "charge_threshold_usd_mwh": 25, "discharge_threshold_usd_mwh": 60}
 
 
 def make_risk(level):
@@ -62,3 +64,58 @@ def test_no_alerted_argument_matches_today():
         assert (policy.reserve_pct, policy.reason, policy.risk_level) == expected
         assert policy.zone_reserve_pct == {zone: expected[0] for zone in ZONES}
         assert policy.zone_reasons == {zone: expected[1] for zone in ZONES}
+
+
+def decide(risk, mode="AUTO", price=40, label="ercot"):
+    """Reserve plus intent. Floor-only callers omit price/label and stay hold."""
+    return reserve_policy(risk, INTENT_SETTINGS, mode=mode,
+                          price_usd_mwh=price, price_label=label)
+
+
+def test_operator_hold_intents_hold():
+    # HOLD outranks a cheap price (would charge) and a high price (would discharge).
+    cheap = decide(make_risk("LOW"), mode="HOLD", price=10)
+    expensive = decide(make_risk("LOW"), mode="HOLD", price=80)
+    assert cheap.intent == expensive.intent == "hold"
+    assert cheap.intent_reason == expensive.intent_reason == "operator_hold"
+    assert (cheap.reserve_pct, cheap.reason) == (30, "normal")
+
+
+def test_missing_signal_holds_or_charges_never_discharges():
+    cheap = decide(None, price=10)
+    mid = decide(None, price=40)
+    expensive = decide(None, price=80)
+    assert cheap.intent == "charge"
+    assert mid.intent == expensive.intent == "hold"
+    assert expensive.intent != "discharge"
+
+
+def test_high_risk_holds_or_charges_never_discharges():
+    cheap = decide(make_risk("HIGH"), price=10)
+    mid = decide(make_risk("HIGH"), price=40)
+    expensive = decide(make_risk("HIGH"), price=80)
+    assert cheap.intent == "charge"
+    assert mid.intent == expensive.intent == "hold"
+    assert expensive.intent != "discharge"
+    assert cheap.reason == "storm_risk_high"
+
+
+def test_low_auto_uses_price_thresholds():
+    # Inclusive bands: <= 25 charge, >= 60 discharge, in between hold.
+    assert decide(make_risk("LOW"), price=25).intent == "charge"
+    assert decide(make_risk("LOW"), price=60).intent == "discharge"
+    assert decide(make_risk("LOW"), price=40).intent == "hold"
+
+
+def test_missing_price_holds_with_price_unavailable():
+    policy = decide(make_risk("LOW"), price=None, label="none")
+    assert policy.intent == "hold"
+    assert policy.intent_reason == "price_unavailable"
+    # Floor stays the LOW reserve; price only picks intent.
+    assert (policy.reserve_pct, policy.reason, policy.risk_level) == (30, "normal", "LOW")
+
+
+def test_home_defaults_include_zone_and_updated_at():
+    home = Home("home-001", 20.0, 10.0, 5.0)
+    assert home.zone == ""
+    assert home.updated_at == ""

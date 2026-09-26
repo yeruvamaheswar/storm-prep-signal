@@ -8,7 +8,7 @@ import pytest
 from server.engine import orchestration
 from server.engine.contracts import Home, Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import run_cycle
+from server.engine.orchestration import orchestrate_tick
 from server.engine.scheduler import Scheduler
 from server.engine import telemetry as tm
 
@@ -275,14 +275,14 @@ def cycle_with_feed(target_mw=0.2, ticks=1, seed=1, events=None, mode="AUTO", **
     for tick in range(1, ticks + 1):
         f = frame(target_mw, events, tick=tick)
         apply_events(homes, f.events)
-        results.append(run_cycle(homes, f, policy(), mode, s, seed * 100 + tick, telemetry=state))
+        results.append(orchestrate_tick(homes, f, policy(), mode, s, seed * 100 + tick, telemetry=state))
     return results, homes, state
 
 
 def test_without_telemetry_the_new_fields_are_empty():
     s = settings(**FAST)
     homes = new_fleet(s)
-    r = run_cycle(homes, frame(0.2), policy(), "AUTO", s, 1)
+    r = orchestrate_tick(homes, frame(0.2), policy(), "AUTO", s, 1)
     assert r.plant == {} and r.zones == {} and r.feed == {}
 
 
@@ -422,7 +422,7 @@ def test_fuzz_with_feed_never_breaches_and_never_blames_an_honest_home():
             f = frame(rng.uniform(0.05, 0.6), events, tick=tick)
             apply_events(homes, f.events)
             before = {h.home_id: h.soc_kwh for h in homes}
-            r = run_cycle(homes, f, pol, "AUTO", s, seed * 1000 + tick, telemetry=state)
+            r = orchestrate_tick(homes, f, pol, "AUTO", s, seed * 1000 + tick, telemetry=state)
             assert r.breaches == 0, (seed, tick)
             for h in homes:
                 if h.soc_kwh < before[h.home_id] - 1e-12:

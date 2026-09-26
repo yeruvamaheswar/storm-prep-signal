@@ -84,6 +84,43 @@ export function inCityWeight(zoneName: string, lng: number, lat: number): boolea
   return cityWeightBoxes(zoneName).some((box) => pointInBox(box, lng, lat))
 }
 
+/** Which metro box holds this point. South has two, so a hover can name one cluster. */
+export function clusterOf(node: Pick<HomeNode, "zone" | "lng" | "lat">): string {
+  const boxes = cityWeightBoxes(node.zone)
+  for (let index = 0; index < boxes.length; index += 1) {
+    const box = boxes[index]
+    if (box !== undefined && pointInBox(box, node.lng, node.lat)) {
+      return `${node.zone}:${index}`
+    }
+  }
+  return node.zone
+}
+
+export function zoneContains(zone: ZonePolygon, lng: number, lat: number): boolean {
+  return zone.rings.some((ring) => ring.length >= 3 && ringContains(ring, lng, lat))
+}
+
+/** Interior samples. The label picker chooses one that clears the metro dots. */
+export function labelCandidates(zone: ZonePolygon, columns = 8): LngLat[] {
+  const rings = zone.rings.filter((ring) => ring.length >= 3)
+  const exterior = rings[0]
+  if (exterior === undefined) {
+    return []
+  }
+  const box = bounds(rings.flat())
+  const points: LngLat[] = []
+  for (let col = 0; col < columns; col += 1) {
+    for (let row = 0; row < columns; row += 1) {
+      const lng = box.minLng + ((col + 0.5) / columns) * (box.maxLng - box.minLng)
+      const lat = box.minLat + ((row + 0.5) / columns) * (box.maxLat - box.minLat)
+      if (rings.some((ring) => ringContains(ring, lng, lat))) {
+        points.push([lng, lat])
+      }
+    }
+  }
+  return points
+}
+
 /** Legend colors from web/src/design/tokens.css. Leaflet cannot paint a CSS variable. */
 const NODE_FILL: Record<HomeState, string> = {
   ok: "#2f6b4f",

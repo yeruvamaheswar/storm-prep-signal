@@ -6,7 +6,15 @@ import { stressReading } from "../src/stressReading"
 const run = layoutRun as RunFile
 
 function tick(partial: Partial<TickView> & Record<string, unknown>): TickView {
-  return { ...run.ticks[0], ...partial }
+  const base = { ...run.ticks[0] }
+  delete base.outage_mw
+  delete base.trigger_mw
+  delete base.threshold_mw
+  delete base.margin_mw
+  delete base.driving_zone
+  delete base.zone_mw
+  delete base.peak_mw
+  return { ...base, ...partial }
 }
 
 describe("stress reading", () => {
@@ -36,13 +44,45 @@ describe("stress reading", () => {
         north_mw: 400,
         south_mw: 200,
         west_mw: 150,
+        trigger_mw: 800,
       }),
     )
     expect(reading.outageMw).toBe(850)
     expect(reading.zone).toBe("North")
     expect(reading.zoneMw).toBe(400)
-    expect(reading.thresholdMw).toBe(22348)
-    expect(reading.marginMw).toBe(850 - 22348)
+    expect(reading.thresholdMw).toBe(800)
+    expect(reading.marginMw).toBe(50)
+  })
+
+  it("does not invent the 22348 fixture when the tick has no trigger", () => {
+    const reading = stressReading(
+      tick({
+        risk_level: "HIGH",
+        houston_mw: 100,
+        north_mw: 400,
+        south_mw: 200,
+        west_mw: 150,
+      }),
+    )
+    expect(reading.outageMw).toBe(850)
+    expect(reading.thresholdMw).toBeNull()
+    expect(reading.marginMw).toBeNull()
+  })
+
+  it("uses trigger_mw from Python as the reserve threshold", () => {
+    const reading = stressReading(
+      tick({
+        risk_level: "HIGH",
+        outage_mw: 23539,
+        peak_mw: 23539,
+        trigger_mw: 23263.35,
+        driving_zone: "North",
+        zone_mw: 9294,
+      }),
+    )
+    expect(reading.outageMw).toBe(23539)
+    expect(reading.thresholdMw).toBe(23263.35)
+    expect(reading.marginMw).toBe(23539 - 23263.35)
   })
 
   it("uses the saved real posting when the tape says LOW", () => {

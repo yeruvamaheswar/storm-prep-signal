@@ -1,0 +1,151 @@
+{
+  "label": "synthetic",
+  "frames": [
+    {
+      "tick": 1,
+      "ts": "2026-09-26T12:00:00-05:00",
+      "target_mw": 0.2,
+      "target_label": "synthetic",
+      "price_usd_mwh": 32.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {}
+    },
+    {
+      "tick": 2,
+      "ts": "2026-09-26T12:05:00-05:00",
+      "target_mw": 0.2,
+      "target_label": "synthetic",
+      "price_usd_mwh": 35.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {}
+    },
+    {
+      "tick": 3,
+      "ts": "2026-09-26T12:10:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 220.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {}
+    },
+    {
+      "tick": 4,
+      "ts": "2026-09-26T12:15:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 250.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {}
+    },
+    {
+      "tick": 5,
+      "ts": "2026-09-26T12:20:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 310.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_spike_synthetic.json",
+      "events": {}
+    },
+    {
+      "tick": 6,
+      "ts": "2026-09-26T12:25:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 310.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_spike_synthetic.json",
+      "events": {
+        "dead": [
+          "home-001", "home-002", "home-003", "home-004", "home-005",
+          "home-006", "home-007", "home-008", "home-009", "home-010",
+          "home-011", "home-012", "home-013", "home-014", "home-015",
+          "home-016", "home-017", "home-018", "home-019", "home-020"
+        ]
+      }
+    },
+    {
+      "tick": 7,
+      "ts": "2026-09-26T12:30:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 290.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_spike_synthetic.json",
+      "events": {
+        "stale": [
+          "home-021", "home-022", "home-023", "home-024", "home-025",
+          "home-026", "home-027", "home-028", "home-029", "home-030"
+        ]
+      }
+    },
+    {
+      "tick": 8,
+      "ts": "2026-09-26T12:35:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 270.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_spike_synthetic.json",
+      "events": {
+        "operator": "HOLD"
+      }
+    },
+    {
+      "tick": 9,
+      "ts": "2026-09-26T12:40:00-05:00",
+      "target_mw": 0.4,
+      "target_label": "synthetic",
+      "price_usd_mwh": 240.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_spike_synthetic.json",
+      "events": {
+        "operator": "AUTO"
+      }
+    },
+    {
+      "tick": 10,
+      "ts": "2026-09-26T12:45:00-05:00",
+      "target_mw": 0.2,
+      "target_label": "synthetic",
+      "price_usd_mwh": 90.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {
+        "live": [
+          "home-021", "home-022", "home-023", "home-024", "home-025",
+          "home-026", "home-027", "home-028", "home-029", "home-030"
+        ]
+      }
+    },
+    {
+      "tick": 11,
+      "ts": "2026-09-26T12:50:00-05:00",
+      "target_mw": 0.2,
+      "target_label": "synthetic",
+      "price_usd_mwh": 45.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {
+        "live": [
+          "home-001", "home-002", "home-003", "home-004", "home-005",
+          "home-006", "home-007", "home-008", "home-009", "home-010"
+        ]
+      }
+    },
+    {
+      "tick": 12,
+      "ts": "2026-09-26T12:55:00-05:00",
+      "target_mw": 0.2,
+      "target_label": "synthetic",
+      "price_usd_mwh": 35.0,
+      "price_label": "synthetic",
+      "risk_fixture": "tests/fixtures/np3_233_cd.json",
+      "events": {}
+    }
+  ]
+}

@@ -8,7 +8,7 @@ import pytest
 
 from server.engine.contracts import Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import HomeWorker, run_cycle
+from server.engine.orchestration import HomeWorker, orchestrate_tick
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 EPS = 1e-9
@@ -66,7 +66,7 @@ def run(homes, target_mw, pol, s, seed=1, events=None, tick=1):
     f = frame(target_mw, events, tick)
     apply_events(homes, f.events)
     before = {h.home_id: h.soc_kwh for h in homes}
-    return run_cycle(homes, f, pol, "AUTO", s, seed), f, before
+    return orchestrate_tick(homes, f, pol, "AUTO", s, seed), f, before
 
 
 # --- mass failure ----------------------------------------------------------------
@@ -217,4 +217,21 @@ def test_short_delivery_across_many_homes_books_only_what_was_given():
     for home_id, kw in result.allocation.per_home_kw.items():   # charge fell by what was given
         home = next(h for h in homes if h.home_id == home_id)
         assert before[home_id] - home.soc_kwh == pytest.approx(kw * short.get(home_id, 1.0) * 5 / 60)
+    check_books(result, f.target_mw, homes, pol, before)
+
+
+# --- workers that misreport what they gave -------------------------------------------------
+
+def test_homes_that_overstate_their_charge_drop_are_credited_only_what_the_battery_gave():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    liars = {h.home_id: 1.5 for h in homes[::3]}   # every third home claims 50% more than it gave
+    s["_misreport"] = liars
+    pol = policy()
+    result, f, before = run(homes, 0.2, pol, s)
+    n_liars = len(liars.keys() & result.allocation.per_home_kw.keys())
+    assert n_liars > 0 and len(kinds(result, "charge_mismatch")) == n_liars
+    assert f"charge_mismatch:{n_liars}" in result.allocation.reasons
+    dropped = sum(before[h.home_id] - h.soc_kwh for h in homes)   # kWh the batteries really gave
+    assert result.confirmed_mw * 1000 * 5 / 60 == pytest.approx(dropped)
     check_books(result, f.target_mw, homes, pol, before)

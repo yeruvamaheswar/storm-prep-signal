@@ -9,7 +9,7 @@ In-tick timeline (virtual seconds):
     60   unconfirmed commands are timed_out: one retry (same id), one reassignment (new id)
     120  the books close; anything that arrives later is logged as late and never counted
 
-run_cycle writes no files. The runner at the bottom plays a tape and writes var/orchestration/.
+orchestrate_tick writes no files. The runner at the bottom plays a tape and writes var/orchestration/.
 """
 import argparse
 import json
@@ -30,7 +30,9 @@ from server.engine.telemetry import TelemetryState
 
 OUT_DIR = Path("var") / "orchestration"
 COUNTERS = ("breaches", "timed_out", "retried", "reassigned", "duplicates_ignored", "late",
-            "short_delivery", "over_delivery")
+            "short_delivery", "over_delivery", "charge_mismatch")
+# A report whose kWh differs from the home's real charge drop by more than this is a mismatch.
+CHARGE_TOLERANCE_KWH = 1e-6
 
 
 @dataclass
@@ -62,7 +64,7 @@ class CycleResult:
     # both ran). Never credited, never hidden: confirmed + over_delivery = everything heard.
     over_delivery_mw: float = 0.0
     events: list = field(default_factory=list)
-    # Filled only when run_cycle gets a TelemetryState (docs/agents/telemetry-vpp.md R7).
+    # Filled only when orchestrate_tick gets a TelemetryState (docs/agents/telemetry-vpp.md R7).
     plant: dict = field(default_factory=dict)
     zones: dict = field(default_factory=dict)
     feed: dict = field(default_factory=dict)
@@ -85,6 +87,10 @@ class Runtime:
         self.worker_delay_s = tuple(settings.get("worker_delay_s", (1.0, 30.0)))
         # Test hook: these homes' workers raise, to prove the worker boundary contains it.
         self.fail_ids = set(settings.get("_fail_home_ids", ()))
+        # Test hook: home_id to a factor these workers multiply their reported kW by (a lie).
+        self.misreport = dict(settings.get("_misreport", {}))
+        self.dropped = {}          # command_id to kWh the home's charge really fell for it
+        self.ran_kw = {}           # command_id to the exact kW the home really gave for it
         self.counts = dict.fromkeys(COUNTERS, 0)
         self.workers = {}          # home_id to HomeWorker
         self.planned_kw = {}       # home_id to kW from the plan (used to find spare headroom)
@@ -157,13 +163,17 @@ class HomeWorker:
         actual_kw = kw * self.fraction
         if self.fraction < 1.0:
             rt.counts["short_delivery"] += 1
+        soc_before = home.soc_kwh
         home.soc_kwh -= actual_kw * rt.settings["tick_minutes"] / 60
+        rt.dropped[cmd.command_id] = soc_before - home.soc_kwh
+        rt.ran_kw[cmd.command_id] = actual_kw
         if rt.feed is not None:
             rt.feed.record_execution(home.home_id, actual_kw)
         if home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
             rt.counts["breaches"] += 1   # only possible if the clamp above is removed
         rt.log("executed", command_id=cmd.command_id, home_id=home.home_id, actual_kw=actual_kw)
-        return {"command_id": cmd.command_id, "home_id": home.home_id, "actual_kw": actual_kw}
+        reported_kw = actual_kw * rt.misreport.get(home.home_id, 1.0)
+        return {"command_id": cmd.command_id, "home_id": home.home_id, "actual_kw": reported_kw}
 
     def send_report(self, report):
         self.rt.channel.send(report, self.supervisor.on_report)
@@ -195,9 +205,26 @@ class ZoneSupervisor:
         if command_id in self.actual:
             rt.log("report_repeat", command_id=command_id)   # a copy of a report already booked
             return
-        self.actual[command_id] = msg["actual_kw"]
+        actual_kw = self.check_charge_drop(msg)
+        self.actual[command_id] = actual_kw
         self.states[command_id] = "confirmed"
-        rt.log("confirmed", command_id=command_id, home_id=msg["home_id"], actual_kw=msg["actual_kw"])
+        rt.log("confirmed", command_id=command_id, home_id=msg["home_id"], actual_kw=actual_kw)
+
+    def check_charge_drop(self, msg):
+        """The kW to book for a report: what it says, unless the home's charge fell by less.
+
+        The drop is read from the runtime (what the battery did), never from the message.
+        """
+        rt, hours = self.rt, self.rt.settings["tick_minutes"] / 60
+        reported_kwh, dropped_kwh = msg["actual_kw"] * hours, rt.dropped[msg["command_id"]]
+        if abs(reported_kwh - dropped_kwh) <= CHARGE_TOLERANCE_KWH:
+            return msg["actual_kw"]
+        rt.counts["charge_mismatch"] += 1
+        rt.log("charge_mismatch", command_id=msg["command_id"], home_id=msg["home_id"],
+               reported_kwh=reported_kwh, dropped_kwh=dropped_kwh)
+        # The smaller of the claim and the kW the home really gave, taken as-is: converting the
+        # kWh back to kW would drift by a rounding speck and show up as false over-delivery.
+        return min(msg["actual_kw"], rt.ran_kw[msg["command_id"]])
 
     def check_deadline(self):
         """At 60 s: every planned command still unconfirmed gets one retry and one reassignment.
@@ -308,7 +335,7 @@ def home_books(supervisors):
     return confirmed, unsure
 
 
-def run_cycle(homes, frame, policy, mode, settings, seed, telemetry=None):
+def orchestrate_tick(homes, frame, policy, mode, settings, seed, telemetry=None):
     """Plan, fan out, wait for the deadlines, and close the books for one tick. Writes no files.
 
     With a TelemetryState, the plan uses the batteries' reports (never the truth), readings flow
@@ -356,7 +383,7 @@ def build_result(frame, plan, rt, supervisors, books):
     missed_mw = frame.target_mw - credited_mw
     c = rt.counts
     reasons = list(plan.reasons)
-    for code in ("timed_out", "duplicates_ignored", "short_delivery", "over_delivery"):
+    for code in ("timed_out", "duplicates_ignored", "short_delivery", "over_delivery", "charge_mismatch"):
         if c[code]:
             reasons.append(f"{code}:{c[code]}")
     states = {}
@@ -411,7 +438,7 @@ def plant_line(result):
 
 
 def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR, telemetry=False):
-    """Play every frame through run_cycle, print one line per tick, write one JSON file."""
+    """Play every frame through orchestrate_tick, print one line per tick, write one JSON file."""
     settings = read_settings()
     settings["seed"] = seed
     policy = build_policy(floor, settings)
@@ -422,8 +449,8 @@ def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR, telemetry=False):
         apply_events(homes, frame.events)
         mode = frame.events.get("operator", mode)   # HOLD/AUTO stays until the tape changes it
         # A different seed per tick, so each tick sees its own faults, still fixed by --seed.
-        result = run_cycle(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick,
-                           telemetry=state)
+        result = orchestrate_tick(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick,
+                                  telemetry=state)
         print(tick_line(frame, result))
         if state is not None:
             print(plant_line(result))

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from server.api import v1
 from server.api.fixtures import FixtureStore
+from server.env import load_env
 
 
 def cors_origins() -> list[str]:
@@ -17,6 +18,7 @@ def cors_origins() -> list[str]:
 
 
 def create_app(fixtures: FixtureStore | None = None) -> FastAPI:
+    load_env()
     app = FastAPI(title="ReserveGate console API", version="0.1.0")
     app.state.fixtures = fixtures or FixtureStore()
     # State lives in memory, so a restart returns to live, AUTO, and no playback.

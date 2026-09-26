@@ -1,7 +1,7 @@
 # Context strategy
 
 This file is loaded every chat. It stays a strategy for what to read and what to write down.
-It does not hold the product, the team, the deadlines, or which files a person may edit. That is in `docs/agents/team-manifest.md`.
+It does not hold the product, the team, the deadlines, or how work is chosen. Product and limits: `docs/agents/team-manifest.md`. How work is chosen: `docs/agents/gap-work.md`.
 
 ## Two shelves
 
@@ -11,26 +11,28 @@ It does not hold the product, the team, the deadlines, or which files a person m
 
 ## Third shelf
 
-`CONSTRAINTS.md` and `DESIGN.md` at the repo root are frozen contracts. They are not old notes. Open `CONSTRAINTS.md` before changing behavior it names. Open `DESIGN.md` before changing the look of the wall. A note in `docs/agents/` does not override a frozen contract. A file marked later does not override `docs/agents/reservegate.md` or `CONSTRAINTS.md`. Narrower-wins applies only among files with the same status.
+`CONSTRAINTS.md` and `DESIGN.md` at the repo root are frozen contracts. They are not old notes. Open `CONSTRAINTS.md` before changing behavior it names. Open `DESIGN.md` before changing the look of the wall. A note in `docs/agents/` does not override a frozen contract. A file marked later does not override `docs/agents/reservegate.md` or `CONSTRAINTS.md` on the tick, the shapes, or the invariants. File-lock lines in those older notes are not live; `docs/agents/gap-work.md` wins on how work is chosen. Narrower-wins applies only among files with the same status.
 
 ## What to open
 
 1. This file. It is already loaded.
 2. `docs/agents/index.md`.
-3. The one file whose "Open it when" line matches the task.
-4. The source files you are about to change.
+3. If the chat has not named a gap, `docs/agents/gap-work.md`, then name one.
+4. The one file whose "Open it when" line matches the task.
+5. The source files you are about to change.
 
 Open a `docs/humans/` page only when you are writing one, or checking that a person can read it in about a minute.
 
-If the agent file you need is missing, ask. Build the missing note with the owner. Do not fill the gap from the chat alone, and do not revive any doc that sits outside `docs/agents/` and `docs/humans/`.
+If the agent file you need is missing, ask. Build the missing note with the person who asked, from the end state. Do not fill the gap from the chat alone, and do not revive any doc that sits outside `docs/agents/` and `docs/humans/`.
 
 ## Which source wins
 
 1. A frozen contract on the point it names.
-2. The `docs/agents/` file that covers the question.
-3. The code you are editing, for behavior that is already implemented.
-4. This file, for how context is read and written.
-5. The current chat.
+2. `docs/agents/gap-work.md` on how work is chosen.
+3. The `docs/agents/` file that covers the question.
+4. The code you are editing, for behavior that is already implemented.
+5. This file, for how context is read and written.
+6. The current chat.
 
 When the chat and a file disagree, re-read the file and follow it. This file wins on the strategy only. It does not win on product facts.
 
@@ -44,9 +46,9 @@ Write a note before the chat ends when a later chat will need a decision, a cont
 - In the chat, name the file you wrote. Do not paste the whole document.
 - In the pull request, record the files touched, what `pytest -q` reported, and the path of any new context file.
 - A fact has one home. Other files link to it.
-- Do not paste the owner table, the honest limits, or the tick order into a second file.
+- Do not paste the end state, the honest limits, or the tick order into a second file.
 - If a note is superseded, replace its body with a short pointer instead of leaving two copies.
-- If a path cited by a note is not in the repo, stop and ask the owner. Do not recreate that file from the chat.
+- If a path cited by a note is not in the repo, stop and ask. Do not recreate that file from the chat.
 
 ## Old notes
 

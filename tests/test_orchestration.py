@@ -1,11 +1,11 @@
-"""Tests for server/engine/orchestration.py: run_cycle fans commands out and closes on a deadline."""
+"""Tests for server/engine/orchestration.py: orchestrate_tick fans commands out and closes on a deadline."""
 from dataclasses import asdict
 
 import pytest
 
 from server.engine.contracts import Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import run_cycle
+from server.engine.orchestration import orchestrate_tick
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 
@@ -41,7 +41,7 @@ def cycle(target_mw=0.2, seed=1, events=None, **over):
     homes = new_fleet(s)
     f = frame(target_mw, events)
     apply_events(homes, f.events)
-    return run_cycle(homes, f, policy(), "AUTO", s, seed), homes, f
+    return orchestrate_tick(homes, f, policy(), "AUTO", s, seed), homes, f
 
 
 def planned(result):
@@ -76,6 +76,10 @@ def check_books(result, target_mw):
     heard = sum(e["actual_kw"] for e in kinds(result, "confirmed")) / 1000
     assert result.over_delivery_mw >= 0
     assert result.confirmed_mw + result.over_delivery_mw == pytest.approx(heard, abs=eps)
+    # No command is booked above what its battery actually gave.
+    ran = {e["command_id"]: e["actual_kw"] for e in kinds(result, "executed")}
+    for e in kinds(result, "confirmed"):
+        assert e["actual_kw"] <= ran[e["command_id"]] + eps
 
 
 # --- determinism and the happy path ------------------------------------------
@@ -180,6 +184,52 @@ def test_short_delivery_is_booked_at_what_the_home_actually_gave():
     check_books(result, f.target_mw)
 
 
+def test_an_overstated_report_is_flagged_and_booked_at_the_real_charge_drop():
+    honest, _, _ = cycle(0.2, **FAST)
+    result, _, f = cycle(0.2, _misreport={"home-010": 2.0}, **FAST)
+    kw = result.allocation.per_home_kw["home-010"]
+    [mismatch] = kinds(result, "charge_mismatch")
+    assert mismatch["command_id"] == "home-010:1" and mismatch["home_id"] == "home-010"
+    assert mismatch["dropped_kwh"] == pytest.approx(kw * 5 / 60)
+    assert mismatch["reported_kwh"] == pytest.approx(2 * kw * 5 / 60)
+    assert "charge_mismatch:1" in result.allocation.reasons
+    report = [e for e in kinds(result, "confirmed") if e["command_id"] == "home-010:1"][0]
+    assert report["actual_kw"] == pytest.approx(kw)   # the battery's real kW, not the claim
+    assert result.confirmed_mw == pytest.approx(honest.confirmed_mw)
+    check_books(result, f.target_mw)
+
+
+def test_an_understated_report_is_flagged_and_booked_at_what_was_reported():
+    result, _, f = cycle(0.2, _misreport={"home-010": 0.5}, **FAST)
+    kw = result.allocation.per_home_kw["home-010"]
+    [mismatch] = kinds(result, "charge_mismatch")
+    assert mismatch["reported_kwh"] == pytest.approx(0.5 * mismatch["dropped_kwh"])
+    report = [e for e in kinds(result, "confirmed") if e["command_id"] == "home-010:1"][0]
+    assert report["actual_kw"] == pytest.approx(kw * 0.5)
+    assert "charge_mismatch:1" in result.allocation.reasons
+    check_books(result, f.target_mw)
+
+
+def test_a_caught_overstatement_is_booked_exactly_and_is_never_over_delivery():
+    # Fast channel: nothing times out, so nothing is reassigned and nothing can over-deliver.
+    liars = {f"home-{i:03d}": 1.5 for i in range(5, 101, 5)}
+    result, _, f = cycle(0.2, _misreport=liars, **FAST)
+    assert kinds(result, "charge_mismatch")
+    assert not kinds(result, "over_delivery")
+    assert not any(r.startswith("over_delivery") for r in result.allocation.reasons)
+    ran = {e["command_id"]: e["actual_kw"] for e in kinds(result, "executed")}
+    booked = {e["command_id"]: e["actual_kw"] for e in kinds(result, "confirmed")}
+    for e in kinds(result, "charge_mismatch"):
+        assert booked[e["command_id"]] == ran[e["command_id"]]   # exact, no rounding drift
+    check_books(result, f.target_mw)
+
+
+def test_honest_reports_raise_no_charge_mismatch():
+    result, _, _ = cycle(0.2, channel_dup_rate=1.0, events={"short_delivery": {"home-010": 0.5}}, **FAST)
+    assert not kinds(result, "charge_mismatch")
+    assert not any(r.startswith("charge_mismatch") for r in result.allocation.reasons)
+
+
 def test_short_delivery_outside_zero_to_one_is_rejected():
     with pytest.raises(ValueError):
         cycle(0.2, events={"short_delivery": {"home-010": 1.5}})
@@ -240,7 +290,7 @@ def test_work_is_never_reassigned_to_a_home_that_also_timed_out():
 def test_hold_sends_nothing_and_still_closes():
     s = settings()
     homes = new_fleet(s)
-    result = run_cycle(homes, frame(0.2), policy(), "HOLD", s, 1)
+    result = orchestrate_tick(homes, frame(0.2), policy(), "HOLD", s, 1)
     assert result.command_states == {} and result.credited_mw == 0
     assert result.allocation.reasons == ["operator_hold"]
     check_books(result, 0.2)

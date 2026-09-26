@@ -27,6 +27,11 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
+def _optional_float(name):
+    raw = os.getenv(name, "").strip()
+    return float(raw) if raw else None
+
+
 def read_settings():
     load_dotenv()
     # The fallbacks match compute_risk's defaults and .env.example.
@@ -39,10 +44,15 @@ def read_settings():
         "fleet_size": int(os.getenv("FLEET_SIZE", "100")),
         "home_kwh": float(os.getenv("HOME_KWH", "20")),
         "home_max_kw": float(os.getenv("HOME_MAX_KW", "5")),
+        # Live/archive high call. Unset scales the demo 0.40 peak with FLEET_SIZE.
+        "call_target_mw": _optional_float("CALL_TARGET_MW"),
         "home_start_soc_min_pct": float(os.getenv("HOME_START_SOC_MIN_PCT", "45")),
         "home_start_soc_max_pct": float(os.getenv("HOME_START_SOC_MAX_PCT", "75")),
         "base_reserve_pct": float(os.getenv("BASE_RESERVE_PCT", "30")),
         "storm_reserve_pct": float(os.getenv("STORM_RESERVE_PCT", "60")),
+        # Simulation price bands for intent, not Base specs.
+        "charge_threshold_usd_mwh": float(os.getenv("CHARGE_BELOW_USD", "25")),
+        "discharge_threshold_usd_mwh": float(os.getenv("DISCHARGE_ABOVE_USD", "60")),
         "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
         # Zone name to anchor county FIPS code; codes stay strings to keep leading zeros.
         "zones": dict(pair.split(":", 1) for pair in

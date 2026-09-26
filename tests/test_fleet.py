@@ -1,9 +1,17 @@
 """Tests for server/engine/fleet.py: the simulated homes, their zones, and discharge."""
-import pytest
+import json
+from pathlib import Path
 
+import pytest
+from fastapi.testclient import TestClient
+
+from server.app import create_app
+from server.api.fixtures import FixtureStore
 from server.engine.contracts import Allocation, Policy
-from server.engine.fleet import (apply_events, assign_zone, discharge, floor_kwh, new_fleet,
-                                 safe_kw, set_status)
+from server.engine.fleet import (apply_events, assign_zone, current_rollups, discharge,
+                                 fleet_rollups, floor_kwh, load_fleet, new_fleet, safe_kw,
+                                 save_rollups, set_status, zone_delivered)
+from server.engine.loop import run
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 
@@ -227,3 +235,95 @@ def test_discharge_uses_each_homes_zone_floor():
     assert discharge(homes, alloc, policy, settings()) == 0
     assert houston.soc_kwh == pytest.approx(9.0)                        # Houston floor is 12: no headroom
     assert north.soc_kwh == pytest.approx(north_start - 2.0 * 5 / 60)   # North floor is 6: order applied
+
+
+# --- seed by n, persist, rollups ----------------------------------------------
+
+def test_new_fleet_n_uses_wall_zone_order_and_soc_spread():
+    homes = new_fleet(8)
+    assert [h.zone for h in homes] == [
+        "South", "North", "West", "Houston", "South", "North", "West", "Houston",
+    ]
+    assert all(h.status == "live" for h in homes)
+    assert homes[0].soc_kwh == pytest.approx(0.45 * 20)
+    assert homes[-1].soc_kwh == pytest.approx(0.75 * 20)
+    assert all(h.capacity_kwh == 20 and h.max_kw == 5 for h in homes)
+
+
+def test_ten_thousand_homes_split_evenly_and_stay_off_the_rollup():
+    homes = new_fleet(10_000)
+    assert len(homes) == 10_000
+    per_zone = {z: sum(h.zone == z for h in homes) for z in ("South", "North", "West", "Houston")}
+    assert per_zone == {"South": 2500, "North": 2500, "West": 2500, "Houston": 2500}
+    body = fleet_rollups(homes)
+    assert body["n"] == 10_000
+    assert "homes" not in body
+    assert set(body["zones"]) == {"South", "North", "West", "Houston"}
+    assert all(row["live"] == 2500 for row in body["zones"].values())
+    assert body["clusters"][0]["id"] == "South:0"
+
+
+def test_persist_round_trip_under_a_given_path(tmp_path):
+    dest = tmp_path / "homes.json"
+    written = new_fleet(4, persist=True, path=dest)
+    assert dest.is_file()
+    loaded = load_fleet(dest)
+    assert loaded == written
+
+
+def test_zone_delivered_sums_to_the_allocation():
+    homes = new_fleet(settings(fleet_size=4))
+    alloc = Allocation({homes[0].home_id: 2.0, homes[1].home_id: 3.0}, 0.005, 0.0)
+    delivered = zone_delivered(homes, alloc)
+    assert delivered == {"Houston": 0.002, "North": 0.003}
+    assert sum(delivered.values()) == pytest.approx(alloc.delivered_mw)
+
+
+def test_high_tick_marks_idle_live_homes_reserved():
+    homes = new_fleet(settings(fleet_size=4))
+    alloc = Allocation({homes[3].home_id: 2.0}, 0.002, 0.0)
+    storm = Policy(60.0, "storm_risk_high", "HIGH", zone_reserve_pct={z: 60.0 for z in ZONES})
+    body = fleet_rollups(homes, alloc, storm)
+    houston = body["zones"]["Houston"]
+    north = body["zones"]["North"]
+    west = body["zones"]["West"]
+    assert houston["live"] == 1 and houston["reserved"] == 1 and houston["discharging"] == 0
+    assert north["reserved"] == 1
+    assert west["discharging"] == 1 and west["reserved"] == 0
+    assert west["discharging_mw"] == pytest.approx(0.002)
+
+
+def test_current_rollups_never_includes_homes(tmp_path):
+    save_rollups(fleet_rollups(new_fleet(12)), tmp_path / "rollups.json")
+    body = current_rollups(tmp_path, n=12)
+    assert body["n"] == 12
+    assert "homes" not in body
+    assert "home_id" not in json.dumps(body)
+
+
+def test_run_fills_zone_delivered_mw(tmp_path, monkeypatch):
+    root = Path(__file__).parent.parent
+    monkeypatch.chdir(root)
+    settings_run = {
+        "margin_pct": 15, "lookahead_hours": 6, "fleet_size": 100, "home_kwh": 20,
+        "home_max_kw": 5, "base_reserve_pct": 30, "storm_reserve_pct": 60, "tick_minutes": 5,
+    }
+    record = run(root / "tests" / "fixtures" / "tape_tiny.json", settings_run,
+                 log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs")
+    first = record["ticks"][0]
+    assert first["zone_delivered_mw"]
+    assert sum(first["zone_delivered_mw"].values()) == pytest.approx(first["delivered_mw"])
+    saved = json.loads((tmp_path / "fleet" / "rollups.json").read_text())
+    assert saved["n"] == 100
+    assert "homes" not in saved
+
+
+def test_rollups_route_omits_homes(tmp_path, monkeypatch):
+    save_rollups(fleet_rollups(new_fleet(16)), tmp_path / "rollups.json")
+    monkeypatch.setattr("server.engine.fleet.FLEET_DIR", tmp_path)
+    monkeypatch.setenv("FLEET_SIZE", "16")
+    body = TestClient(create_app(FixtureStore())).get("/v1/fleet/rollups").json()
+    assert body["n"] == 16
+    assert "homes" not in body
+    assert set(body["zones"]) == {"South", "North", "West", "Houston"}
+    assert "home-001" not in json.dumps(body)

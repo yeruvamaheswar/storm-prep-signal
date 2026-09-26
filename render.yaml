@@ -18,3 +18,15 @@ services:
       # Which fixture GET /v1/live returns: live-ok, bad-feed, retry-spent, stress-reserve.
       - key: CONSOLE_SCENE
         value: live-ok
+      # ERCOT Public API. Set these in the Render dashboard; never commit values.
+      - key: ERCOT_USERNAME
+        sync: false
+      - key: ERCOT_PASSWORD
+        sync: false
+      - key: ERCOT_SUBSCRIPTION_KEY
+        sync: false
+      # Optional history. Set these in the Render dashboard; never commit values.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false

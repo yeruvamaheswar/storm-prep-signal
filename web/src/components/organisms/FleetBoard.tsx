@@ -4,9 +4,18 @@ import "leaflet/dist/leaflet.css"
 import "./zoneMap.css"
 import type { TickView } from "../../contracts"
 import { callCaption, formatGridMw, homeRoleNote, lossCaption } from "../../format"
-import { zonePaint, zonePathPaint, type ZoneFill, type ZonePathPaint } from "../../zonePaint"
+import { isLoadZone, zoneHierarchyPaint, zonePaint, type LoadZone, type ZoneFill, type ZonePathPaint } from "../../zonePaint"
+import {
+  haloCandidates,
+  labelSize,
+  pickLabelAnchor,
+  rectCentered,
+  type LabelCandidate,
+  type PlaneRect,
+} from "../../zoneLabels"
 import { FleetLegend } from "../molecules/FleetLegend"
-import { countState, fleetCells } from "./fleetCells"
+import { fleetCounts } from "./fleetCells"
+import { homeNodes, labelCandidates, parseZonePolygons, zoneContains, type HomeNode, type ZonePolygon } from "./homeNodes"
 import { useHomeNodes } from "./homeNodeLayer"
 import { attachNwsRadar } from "./radarLayer"
 
@@ -35,27 +44,6 @@ const FALLBACK_ZONES = [
   { name: "South", bounds: [[25.84, -106.65], [31.17, -100.08]] as [L.LatLngTuple, L.LatLngTuple] },
   { name: "Houston", bounds: [[25.84, -100.08], [31.17, -93.51]] as [L.LatLngTuple, L.LatLngTuple] },
 ]
-
-/** Sits over the top of the map, clear of the zoom control on the left and the radar note on the right. */
-const CALL_CAPTION_STYLE: CSSProperties = {
-  position: "absolute",
-  top: "var(--space-5)",
-  left: "50%",
-  transform: "translateX(-50%)",
-  zIndex: 800,
-  maxWidth: "60%",
-  margin: 0,
-  padding: "var(--space-1) var(--space-2)",
-  border: "1px solid var(--line)",
-  borderRadius: "var(--radius-control)",
-  background: "var(--field)",
-  color: "var(--ink)",
-  fontSize: "var(--text-body)",
-  fontWeight: 500,
-  fontVariantNumeric: "tabular-nums",
-  textAlign: "center",
-  pointerEvents: "none",
-}
 
 const LOSS_LINE_STYLE: CSSProperties = {
   display: "block",
@@ -96,6 +84,10 @@ function pulseDischarging(layer: L.Layer) {
 type FleetBoardProps = {
   tick: TickView
   radar?: boolean
+  zone?: LoadZone | null
+  callout?: string | null
+  calloutTitle?: string
+  onSelectZone?: (zone: LoadZone) => void
 }
 
 function featureZoneName(properties: GeoJSON.GeoJsonProperties): string {
@@ -121,12 +113,27 @@ function pathOptions(paint: ZonePathPaint): L.PathOptions {
   }
 }
 
-/** Only the driving zone carries the reserved fill, so the eye lands on the zone behind the call. */
-function pathPaint(fill: ZoneFill | undefined, muted: boolean, risk: TickView["risk_level"]): L.PathOptions {
-  if (fill === undefined || (!muted && !fill.emphasized)) {
+/** No operator choice: the driving zone stays the filled one. A click replaces that. */
+function zoneIsSelected(fill: ZoneFill | undefined, zone: LoadZone | null): boolean {
+  if (fill === undefined) {
+    return false
+  }
+  if (zone === null) {
+    return fill.emphasized
+  }
+  return fill.zone === zone
+}
+
+function pathPaint(
+  fill: ZoneFill | undefined,
+  muted: boolean,
+  risk: TickView["risk_level"],
+  selected: boolean,
+): L.PathOptions {
+  if (fill === undefined) {
     return { color: LINE, weight: 1, fillColor: FIELD, fillOpacity: UNPAINTED_FILL_OPACITY }
   }
-  return pathOptions(zonePathPaint(fill, muted, risk))
+  return pathOptions(zoneHierarchyPaint(fill, muted, risk, selected))
 }
 
 function zoneCaption(name: string, fill: ZoneFill | undefined): string {
@@ -136,16 +143,71 @@ function zoneCaption(name: string, fill: ZoneFill | undefined): string {
   return `${name} ${formatGridMw(fill.mw)} MW`
 }
 
-function labelZone(layer: L.Layer, name: string) {
-  if (!(layer instanceof L.Path)) {
+type LabelJob = {
+  polygons: ZonePolygon[]
+  nodes: HomeNode[]
+  captions: Map<string, string>
+}
+
+function fallbackPolygons(): ZonePolygon[] {
+  return FALLBACK_ZONES.map((area) => {
+    const southWest = area.bounds[0]
+    const northEast = area.bounds[1]
+    const south = southWest[0]
+    const west = southWest[1]
+    const north = northEast[0]
+    const east = northEast[1]
+    return {
+      name: area.name,
+      rings: [[[west, south], [east, south], [east, north], [west, north], [west, south]]],
+    }
+  })
+}
+
+/** Permanent captions sit off the metro dots. Houston can step south into the gulf. */
+function drawZoneLabels(map: L.Map, group: L.LayerGroup, job: LabelJob) {
+  group.clearLayers()
+  const size = map.getSize()
+  if (size.y < 20) {
     return
   }
-  layer.bindTooltip(name, {
-    permanent: true,
-    direction: "center",
-    className: "zone-name",
-    opacity: 1,
-  })
+  const frame = { x: 0, y: 0, w: size.x, h: size.y }
+  const blocked: PlaneRect[] = [
+    { x: 0, y: 0, w: 48, h: 88 },
+    { x: 0, y: size.y - 96, w: 340, h: 96 },
+  ]
+  const ordered = [...job.polygons].sort((a, b) => labelCandidates(a).length - labelCandidates(b).length)
+  for (const polygon of ordered) {
+    const text = job.captions.get(polygon.name) ?? polygon.name
+    const { w, h } = labelSize(text.toUpperCase())
+    const interior: LabelCandidate[] = labelCandidates(polygon).map(([lng, lat]) => {
+      const point = map.latLngToLayerPoint([lat, lng])
+      return { x: point.x, y: point.y, inside: true }
+    })
+    const candidates = haloCandidates(interior, w, h, (x, y) => {
+      const latlng = map.layerPointToLatLng([x, y])
+      return { x, y, inside: zoneContains(polygon, latlng.lng, latlng.lat) }
+    })
+    const obstacles = job.nodes.map((node) => {
+      const point = map.latLngToLayerPoint([node.lat, node.lng])
+      return { x: point.x, y: point.y }
+    })
+    const anchor = pickLabelAnchor(candidates, w, h, obstacles, blocked, frame)
+    if (anchor === null) {
+      continue
+    }
+    blocked.push(rectCentered(anchor, w, h))
+    L.tooltip({
+      permanent: true,
+      direction: "center",
+      className: "zone-name",
+      opacity: 1,
+      interactive: false,
+    })
+      .setLatLng(map.layerPointToLatLng([anchor.x, anchor.y]))
+      .setContent(text)
+      .addTo(group)
+  }
 }
 
 /** useHomeNodes owns the markers. Its "add" handler sets data-status before the map fires layeradd. */
@@ -190,9 +252,16 @@ async function loadZones(): Promise<GeoJSON.FeatureCollection | null> {
   }
 }
 
-export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
+export function FleetBoard({
+  tick,
+  radar = false,
+  zone = null,
+  callout = null,
+  calloutTitle,
+  onSelectZone,
+}: FleetBoardProps) {
   const paintNow = zonePaint(tick)
-  const cells = fleetCells(tick)
+  const counts = fleetCounts(tick)
   const loss = lossCaption(tick)
   const hostRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -202,6 +271,23 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
   const [standIn, setStandIn] = useState(false)
   const [radarNote, setRadarNote] = useState<string | null>(null)
   const lossKind = loss?.kind ?? null
+  const onSelectRef = useRef(onSelectZone)
+  onSelectRef.current = onSelectZone
+  const labelJobRef = useRef<LabelJob | null>(null)
+  const labelGroupRef = useRef<L.LayerGroup | null>(null)
+  const refreshLabelsRef = useRef<(map: L.Map) => void>(() => {})
+  refreshLabelsRef.current = (map) => {
+    const job = labelJobRef.current
+    if (job === null) {
+      return
+    }
+    let group = labelGroupRef.current
+    if (group === null || !map.hasLayer(group)) {
+      group = L.layerGroup().addTo(map)
+      labelGroupRef.current = group
+    }
+    drawZoneLabels(map, group, job)
+  }
 
   useEffect(() => {
     pulseRef.current = lossKind === "reallocated"
@@ -233,9 +319,18 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
         pulseDischarging(event.layer)
       }
     })
+    map.on("selectzone", (event) => {
+      const picked = (event as L.LeafletEvent & { zone?: string }).zone
+      if (picked !== undefined && isLoadZone(picked)) {
+        onSelectRef.current?.(picked)
+      }
+    })
     const homePane = map.createPane("home-nodes")
     homePane.style.zIndex = "650"
-    const fit = () => fitTexas(map)
+    const fit = () => {
+      fitTexas(map)
+      refreshLabelsRef.current(map)
+    }
     map.whenReady(fit)
     requestAnimationFrame(fit)
     const observer = new ResizeObserver(fit)
@@ -244,6 +339,7 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
       observer.disconnect()
       map.remove()
       mapRef.current = null
+      labelGroupRef.current = null
     }
   }, [])
 
@@ -266,31 +362,49 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
         return
       }
       group.clearLayers()
+      const polygons = geo === null ? fallbackPolygons() : parseZonePolygons(geo)
+      const captions = new Map<string, string>()
       if (geo === null) {
         // TODO: geo/ercot-load-zones.json is missing. These four rectangles stand in for the ERCOT load zones.
-        for (const zone of FALLBACK_ZONES) {
-          const rect = L.rectangle(zone.bounds, pathPaint(byName.get(zone.name.toLowerCase()), paint.muted, tick.risk_level))
-          labelZone(rect, zoneCaption(zone.name, byName.get(zone.name.toLowerCase())))
+        for (const area of FALLBACK_ZONES) {
+          const fill = byName.get(area.name.toLowerCase())
+          const selected = zoneIsSelected(fill, zone)
+          const rect = L.rectangle(area.bounds, pathPaint(fill, paint.muted, tick.risk_level, selected))
+          captions.set(area.name, zoneCaption(area.name, fill))
+          if (isLoadZone(area.name)) {
+            const name = area.name
+            rect.on("click", () => onSelectRef.current?.(name))
+          }
           rect.addTo(group)
         }
         setStandIn(true)
-        setZoneNames(FALLBACK_ZONES.map((zone) => zone.name))
-        fitTexas(board)
-        return
+        setZoneNames(FALLBACK_ZONES.map((area) => area.name))
+      } else {
+        const names: string[] = []
+        L.geoJSON(geo, {
+          style: (feature) => {
+            const name = featureZoneName(feature?.properties ?? null)
+            return pathPaint(byName.get(name.toLowerCase()), paint.muted, tick.risk_level, zoneIsSelected(byName.get(name.toLowerCase()), zone))
+          },
+          onEachFeature: (feature, layer) => {
+            const name = featureZoneName(feature.properties)
+            names.push(name)
+            captions.set(name, zoneCaption(name, byName.get(name.toLowerCase())))
+            if (isLoadZone(name)) {
+              layer.on("click", () => onSelectRef.current?.(name))
+            }
+          },
+        }).addTo(group)
+        setStandIn(false)
+        setZoneNames(names)
       }
-      const names: string[] = []
-      L.geoJSON(geo, {
-        style: (feature) =>
-          pathPaint(byName.get(featureZoneName(feature?.properties ?? null).toLowerCase()), paint.muted, tick.risk_level),
-        onEachFeature: (feature, layer) => {
-          const name = featureZoneName(feature.properties)
-          names.push(name)
-          labelZone(layer, zoneCaption(name, byName.get(name.toLowerCase())))
-        },
-      }).addTo(group)
-      setStandIn(false)
-      setZoneNames(names)
+      labelJobRef.current = {
+        polygons,
+        nodes: homeNodes(tick, polygons),
+        captions,
+      }
       fitTexas(board)
+      refreshLabelsRef.current(board)
     }
 
     void draw()
@@ -298,7 +412,7 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
       cancelled = true
       group.remove()
     }
-  }, [tick])
+  }, [tick, zone])
 
   useEffect(() => {
     const map = mapRef.current
@@ -317,10 +431,9 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
       data-muted={paintNow.muted ? "true" : "false"}
       data-north={paintNow.zones.find((zone) => zone.zone === "North")?.emphasized ? "emphasized" : "plain"}
     >
-      <div ref={hostRef} className="zone-map" />
-      <p className="call-caption" role="status" style={CALL_CAPTION_STYLE}>
-        {callCaption(tick, countState(cells, "discharging"), countState(cells, "reserved"))}
-        {loss === null ? null : (
+      <p className="call-caption" role="status" title={calloutTitle}>
+        {callout ?? callCaption(tick, counts.discharging, counts.reserved)}
+        {callout !== null || loss === null ? null : (
           <span className="loss-line" data-loss={loss.kind} style={LOSS_LINE_STYLE}>
             <span ref={missedRef} style={LOSS_MISSED_STYLE}>
               {loss.missed}
@@ -329,12 +442,15 @@ export function FleetBoard({ tick, radar = false }: FleetBoardProps) {
           </span>
         )}
       </p>
-      <FleetLegend cells={cells} />
-      {radarNote === null ? null : (
-        <p className="radar-note" role="status">
-          {radarNote}
-        </p>
-      )}
+      <div className="zone-stage">
+        <div ref={hostRef} className="zone-map" />
+        {radarNote === null ? null : (
+          <p className="radar-note" role="status">
+            {radarNote}
+          </p>
+        )}
+      </div>
+      <FleetLegend counts={counts} />
       <p className="zone-map-names">{zoneNames.join(" · ")}</p>
     </section>
   )

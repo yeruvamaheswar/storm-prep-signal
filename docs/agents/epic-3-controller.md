@@ -1,6 +1,6 @@
-# Epic 3: the controller, fleet and scoring lane (Rajat)
+# Epic 3: the controller, fleet and scoring
 
-What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on how to adjust. Source of truth for the lane. Open this file when a task touches `controller.py`, `fleet.py`, `score.py`, `scheduler.py`, `channel.py`, `orchestration.py` or their tests.
+What this epic builds, plus notes on how the rest of the product should adjust. Source of truth for the controller path. Open this file when a task touches `controller.py`, `fleet.py`, `score.py`, `scheduler.py`, `channel.py`, `orchestration.py` or their tests.
 
 
 **Why it exists:** the grid asks for a total amount of power. Someone has to decide which homes give how much, never break a home's backup floor, and keep working when homes go offline, messages get lost, or a zone stalls. This epic is the "orchestration" in the Orchestration track.
@@ -50,7 +50,7 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
 > As an operator, I want running totals per zone and overall, so that I can judge the whole event at a glance.
 - Acceptance:
   - Tracks target, delivered (credited), missed, dollars and breaches, total and per zone (delivered per zone; the target is fleet-wide). Lowest charge when the homes are passed in. It fills `totals` in the run file.
-  - Dollars follow delivered MWh x price. On the tracer path delivered means planned and applied; on the `run_cycle` path it means confirmed. If there is no price, dollars is None, never $0.
+  - Dollars follow delivered MWh x price. On the tracer path delivered means planned and applied; on the `orchestrate_tick` path it means confirmed. If there is no price, dollars is None, never $0.
   - A 3-tick example adds up by hand.
 - Say it out loud: "The books count what the batteries did, not what we asked."
 
@@ -74,7 +74,7 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
   - Each home is its own worker. An error inside one home turns only that home dead and never stops the cycle.
 - Say it out loud: "This is a deterministic simulation of a distributed controller. If seed 418 breaks a rule, we replay seed 418."
 
-**Story 3.7: The orchestrator, `run_cycle`** (`orchestration.py`) `P0` `Sat afternoon`
+**Story 3.7: The orchestrator, `orchestrate_tick`** (`orchestration.py`) `P0` `Sat afternoon`
 > As an operator, I want a central node and one supervisor per zone that send orders in parallel, collect results on a deadline, and recover, so that a stalled zone or a slow home does not hold up the fleet.
 - Acceptance:
   - Timeline in one 5-minute tick: orders at 0 s, confirmations until 60 s, time-outs at 60 s, one retry until 120 s, books close at 120 s. Later results are logged as late.
@@ -111,7 +111,7 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
 
 ---
 
-**What this epic needs from others:** Uma's zone-assignment answer, OK for three new files (`scheduler.py`, `channel.py`, `orchestration.py`), and add-only fields for the new per-zone numbers. Sunny's tape can carry fault events later. None of it blocks 3.1 to 3.5.
+**What this epic still needs:** a zone-assignment answer, three new files (`scheduler.py`, `channel.py`, `orchestration.py`) if the runtime stories land, and add-only fields for the new per-zone numbers. The tape can carry fault events later. None of it blocks 3.1 to 3.5.
 
 **How Epic 3 connects to the others:** the storm signal (Epic 1) and zone floors (Epic 2) set each home's floor. This epic splits and executes the work under those floors. Epic 4 shows what happened per zone.
 
@@ -119,12 +119,12 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
 
 ## Notes for the team: how to adjust for what Epic 3 is doing
 
-These are suggestions, not edits. Each person owns their own epic and files. Anything marked "optional" can be ignored without breaking the tracer.
+These are suggestions, not edits. File ownership is retired; a later gap may touch whatever it needs. Anything marked "optional" can be ignored without breaking the tracer.
 
 ### General rules for everyone
 - **Treat new fields as optional.** The extra numbers (planned, confirmed, unconfirmed, per-zone) arrive as add-only fields. If a field is missing, show what you have. A cut line might drop it.
 - **Same words for the same numbers:** planned = safe power ordered; confirmed = what workers actually returned; credited = `min(confirmed, target)` and is what `delivered_mw` shows; unconfirmed = ordered but not confirmed; missed = `target - credited`, always with a reason.
-- **Unconfirmed never counts as delivered and never earns dollars.** Please keep that true on screen, in the brief and in the video. Note: on the plain tracer path (engine calling `allocate` then `discharge`) there is no confirmation step, so delivered means planned and applied there. Only `run_cycle` produces confirmed and unconfirmed figures.
+- **Unconfirmed never counts as delivered and never earns dollars.** Please keep that true on screen, in the brief and in the video. Note: on the plain tracer path (engine calling `allocate` then `discharge`) there is no confirmation step, so delivered means planned and applied there. Only `orchestrate_tick` produces confirmed and unconfirmed figures.
 - **The Loom line:** "We may miss the grid's target. We never break a homeowner's reserve, and any failure can be replayed from its seed."
 
 ### For Uma (Epics 1 and 2)
@@ -132,11 +132,11 @@ These are suggestions, not edits. Each person owns their own epic and files. Any
 - **Story 2.3, the engine:**
   - When Stories 3.1 to 3.3 land, delete the TEMP block for `new_fleet`, `apply_events`, `allocate` and `discharge` and import ours. The tracer then shows real delivered MW.
   - In that path, `Allocation.delivered_mw` means planned safe delivery, and `discharge` applies it exactly.
-  - Optional, later: replace `allocate` then `discharge` with one call, `run_cycle(homes, frame, policy, mode, settings, seed)`, and read `cycle.allocation` and `cycle.breaches`.
+  - Optional, later: replace `allocate` then `discharge` with one call, `orchestrate_tick(homes, frame, policy, mode, settings, seed)`, and read `cycle.allocation` and `cycle.breaches`.
   - `totals` in the run file is filled by `score.py` (`new_board`, `update(board, result, homes=None)`; pass `homes` to get lowest charge). Please have the engine write it.
   - A `seed` setting (default 1) would help replays. Optional.
 - **Contracts, add-only:** planned, confirmed and unconfirmed MW, and per-zone versions, on `TickResult`. Reason codes `timed_out:<n>`, `unknown_zone`, `duplicates_ignored:<n>`, `short_delivery:<n>`. We will send exact names when they are needed.
-- **Asks that need your OK:** the zone-assignment rule (default is round-robin by home index), and three new files owned by Rajat: `scheduler.py`, `channel.py`, `orchestration.py`.
+- **Still open:** the zone-assignment rule (default is round-robin by home index), and three new files if the runtime stories land: `scheduler.py`, `channel.py`, `orchestration.py`.
 - **Story 2.4, ship:** the Loom's proof section can use the printed summary line, such as `50 seeds, 600 ticks, 0 floor breaches`, plus one replayed seed.
 - **Epic 1:** nothing to change. If the signal is unreadable (risk None), all zones get the storm floor, and the controller handles that as it is.
 
@@ -166,7 +166,7 @@ These are suggestions, not edits. Each person owns their own epic and files. Any
 |---|---|
 | Stretch (3.9) | Nothing. It was never promised. |
 | The orchestration runtime shrinks (3.6, 3.7) | The tracer, per-zone books and the proof run still exist. Fewer command-state details to show. |
-| `run_cycle` is not ready | The engine keeps calling `allocate` then `discharge`. Nothing breaks. |
+| `orchestrate_tick` is not ready | The engine keeps calling `allocate` then `discharge`. Nothing breaks. |
 | Per-zone fields are not added to `TickResult` | Per-zone numbers stay in `totals` and the log only. The screen shows overall numbers. |
 
 ### Dates to plan around (Central)
