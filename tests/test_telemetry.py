@@ -130,3 +130,66 @@ def test_tape_dead_never_revives_and_suspect_plans_as_stale():
     assert tm.plan_status("live", "suspect") == "stale"
     assert tm.view_status("live", "suspect") == "suspect"
     assert tm.view_status("dead", "live") == "dead"
+
+
+def fleet_and_state(seed=7, **over):
+    s = settings(**{**QUIET, **over})
+    homes = new_fleet(s)
+    return s, homes, tm.TelemetryState(homes, s, seed)
+
+
+def test_every_home_is_registered_and_live_before_the_first_tick():
+    s, homes, state = fleet_and_state()
+    assert len(state.homes) == 100
+    copies = state.reported_homes(homes)
+    assert all(c.status == "live" for c in copies)
+    assert [c.soc_kwh for c in copies] == [h.soc_kwh for h in homes]
+
+
+def test_reported_homes_are_new_objects_and_never_the_simulator():
+    s, homes, state = fleet_and_state()
+    copies = state.reported_homes(homes)
+    assert all(c is not h for c, h in zip(copies, homes))
+    copies[0].soc_kwh = 0.0
+    copies[0].status = "dead"
+    assert homes[0].soc_kwh > 0.0 and homes[0].status == "live"
+
+
+def test_reported_copy_uses_the_reported_charge_not_the_truth():
+    s, homes, state = fleet_and_state()
+    homes[0].soc_kwh -= 3.0                      # truth moved; no reading yet
+    assert state.reported_homes(homes)[0].soc_kwh == homes[0].soc_kwh + 3.0
+
+
+def test_tape_status_combines_with_data_status():
+    s, homes, state = fleet_and_state()
+    apply_events(homes, {"dead": ["home-002"]})
+    state.homes["home-003"].suspect = True
+    by_id = {c.home_id: c for c in state.reported_homes(homes)}
+    assert by_id["home-002"].status == "dead"
+    assert by_id["home-003"].status == "stale"
+    state.base_s = 700.0                         # nobody has reported for 710 s
+    copies = state.reported_homes(homes)
+    assert all(c.status == "dead" for c in copies if c.home_id != "home-003")
+    assert {c.home_id: c.status for c in copies}["home-003"] == "stale"   # suspect beats age
+
+
+def test_reported_homes_rejects_unknown_home():
+    s, homes, state = fleet_and_state()
+    stranger = Home("home-999", 20.0, 10.0, 5.0, zone="Houston")
+    with pytest.raises(ValueError, match="home-999"):
+        state.reported_homes(homes + [stranger])
+
+
+def test_the_seed_plants_one_liar_and_about_five_percent_outages():
+    s = settings()
+    homes = new_fleet(s)
+    a, b = tm.TelemetryState(homes, s, 3), tm.TelemetryState(homes, s, 3)
+    assert len(a.liar_ids) == 1 and a.liar_ids == b.liar_ids
+    assert len(a.outages) == 5 and a.outages == b.outages
+
+
+def test_explicit_outage_window():
+    s, homes, state = fleet_and_state(telemetry_outages={"home-001": [(0.0, 50.0)]})
+    assert state.offline("home-001", 10.0) and not state.offline("home-001", 50.0)
+    assert not state.offline("home-002", 10.0)

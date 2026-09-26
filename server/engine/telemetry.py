@@ -8,8 +8,11 @@ Readings travel on the cycle's seeded Scheduler through their own lossy Channel,
 replays exactly from its seed. Metric names follow the OpenTelemetry hardware conventions
 (hw.battery.charge, hw.power, hw.status); there is no exporter, only the shape.
 """
+import random
 from dataclasses import dataclass, field
 from typing import Optional
+
+from server.engine.contracts import Home
 
 DEFAULTS = {
     "telemetry_every_s": 10.0,        # one reading per home per 10 virtual s (a demo rate)
@@ -124,3 +127,62 @@ def plan_status(tape_status, data_st):
     """What allocate sees. The contract has no suspect status, so a suspect home plans as stale."""
     mapped = "stale" if data_st == "suspect" else data_st
     return max(tape_status, mapped, key=RANK.__getitem__)
+
+
+class TelemetryState:
+    """The VPP's memory of every battery, kept across ticks, plus the seeded fault plan."""
+
+    def __init__(self, homes, settings, seed):
+        self.settings = settings
+        self.every = knob(settings, "telemetry_every_s")
+        self.tick_s = settings["tick_minutes"] * 60.0
+        self.base_s = 0.0
+        rng = random.Random(seed)
+        ids = [h.home_id for h in homes]
+        self.homes = {h.home_id: HomeState(h.home_id, h.capacity_kwh) for h in homes}
+        self.phase = {i: rng.uniform(0.0, self.every) for i in ids}   # homes don't all report at once
+        skew = knob(settings, "telemetry_skew_s")
+        self.skew = {i: rng.uniform(-skew, skew) for i in ids}
+        self.seq = dict.fromkeys(ids, 0)
+        liars = knob(settings, "telemetry_liar_ids")
+        self.liar_ids = tuple(liars) if liars is not None else (rng.choice(ids),)
+        self.frozen = {h.home_id: h.soc_kwh for h in homes if h.home_id in self.liar_ids}
+        outages = knob(settings, "telemetry_outages")
+        if outages is None:
+            count = round(knob(settings, "telemetry_outage_rate") * len(ids))
+            outages = {}
+            for i in rng.sample(ids, count):
+                start = rng.uniform(0.0, 12 * self.tick_s)
+                outages[i] = [(start, start + rng.uniform(200.0, 1500.0))]
+        self.outages = outages
+        self.power = dict.fromkeys(ids, 0.0)
+        self.totals = new_stats()
+        # Registration: every battery checks in once before the first tick, as a real device
+        # does when it is installed, so tick 1 plans from a report instead of from nothing.
+        for h in homes:
+            ingest(self.homes[h.home_id], self.make_reading(h, -self.every), -self.every, self.totals)
+
+    def offline(self, home_id, t_abs):
+        return any(start <= t_abs < end for start, end in self.outages.get(home_id, ()))
+
+    def make_reading(self, home, t_abs, power_kw=0.0):
+        """One reading from the battery's side: its clock may be off, and a liar's charge is frozen."""
+        self.seq[home.home_id] += 1
+        seq = self.seq[home.home_id]
+        charge_state = "DISCHARGING" if power_kw > 0 else "HOLDING"
+        return {"command_id": f"telemetry:{home.home_id}:1:{seq}", "home_id": home.home_id,
+                "boot_id": 1, "seq": seq, "device_ts": t_abs + self.skew[home.home_id],
+                "soc_kwh": self.frozen.get(home.home_id, home.soc_kwh), "power_kw": power_kw,
+                "charge_state": charge_state, "grid": "connected", "health": "ok"}
+
+    def reported_homes(self, homes):
+        """New Home objects built from the reports, for allocate. Never the simulator's own."""
+        copies = []
+        for h in homes:
+            if h.home_id not in self.homes:
+                raise ValueError(f"{h.home_id} is not in this TelemetryState's fleet")
+            hs = self.homes[h.home_id]
+            soc = hs.last["soc_kwh"] if hs.last else 0.0
+            status = plan_status(h.status, data_status(hs, self.base_s, self.settings))
+            copies.append(Home(h.home_id, h.capacity_kwh, soc, h.max_kw, status, h.zone))
+        return copies
