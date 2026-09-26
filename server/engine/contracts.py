@@ -80,3 +80,8 @@ class TickResult:
     zone_acks: dict = field(default_factory=dict)
     zone_prices: dict = field(default_factory=dict)  # load-zone name to $/MWh, copied from the frame
     zone_price_label: str = "none"
+    # Simulated battery feed (docs/agents/telemetry-vpp.md), built from reports only.
+    # Empty when settings["telemetry_feed"] is off.
+    plant: dict = field(default_factory=dict)           # plant rollup: homes by status, MWh, MW, coverage
+    feed: dict = field(default_factory=dict)            # readings received, accepted, duplicates, late
+    zone_telemetry: dict = field(default_factory=dict)  # zone name to the same rollup as plant

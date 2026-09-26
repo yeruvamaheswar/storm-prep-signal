@@ -171,7 +171,7 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
 | `Policy` | The floors (fleet and per zone), the reason, the risk level, the intent. |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -274,6 +274,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 | `BASE_RESERVE_PCT`, `STORM_RESERVE_PCT` | The two floors. |
 | `CHARGE_BELOW_USD`, `DISCHARGE_ABOVE_USD` | Price bands for intent. |
 | `TICK_MINUTES` | Length of one tick. |
+| `TELEMETRY_FEED`, `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S` | Simulated battery feed: on unless `0`; one reading per home every 10 s; a home is stale after 180 s and dead after 600 s without a reading. Example values. Detail: [telemetry-vpp.md](telemetry-vpp.md). |
 | `ZONES` | Load zones and their anchor counties. |
 
 API-only settings (`PORT`, `CORS_ORIGINS`, `CONSOLE_SCENE`, `CONSOLE_FIXTURES_DIR`): [backend.md, Settings](backend.md#settings-environment-variables). Wall build setting: `VITE_API_BASE_URL`.

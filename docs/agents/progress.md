@@ -839,3 +839,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `score.py`: on a tick with `zone_prices` where every delivering zone is priced, the fleet `dollars` adds the zone dollars (label `zone_price_label`); a zone-priced tick that delivered nothing adds $0 under that label. Otherwise the tick's one price, as before. New `add_usd` helper shared by fleet and zones.
 - Heather replay: fleet `dollars` $126.50 `recorded:ERCOT NP6-905-CD`, equal to the four zones (was $87.00 at LZ_HOUSTON only). Demo tape has no zone prices, so it is unchanged.
 - Tests: 4 in `tests/test_score.py`. `pytest -q`: 421 passed.
+
+## 2026-09-26: Battery telemetry feed runs in the tick loop
+
+- `loop.run` builds one `TelemetryState` per run when `settings["telemetry_feed"]` is on and passes it to every `orchestrate_tick`, so `allocate` plans from what the batteries reported (stale, dead and suspect homes get no work). Each `TickResult` gains `plant`, `feed`, `zone_telemetry` (added fields, empty when off). The console prints a `plant:` line per tick.
+- `read_settings()` turns it on (`TELEMETRY_FEED=1`, plus `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S` in `.env.example`). Bare settings dicts, as most tests pass, leave it off.
+- Demo tape with the feed on: delivered 0.164 of 0.317 MWh (51.9%), identical to feed off; 0 breaches; the planted lying battery is `suspect` from tick 1; live homes drop to 69/100 in the storm frames. All numbers synthetic.
+- `tests/test_tracer.py`: its stand-in `orchestrate_tick` now passes extra arguments through (no assertion changed); the tracer checks now run with the feed on.
+- Limit: the live worker calls `loop.run` once per cycle, so report history resets each live cycle. `/v1` and the wall do not show the new fields yet.
+- Tests: 7 in `tests/test_loop_telemetry.py`. `pytest -q`: 428 passed.

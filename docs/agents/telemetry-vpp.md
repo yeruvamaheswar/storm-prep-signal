@@ -174,12 +174,12 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
 
 | Who | Ask | Blocks |
 |---|---|---|
-| Uma | Approve `server/engine/telemetry.py` (new file, Rajat's), alongside `scheduler.py`, `channel.py` and `orchestration.py` | merge |
-| Uma | Replace the TEMP stand-ins in `loop.py`, create one `TelemetryState` per run and pass it in | demo |
-| Uma | Add settings to `.env.example`: `TELEMETRY_EVERY_S=10`, `STALE_AFTER_S=180`, `DEAD_AFTER_S=600`, `CHARGE_BELOW_USD_MWH=25`, `STORM_FILL_PCT=95`. Until then these are defaults in our code. | nothing |
+| — | ~~Approve `telemetry.py` as a lane file~~ Done: file ownership is retired (`gap-work.md`); merged in PR #16 | — |
+| — | ~~Create one `TelemetryState` per run in `loop.py` and pass it in~~ Done: on by default (`TELEMETRY_FEED=1`); each `TickResult` carries `plant`, `feed`, `zone_telemetry` | — |
+| — | Settings in `.env.example`: done for `TELEMETRY_FEED`, `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S`. `CHARGE_BELOW_USD_MWH` and `STORM_FILL_PCT` wait for R11. | nothing |
 | Uma | Optional: set `HOME_KWH=39.2` to match Base Core (an example setting, not a Base spec) | nothing |
 | Sunny | Tape event key `grid_down` (a list of zone names) | the demo of R9 |
-| Sunny | Show `plant`, `zones`, `feed` and the `suspect` status on the wall and in `/v1` | anything on screen |
+| Sunny | Show `plant`, `zone_telemetry`, `feed` and the `suspect` status on the wall and in `/v1` (they are in every run file tick now) | anything on screen |
 
 ## Success metrics
 
