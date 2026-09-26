@@ -1,0 +1,4 @@
+Date,HourEnding,TotalResourceMWZoneSouth,TotalResourceMWZoneNorth,TotalResourceMWZoneWest,TotalResourceMWZoneHouston,TotalIRRMWZoneSouth,TotalIRRMWZoneNorth,TotalIRRMWZoneWest,TotalIRRMWZoneHouston,TotalNewEquipResourceMWZoneSouth,TotalNewEquipResourceMWZoneNorth,TotalNewEquipResourceMWZoneWest,TotalNewEquipResourceMWZoneHouston
+07/08/2024,1,2000,1800,300,2200,700,800,600,500,300,400,100,300
+07/08/2024,2,2000,2400,300,3200,700,900,600,600,300,500,100,400
+07/08/2024,3,2000,2200,300,2600,700,850,600,550,300,450,100,350

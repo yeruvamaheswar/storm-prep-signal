@@ -10,7 +10,7 @@ Source: `docs/reservegate.md` section 2. The data shapes live in `storm_prep/con
 |---|---|
 | **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
 | **Rajat** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `storm_prep/screen.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `tests/test_screen.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `app/` (stretch) |
+| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
 
 If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
 
@@ -26,10 +26,36 @@ If you need something in a file you don't own, like a new dependency, a new sett
 | `new_board` / `update` | Rajat | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
 | `load_tape` | Sunny | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
 | `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
-| `render` | Sunny | `(log_path) -> Path`: one static HTML file from `stage == "tick"` events. No server needed. |
 | `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
 
-alerted is a dict of zone name to NWS event name; statewide reasons outrank zone alerts.
+`alerted` is a dict of zone name to NWS event name; statewide reasons outrank zone alerts.
+
+## UI (Sunny). The engine stays the backend.
+
+There is no `storm_prep/screen.py`. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change. The UI does not allocate, set the reserve, or read the brief to make a decision.
+
+How they connect:
+
+1. The engine still writes the JSONL log. Each `stage == "tick"` line carries a `TickResult` inside `data`, plus `brief`.
+2. At the end of the run, `engine.py` (Uma) writes `var/runs/<run_id>.json` from those tick lines. Shape: `{ "run_id", "decision_line", "ticks" }`. Each tick is the `TickResult` fields plus `brief`. Field names match `storm_prep/contracts.py`. They may be added, never renamed or removed.
+3. `demo.sh` copies that file to `web/public/runs/latest.json`. The app fetches `/runs/latest.json`. `web/src/contracts.ts` repeats those field names for TypeScript. `contracts.py` wins if they disagree.
+4. HOLD and AUTO are already `TickResult.mode`, set from the tape. Buttons on screen do not call the engine.
+
+```
+storm_prep/contracts.py     TickResult and the other shapes (Uma)
+storm_prep/engine.py        writes var/runs/<run_id>.json (Uma)
+var/runs/<run_id>.json      generated, not committed
+web/                        Vite + React + TypeScript (Sunny)
+  src/contracts.ts          same field names as TickResult
+  src/design/               tokens
+  src/components/atoms/
+  src/components/molecules/
+  src/components/organisms/
+  src/components/templates/
+  src/pages/                mounts the operator wall
+  public/runs/latest.json   copy of the latest run file, not committed
+DESIGN.md                   how the wall looks
+```
 
 ## Allocation rule (Rajat implements it; Uma must be able to say it out loud)
 

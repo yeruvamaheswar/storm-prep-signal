@@ -24,6 +24,22 @@ class SignalUnavailable(Exception):
     """A live fetch failed. The message is safe to print: it never holds credentials or tokens."""
 
 
+def get_id_token(username, password, timeout):
+    """Trade the ERCOT username and password for a one-hour id_token.
+
+    Network and JSON errors are left to the caller, which turns them into a secret-free reason.
+    """
+    # Credentials go in the POST body, not the URL, so they can't land in proxy logs.
+    token = requests.post(TOKEN_URL, timeout=timeout, data={
+        "username": username, "password": password, "grant_type": "password",
+        "scope": f"openid {CLIENT_ID} offline_access", "client_id": CLIENT_ID,
+        "response_type": "id_token",
+    })
+    if token.status_code != 200:
+        raise SignalUnavailable(f"ERCOT login refused (HTTP {token.status_code})")
+    return json.loads(token.text)["id_token"]
+
+
 def fetch_outages(settings, now, save_to=LIVE_PATH):
     """Get a fresh ERCOT id_token, then the newest NP3-233-CD postings. Returns the raw JSON body.
 
@@ -36,15 +52,7 @@ def fetch_outages(settings, now, save_to=LIVE_PATH):
         raise SignalUnavailable("ERCOT credentials missing from .env")
     timeout = settings["fetch_timeout_s"]
     try:
-        # Credentials go in the POST body, not the URL, so they can't land in proxy logs.
-        token = requests.post(TOKEN_URL, timeout=timeout, data={
-            "username": username, "password": password, "grant_type": "password",
-            "scope": f"openid {CLIENT_ID} offline_access", "client_id": CLIENT_ID,
-            "response_type": "id_token",
-        })
-        if token.status_code != 200:
-            raise SignalUnavailable(f"ERCOT login refused (HTTP {token.status_code})")
-        id_token = json.loads(token.text)["id_token"]
+        id_token = get_id_token(username, password, timeout)
         # The verified query: the last two hours of postings, which always holds the newest one.
         since = (now.astimezone(CENTRAL) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
         report = requests.get(REPORT_URL, timeout=timeout,
