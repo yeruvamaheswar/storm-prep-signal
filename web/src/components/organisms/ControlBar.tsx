@@ -49,7 +49,7 @@ export function ControlBar({
   showTapeChrome,
 }: ControlBarProps) {
   const tape = showTapeChrome ?? runtime !== "live"
-  const live = !tape
+  const live = runtime === "live"
 
   return (
     <footer className="control-bar">

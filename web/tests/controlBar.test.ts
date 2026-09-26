@@ -186,6 +186,9 @@ describe("live run", () => {
     expect(html).not.toContain(">12<")
     expect(html).not.toContain("Fail-safe")
     expect(html).toContain("Waiting for intervals")
+    expect(html).toContain('aria-label="Demo. Play the 12-tick tape." aria-pressed="true"')
+    expect(html).toContain('aria-label="Live. Follow the ERCOT clock."')
+    expect(html).not.toContain('aria-label="Live. Follow the ERCOT clock." aria-pressed="true"')
   })
 
   it("leaves Hold and Auto enabled so Live can call the engine", () => {
