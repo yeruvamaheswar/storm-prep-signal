@@ -40,14 +40,11 @@ Team line: **"We may miss the target; we never break a reserve."**
 - The engine **never imports or waits on** Supabase during a run. Uploads are best effort: they print `..._skipped: <reason>` and exit 0 on failure.
 - Keys live in `server/.env` or the process env (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`). `server/env.py` loads that file, then leaves process env in place. Never print, log, commit, or hardcode keys. Keep `.env.example` updated with names only. Do not put them in Vite.
 
-## Ownership
-- **Uma:** engine, policy, contracts, and all merges into `main`.
-- **Rajat:** fleet, controller, score (files go in `server/engine/`).
-- **Sunny:** tape, brief, web, `server/api/`, `render.yaml`, `demo.sh`, README.
-- **Only Uma merges into `main`. No direct pushes.** Work on a branch and open a PR.
+## How work is chosen
+File ownership is retired. The desired end state and the next gap live in `docs/agents/gap-work.md`. Work the named gap. A gap may touch any file it needs. One branch, one gap.
 
 ## Rules for agents
-- Stay inside the files the task names. Ask before touching another owner's area.
+- Stay inside the named gap. Do not start a second gap in the same sitting.
 - Do not add dependencies without saying why. The only network calls in `server/engine/` are the ERCOT fetches in `signal.py` (`--live`): NP3-233-CD outages and NP6-905-CD LZ_NORTH price. Do not add others, and the engine never calls Supabase.
 - Add or update a test for every behavior change, and run the full test suite before finishing.
 - Update `docs/agents/progress.md` with what changed and why.

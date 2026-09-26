@@ -76,7 +76,7 @@ pytest -q
 - Keep the error body `{ "error", "brief" }`. Raise `ApiError`; do not use FastAPI's `HTTPException`, whose body is `{ "detail" }` and which the wall does not read.
 - Every `POST` calls `_require_operator` first.
 - Build each app with `create_app()` in tests so state does not leak between tests.
-- New dependencies need Uma's approval (`CONSTRAINTS.md`).
+- New dependencies need an update to `CONSTRAINTS.md` ("Backend"). A new dependency is its own gap.
 
 ## Deploy on Render
 
@@ -93,4 +93,4 @@ Not done: deploying `web/` itself. `vite build` only builds `index.html` today (
 
 ## Next step: engine output instead of fixtures
 
-Swap `FixtureStore` reads for engine data one route at a time, keeping the response shape from the plan. `var/runs/latest.json` (see `CONSTRAINTS.md`, "Engine output") has `TickResult` fields, not the console tick shape, so the mapping belongs in one server function with its own tests. The engine owner (Uma) decides how mode and attention writes reach the engine.
+Swap `FixtureStore` reads for engine data one route at a time, keeping the response shape from the plan. `var/runs/latest.json` (see `CONSTRAINTS.md`, "Engine output") has `TickResult` fields, not the console tick shape, so the mapping belongs in one server function with its own tests. How mode and attention writes reach the engine is a later gap; this note does not invent that path.
