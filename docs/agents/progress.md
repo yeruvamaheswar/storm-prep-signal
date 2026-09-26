@@ -149,3 +149,26 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `engine.py` still calls it without `alerted`, so zones follow the fleet floor until alerts
   are wired in. `CONSTRAINTS.md` still shows the old 2-argument signature.
 - 4 new tests in `tests/test_policy.py`. `pytest -q`: 18 passed.
+
+## 2026-09-25: Slice 2 done, live ERCOT fetch
+
+- `signal.fetch_outages(settings, now)`: POST for an `id_token` (credentials in the form
+  body), then GET NP3-233-CD with `postedDatetimeFrom=<now - 2 h>&size=400`, the Bearer token
+  and `Ocp-Apim-Subscription-Key`. Timeout per call is `FETCH_TIMEOUT_S` (3 s; the owner
+  chose 3 over the 10 s first asked for). Credentials are read from the environment, never
+  put in `settings`. Every failure becomes `SignalUnavailable` with a short, secret-free reason.
+- The raw body is saved to `var/signal/latest_np3.json` (git-ignored). Replay it with
+  `python -m storm_prep --file var/signal/latest_np3.json`. The replay says `source: fixture`.
+- `python -m storm_prep --live`. Any live failure (network, login, JSON, missing hour) logs
+  `compute_risk`/`failed`, treats risk as None, sets batteries to RESERVE and prints
+  `[RESERVE] risk unknown | <reason> | reserve floor 60% (signal_unavailable) | source: ERCOT NP3-233-CD`.
+  Exit code stays 0. This replaces plan.md's "minimal fail_safe, exit 2" (fail_safe moved into
+  `policy.py` per plan-of-attack). File modes are unchanged.
+- `tests/test_signal.py` (network faked): good response gives 192 parsed rows and correct
+  headers; live run rates LOW; timeout gives risk None and the 60% floor; no secret or token
+  in logs, screen or saved file. `pytest -q`: 22 passed.
+- One real run, 22:40 CT: `[NORMAL] risk LOW | peak outages 21,171 MW at HE23 (next 6 h) vs
+  trigger 23,354 MW (-2,183 MW; ...) | driving zone: North 9,200 MW | data as of 22:00 CT
+  (40 min old) | quality: unchecked | source: ERCOT NP3-233-CD`. Log and saved file checked
+  for the three `.env` secrets: none found.
+- Not done: staleness check (the line shows the age but nothing rejects old data).
