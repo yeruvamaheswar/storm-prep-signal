@@ -34,7 +34,9 @@ from server.engine.signal import (  # noqa: E402
     SignalUnavailable,
     fetch_outages,
     fetch_price,
+    fetch_zone_prices,
     read_price,
+    read_zone_prices,
     reject_stale,
     rows_by_name,
     to_signal,
@@ -59,7 +61,7 @@ def live_posting_rows(raw, event=LIVE_EVENT):
 
 
 def live_price_rows(raw, event=LIVE_EVENT):
-    """NP6 rows for ercot_prices. Live fetch is LZ_NORTH; missing type/DST stay LZ / False."""
+    """NP6 rows for ercot_prices (the four load zones); missing type/DST stay LZ / False."""
     filled = []
     for row in rows_by_name(raw):
         item = dict(row)
@@ -108,13 +110,17 @@ def rate_live(raw, settings, now):
 
 
 def fetch_live(settings, now):
-    """One outage GET, then a price GET. Price failure is None, not a hold."""
+    """One outage GET, the LZ_NORTH price, then the four zone prices. Price failure is None, not a hold."""
     outage = fetch_outages(settings, now)
     try:
         price = fetch_price(settings, now)
     except SignalUnavailable:
         price = None
-    return outage, price
+    try:
+        zones = fetch_zone_prices(settings, now)
+    except SignalUnavailable:
+        zones = None
+    return outage, price, zones
 
 
 def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path=STATE_PATH,
@@ -124,9 +130,11 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
     # Live always allocates the 10k fleet so ids match new_fleet(10000).
     # loop.run scales the 0.40 frame to call_target_mw for this fleet.
     live_settings = {**settings, "fleet_size": LIVE_FLEET_SIZE}
-    outage, price_raw = fetch_live(settings, now)
+    outage, price_raw, zones_raw = fetch_live(settings, now)
     postings = live_posting_rows(outage)
     prices = live_price_rows(price_raw) if price_raw is not None else []
+    if zones_raw is not None:
+        prices += live_price_rows(zones_raw)
     upsert = upsert_live(postings, prices, url or "", key or "", send=send)
     risk = rate_live(outage, live_settings, now)
     priced = None
@@ -135,10 +143,16 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
             priced = read_price(price_raw, now)
         except SignalUnavailable:
             priced = None
+    zone_prices = {}
+    if zones_raw is not None:
+        try:
+            zone_prices = read_zone_prices(zones_raw, now)
+        except SignalUnavailable:
+            zone_prices = {}
     record = run(
         None, live_settings, log_dir=log_dir, runs_dir=runs_dir, live=True,
         state_path=state_path, frames=[one_live_frame(now)],
-        live_risk=risk, live_price=priced,
+        live_risk=risk, live_price=priced, live_zone_prices=zone_prices,
     )
     persist_status = "skipped: dry_run"
     if persist:

@@ -1008,3 +1008,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Named gap: intent already says charge/hold/discharge from the LZ price, but allocate still only sells, live price is LZ_NORTH only, snapshot omits `price_label`, and the wall never says Charge. Pack size is still 20 kWh / 5 kW.
 - Wrote seven file-exclusive prompts and the charge/zone-price contract in `docs/agents/plans/capacity-planning-prompts.md`. People page: `docs/humans/capacity-planning.md`. Index row added.
 - Docs only. `pytest -q` not rerun.
+
+## 2026-09-26: Live prices for all four load zones (Rajat's lane)
+
+- `signal.py` (Uma's file): `ZONE_POINTS` (one home for zone to LZ; `server/api/prices.py` `LOAD_ZONE_POINTS` now points at it), `get_price_report` (the one NP6 GET, shared with `fetch_price`), `fetch_zone_prices` (one login, four GETs, merged, saved to `var/signal/latest_np6_zones.json`), `read_zone_prices` (each zone's newest interval; stale over 30 min or missing is left out), `load_zone_prices`.
+- `loop.py` (Uma's): live runs stamp `zone_prices` from that fetch with label `ercot` (tape runs unchanged; a failed fetch is `{}` / `none`). New `run(..., live_zone_prices=...)` so the live worker does not fetch twice. `score.py` then prices each zone's dollars at its own live price.
+- `scripts/live_cycle.py` (Sunny's): fetches the four zones, upserts all rows into Supabase `ercot_prices` (`event=live`, existing table, no migration), passes the map to `loop.run`. Live `/v1/snapshot` already binds four zones from those rows.
+- Real ERCOT check (read-only, 2026-09-26 17:45 CT interval): Houston 34.17, North 31.56, South 36.95, West 59.21 $/MWh; North equals the headline `fetch_price`.
+- Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
+- Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

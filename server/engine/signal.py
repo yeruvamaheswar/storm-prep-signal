@@ -22,8 +22,11 @@ REPORT_URL = "https://api.ercot.com/api/public-reports/np3-233-cd/hourly_res_out
 PRICE_URL = "https://api.ercot.com/api/public-reports/np6-905-cd/spp_node_zone_hub"
 PRICE_PATH = Path("var") / "signal" / "latest_np6.json"
 PRICE_SOURCE = "ERCOT NP6-905-CD"
-# The wall's readPrice() only asks LZ_NORTH this pass. Other LZs and DAM NP4-190 stay out.
+# The headline price (and the wall's readPrice()) is LZ_NORTH. DAM NP4-190 stays out.
 SETTLEMENT_POINT = "LZ_NORTH"
+# The four load zones the fleet is split into. server/api/prices.py reuses this map.
+ZONE_POINTS = {"Houston": "LZ_HOUSTON", "North": "LZ_NORTH", "South": "LZ_SOUTH", "West": "LZ_WEST"}
+ZONE_PRICE_PATH = Path("var") / "signal" / "latest_np6_zones.json"
 # SPP settles every 15 minutes; two missed intervals is stale (same as web/src/liveStamp.ts).
 PRICE_STALE_MIN = 30
 
@@ -99,19 +102,7 @@ def fetch_price(settings, now, save_to=PRICE_PATH, id_token=None):
     timeout = settings["fetch_timeout_s"]
     try:
         token = id_token or get_id_token(username, password, timeout)
-        today = now.astimezone(CENTRAL).date()
-        # Yesterday through today, so the newest interval is found just after midnight too.
-        report = requests.get(PRICE_URL, timeout=timeout,
-                              params={"settlementPoint": SETTLEMENT_POINT,
-                                      "deliveryDateFrom": (today - timedelta(days=1)).isoformat(),
-                                      "deliveryDateTo": today.isoformat(),
-                                      "size": 500},
-                              headers={"Authorization": f"Bearer {token}",
-                                       "Ocp-Apim-Subscription-Key": key})
-        if report.status_code == 401:
-            raise SignalUnavailable("auth rejected (HTTP 401)")
-        if report.status_code != 200:
-            raise SignalUnavailable(f"ERCOT report request failed (HTTP {report.status_code})")
+        report = get_price_report(SETTLEMENT_POINT, token, key, now, timeout)
         raw = json.loads(report.text)
     except requests.Timeout:
         raise SignalUnavailable(f"ERCOT did not answer within {timeout:g} s") from None
@@ -123,6 +114,57 @@ def fetch_price(settings, now, save_to=PRICE_PATH, id_token=None):
     save_to.parent.mkdir(parents=True, exist_ok=True)
     save_to.write_text(report.text)
     return raw
+
+
+def get_price_report(point, token, key, now, timeout):
+    """One NP6-905-CD GET for one settlement point. A non-200 reply is SignalUnavailable."""
+    today = now.astimezone(CENTRAL).date()
+    # Yesterday through today, so the newest interval is found just after midnight too.
+    report = requests.get(PRICE_URL, timeout=timeout,
+                          params={"settlementPoint": point,
+                                  "deliveryDateFrom": (today - timedelta(days=1)).isoformat(),
+                                  "deliveryDateTo": today.isoformat(),
+                                  "size": 500},
+                          headers={"Authorization": f"Bearer {token}",
+                                   "Ocp-Apim-Subscription-Key": key})
+    if report.status_code == 401:
+        raise SignalUnavailable("auth rejected (HTTP 401)")
+    if report.status_code != 200:
+        raise SignalUnavailable(f"ERCOT report request failed (HTTP {report.status_code})")
+    return report
+
+
+def fetch_zone_prices(settings, now, save_to=ZONE_PRICE_PATH, id_token=None):
+    """NP6-905-CD for each of the four load zones, one login, merged into one body.
+
+    ERCOT's settlementPoint filter takes one point, so this is four GETs. Any failed GET
+    fails the whole fetch: the tick then shows no zone prices rather than a partial set.
+    """
+    username, password, key = (os.getenv(name, "") for name in
+                               ("ERCOT_USERNAME", "ERCOT_PASSWORD", "ERCOT_SUBSCRIPTION_KEY"))
+    if not (username and password and key):
+        raise SignalUnavailable("ERCOT credentials missing from .env")
+    timeout = settings["fetch_timeout_s"]
+    merged = None
+    try:
+        token = id_token or get_id_token(username, password, timeout)
+        for point in ZONE_POINTS.values():
+            raw = json.loads(get_price_report(point, token, key, now, timeout).text)
+            if merged is None:
+                merged = {"fields": raw["fields"], "data": []}
+            # Rebuild each row in the first reply's column order, keyed by name, never position.
+            names = [field["name"] for field in merged["fields"]]
+            merged["data"] += [[row.get(name) for name in names] for row in rows_by_name(raw)]
+    except requests.Timeout:
+        raise SignalUnavailable(f"ERCOT did not answer within {timeout:g} s") from None
+    except (ValueError, KeyError, TypeError):
+        raise SignalUnavailable("ERCOT reply was not the expected JSON") from None
+    except requests.RequestException as exc:
+        raise SignalUnavailable(f"network error reaching ERCOT ({type(exc).__name__})") from None
+    save_to = Path(save_to)
+    save_to.parent.mkdir(parents=True, exist_ok=True)
+    save_to.write_text(json.dumps(merged))
+    return merged
 
 
 def price_interval_end(delivery_date, hour, interval):
@@ -170,6 +212,33 @@ def load_price(settings, now=None):
     """Live LZ_NORTH price, or SignalUnavailable. Uses the same clock as load_signal."""
     clock = now or datetime.now(CENTRAL)
     return read_price(fetch_price(settings, clock), clock)
+
+
+def read_zone_prices(raw, now):
+    """Zone name to $/MWh: each load zone's newest interval. A stale or missing zone is left out.
+
+    Same 30-minute limit as read_price. Points outside ZONE_POINTS (LZ_AEN, ...) are ignored.
+    """
+    zone_of = {point: zone for zone, point in ZONE_POINTS.items()}
+    newest = {}
+    try:
+        for row in rows_by_name(raw):
+            zone = zone_of.get(row.get("settlementPoint"))
+            if zone is None:
+                continue
+            end = price_interval_end(row["deliveryDate"], row["deliveryHour"], row["deliveryInterval"])
+            if zone not in newest or end > newest[zone][0]:
+                newest[zone] = (end, float(row["settlementPointPrice"]))
+    except (KeyError, TypeError, ValueError):
+        raise SignalUnavailable("ERCOT reply was not the expected JSON") from None
+    return {zone: usd for zone, (end, usd) in newest.items()
+            if (now - end).total_seconds() / 60 <= PRICE_STALE_MIN}
+
+
+def load_zone_prices(settings, now=None):
+    """Live four-zone prices, or SignalUnavailable. Uses the same clock as load_price."""
+    clock = now or datetime.now(CENTRAL)
+    return read_zone_prices(fetch_zone_prices(settings, clock), clock)
 
 
 def stamp_price(tick, price):

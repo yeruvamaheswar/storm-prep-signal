@@ -230,7 +230,7 @@ flowchart TD
     MODE["fleet_state.load_fleet_mode / write_fleet_mode"]
     PICK{"--live?"}
     FRAMEFILE["frame.risk_fixture file"]
-    FETCH["signal.fetch_outages + fetch_price, once per run"]
+    FETCH["signal.fetch_outages + fetch_price + fetch_zone_prices, once per run"]
     SIG["signal.load_signal, then signal.to_signal"]
     RISK["risk.compute_risk"]
     POL["policy.reserve_policy"]
@@ -291,10 +291,10 @@ flowchart TD
   MAIN -.->|"--persist only: scripts/persist_run.py, runs_skipped on failure"| SB
 
   subgraph worker["Live worker: python scripts/live_cycle.py [--loop]"]
-    LCFETCH["fetch_outages + fetch_price"]
+    LCFETCH["fetch_outages + fetch_price + fetch_zone_prices"]
     LCUPSERT["upsert_live, event=live"]
     LCRATE["rate_live: reject_stale, to_signal, compute_risk"]
-    LCRUN["loop.run with frames, live_risk, live_price"]
+    LCRUN["loop.run with frames, live_risk, live_price, live_zone_prices"]
     LCFETCH --> LCUPSERT
     LCFETCH --> LCRATE
     LCRATE --> LCRUN
@@ -421,7 +421,7 @@ flowchart LR
 
 ### Live worker
 
-`python scripts/live_cycle.py [--loop] [--dry-run]`. One cycle: `fetch_outages` and `fetch_price` (a price failure is `None`, not a hold), `upsert_live` into `ercot_postings` and `ercot_prices` as `event=live` (best effort, never deletes archive weeks), `rate_live` on that same posting (stale or broken gives `None`, so the storm floor), then `loop.run(None, ..., live=True, frames=[one 0.40 MW synthetic frame], live_risk=..., live_price=...)` so the engine does not fetch twice. Then `persist_run.persist_latest`. `--loop` repeats every `tick_minutes`; `--dry-run` sends nothing to Supabase. It always uses the default baseline. Detail: `docs/agents/live-ingest.md`.
+`python scripts/live_cycle.py [--loop] [--dry-run]`. One cycle: `fetch_outages`, `fetch_price` and `fetch_zone_prices` (a price failure is `None`, not a hold), `upsert_live` into `ercot_postings` and `ercot_prices` as `event=live` (best effort, never deletes archive weeks), `rate_live` on that same posting (stale or broken gives `None`, so the storm floor), then `loop.run(None, ..., live=True, frames=[one 0.40 MW synthetic frame], live_risk=..., live_price=..., live_zone_prices=...)` so the engine does not fetch twice. Then `persist_run.persist_latest`. `--loop` repeats every `tick_minutes`; `--dry-run` sends nothing to Supabase. It always uses the default baseline. Detail: `docs/agents/live-ingest.md`.
 
 ### Orchestration runtime
 
