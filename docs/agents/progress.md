@@ -123,3 +123,18 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Real fixture line: `[NORMAL] risk LOW | peak outages 22,194 MW at HE15 (next 6 h) vs trigger 23,304 MW (-1,110 MW; typical for +2 h ahead 20,264 MW over Aug 25-Sep 25 postings +15%) | ...`.
 - The owner's local `.env` still had `RISK_MARGIN_PCT=20`. The agent did not edit `.env`.
 - Next: Slice 2 (live fetch). Not started.
+
+## 2026-09-25: Slice 1b committed, `policy.py` added, sim settings loaded
+
+- Slice 1b (risk rule v2) was committed as `489905f`.
+- `storm_prep/policy.py`: `reserve_policy(risk, settings) -> Policy` (commit `f4b3420`).
+  HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives
+  `storm_reserve_pct` with reason `signal_unavailable`. Pure function. `tests/test_policy.py`
+  has 3 tests. `pytest -q`: 12 passed.
+- `read_settings()` now also loads the 8 simulation settings from `.env.example` as lowercase
+  keys (`fleet_size`, `home_kwh`, `home_max_kw`, `home_start_soc_min_pct`,
+  `home_start_soc_max_pct`, `base_reserve_pct`, `storm_reserve_pct`, `tick_minutes`), with the
+  `.env.example` values as defaults. `run()` passes only `margin_pct` and `lookahead_hours` to
+  `compute_risk` and `format_decision`, because those functions reject extra keys.
+- New test: `read_settings()` gives `base_reserve_pct` 30 and `storm_reserve_pct` 60 when `.env`
+  doesn't set them. `pytest -q`: 13 passed.

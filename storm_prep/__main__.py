@@ -31,6 +31,15 @@ def read_settings():
     return {
         "margin_pct": float(os.getenv("RISK_MARGIN_PCT", "15")),
         "lookahead_hours": int(os.getenv("LOOKAHEAD_HOURS", "6")),
+        # Example simulation settings, not Base specs.
+        "fleet_size": int(os.getenv("FLEET_SIZE", "100")),
+        "home_kwh": float(os.getenv("HOME_KWH", "20")),
+        "home_max_kw": float(os.getenv("HOME_MAX_KW", "5")),
+        "home_start_soc_min_pct": float(os.getenv("HOME_START_SOC_MIN_PCT", "45")),
+        "home_start_soc_max_pct": float(os.getenv("HOME_START_SOC_MAX_PCT", "75")),
+        "base_reserve_pct": float(os.getenv("BASE_RESERVE_PCT", "30")),
+        "storm_reserve_pct": float(os.getenv("STORM_RESERVE_PCT", "60")),
+        "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
     }
 
 
@@ -45,7 +54,9 @@ def run(args, settings, log_dir=LOG_DIR):
     baseline = load_baseline(lookahead_hours=settings["lookahead_hours"])
     log_event("load_baseline", "ok", postings=baseline["postings"],
               baseline_from=baseline["from"], baseline_to=baseline["to"])
-    risk = compute_risk(signal, baseline, **settings)
+    # compute_risk and format_decision reject unknown keywords, so the sim settings stay out.
+    risk_settings = {key: settings[key] for key in ("margin_pct", "lookahead_hours")}
+    risk = compute_risk(signal, baseline, **risk_settings)
     log_event("compute_risk", "ok", **asdict(risk))
     mode = decide_mode(risk)
     log_event("decide_mode", "ok", mode=mode)
@@ -55,7 +66,7 @@ def run(args, settings, log_dir=LOG_DIR):
     # "unchecked" until validate() exists (Slice 3); the line must not claim checks that never ran.
     line = format_decision(mode, risk, signal["posted_at"], loaded["now"], loaded["source"],
                            quality="unchecked", clock_pinned=loaded["clock_pinned"],
-                           baseline_span=baseline_span(baseline), **settings)
+                           baseline_span=baseline_span(baseline), **risk_settings)
     log_event("run", "finished", decision=line)
     return line, batteries
 

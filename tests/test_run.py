@@ -2,7 +2,8 @@
 import json
 from pathlib import Path
 
-from storm_prep.__main__ import parse_args, run
+import storm_prep.__main__ as cli
+from storm_prep.__main__ import parse_args, read_settings, run
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SETTINGS = {"margin_pct": 15, "lookahead_hours": 6}
@@ -44,3 +45,13 @@ def test_run_logs_every_stage(tmp_path):
     assert stages == ["run", "load_signal", "load_baseline", "compute_risk", "decide_mode",
                       "apply_to_batteries", "run"]
     assert all(event["ok"] for event in events)
+
+
+def test_read_settings_defaults_reserves_to_env_example(monkeypatch):
+    # Skip the real .env so the owner's local values can't change the result.
+    monkeypatch.setattr(cli, "load_dotenv", lambda: None)
+    monkeypatch.delenv("BASE_RESERVE_PCT", raising=False)
+    monkeypatch.delenv("STORM_RESERVE_PCT", raising=False)
+    settings = read_settings()
+    assert settings["base_reserve_pct"] == 30
+    assert settings["storm_reserve_pct"] == 60
