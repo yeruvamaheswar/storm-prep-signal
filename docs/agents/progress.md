@@ -833,3 +833,9 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Heather replay: zones add to $126.50; the fleet `dollars` (every MWh at the LZ_HOUSTON price, as before) is $87.00. Unchanged here; see the PR.
 - Docs: `docs/agents/price-live.md`, `docs/agents/code-flow.md` (totals shape).
 - `pytest -q`: 417 passed after merging main.
+
+## 2026-09-26: Fleet dollars equal the sum of zone dollars (Rajat's lane)
+
+- `score.py`: on a tick with `zone_prices` where every delivering zone is priced, the fleet `dollars` adds the zone dollars (label `zone_price_label`); a zone-priced tick that delivered nothing adds $0 under that label. Otherwise the tick's one price, as before. New `add_usd` helper shared by fleet and zones.
+- Heather replay: fleet `dollars` $126.50 `recorded:ERCOT NP6-905-CD`, equal to the four zones (was $87.00 at LZ_HOUSTON only). Demo tape has no zone prices, so it is unchanged.
+- Tests: 4 in `tests/test_score.py`. `pytest -q`: 421 passed.

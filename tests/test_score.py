@@ -175,6 +175,44 @@ def test_zone_price_sources_that_differ_are_labeled_mixed():
     assert board["by_zone"]["Houston"]["dollars_label"] == "mixed"
 
 
+def test_fleet_dollars_are_the_sum_of_zone_dollars_when_every_delivering_zone_is_priced():
+    # Tick price $50 would give 0.1 MWh x 50 = $5. Zone prices give 0.05 x 900 + 0.05 x 60 = $48.
+    board = update(new_board(), tick(1, 1.2, 1.2, price=50.0, label="synthetic",
+                                     zones={"Houston": 0.6, "West": 0.6},
+                                     zone_prices={"Houston": 900.0, "West": 60.0}, zone_price_label=REC))
+    assert board["dollars"] == pytest.approx(48.0)
+    assert board["dollars_label"] == REC
+
+
+def test_fleet_dollars_fall_back_to_the_tick_price_when_a_delivering_zone_has_none():
+    board = update(new_board(), tick(1, 1.2, 1.2, price=50.0, label="synthetic",
+                                     zones={"Houston": 0.6, "North": 0.6},
+                                     zone_prices={"Houston": 900.0}, zone_price_label=REC))
+    assert board["dollars"] == pytest.approx(5.0)   # 0.1 MWh x $50, as before
+    assert board["dollars_label"] == "synthetic"
+
+
+def test_a_zone_priced_tick_that_delivers_nothing_keeps_the_zone_label():
+    zp = {"Houston": 80.0, "West": 20.0}
+    board = update(new_board(), tick(1, 0.6, 0.6, price=80.0, label="recorded:x LZ_HOUSTON",
+                                     zones={"Houston": 0.6}, zone_prices=zp, zone_price_label=REC))
+    board = update(board, tick(2, 0.6, 0.0, price=80.0, label="recorded:x LZ_HOUSTON",
+                               zones={}, zone_prices=zp, zone_price_label=REC))
+    assert board["dollars"] == pytest.approx(4.0)   # 0.05 MWh x $80, then $0
+    assert board["dollars_label"] == REC
+
+
+def test_fleet_and_zone_dollars_agree_over_a_priced_run():
+    prices = {"Houston": 82.23, "North": 114.36, "South": 291.18, "West": -1.99}
+    board = new_board()
+    for n in range(1, 7):
+        board = update(board, tick(n, 0.4, 0.4, price=82.23, label="recorded:x LZ_HOUSTON",
+                                   zones={"Houston": 0.1, "North": 0.1, "South": 0.1, "West": 0.1},
+                                   zone_prices=prices, zone_price_label=REC))
+    assert board["dollars"] == pytest.approx(sum(e["dollars"] for e in board["by_zone"].values()))
+    assert board["dollars_label"] == REC
+
+
 def test_update_does_not_change_the_board_passed_in():
     board = new_board()
     before = copy.deepcopy(board)
