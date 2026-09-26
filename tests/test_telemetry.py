@@ -87,3 +87,46 @@ def test_otel_view_uses_the_hardware_metric_names_and_units():
     assert metrics["hw.power"]["unit"] == "W" and metrics["hw.power"]["value"] == pytest.approx(2100.0)
     assert metrics["hw.status"]["attributes"] == {"hw.state": "ok"}
     assert metrics["hw.battery.charge"]["time_unix_nano"] == 4121800000000
+
+
+def seen_at(t):
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(1, ts=t), t, stats)
+    return hs
+
+
+def test_stale_after_180_seconds_and_dead_after_600():
+    hs, s = seen_at(0.0), settings()
+    assert tm.data_status(hs, 180.0, s) == "live"
+    assert tm.data_status(hs, 181.0, s) == "stale"
+    assert tm.data_status(hs, 600.0, s) == "stale"
+    assert tm.data_status(hs, 601.0, s) == "dead"
+
+
+def test_a_new_reading_revives_a_home_that_was_only_silent():
+    hs, s = seen_at(0.0), settings()
+    assert tm.data_status(hs, 700.0, s) == "dead"
+    tm.ingest(hs, reading(2, ts=700.0), 700.0, tm.new_stats())
+    assert tm.data_status(hs, 700.0, s) == "live"
+
+
+def test_suspect_is_sticky_even_with_fresh_readings():
+    hs, s = seen_at(0.0), settings()
+    hs.suspect = True
+    assert tm.data_status(hs, 1.0, s) == "suspect"
+
+
+def test_status_ignores_device_clock():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(1, ts=99999.0), 0.0, stats)   # battery clock far ahead of ours
+    assert tm.data_status(hs, 181.0, settings()) == "stale"
+
+
+def test_tape_dead_never_revives_and_suspect_plans_as_stale():
+    assert tm.plan_status("dead", "live") == "dead"
+    assert tm.plan_status("stale", "live") == "stale"
+    assert tm.plan_status("live", "live") == "live"
+    assert tm.plan_status("live", "dead") == "dead"
+    assert tm.plan_status("live", "suspect") == "stale"
+    assert tm.view_status("live", "suspect") == "suspect"
+    assert tm.view_status("dead", "live") == "dead"

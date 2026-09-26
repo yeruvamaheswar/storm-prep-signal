@@ -96,3 +96,31 @@ def to_otel(reading, home):
              "attributes": {"hw.state": reading["health"]}, "time_unix_nano": t},
         ],
     }
+
+
+RANK = {"live": 0, "stale": 1, "dead": 2}
+
+
+def data_status(hs, now_s, settings):
+    """live, stale or dead from how old our newest accepted reading is; suspect overrides."""
+    if hs.suspect:
+        return "suspect"
+    age = now_s - hs.last_seen
+    if age > knob(settings, "dead_after_s"):
+        return "dead"
+    if age > knob(settings, "stale_after_s"):
+        return "stale"
+    return "live"
+
+
+def view_status(tape_status, data_st):
+    """What the operator sees: suspect is shown as itself, otherwise the worse of tape and data."""
+    if data_st == "suspect":
+        return "suspect"
+    return max(tape_status, data_st, key=RANK.__getitem__)
+
+
+def plan_status(tape_status, data_st):
+    """What allocate sees. The contract has no suspect status, so a suspect home plans as stale."""
+    mapped = "stale" if data_st == "suspect" else data_st
+    return max(tape_status, mapped, key=RANK.__getitem__)
