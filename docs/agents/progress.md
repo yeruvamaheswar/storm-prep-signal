@@ -677,6 +677,32 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Notes: `docs/agents/live-ingest.md`, `docs/humans/live-worker.md`.
 - Tests: `tests/test_live_cycle.py`.
 
+## 2026-09-26: Extend contracts for intent (add-only)
+
+- `Policy` and `TickResult` now have `intent` (`charge` \| `discharge` \| `hold`) and `intent_reason`.
+  Defaults are hold / empty so old constructors stay valid. Floor-only callers stay hold.
+- `Home.updated_at` added (`""` until stamped). `Home.zone` was already there.
+- `Allocation.per_home_kw` stays one field and is signed (`>0` discharge, `<0` charge). No
+  `per_home_charge_kw` / `per_home_discharge_kw`.
+- `CONSTRAINTS.md` allocation rule step 6: charge raises soc; discharge never crosses the floor;
+  `breaches == 0`. Rajat implements signed charge later; current `discharge` still skips `kw <= 0`.
+- `loop.py` copies `intent` and `intent_reason` onto the tick. HOLD sets `operator_hold`.
+- Notes: `docs/agents/policy-intent.md`, `docs/humans/policy-intent.md`.
+- Uma-only. Did not edit Rajat (`controller.py`, `fleet.py`) or Sunny (`web/src/contracts.ts`).
+
+## 2026-09-26: Charge / hold / discharge intent from price and floor
+
+- `reserve_policy` now takes optional `mode`, `price_usd_mwh`, and `price_label` and sets `Policy.intent`.
+  HOLD → hold. `price_label` none → hold, `intent_reason` `price_unavailable`. HIGH or a missing
+  signal may charge when cheap and never discharge. LOW + AUTO uses `CHARGE_BELOW_USD=25` /
+  `DISCHARGE_ABOVE_USD=60` (simulation, not Base specs).
+- `TickResult.intent` is add-only. `price_usd_mwh` was already on the tick. `loop.py` stamps price,
+  then policy, then allocate. Allocate still only discharges.
+- Floor-only callers (snapshot, CLI) omit `price_label` and stay hold.
+- Notes: `docs/agents/policy-intent.md`, `docs/humans/policy-intent.md`.
+- Tests: five intent branches in `tests/test_policy.py`. No Supabase import.
+- `pytest -q`: 332 passed.
+
 ## 2026-09-26: Charge-drop consistency check (Rajat)
 
 - `server/engine/orchestration.py`: each worker records how much its home's charge really fell per

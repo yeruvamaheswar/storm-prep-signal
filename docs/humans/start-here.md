@@ -2,7 +2,7 @@
 
 ReserveGate is a practice controller for home batteries. It sells power only from energy above the backup each home keeps for a blackout. The homes are simulated.
 
-Uma connects the pieces and merges. Rajat splits the work across homes. Sunny makes the demo and the write-up. Each file has one owner. Ask before you edit someone else's file.
+Uma, Rajat, and Sunny are the team. We do not save files for one person. We write the finished product we want. The assistant names one gap. We fill that gap. How that works: `docs/humans/gap-work.md`.
 
 Say these limits out loud. The target and the price are labeled practice numbers. The storm margin was tuned on one month of data. Rules make the decision, and the short written note comes after that decision. Call it ReserveGate.
 

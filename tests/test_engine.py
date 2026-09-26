@@ -73,6 +73,10 @@ def test_tiny_tape_calm_then_storm_then_missing_signal(tmp_path, monkeypatch):
     assert [t["tick"] for t in ticks] == [1, 2, 3]
     assert [t["reserve_pct"] for t in ticks] == [30, 60, 60]
     assert [t["policy_reason"] for t in ticks] == ["normal", "storm_risk_high", "signal_unavailable"]
+    # Mid-band LOW, HIGH+expensive, and fail-safe+expensive all hold. Allocate still discharges.
+    assert [t["intent"] for t in ticks] == ["hold", "hold", "hold"]
+    assert [t["price_usd_mwh"] for t in ticks] == [35.0, 250.0, 250.0]
+    assert ticks[0]["delivered_mw"] > 0
     assert all(t["breaches"] == 0 for t in ticks)
     saved = json.loads((tmp_path / "runs" / f"{record['run_id']}.json").read_text())
     assert len(saved["ticks"]) == 3
@@ -199,6 +203,27 @@ def test_fleet_wide_reason_still_wins_over_weather(tmp_path):
     assert set(tick["zone_reasons"].values()) == {"signal_unavailable"}
 
 
+def test_run_low_expensive_intents_discharge(tmp_path, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    tape = tmp_path / "discharge.json"
+    tape.write_text(json.dumps({
+        "label": "low expensive",
+        "frames": [{
+            "tick": 1, "ts": "2026-09-25T12:00:00-05:00",
+            "target_mw": 0.2, "target_label": "synthetic",
+            "price_usd_mwh": 80.0, "price_label": "synthetic",
+            "risk_fixture": "tests/fixtures/np3_233_cd.json",
+            "events": {},
+        }],
+    }))
+    record = run(tape, SETTINGS, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs")
+    tick = record["ticks"][0]
+    assert tick["intent"] == "discharge"
+    assert tick["intent_reason"] == ""
+    assert tick["breaches"] == 0
+    assert tick["delivered_mw"] > 0
+
+
 def test_run_hold_from_state_delivers_zero(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     tape = _one_frame_tape(tmp_path / "hold.json")
@@ -209,6 +234,8 @@ def test_run_hold_from_state_delivers_zero(tmp_path, monkeypatch):
     assert tick["mode"] == "HOLD"
     assert tick["delivered_mw"] == 0.0
     assert tick["reasons"] == ["operator_hold"]
+    assert tick["intent"] == "hold"
+    assert tick["intent_reason"] == "operator_hold"
 
 
 def test_run_operator_event_sticks_and_persists(tmp_path, monkeypatch):

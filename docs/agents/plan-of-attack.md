@@ -1,5 +1,7 @@
 # ReserveGate × Storm Prep: merged attack plan
 
+**File ownership is retired.** Weekend file locks in this note are a record, not a live rule. How work is chosen now: `docs/agents/gap-work.md`.
+
 Written Fri Sep 25, 7:30 PM CT, by Agent Review. I checked it against `main` at `401713f` "Slice 1: fixture tracer bullet". Slice 1b is not pushed yet.
 This doc replaces the team split in `team-onboarding.md` (its setup steps and merge checklist still apply). It does not rewrite plan v3. Here is what happens to v3's slices:
 - Slice 1b (rule v2) stays exactly as written.
@@ -37,17 +39,11 @@ Still open from earlier: ask an organizer about the pre-event commits (Slices 0�
 
 Command: `python -m storm_prep.engine --tape tapes/demo.json`. The existing `python -m storm_prep --fixture` keeps working unchanged.
 
-### Files and owners (one owner per file; nobody else edits it)
+### How work is chosen
 
-| Owner | Files |
-|---|---|
-| **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
-| **Rajat** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
+File ownership is retired. Live process: `docs/agents/gap-work.md`. Contract fields can be added, never renamed or removed. The shapes below are the Friday freeze record; live shapes are in `server/engine/contracts.py` and `CONSTRAINTS.md`.
 
-If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
-
-### `storm_prep/contracts.py` (Uma writes this tonight; everyone imports from it)
+### `storm_prep/contracts.py` (Friday freeze record; everyone imports from it)
 ```python
 """Shared data shapes. Fields may be added, never renamed or removed."""
 from dataclasses import dataclass, field
@@ -110,19 +106,21 @@ class TickResult:
 ```
 
 ### Function contracts
-| Function | Owner | Signature and promise |
-|---|---|---|
-| `reserve_policy` | Uma | `(risk: RiskResult \| None, settings) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
-| `new_fleet` | Rajat | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
-| `apply_events` | Rajat | `(homes, events) -> None`: sets status only. |
-| `allocate` | Rajat | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
-| `discharge` | Rajat | `(homes, alloc, policy, settings) -> int breaches`: lowers soc by `kw × tick_minutes / 60`. |
-| `new_board` / `update` | Rajat | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
-| `load_tape` | Sunny | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
-| `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
-| `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
+Live signatures: `CONSTRAINTS.md`. Friday record:
 
-### Allocation rule (Rajat implements it; Uma must be able to say it out loud)
+| Function | Signature and promise |
+|---|---|
+| `reserve_policy` | `(risk: RiskResult \| None, settings) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
+| `new_fleet` | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
+| `apply_events` | `(homes, events) -> None`: sets status only. |
+| `allocate` | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
+| `discharge` | `(homes, alloc, policy, settings) -> int breaches`: lowers soc by `kw × tick_minutes / 60`. |
+| `new_board` / `update` | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
+| `load_tape` | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
+| `write_brief` | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
+| `log_event` | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
+
+### Allocation rule (must be sayable out loud)
 1. If mode is HOLD, give every home 0 kW, set missed to the target, and add reason `operator_hold`.
 2. A home is eligible only if it's `live`. Dead and stale homes get 0, because we don't send work to a home we can't hear from.
 3. Headroom is `soc_kwh − reserve_pct/100 × capacity_kwh`. A home's cap is `min(max_kw, headroom_kwh × 60 / tick_minutes)`, and a home with no headroom has cap 0.
@@ -136,15 +134,16 @@ class TickResult:
 - Nothing reads the brief. It's written after the decision.
 - Every target and price shown on screen shows its label. No unlabeled $/MWh or MW anywhere.
 
-### Example simulation settings (Uma adds these to `.env.example`, labeled as made-up simulation values, not Base specs)
+### Example simulation settings (labeled as made-up simulation values, not Base specs)
 `FLEET_SIZE=100`, `HOME_KWH=20`, `HOME_MAX_KW=5`, `HOME_START_SOC_MIN_PCT=45`, `HOME_START_SOC_MAX_PCT=75`, `BASE_RESERVE_PCT=30`, `STORM_RESERVE_PCT=60`, `TICK_MINUTES=5`. With these, the fleet tops out at 0.5 MW, so tape targets should run from 0.1 to 0.6 MW. `new_fleet` spreads starting charge evenly from 45% to 75% by home index, with no randomness. That spread matters for the demo. When the floor rises to 60%, roughly half the homes drop out, so the storm tick shows a partial miss instead of either no effect or zero delivered. (I checked this: if every home starts at the same charge, one 5-minute tick uses so little energy that raising the floor changes nothing until the homes are nearly at it.)
 
 ## 3. Per-person attack plans
 
+**Historical weekend split.** The file lists and "must not touch" lines below are a record of Fri–Sat work. They are not a live rule. Current process: `docs/agents/gap-work.md`.
+
 Everyone:
 - Follow the setup in `team-onboarding.md` (clone, venv, `.env` from `.env.example`, `pytest -q`).
-- One branch per task, and a PR into `main`.
-- Run `git pull origin main` and merge main into your branch right before asking Uma to merge.
+- One branch per gap, and a PR into `main`.
 - Never commit `.env`, `var/`, or `.venv/`.
 
 ### Uma: policy core, glue, merges, Loom
@@ -220,7 +219,7 @@ Interfaces Sunny depends on: `TapeFrame`, `TickResult` (every field), and the lo
 ## 4. Merge order and timeline (all CT)
 
 Merge order: `uma/1b-rule-v2`, then `uma/contracts`, then `rajat/controller` and `sunny/tape-brief` (either order, since they share no files), then `uma/policy`, then `uma/engine` (the tracer), then `rajat/score`, then `sunny/ci-readme`, then `sunny/web`, then `uma/engine-final`, then `rajat/failures`, then `sunny/demo`.
-Why this avoids conflicts: every file has one owner, the shared files are Uma's only, and each person merges main into their branch before asking for a merge. The only place the work comes together is `engine.py`, and only Uma edits it.
+Why this avoided conflicts that weekend: one file per person. That split is retired. Work is now one gap at a time (`docs/agents/gap-work.md`).
 
 | When | What |
 |---|---|

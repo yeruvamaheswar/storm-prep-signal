@@ -38,7 +38,8 @@ from server.engine.signal import (
 
 LOG_DIR = Path("var") / "logs"
 RUNS_DIR = Path("var") / "runs"
-SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "storm_reserve_pct", "tick_minutes")
+SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "storm_reserve_pct",
+                 "charge_threshold_usd_mwh", "discharge_threshold_usd_mwh", "tick_minutes")
 # --live with no tape plays this many ticks at a flat synthetic target (not a real grid request).
 SYNTHETIC_TICKS = 12
 SYNTHETIC_TARGET_MW = 0.2
@@ -57,6 +58,9 @@ _FLEET_DEFAULTS = {
     "home_start_soc_min_pct": 45.0,
     "home_start_soc_max_pct": 75.0,
     "zones": {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"},
+    # Simulation bands, not Base specs. Short test settings omit them.
+    "charge_threshold_usd_mwh": 25.0,
+    "discharge_threshold_usd_mwh": 60.0,
 }
 
 
@@ -194,12 +198,22 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         else:
             risk = read_risk(frame.risk_fixture, baseline, settings) if frame.risk_fixture else None
         alerted, unknown_weather = weather_zones(frame, settings)
-        # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
-        policy = reserve_policy(risk, settings, alerted)
         if unknown_weather:
             log_event("weather", "ignored", ok=False, reason="unknown_weather_zone", zones=unknown_weather)
         mode = frame.events.get("operator", mode)
         write_operator_mode(state_path, mode)
+        # Stamp price before the policy so intent can read the LZ number. Allocate ignores intent.
+        if live:
+            priced = stamp_price({"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label},
+                                 live_price)
+        else:
+            priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
+                      "price_as_of": None}
+        # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
+        policy = reserve_policy(
+            risk, settings, alerted, mode=mode,
+            price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
+        )
         # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
         target_mw = scale_target_mw(frame.target_mw, settings)
         frame = replace(frame, target_mw=target_mw)
@@ -207,12 +221,6 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         # In-process zone acks. There is no per-home device command API yet.
         zone_acks = simulate_zone_acks(homes, alloc, frame.tick, settings)
         breaches = discharge(homes, alloc, policy, settings)
-        if live:
-            priced = stamp_price({"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label},
-                                 live_price)
-        else:
-            priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
-                      "price_as_of": None}
         result = TickResult(
             tick=frame.tick, ts=frame.ts, mode=mode,
             target_mw=target_mw, target_label=frame.target_label,
@@ -227,6 +235,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             zone_delivered_mw=zone_delivered(homes, alloc),
             price_as_of=priced["price_as_of"],
             zone_acks=zone_acks,
+            intent=policy.intent,
+            intent_reason=policy.intent_reason,
         )
         brief = write_brief(result)
         log_event("tick", "ok", **asdict(result), brief=brief)

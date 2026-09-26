@@ -4,7 +4,7 @@
 
 The wall fetcher is in `web/src/liveStamp.ts`. Live polls `GET /v1/snapshot` every 20 s (`LIVE_POLL_MS`). It does not call ERCOT or `/v1/feeds/outage` / `/v1/feeds/price`. The drawer also loads `GET /v1/feeds` once for history chips. One snapshot still covers two products: NP6-905-CD settlement price at `LZ_NORTH`, and NP3-233-CD hourly resource outage. HTTP 401 or 403, mapped by the API, is quality `auth`. The browser does not send a B2C token. Stream events: `docs/agents/backend.md`.
 
-`web/src/reportFeeds.ts` is the list. Demo fills two fixture rows from the posting on the tape. Live copies ingest health onto those same products. `GET /v1/snapshot` now sends `feeds[]` as `{ product, path, as_of, age_min, quality, hold_on_fail, http_status }`. `readSuppliedFeeds` maps that shape onto drawer rows. A `FeedRow` list is still used as written. Do not add that field to `contracts.py` from this wall; Uma owns shared fields.
+`web/src/reportFeeds.ts` is the list. Demo fills two fixture rows from the posting on the tape. Live copies ingest health onto those same products. `GET /v1/snapshot` now sends `feeds[]` as `{ product, path, as_of, age_min, quality, hold_on_fail, http_status }`. `readSuppliedFeeds` maps that shape onto drawer rows. A `FeedRow` list is still used as written. Do not add that field to `contracts.py` from this wall; shared `TickResult` fields live in `CONSTRAINTS.md`.
 
 `GET /v1/feeds` adds read-only history chips: NP3-233-CD plus whatever is loaded (NP3-565-CD, NP4-732/733/737/738-CD). `file_name` set marks a zip; null marks an API posting. NP6-905-CD is not a chip. QUALITY still reads snapshot ingest health, not those chips. Details: `docs/agents/feeds-proxy.md`.
 

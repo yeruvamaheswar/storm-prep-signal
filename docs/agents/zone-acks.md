@@ -8,7 +8,7 @@ The other branch's `orchestration.run_cycle` fans `Command` objects through a lo
 
 ## Contract
 
-`zone_acks` is add-only on `TickResult` (Uma). Each zone maps to `{acked, held, silent, dead, unconfirmed}`.
+`zone_acks` is add-only on `TickResult`. Each zone maps to `{acked, held, silent, dead, unconfirmed}`.
 
 - **acked:** live home, `kw > 0`, send or the one retry arrived
 - **held:** live home, no command (0 kW / HOLD)

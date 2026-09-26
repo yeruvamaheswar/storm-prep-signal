@@ -50,6 +50,9 @@ def read_settings():
         "home_start_soc_max_pct": float(os.getenv("HOME_START_SOC_MAX_PCT", "75")),
         "base_reserve_pct": float(os.getenv("BASE_RESERVE_PCT", "30")),
         "storm_reserve_pct": float(os.getenv("STORM_RESERVE_PCT", "60")),
+        # Simulation price bands for intent, not Base specs.
+        "charge_threshold_usd_mwh": float(os.getenv("CHARGE_BELOW_USD", "25")),
+        "discharge_threshold_usd_mwh": float(os.getenv("DISCHARGE_ABOVE_USD", "60")),
         "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
         # Zone name to anchor county FIPS code; codes stay strings to keep leading zeros.
         "zones": dict(pair.split(":", 1) for pair in
