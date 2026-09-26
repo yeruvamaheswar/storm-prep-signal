@@ -1,6 +1,5 @@
 """The risk rule and the battery mode rule. Pure functions only: no files, no clock, no network."""
 from dataclasses import dataclass
-from statistics import median
 
 ZONES = ("South", "North", "West", "Houston")
 # The three outage categories ERCOT reports for every load zone.
@@ -28,6 +27,7 @@ class RiskResult:
     baseline_mw: float
     trigger_mw: float
     margin_mw: float
+    peak_lead: int
     driving_zone: str
     zone_mw: dict
 
@@ -43,16 +43,24 @@ def current_hour_index(signal):
     raise ValueError("current hour not in report")
 
 
-def compute_risk(signal, margin_pct=20, lookahead_hours=6):
-    """Compare the peak of the next hours against this posting's own typical level."""
+def compute_risk(signal, baseline, margin_pct=15, lookahead_hours=6):
+    """Compare each of the next hours with the typical total at the same lead time.
+
+    Why lead-matched: scheduled outages shrink the further ahead a posting looks (forced
+    outages aren't known days ahead), so later hours always look calmer than they will be.
+    Comparing hour +2 with what +2 usually looks like removes that built-in bias.
+    `baseline["median_mw_by_lead"][L]` is the typical total L hours after the current hour.
+    """
     rows = signal["rows"]
     start = current_hour_index(signal)
     window = rows[start:start + lookahead_hours]
-    # max() keeps the first of equal totals, so a tie always picks the earliest hour.
-    peak = max(window, key=hour_total)
+    typical = baseline["median_mw_by_lead"]
+    # The hour furthest above its own typical level wins; max() keeps the first on ties.
+    lead = max(range(len(window)), key=lambda i: hour_total(window[i]) / typical[i])
+    peak = window[lead]
     peak_mw = hour_total(peak)
-    baseline_mw = median([hour_total(row) for row in rows[start:]])
-    # Multiply before dividing so whole-number inputs give an exact trigger (1.2 is inexact in floats).
+    baseline_mw = typical[lead]
+    # Multiply before dividing so whole-number inputs give an exact trigger (1.15 is inexact in floats).
     trigger_mw = baseline_mw * (100 + margin_pct) / 100
     zones = {zone: zone_mw(peak, zone) for zone in ZONES}
     return RiskResult(
@@ -62,6 +70,7 @@ def compute_risk(signal, margin_pct=20, lookahead_hours=6):
         baseline_mw=baseline_mw,
         trigger_mw=trigger_mw,
         margin_mw=peak_mw - trigger_mw,
+        peak_lead=lead,
         driving_zone=max(zones, key=zones.get),
         zone_mw=zones,
     )

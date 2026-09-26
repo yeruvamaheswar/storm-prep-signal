@@ -44,3 +44,46 @@ If you need something in a file you don't own, like a new dependency, a new sett
 - Dead and stale homes get 0 kW, and HOLD delivers 0.
 - Nothing reads the brief. It's written after the decision.
 - Every target and price shown on screen shows its label. No unlabeled $/MWh or MW anywhere.
+
+## Engine output (read by web/)
+
+The engine writes one file per run to `var/runs/<run_id>.json`, plus `var/runs/latest.json`, which is a copy of the most recent run.
+
+Shape:
+
+```json
+{
+  "run_id": "str",
+  "tape": "str (path to the tape file)",
+  "settings": {
+    "fleet_size": 0,
+    "home_kwh": 0.0,
+    "home_max_kw": 0.0,
+    "base_reserve_pct": 0.0,
+    "storm_reserve_pct": 0.0,
+    "tick_minutes": 0
+  },
+  "ticks": [
+    {
+      "tick": 0, "ts": "", "mode": "",
+      "target_mw": 0.0, "target_label": "",
+      "delivered_mw": 0.0, "missed_mw": 0.0,
+      "price_usd_mwh": null, "price_label": "",
+      "reserve_pct": 0.0, "policy_reason": "", "risk_level": null,
+      "live_homes": 0, "stale_homes": 0, "dead_homes": 0,
+      "breaches": 0, "reasons": [],
+      "brief": ""
+    }
+  ],
+  "totals": {}
+}
+```
+
+- Each item in `ticks` holds every `TickResult` field from `storm_prep/contracts.py`, plus `brief` (a string).
+- `totals` stays `{}` until `score.py` fills it in.
+
+Rules:
+
+- Fields may be added, never renamed.
+- `web/` only reads this file.
+- Every MW and $/MWh value keeps its label field next to it.

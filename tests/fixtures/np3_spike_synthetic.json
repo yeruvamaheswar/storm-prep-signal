@@ -1,5 +1,5 @@
 {
- "_note": "SYNTHETIC - not real ERCOT data. Copy of tests/fixtures/np3_233_cd.json (posted 2026-09-25T12:00:47) with totalResourceMWZoneHouston at 2026-09-25 HE16 raised by +500 MW (2745 -> 3245) so the hour exceeds the risk trigger.",
+ "_note": "SYNTHETIC - not real ERCOT data. Copy of tests/fixtures/np3_233_cd.json (posted 2026-09-25T12:00:47) with totalResourceMWZoneHouston at 2026-09-25 HE16 raised by +1500 MW (2745 -> 4245) so the hour exceeds the risk trigger.",
  "_meta": {
   "totalRecords": 192,
   "pageSize": 1000,
@@ -3259,7 +3259,7 @@
    3085,
    5612,
    1139,
-   3245,
+   4245,
    1075,
    1807,
    3265,

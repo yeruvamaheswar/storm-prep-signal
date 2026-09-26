@@ -15,3 +15,11 @@ Import shared dataclasses from `storm_prep/contracts.py`. Do not paste a second 
 `compute_risk` and `allocate` stay pure: no files, no clock, no network.
 
 Before you drop a behavior, follow the "Never cut" and "Honest limits" sections of `docs/agents/team-manifest.md`.
+
+Build one thin end-to-end slice at a time. Research, then plan, then implement, and stop between phases.
+
+Start a new chat by reading `docs/agents/progress.md`. Append a short entry to it after each change.
+
+Catch network errors in one place and route every failure to `fail_safe(reason)`. Every network call has a timeout.
+
+`compute_risk` uses the lead-matched baseline plus `RISK_MARGIN_PCT`, never an absolute MW threshold.

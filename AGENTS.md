@@ -15,6 +15,7 @@ It does not hold the product, the team, the deadlines, or which files a person m
 2. One file in `docs/agents/` for the task.
    - Who owns a file, what we will not cut, or what we say out loud: `docs/agents/team-manifest.md`.
    - How to edit code: `docs/agents/working-rules.md`.
+   - Risk rule, event schema, past decisions: `docs/agents/plan.md`, `docs/agents/progress.md`, `docs/agents/research.md`.
 3. The source files you are about to change.
 
 Open a `docs/humans/` page only when you are writing one, or checking that a person can read it in about a minute.
