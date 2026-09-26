@@ -6,7 +6,7 @@
 
 - One entry point makes a run: `python -m server.engine` (`server/engine/__main__.py` calls `loop.main`, then `scripts/persist_run.py` only with `--persist`). It plays a tape, rates risk for each frame, picks the reserve floor, splits the target across homes, sends each order through the orchestrator (lossy channel, retry, deadline; only confirmed MW counts), rolls up zone acks, writes `var/fleet/tick_emit.json` (whole-fleet controller emit) every tick, and writes `var/runs/<run_id>.json` plus `var/runs/latest.json` after every tick. That run file is the source of truth for the wall. Only a live run loads `var/fleet/homes.json` and saves it once after the last tick, so the next live run starts from the same SOC; a `--tape` or synthetic replay starts from a fresh fleet and never touches that file.
 - Upstream, `scripts/` load ERCOT history into Supabase and build local files: tapes, posting fixtures, baselines, and evidence JSON. `data/fixtures/heather/` and `tapes/heather.json` are built by `scripts/build_tape.py`.
-- For Live, `scripts/live_cycle.py` is the laptop worker: each cycle it fetches ERCOT, upserts the posting and price into Supabase as `event=live`, and calls `loop.run()` for one tick with that same posting.
+- For Live, `scripts/live_cycle.py` is the laptop worker: each cycle it fetches ERCOT, upserts the posting and price into Supabase as `event=live`, hydrates HOLD / AUTO from `public.operator_settings` onto `var/state.json`, and calls `loop.run()` for one tick with that same posting.
 - The API (`uvicorn server.app:app`) reads the run file and Supabase (through `server/api/archive.py`: the newest `event=live` row in Live, the pinned posting for Demo with an archive event). In Live it falls back to ERCOT directly (through `server/api/feeds.py`) when no worker row is usable. It rates the posting again with the engine's `compute_risk` and `reserve_policy`; it never writes a second rule. See [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
 - The wall (`web/index.html`) shows the layout tape in Demo and polls `GET /v1/snapshot` in Live and archive mode. It does not read `var/runs/` directly.
 - A second entry point, `python -m server.engine.cli`, rates one ERCOT posting and prints one decision line. A third, `python -m server.engine.orchestration`, plays a tape through Rajat's lossy-channel runtime on its own; `loop.py` calls the same `orchestrate_tick` every tick.
@@ -121,6 +121,7 @@ flowchart LR
   ERCOTW["ERCOT public API"]
   ERCOTW --> LIVEW
   LIVEW -->|"upsert event=live"| SB
+  LIVEW -->|"hydrate HOLD/AUTO from operator_settings"| SB
   LIVEW -->|"loop.run, one tick"| LOOP
 
   subgraph api["4. API, uvicorn server.app:app"]
@@ -139,6 +140,7 @@ flowchart LR
   ROLL --> V1
   HOMESR -.->|"public.homes, else fixtures / rollups.json"| SB
   V1 -->|"POST /v1/fleet/mode"| STATE
+  V1 -.->|"operator_settings upsert"| SB
   ARCHR --> SB
 
   subgraph web["5. Wall, web/"]
@@ -324,6 +326,7 @@ flowchart TD
     FEEDSPY["server/api/feeds.py, serve_outage, serve_price, list_feeds"]
     ARCHPY["server/api/archive.py, read_outage, read_prices"]
     HOMESPY["server/api/homes.py, list_homes, table_rollups"]
+    OPSET["server/api/operator_settings.py, persist_mode, hydrate_local_mode"]
     PRICES["server/api/prices.py, bind_zone_prices"]
     STORE["server/api/fixtures.py, FixtureStore"]
   end
@@ -333,9 +336,11 @@ flowchart TD
   V1 --> FEEDSPY
   V1 --> STORE
   V1 --> HOMESPY
+  V1 --> OPSET
   HOMESPY -.->|"public.homes"| SB
   HOMESPY -.->|"no_config"| STORE
   HOMESPY -.->|"no_config"| ROLLFILE
+  OPSET -.->|"public.operator_settings"| SB
   V1 -->|"/fleet/rollups"| ROLLFILE
   V1 -->|"POST /fleet/mode"| STATEFILE
   RUN --> SNAP
@@ -421,7 +426,7 @@ flowchart LR
 
 ### Live worker
 
-`python scripts/live_cycle.py [--loop] [--dry-run]`. One cycle: `fetch_outages`, `fetch_price` and `fetch_zone_prices` (a price failure is `None`, not a hold), `upsert_live` into `ercot_postings` and `ercot_prices` as `event=live` (best effort, never deletes archive weeks), `rate_live` on that same posting (stale or broken gives `None`, so the storm floor), then `loop.run(None, ..., live=True, frames=[one 0.40 MW synthetic frame], live_risk=..., live_price=..., live_zone_prices=...)` so the engine does not fetch twice. Then `persist_run.persist_latest`. `--loop` repeats every `tick_minutes`; `--dry-run` sends nothing to Supabase. It always uses the default baseline. Detail: `docs/agents/live-ingest.md`.
+`python scripts/live_cycle.py [--loop] [--dry-run]`. One cycle: `fetch_outages`, `fetch_price` and `fetch_zone_prices` (a price failure is `None`, not a hold), `upsert_live` into `ercot_postings` and `ercot_prices` as `event=live` (best effort, never deletes archive weeks), hydrate HOLD / AUTO from `public.operator_settings` onto `var/state.json`, `rate_live` on that same posting (stale or broken gives `None`, so the storm floor), then `loop.run(None, ..., live=True, frames=[one 0.40 MW synthetic frame], live_risk=..., live_price=..., live_zone_prices=...)` so the engine does not fetch twice. Then `persist_run.persist_latest`. `--loop` repeats every `tick_minutes`; `--dry-run` sends nothing to Supabase. It always uses the default baseline. Detail: `docs/agents/live-ingest.md`, `docs/agents/operator-settings.md`.
 
 ### Orchestration runtime
 
@@ -433,7 +438,8 @@ Engine and API (`server/`):
 
 - `server/app.py`: FastAPI app. Calls `server/env.py`, sets CORS, serves `GET /health`, mounts the `/v1` router, holds `ConsoleState` in memory.
 - `server/env.py`: `load_env`. Reads `server/.env`, then leaves process env in place so Render and the shell win.
-- `server/api/v1.py`: the `/v1` routes. `/meta`, `/snapshot`, `/runs/latest`, and `/feeds*` read the run file, ERCOT, and Supabase through the modules below. `/homes` and `/fleet/rollups` read `public.homes` through `homes.py`, or fixtures / `var/fleet/rollups.json` when config is missing. `/live`, `/zone`, `/ticks`, and `/tapes` still read `FixtureStore`. `POST /fleet/mode` writes `var/state.json`; other writes change only in-memory state. Every write needs `X-Operator-Id`.
+- `server/api/v1.py`: the `/v1` routes. `/meta`, `/snapshot`, `/runs/latest`, and `/feeds*` read the run file, ERCOT, and Supabase through the modules below. `/homes` and `/fleet/rollups` read `public.homes` through `homes.py`, or fixtures / `var/fleet/rollups.json` when config is missing. `/live`, `/zone`, `/ticks`, and `/tapes` still read `FixtureStore`. `POST /fleet/mode` writes `var/state.json` and best-effort upserts `public.operator_settings`; other writes change only in-memory state. Every write needs `X-Operator-Id`.
+- `server/api/operator_settings.py`: PostgREST read/write for the one-row `public.operator_settings` HOLD / AUTO cache. Missing config or a failed call leaves the local file. The engine never imports it.
 - `server/api/snapshot.py`: `load_latest_run`, `build_meta`, and `build_snapshot`. Re-rates the newest posting with the engine's `compute_risk` and `reserve_policy`.
 - `server/api/runtime.py`: the weekend replay clock. `discover_runtime` and `posting_at` read `data/events/<event>/replay.csv`.
 - `server/api/feeds.py`: the ERCOT proxy. `serve_outage` and `serve_price` fetch, cache in `var/signal/`, and grade quality. `list_feeds` builds the Feeds panel catalog from Supabase history plus cache quality.
@@ -507,12 +513,12 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 | `scripts/persist_homes.py` | `var/fleet/homes.json` | Supabase `homes` |
 | `scripts/persist_telemetry.py` | `var/fleet/telemetry.json` | Supabase `homes` (telemetry columns only) |
 | `scripts/stream_telemetry.py` | `var/fleet/tick_emit.json` (whole fleet for that tick, written by the controller) | Supabase `homes` (current columns) plus `home_readings` and `home_commands` history; `--loop` waits until the emit file changes |
-| `scripts/live_cycle.py` | `.env`, ERCOT API, `data/baseline_by_lead.json`, `var/state.json`, `var/fleet/homes.json` | Supabase `ercot_postings`, `ercot_prices` (`event=live`), `runs`; `var/logs/<run_id>.jsonl`, `var/runs/<run_id>.json`, `var/runs/latest.json`, `var/fleet/homes.json`, `var/fleet/tick_emit.json`, `var/fleet/rollups.json`, `var/signal/latest_np3.json`, `latest_np6.json` |
+| `scripts/live_cycle.py` | `.env`, ERCOT API, `data/baseline_by_lead.json`, `var/state.json`, `var/fleet/homes.json`, Supabase `operator_settings` | Supabase `ercot_postings`, `ercot_prices` (`event=live`), `runs`; `var/state.json` (hydrated from the table); `var/logs/<run_id>.jsonl`, `var/runs/<run_id>.json`, `var/runs/latest.json`, `var/fleet/homes.json`, `var/fleet/tick_emit.json`, `var/fleet/rollups.json`, `var/signal/latest_np3.json`, `latest_np6.json` |
 | `scripts/jev_shadow.py` | `tests/fixtures/nws_alert_harris.json` if present, the Jev API | `data/fixtures/jev_harris.json` |
 | `python -m server.engine` | `.env`, `--tape` file, each frame's `risk_fixture`, `--baseline` file (default `data/baseline_by_lead.json`); `--live`: ERCOT API, `var/state.json`, `var/fleet/homes.json` when its length matches `FLEET_SIZE` | `var/logs/<run_id>.jsonl`, `var/runs/<run_id>.json`, `var/runs/latest.json`, `var/fleet/rollups.json`, `var/fleet/tick_emit.json` every tick; `--live`: `var/state.json`, `var/fleet/homes.json` (once, after the last tick), `var/signal/latest_np3.json`, `latest_np6.json`; `--persist`: Supabase `runs` |
 | `python -m server.engine.orchestration` | `.env`, `--tape` file | `var/orchestration/<seed>.json` |
 | `python -m server.engine.cli` | `.env`, `tests/fixtures/np3_233_cd.json` or `--file` or the ERCOT API, `data/baseline_by_lead.json` | `var/logs/<run_id>.jsonl`; `--live`: `var/signal/latest_np3.json` |
-| `uvicorn server.app:app` | `server/.env`, `var/runs/latest.json` (else Supabase `runs`, else `layout-run.json`), `var/fleet/rollups.json`, `var/state.json`, `data/events/<event>/replay.csv`, ERCOT API, Supabase `ercot_postings`, `ercot_prices`, and `homes`, `web/src/fixtures/console/*.json` | `var/signal/latest_np3.json`, `latest_np6.json`, `var/state.json` |
+| `uvicorn server.app:app` | `server/.env`, `var/runs/latest.json` (else Supabase `runs`, else `layout-run.json`), `var/fleet/rollups.json`, `var/state.json`, `data/events/<event>/replay.csv`, ERCOT API, Supabase `ercot_postings`, `ercot_prices`, `homes`, and `operator_settings`, `web/src/fixtures/console/*.json` | `var/signal/latest_np3.json`, `latest_np6.json`, `var/state.json`, Supabase `operator_settings` |
 | wall (`web/index.html`) | `web/src/fixtures/layout-run.json`; `GET /v1/meta`, `/v1/snapshot`, `/v1/feeds`, `/health` | `POST /v1/fleet/mode` |
 | fleet (`/fleet`) | `GET /v1/homes?zone=&status=&q=&limit=&offset=` | none |
 
@@ -522,7 +528,7 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 
 - **`load_tape` is still TEMP in `server/engine/loop.py`.** A plain JSON read that does not check labels, offsets, or a naive `ts`. It waits on Sunny's `server/engine/tape.py`, which does not exist. The promised signature is in [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
 - **One ack model.** The tick loop runs `orchestration.orchestrate_tick` (lossy channel, retry, deadline) and reads acks from `orchestration.zone_acks`. `supervisor.simulate_zone_acks` is unused by the engine.
-- **Some `/v1` routes still read fixtures.** `/live`, `/zone`, `/ticks`, `/tapes`, and the `/live/stream` tick event come from `web/src/fixtures/console/*.json`. `/homes` and `/fleet/rollups` read `public.homes` when configured. Only `/fleet/mode` reaches the engine (through `var/state.json`); attention and playback writes stay in memory.
+- **Some `/v1` routes still read fixtures.** `/live`, `/zone`, `/ticks`, `/tapes`, and the `/live/stream` tick event come from `web/src/fixtures/console/*.json`. `/homes` and `/fleet/rollups` read `public.homes` when configured. `/fleet/mode` reaches the engine through `var/state.json` and `public.operator_settings`; attention and playback writes stay in memory.
 - **The `features/` wall and history page components are not routed.** `/` is the operator wall. `/fleet` pages `GET /v1/homes`.
 - **Weather comes only from the tape.** A frame's `events["weather"]` list reaches `reserve_policy` as `alerted`. `loop.py` still never reads `TapeFrame.weather_fixture` or a live alert feed, so `weather_label` stays `"none"`.
 - **Battery feed resets each live cycle.** The live worker calls `loop.run` once per cycle, so each call builds a fresh `TelemetryState`: battery report history does not carry between live cycles. Tape runs keep it for the whole run. `/v1` and the wall do not show `plant`, `feed` or `zone_telemetry` yet.
@@ -534,4 +540,4 @@ Each box above belongs to the owner of its file, listed in [CONSTRAINTS.md, File
 
 ## 7. Supabase
 
-Scripts write `ercot_postings` and `ercot_prices` (`load_ercot_archive.py`, `load_ercot_reports.py`) and read them (`check_margin.py`, `build_tape.py`). `scripts/seed_homes.py` writes `homes` (10k current-state rows). `homes` has row level security on with no policies, so only the service role key (`SUPABASE_SECRET_KEY`) can read or write it. `scripts/persist_homes.py` merge-upserts the same table from `var/fleet/homes.json` after a discharge snapshot. `scripts/stream_telemetry.py` reads `var/fleet/tick_emit.json` and upserts `homes` plus `home_readings`/`home_commands` history, and `scripts/persist_telemetry.py` merge-upserts last readings onto those rows. At run time, `scripts/live_cycle.py` upserts `event=live` postings and prices, `server/api/archive.py` reads the newest `event=live` row for Live and the pinned posting for Demo with an archive event, `server/api/feeds.py` reads the latest posting per report for the Feeds panel, and `scripts/persist_run.py` writes `runs` after an engine run started with `--persist` and after each live cycle. The engine's tick loop never imports Supabase, and a failure never blocks a run or the wall. Rules and keys: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
+Scripts write `ercot_postings` and `ercot_prices` (`load_ercot_archive.py`, `load_ercot_reports.py`) and read them (`check_margin.py`, `build_tape.py`). `scripts/seed_homes.py` writes `homes` (10k current-state rows). `homes` has row level security on with no policies, so only the service role key (`SUPABASE_SECRET_KEY`) can read or write it. `scripts/persist_homes.py` merge-upserts the same table from `var/fleet/homes.json` after a discharge snapshot. `scripts/stream_telemetry.py` reads `var/fleet/tick_emit.json` and upserts `homes` plus `home_readings`/`home_commands` history, and `scripts/persist_telemetry.py` merge-upserts last readings onto those rows. At run time, `scripts/live_cycle.py` upserts `event=live` postings and prices, hydrates HOLD / AUTO from `operator_settings` onto `var/state.json`, `server/api/archive.py` reads the newest `event=live` row for Live and the pinned posting for Demo with an archive event, `server/api/feeds.py` reads the latest posting per report for the Feeds panel, `POST /v1/fleet/mode` upserts `operator_settings`, and `scripts/persist_run.py` writes `runs` after an engine run started with `--persist` and after each live cycle. The engine's tick loop never imports Supabase, and a failure never blocks a run or the wall. Rules and keys: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required). Detail: [operator-settings.md](operator-settings.md).

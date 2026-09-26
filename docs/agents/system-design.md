@@ -89,7 +89,7 @@ flowchart TB
   end
 
   FILES[("Local files<br/>tapes/, data/, var/")]
-  SB[("Supabase<br/>ercot_postings, ercot_prices, runs, homes")]
+  SB[("Supabase<br/>ercot_postings, ercot_prices, runs, homes, operator_settings")]
   ERCOT["ERCOT API"]
 
   SCRIPTS --> SB
@@ -108,6 +108,7 @@ flowchart TB
   ERCOT -->|"Live fallback"| API
   API -->|"/v1 JSON"| WALL
   WALL -->|"POST /v1/fleet/mode"| API
+  API -.->|"operator_settings"| SB
 ```
 
 | Part | Job | Never does |
@@ -189,7 +190,8 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`. | Committed, except raw zips |
 | `var/runs/` | Run files. The source of truth. | Local, gitignored |
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
-| `var/state.json` | Operator mode, `AUTO` or `HOLD`, shared by the API and the live engine. | Local, gitignored |
+| `var/state.json` | Operator mode, `AUTO` or `HOLD`, local cache for this process. | Local, gitignored |
+| Supabase `operator_settings` | One fleet-wide HOLD / AUTO row so Render and the laptop worker share the mode. | Remote, optional |
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
 | `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
 | `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
@@ -222,9 +224,9 @@ How the mode is chosen and what each shows: [runtime-mode.md](runtime-mode.md).
 | A home goes dead or stale | It gets 0 kW. Reasons `homes_dead:n`, `homes_stale:n`. The rest keep working. | `controller.py` |
 | Not enough headroom | Target missed, reason `fleet_headroom_short` or `storm_reserve`. Never a breach. | `controller.py` |
 | An order or a home's answer is lost on the simulated network | Retry at 60 s with the same id, reassign the work to another home, close at 120 s. An order never answered is `unconfirmed` and not counted as delivered; reasons such as `timed_out:n`. | `orchestration.py`, `channel.py` |
-| Operator presses HOLD | 0 kW to every home, reason `operator_hold` | `controller.py`, `fleet_state.py` |
+| Operator presses HOLD | 0 kW to every home, reason `operator_hold`. The wall writes `var/state.json` and `public.operator_settings`; the live worker hydrates the table onto the local file before allocate. | `controller.py`, `fleet_state.py`, `operator_settings.py` |
 | Weather warning names an unknown zone | Ignored, reason `unknown_weather_zone`, logged | `loop.py` |
-| Supabase down or unset | Engine unaffected. Writes print `..._skipped`. Live falls back to ERCOT; archive Demo fails safe. | `persist_run.py`, `archive.py` |
+| Supabase down or unset | Engine unaffected. Writes print `..._skipped`. Live falls back to ERCOT; archive Demo fails safe. Mode stays on the local `var/state.json` of the process that wrote it. | `persist_run.py`, `archive.py`, `operator_settings.py` |
 | API unreachable | Wall shows `api down · <reason>`. If Live never got a first snapshot, the wall falls back to Demo. | `web/src/api/health.ts`, `runtimeMode.ts` |
 | API restarts (Render free plan sleeps) | In-memory state resets. `var/` is empty on a fresh Render instance, so the API reads Supabase `runs`, then `layout-run.json`. | `snapshot.py` |
 

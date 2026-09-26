@@ -15,12 +15,15 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import requests
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
 
 from load_ercot_archive import BatchFailed, send  # noqa: E402
 from load_ercot_reports import posting_rows, price_rows  # noqa: E402
 from persist_run import persist_latest  # noqa: E402
+from server.api.operator_settings import hydrate_local_mode  # noqa: E402
 from server.env import ENV_PATH, load_env  # noqa: E402
 from server.engine.baseline import load_baseline  # noqa: E402
 from server.engine.cli import read_settings  # noqa: E402
@@ -124,9 +127,14 @@ def fetch_live(settings, now):
 
 
 def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path=STATE_PATH,
-              url=None, key=None, persist=True, send=send):
+              url=None, key=None, persist=True, send=send, http_get=None):
     """Fetch → upsert event=live → one allocate tick → optional persist_run."""
     now = now or datetime.now(CENTRAL)
+    # Table HOLD/AUTO wins over this laptop's var/state.json so a wall write
+    # on Render reaches allocate. Injected http_get is the I/O; production
+    # main() passes requests.get. Tests that omit it keep the local file.
+    if http_get is not None:
+        hydrate_local_mode(state_path, url or "", key or "", http_get=http_get)
     # Live always allocates the 10k fleet so ids match new_fleet(10000).
     # loop.run scales the 0.40 frame to call_target_mw for this fleet.
     live_settings = {**settings, "fleet_size": LIVE_FLEET_SIZE}
@@ -175,7 +183,10 @@ def main(argv=None):
 
     def once():
         try:
-            result = run_cycle(settings, url=url, key=key, persist=persist, send=sender)
+            getter = None if args.dry_run else requests.get
+            result = run_cycle(
+                settings, url=url, key=key, persist=persist, send=sender, http_get=getter,
+            )
         except SignalUnavailable as exc:
             print(f"live_cycle: {exc}")
             return 0

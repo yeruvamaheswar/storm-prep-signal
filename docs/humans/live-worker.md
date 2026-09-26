@@ -6,7 +6,7 @@ On Live, the wall reads the newest ERCOT posting from Supabase and the last engi
 
 1. Pulls NP3-233-CD and NP6-905-CD from ERCOT.
 2. Writes those rows into `ercot_postings` and `ercot_prices` with `event=live`. Older storm weeks stay.
-3. Runs one allocate tick and saves `latest.json`. Hold on the wall writes `var/state.json`; that tick delivers 0 with `operator_hold`. Auto is what splits the 0.40 MW call.
+3. Reads Hold or Auto from the `operator_settings` row (so a wall press on Render reaches this laptop), runs one allocate tick, and saves `latest.json`. Hold delivers 0 with `operator_hold`. Auto is what splits the call.
 
 **Run it**
 
