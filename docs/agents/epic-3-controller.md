@@ -81,7 +81,7 @@ What this lane builds, in Sunny's story format, plus notes for Uma and Sunny on 
   - A retry reuses the same command id and payload. A reassignment gets a new id linked to the original.
   - Confirmed means the worker returned `actual_kw`. Unconfirmed work is never counted as delivered.
   - A repeated command id is ignored and counted, and never drains twice.
-  - It has its own runner (`python -m storm_prep.orchestration --tape ... --seed ...`) so the demo works even before the engine adopts it. Home workers live in `orchestration.py`.
+  - It has its own runner (`python -m server.engine.orchestration --tape ... --seed ...`) so the demo works even before the engine adopts it. Home workers live in `orchestration.py`.
   - One straggler and one dead zone do not stall the cycle, and the other zones still deliver.
   - Returns planned, confirmed, credited, unconfirmed and missed MW, per zone, plus command states and an event log.
 - Say it out loud: "The central node doesn't wait for the slowest branch. It closes on a deadline with what is confirmed."
