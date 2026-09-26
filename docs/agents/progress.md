@@ -374,3 +374,83 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Chart math is in `web/src/chartPlot.ts`. Tape playback is `tapeSpark.ts` + `TapeScrubber.tsx`. The live series is `intervalSeries.ts` + `IntervalStrip.tsx`. Event marks on the live strip are risk HIGH, floor raised, homes offline, and hold.
 - `OperatorWall` passes `intervals={[]}` until a backend series exists. Scenario chips stay Demo. Radar stays on both.
 - `docs/agents/interval-strip.md`. `npx vitest run tests/intervalSeries.test.ts tests/controlBar.test.ts tests/tapeSpark.test.ts`: 16 passed. Full `npx vitest run`: 169 passed, 2 failed in `reportFeeds.test.ts` and `topStrip.test.ts` (parallel Live chrome, not this strip). `tsc --noEmit`: errors only in `tests/reportFeeds.test.ts`. `.venv/bin/pytest -q`: 30 passed.
+
+## 2026-09-26: FastAPI backend scaffold
+
+- Uma approved `fastapi`, `uvicorn`, and `httpx2` (test client) in `requirements.txt`. Recorded in
+  `CONSTRAINTS.md` ("Backend") and `working-rules.md`.
+- New `server/` package (`app.py`, `v1.py`, `fixtures.py`): every `/v1` route from
+  `plans/operator-console.md`, reading `web/src/fixtures/console/*.json` (new `zone.json`). Writes
+  change in-memory state only; no write changes the mode. `/health` for Render.
+- `render.yaml`: one Python web service, `uvicorn server.app:app --host 0.0.0.0 --port $PORT`.
+- `tests/test_server.py` (13 tests). `pytest -q`: 43 passed. uvicorn smoke-tested locally with curl
+  (health, zone, CORS preflight, 401 without operator). Not deployed to Render yet.
+- Notes: `docs/agents/backend.md`, `docs/humans/backend.md`.
+
+## 2026-09-26: Wall talks to the API (`GET /health`)
+
+- Backend health route renamed `/healthz` to `/health` (`server/app.py`, `render.yaml`, tests).
+- `web/src/api/health.ts` (`apiBaseUrl`, `checkHealth`, `healthText`, `useApiHealth`); the masthead
+  line in `TopStrip` shows `api ok` / `api down · <reason>` / `api checking`. New `VITE_API_BASE_URL`.
+- `web/vite.config.ts` proxies `/health` and `/v1` to `localhost:8000` (dev and preview).
+- `web/tests/health.test.ts` (6 tests). `npx vitest run`: 71 passed. `tsc --noEmit` clean.
+  `pytest -q`: 43 passed. Checked in the browser: `API OK` with uvicorn up, `api down · http 500`
+  with it stopped.
+
+## 2026-09-26: Backend merged under `server/`
+
+- Moved the Storm Prep package into `server/engine/` (risk CLI is `cli.py`, tick loop is `loop.py`).
+- HTTP routes live in `server/api/` (`v1.py`, `fixtures.py`). uvicorn is still `server.app:app`.
+- `storm_prep/` was a short-lived alias and was then removed. Imports and commands use `server.engine`.
+- Owner paths in `CONSTRAINTS.md` now point at `server/engine/` and `server/api/`.
+- Details: `docs/agents/backend.md`.
+- `pytest -q`: 43 passed.
+
+## 2026-09-26: Next-build list replaces the unfinished tape plan
+
+- The engine can read live NP3-233-CD, then the tick loop still assigns 0 kW. The wall still opens on a sample run. The 12-frame synthetic tape is no longer the thing to finish first.
+- People pick from `docs/humans/improvements.md`. Copy-paste prompts are in `docs/agents/improvements.md`.
+- No application code in this change. `pytest -q` was not run.
+
+## 2026-09-26: Demo data is live ERCOT or a saved ERCOT replay
+
+- Updated `docs/humans/improvements.md` and `docs/agents/improvements.md`. A run is `--live` or `--replay` of a file ERCOT published. Beryl (`data/events/beryl/`) is the saved week. That replay rated LOW on every posting. Sample console scenes, the layout fixture, and a hand-edited outage spike stay off the wall.
+- No application code in this change. `pytest -q` was not run.
+
+## 2026-09-26: Dropped the `storm_prep/` alias
+
+- Tests and `scripts/replay_event.py` import `server.engine` only.
+- Removed the compatibility package. Commands are `python -m server.engine.cli` and `python -m server.engine`.
+- Details: `docs/agents/backend.md`.
+- `pytest -q`: 43 passed.
+
+## 2026-09-26: Load the saved NP3-233-CD archive into Supabase
+
+- Added `scripts/load_ercot_archive.py`. Each zip in `data/events/<event>/raw/` becomes one row in `public.ercot_postings`: `report`, `posted_at` (Central, from the file name), `event` (folder name), `file_name` (the CSV inside the zip), and `payload` (the rows, renamed to the live API fields by `read_posting`). Upserts on `(report, posted_at)` in batches of 25. A posting is about 93 KB of JSON, and batches of 100 (9 MB) sometimes missed the 10 s timeout.
+- `event` is the folder name, so each event's rows include its 30-day pre-storm baseline window (beryl 888, heather 864), not only the replay week.
+- Tests: `tests/test_load_ercot_archive.py`. `--dry-run` built 1752 rows. No live send was run in this change.
+- `pytest -q`: 45 passed.
+
+## 2026-09-26: PROJECT_CONTEXT.md matches the code
+
+- Principle 5 is now "online is fine, never required." The agent rule on network calls now names the one ERCOT fetch in `server/engine/signal.py` instead of saying the engine has none.
+- The Supabase section lists all three tables (`ercot_postings`, `ercot_prices`, `runs`), says `runs` is not written yet, and says nothing reads the tables yet.
+- Layout lists `scripts/load_ercot_reports.py`. `PROJECT_CONTEXT.md` is now in `docs/agents/index.md`.
+- Open: `demo.sh` (Sunny) does not exist yet, so the fallback in principle 5 is not built. What the forecast, price, and tuning-month data are for is not decided.
+- `pytest -q`: 49 passed. Docs only, no code changed.
+
+## 2026-09-26: Margin check against the Supabase postings
+
+- Supabase holds (counted 2026-09-26): NP3-233-CD beryl 888, heather 864, tuning-2026 765; beryl and tuning-2026 also have the load, wind, and solar reports and `ercot_prices` (beryl 5,376, tuning-2026 24,552 rows). Heather has only NP3-233-CD. There is no `runs` table.
+- Added `scripts/check_margin.py`. It reads NP3-233-CD from `ercot_postings`, builds the lead-matched baseline, rates each posting with `rate_posting` at 10, 15, and 20%, and writes `data/margin_check.json`. The engine does not read that file or Supabase.
+- Results (statewide NP3-233-CD rule alone, 6-hour lookahead):
+
+| Window | Baseline | Rated | HIGH at +10% | +15% | +20% |
+|---|---|---|---|---|---|
+| Beryl, Jul 5-11 2024 | 30 days before | 168 | 0 | 0 | 0 |
+| Heather, Jan 12-17 2024 | 30 days before | 144 | 7 | 1 (Jan 15 13:03) | 0 |
+| Last 30 days, Aug 25-Sep 25 2026 | same month | 765 | 92 | 22 (Sep 16-25) | 0 |
+
+- Reading: no margin in this range both catches Beryl and stays quiet on the last 30 days. Beryl's statewide peak sits under even +10%, which matches the earlier replay (5% under +15%). For a storm like Beryl the ERCOT margin alone does not raise the floor; the per-zone weather alerts in `server/engine/policy.py` are the other path (not re-checked against Beryl here). The last-30-days baseline is the same month, so its count is how often normal swings cross the margin, not a forecast. Why its HIGHs cluster in Sep 16-25 is not checked.
+- The 15% margin is unchanged. Changing it is an engine decision (Uma).
+- Tests: `tests/test_check_margin.py`, no network. `pytest -q`: 55 passed.

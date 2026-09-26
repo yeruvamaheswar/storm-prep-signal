@@ -1,4 +1,4 @@
-# ReserveGate: team manifest (Uma, Rajath, Sunny)
+# ReserveGate: team manifest (Uma, Rajat, Sunny)
 
 **What it is.** ReserveGate is a controller for a simulated fleet of home batteries. It sells power when the grid asks for it, but it never drains a home below the backup reserve that home needs in a blackout. It's built for Base fleet operators first and utility partners second.
 
@@ -6,7 +6,7 @@
 
 **Who owns what**
 - **Uma:** policy, the engine that connects everything, shared files, and merges. Also records the Loom.
-- **Rajath:** the controller and fleet, meaning how work is split across homes, what happens when homes fail, and scoring.
+- **Rajat:** the controller and fleet, meaning how work is split across homes, what happens when homes fail, and scoring.
 - **Sunny:** the story, meaning the demo tape, the brief, the React wall in `web/`, `demo.sh`, CI, the README, and the pitch.
 
 **The one no-conflict rule.** Every file has one owner, and nobody else edits it. Only Uma edits `engine.py`. Merge `main` into your branch right before asking Uma to merge.

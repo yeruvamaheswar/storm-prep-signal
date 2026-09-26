@@ -42,7 +42,7 @@ Command: `python -m storm_prep.engine --tape tapes/demo.json`. The existing `pyt
 | Owner | Files |
 |---|---|
 | **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
-| **Rajath** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
+| **Rajat** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
 | **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
 
 If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
@@ -113,16 +113,16 @@ class TickResult:
 | Function | Owner | Signature and promise |
 |---|---|---|
 | `reserve_policy` | Uma | `(risk: RiskResult \| None, settings) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
-| `new_fleet` | Rajath | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
-| `apply_events` | Rajath | `(homes, events) -> None`: sets status only. |
-| `allocate` | Rajath | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
-| `discharge` | Rajath | `(homes, alloc, policy, settings) -> int breaches`: lowers soc by `kw × tick_minutes / 60`. |
-| `new_board` / `update` | Rajath | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
+| `new_fleet` | Rajat | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
+| `apply_events` | Rajat | `(homes, events) -> None`: sets status only. |
+| `allocate` | Rajat | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
+| `discharge` | Rajat | `(homes, alloc, policy, settings) -> int breaches`: lowers soc by `kw × tick_minutes / 60`. |
+| `new_board` / `update` | Rajat | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
 | `load_tape` | Sunny | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
 | `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
 | `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
 
-### Allocation rule (Rajath implements it; Uma must be able to say it out loud)
+### Allocation rule (Rajat implements it; Uma must be able to say it out loud)
 1. If mode is HOLD, give every home 0 kW, set missed to the target, and add reason `operator_hold`.
 2. A home is eligible only if it's `live`. Dead and stale homes get 0, because we don't send work to a home we can't hear from.
 3. Headroom is `soc_kwh − reserve_pct/100 × capacity_kwh`. A home's cap is `min(max_kw, headroom_kwh × 60 / tick_minutes)`, and a home with no headroom has cap 0.
@@ -151,7 +151,7 @@ Everyone:
 | # | Task | Branch | Done check | Deadline |
 |---|---|---|---|---|
 | 1 | Push Slice 1b (rule v2, `.env.example` margin set to 15, AGENTS.md signature fix) | `uma/1b-rule-v2` | `pytest -q` passes; real fixture gives LOW, synthetic gives HIGH | Fri 8:30 PM |
-| 2 | `contracts.py` + `CONSTRAINTS.md` + sim settings in `.env.example` + copy this doc to `docs/reservegate.md` | `uma/contracts` | `python -c "import storm_prep.contracts"` runs; Rajath and Sunny can see it on main | **Fri 9:30 PM (freeze)** |
+| 2 | `contracts.py` + `CONSTRAINTS.md` + sim settings in `.env.example` + copy this doc to `docs/reservegate.md` | `uma/contracts` | `python -c "import storm_prep.contracts"` runs; Rajat and Sunny can see it on main | **Fri 9:30 PM (freeze)** |
 | 3 | `policy.py` + `tests/test_policy.py` (HIGH, LOW, and None cases) | `uma/policy` | 3 tests pass | Sat 10:30 AM |
 | 4 | `engine.py` + `tests/test_engine.py`. The tracer bullet runs a 3-frame tape end to end. | `uma/engine` | `python -m storm_prep.engine --tape tapes/demo.json` prints delivered vs target for each tick, and the log has `stage: tick` events | Sat 12:30 PM |
 | 5 | Write `var/runs/<run_id>.json` and the final `decision_line`. Run the full demo tape. | `uma/engine-final` | `var/runs/<run_id>.json` exists; breaches are 0 on every tick | Sat 5:00 PM |
@@ -163,27 +163,27 @@ Read AGENTS.md, docs/plan.md, and CONSTRAINTS.md if it exists. I'm a beginner, s
 Task: on a new branch uma/contracts, create storm_prep/contracts.py exactly as written in docs/reservegate.md section 2 (dataclasses Home, TapeFrame, Policy, Allocation, TickResult; do not rename any field). Create CONSTRAINTS.md listing: the file-owner table, the function contracts, the allocation rule, and the invariants from that same section, plus the line "Fields may be added, never renamed or removed. Change only with Uma." Add FLEET_SIZE=100, HOME_KWH=20, HOME_MAX_KW=5, HOME_START_SOC_MIN_PCT=45, HOME_START_SOC_MAX_PCT=75, BASE_RESERVE_PCT=30, STORM_RESERVE_PCT=60, TICK_MINUTES=5 to .env.example under a comment "# Example simulation settings, not Base specs".
 Do not touch any other file. Run pytest -q and python -c "import storm_prep.contracts". Show me the diff, then commit with message "Contracts freeze".
 ```
-Uma must not touch Rajath's or Sunny's files. If a teammate's PR is late for the tracer, put a stand-in of 5 lines or fewer in `engine.py`, marked `# TEMP until <branch> merges`, and delete it when the real PR lands.
+Uma must not touch Rajat's or Sunny's files. If a teammate's PR is late for the tracer, put a stand-in of 5 lines or fewer in `engine.py`, marked `# TEMP until <branch> merges`, and delete it when the real PR lands.
 
-### Rajath: controller and stress (allocation, fleet, failures, scoring)
+### Rajat: controller and stress (allocation, fleet, failures, scoring)
 | # | Task | Branch | Done check | Deadline |
 |---|---|---|---|---|
 | 1 | Setup; read `CONSTRAINTS.md` | none | `pytest -q` passes on main | Fri 10 PM |
-| 2 | `fleet.py` (`new_fleet`, `apply_events`, `discharge`) + `controller.py` (`allocate`, the 5-step rule) + tests + `tests/fixtures/homes_small.json` (5 homes) | `rajath/controller` | Tests cover under-target, over-target (proportional), HOLD, 1 dead + 1 stale, and a storm floor that leaves some homes with 0 headroom; `breaches == 0` in every case | **Sat 11:00 AM** |
-| 3 | `score.py` (`new_board`, `update`) + tests | `rajath/score` | Cumulative MWh adds up by hand on a 3-tick example | Sat 1:15 PM |
-| 4 | Failure hardening: a home with soc below its new floor after a storm raise gets 0 and is not a breach; all homes dead gives delivered 0 with reason codes; bad status strings are rejected | `rajath/failures` | 3 new tests pass | Sat 6:00 PM |
+| 2 | `fleet.py` (`new_fleet`, `apply_events`, `discharge`) + `controller.py` (`allocate`, the 5-step rule) + tests + `tests/fixtures/homes_small.json` (5 homes) | `rajat/controller` | Tests cover under-target, over-target (proportional), HOLD, 1 dead + 1 stale, and a storm floor that leaves some homes with 0 headroom; `breaches == 0` in every case | **Sat 11:00 AM** |
+| 3 | `score.py` (`new_board`, `update`) + tests | `rajat/score` | Cumulative MWh adds up by hand on a 3-tick example | Sat 1:15 PM |
+| 4 | Failure hardening: a home with soc below its new floor after a storm raise gets 0 and is not a breach; all homes dead gives delivered 0 with reason codes; bad status strings are rejected | `rajat/failures` | 3 new tests pass | Sat 6:00 PM |
 
-Rajath's first Cursor prompt:
+Rajat's first Cursor prompt:
 ```
 Read AGENTS.md, CONSTRAINTS.md and docs/reservegate.md (sections 2 and 3). I'm new to this repo; explain before changing.
-Task: on branch rajath/controller, build storm_prep/fleet.py and storm_prep/controller.py using only the dataclasses in storm_prep/contracts.py (import them; never redefine or rename fields).
+Task: on branch rajat/controller, build storm_prep/fleet.py and storm_prep/controller.py using only the dataclasses in storm_prep/contracts.py (import them; never redefine or rename fields).
 - fleet.new_fleet(settings) -> list[Home], starting charge spread evenly from home_start_soc_min_pct to home_start_soc_max_pct by index (no randomness); fleet.apply_events(homes, events) sets status from "dead"/"stale"/"live" lists; fleet.discharge(homes, alloc, policy, settings) lowers soc_kwh by kw*tick_minutes/60 and returns how many homes ended below reserve_pct of capacity after being given work.
 - controller.allocate(homes, frame, policy, mode, settings) -> Allocation, following the 5-step allocation rule in CONSTRAINTS.md exactly. It must be pure: no file, network, clock or random calls, and it must not change the homes list.
 Write tests/fixtures/homes_small.json (5 homes) and tests/test_controller.py + tests/test_fleet.py covering: target under capacity, target over capacity (proportional split), HOLD, one dead + one stale home, storm floor. Every test asserts breaches == 0 and missed == target - delivered.
 Only create/edit the files named above. Run pytest -q, show the diff, commit, push, and open a PR into main titled "Controller + fleet".
 ```
-Files Rajath must not touch: `contracts.py`, `CONSTRAINTS.md`, `policy.py`, `engine.py`, `risk.py`, `signal.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py`, `requirements.txt`, `.env.example`, anything in `tapes/`, `brief.py`, `tape.py`, `web/`, `README.md`, and CI.
-Interfaces Rajath depends on: `Home`, `TapeFrame.target_mw` and `.events`, `Policy.reserve_pct`, `Allocation`, and the settings keys `fleet_size, home_kwh, home_max_kw, home_start_soc_min_pct, home_start_soc_max_pct, tick_minutes`.
+Files Rajat must not touch: `contracts.py`, `CONSTRAINTS.md`, `policy.py`, `engine.py`, `risk.py`, `signal.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py`, `requirements.txt`, `.env.example`, anything in `tapes/`, `brief.py`, `tape.py`, `web/`, `README.md`, and CI.
+Interfaces Rajat depends on: `Home`, `TapeFrame.target_mw` and `.events`, `Policy.reserve_pct`, `Allocation`, and the settings keys `fleet_size, home_kwh, home_max_kw, home_start_soc_min_pct, home_start_soc_max_pct, tick_minutes`.
 
 ### Sunny: story (tape, brief, React wall, demo, CI, README, pitch)
 | # | Task | Branch | Done check | Deadline |
@@ -219,14 +219,14 @@ Interfaces Sunny depends on: `TapeFrame`, `TickResult` (every field), and the lo
 
 ## 4. Merge order and timeline (all CT)
 
-Merge order: `uma/1b-rule-v2`, then `uma/contracts`, then `rajath/controller` and `sunny/tape-brief` (either order, since they share no files), then `uma/policy`, then `uma/engine` (the tracer), then `rajath/score`, then `sunny/ci-readme`, then `sunny/web`, then `uma/engine-final`, then `rajath/failures`, then `sunny/demo`.
+Merge order: `uma/1b-rule-v2`, then `uma/contracts`, then `rajat/controller` and `sunny/tape-brief` (either order, since they share no files), then `uma/policy`, then `uma/engine` (the tracer), then `rajat/score`, then `sunny/ci-readme`, then `sunny/web`, then `uma/engine-final`, then `rajat/failures`, then `sunny/demo`.
 Why this avoids conflicts: every file has one owner, the shared files are Uma's only, and each person merges main into their branch before asking for a merge. The only place the work comes together is `engine.py`, and only Uma edits it.
 
 | When | What |
 |---|---|
 | Fri by 8:30 PM | 1b merged |
-| Fri by 9:30 PM | Contracts frozen on main. Rajath and Sunny start. Everyone sleeps by a sane hour. |
-| Sat 9:00–11:00 AM | First PRs from Rajath and Sunny; Uma does policy |
+| Fri by 9:30 PM | Contracts frozen on main. Rajat and Sunny start. Everyone sleeps by a sane hour. |
+| Sat 9:00–11:00 AM | First PRs from Rajat and Sunny; Uma does policy |
 | Sat 11:00 AM–12:30 PM | Uma merges, then builds the engine tracer. **End-to-end run by 12:30.** |
 | Sat 1:15 PM | Score and CI merged |
 | **Sat 1:30–2:30 PM** | **Factory tour, protected. No merges.** |
@@ -239,7 +239,7 @@ Why this avoids conflicts: every file has one owner, the shared files are Uma's 
 **Cut list, in order (cut from the top):**
 1. The hosted build of `web/` (local `npm run dev` is the demo)
 2. Live outage fetch (v3 Slice 2); the fixtures already show the real rule
-3. `rajath/failures` extras beyond the all-dead case
+3. `rajat/failures` extras beyond the all-dead case
 4. The `demo.sh` reason printout (just run the engine)
 5. `score.py` cumulative totals (the per-tick delivered vs target is enough)
 6. The React wall falls back to the terminal table printed by the engine

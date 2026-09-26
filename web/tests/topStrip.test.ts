@@ -13,6 +13,7 @@ import { stressReading } from "../src/stressReading"
 import { liveSnapshot, wallSnapshot } from "../src/wallSnapshot"
 
 const run = layoutRun as RunFile
+const apiOk = { state: "ok" as const }
 
 function tick(number: number): TickView {
   const found = run.ticks.find((item) => item.tick === number)
@@ -33,6 +34,7 @@ function strip(number: number, runId = run.run_id, decisionLine: string | null =
       tickCount: run.ticks.length,
       calm,
       snapshot: wallSnapshot({ runtime: "demo", tick: current, calm }),
+      api: apiOk,
     }),
   )
 }
@@ -66,6 +68,7 @@ describe("floor and risk subtitles", () => {
         tickCount: 1,
         calm: 0,
         snapshot: wallSnapshot({ runtime: "demo", tick: failsafe.tick, calm: 0 }),
+        api: apiOk,
       }),
     )
     expect(html).toContain("Signal unavailable")
@@ -113,6 +116,7 @@ describe("fixture chrome", () => {
         calm: 0,
         snapshot: wallSnapshot({ runtime: "demo", tick: current, calm: 0 }),
         feeds,
+        api: apiOk,
       }),
     )
     expect(html).toContain("NP3-233-CD outage")
@@ -176,6 +180,7 @@ describe("fixture chrome", () => {
         runtime: "live",
         intervalLabel: "14:30–14:45 CT",
         clockLabel: "Sep 26, 14:32 CDT",
+        api: apiOk,
       }),
     )
     expect(html).toContain("Live · 14:30–14:45 CT")
@@ -213,6 +218,7 @@ describe("fixture chrome", () => {
         runtime: "live",
         intervalLabel: "23:00–23:15 CT",
         clockLabel: "Sep 25, 23:30 CDT",
+        api: apiOk,
       }),
     )
     expect(html).toContain("0.40")

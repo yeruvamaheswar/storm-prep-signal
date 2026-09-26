@@ -3,4 +3,5 @@
 interface ImportMetaEnv {
   readonly VITE_ERCOT_SUBSCRIPTION_KEY?: string
   readonly VITE_ERCOT_ID_TOKEN?: string
+  readonly VITE_API_BASE_URL?: string
 }

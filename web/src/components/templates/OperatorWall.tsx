@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useApiHealth } from "../../api/health"
 import { calmStreak } from "../../calmStreak"
 import type { Mode, RunFile } from "../../contracts"
 import { feedChip, formatTs } from "../../format"
@@ -58,6 +59,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
   const [zone, setZone] = useState<LoadZone | null>(null)
   const [choice, setChoice] = useState<RuntimeMode | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const api = useApiHealth()
   const selectZone = useCallback((next: LoadZone) => {
     setZone(next)
   }, [])
@@ -156,6 +158,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
         intervalLabel={ercotIntervalLabel(now)}
         clockLabel={formatTs(new Date(now).toISOString())}
         feeds={feeds}
+        api={api}
       />
       <p className={intentClass(intent.action)} role="status">
         {intent.line}

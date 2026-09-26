@@ -9,7 +9,8 @@ import requests
 
 # ERCOT writes times in Central Prevailing Time with no offset, so we attach the zone ourselves.
 CENTRAL = ZoneInfo("America/Chicago")
-FIXTURE_PATH = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "np3_233_cd.json"
+# server/engine/signal.py → repo root is two parents up.
+FIXTURE_PATH = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "np3_233_cd.json"
 LIVE_PATH = Path("var") / "signal" / "latest_np3.json"
 LIVE_SOURCE = "ERCOT NP3-233-CD"
 

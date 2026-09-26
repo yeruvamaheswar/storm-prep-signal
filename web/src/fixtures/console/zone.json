@@ -1,0 +1,9 @@
+{
+  "zone_id": "NP3",
+  "zone_name": "North",
+  "reserve_pct_normal": 30,
+  "reserve_pct_stressed": 60,
+  "stress_threshold_mw": 1500,
+  "stress_margin_mw": 225,
+  "tick_minutes": 5
+}

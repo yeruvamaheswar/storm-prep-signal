@@ -1,3 +1,4 @@
+import { healthText, type ApiHealth } from "../../api/health"
 import { riskCaption } from "../../calmStreak"
 import type { TickView } from "../../contracts"
 import { feedChip, formatGridMw, formatMw, formatPrice, formatSignedGridMw, formatTs, headerIdentity, headerReason, modeName, riskName } from "../../format"
@@ -23,6 +24,22 @@ type TopStripProps = {
   intervalLabel?: string
   clockLabel?: string
   feeds?: ReportFeeds
+  api: ApiHealth
+}
+
+function apiTone(api: ApiHealth): string {
+  switch (api.state) {
+    case "checking":
+      return "api-status"
+    case "ok":
+      return "api-status tone-ok"
+    case "down":
+      return "api-status tone-dead"
+    default: {
+      const unreachable: never = api
+      return unreachable
+    }
+  }
 }
 
 export function TopStrip({
@@ -37,6 +54,7 @@ export function TopStrip({
   intervalLabel,
   clockLabel,
   feeds,
+  api,
 }: TopStripProps) {
   const row = snapshot ?? wallSnapshot({ runtime, tick, calm })
   const line = outageLine({
@@ -89,6 +107,10 @@ export function TopStrip({
               </span>
             </>
           ) : null}
+          <span className="mast-gap" />
+          <span className={apiTone(api)} role="status">
+            {healthText(api)}
+          </span>
         </p>
       </div>
       <div key={tick.tick}>
