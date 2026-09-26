@@ -716,3 +716,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   - `docs/agents/improvements.md` and `docs/humans/improvements.md` are cited above but are not in the repo. Not recreated.
   - `docs/agents/team-manifest.md` says 1.7% out-of-sample; `data/margin_check.json` says 22 of 765 in-sample (about 2.9%) at +15%. Different measurements; Uma to confirm which one is said out loud.
   - `docs/agents/code-flow.md` "Stubs and gaps" lists code that differs from `CONSTRAINTS.md`: no `decision_line` in the run record, `load_tape` does not check labels or offsets, weather alerts are not wired into the loop.
+
+## 2026-09-26: Engine persists to Supabase only with `--persist` (Uma)
+
+- `server/engine/__main__.py`: `split_persist()` pulls `--persist` out of argv with `parse_known_args` (`allow_abbrev=False`) before `loop.main()`. `persist_after_run()` runs only with the flag, still inside the try/except, so the exit code never changes.
+- `python -m server.engine --tape <tape>` with no flag makes zero network calls. Checked with sockets blocked: 0 connect attempts without the flag, 2 with it (exit 0 both times).
+- `tests/test_persist_run.py`: the old entry test asserted persist ran with no flag, which is the behavior this change removes; it now passes `--persist` and checks that `loop.main` gets argv without it. New `test_engine_entry_without_persist_makes_no_network_calls` plays a real tape from `tmp_path` with sockets blocked.
+- Docs: `docs/agents/persist-run.md`, `docs/humans/persist-run.md`, `docs/agents/code-flow.md` (both diagrams and text). `loop.py`, `policy.py`, `controller.py`, `fleet.py` untouched. `pytest -q`: 337 passed.

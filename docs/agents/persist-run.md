@@ -1,5 +1,7 @@
 # Persist engine runs into `public.runs`
 
+**Decision (2026-09-26, later).** `python -m server.engine` copies the run to Supabase only when you pass `--persist`. Without it, a `--tape` run makes zero network calls. `scripts/live_cycle.py` still persists every cycle.
+
 **Decision (2026-09-26).** After `loop.run()` writes `var/runs/<id>.json` (and `latest.json`), a best-effort script upserts that payload into `public.runs`. The wall still reads FastAPI / `latest.json` this pass. The engine never imports or waits on Supabase during a tick.
 
 ## Why
@@ -10,7 +12,7 @@
 
 - `server/engine/loop.py` `write_run_files()` writes `{ run_id, tape, source, settings, ticks, totals }` after every tick (so live stays aligned) and once more if there are no ticks. `source` on that file is `live` or `scenario`.
 - `server/engine/events.py` writes `var/logs/<run_id>.jsonl`. It is not the `runs` table.
-- `python -m server.engine` is `server/engine/__main__.py`. `run_then_persist()` calls `loop.main()`, then `persist_after_run()`. A persist failure prints `runs_skipped: <reason>` and leaves the engine exit code at 0.
+- `python -m server.engine` is `server/engine/__main__.py`. `run_then_persist()` strips `--persist` with `parse_known_args`, calls `loop.main()` with the rest, then `persist_after_run()` only if the flag was given. A persist failure prints `runs_skipped: <reason>` and leaves the engine exit code at 0.
 - Direct `run()` in tests does not upload.
 
 ## OpenAPI row
@@ -31,7 +33,8 @@ Upsert: `POST /rest/v1/runs?on_conflict=run_id` with `Prefer: resolution=merge-d
 ## Commands
 
 ```bash
-python -m server.engine --tape tests/fixtures/tape_tiny.json
+python -m server.engine --tape tests/fixtures/tape_tiny.json             # local only, no network
+python -m server.engine --tape tests/fixtures/tape_tiny.json --persist   # then upsert to runs
 python scripts/persist_run.py                      # latest.json
 python scripts/persist_run.py var/runs/<id>.json
 python scripts/persist_run.py --dry-run            # build only

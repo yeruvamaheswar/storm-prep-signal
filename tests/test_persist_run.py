@@ -117,8 +117,32 @@ def test_persist_after_run_prints_status(monkeypatch, capsys, no_network):
 def test_engine_entry_persists_after_main_returns(monkeypatch, no_network):
     order = []
     from server.engine import __main__ as entry
-    monkeypatch.setattr(entry, "main", lambda argv=None: order.append("run") or 0)
+    monkeypatch.setattr(entry, "main", lambda argv=None: order.append(("run", argv)) or 0)
     monkeypatch.setattr(entry, "persist_after_run", lambda: order.append("persist"))
 
-    assert entry.run_then_persist() == 0
-    assert order == ["run", "persist"]
+    assert entry.run_then_persist(["--tape", "t.json", "--persist"]) == 0
+    assert order == [("run", ["--tape", "t.json"]), "persist"]
+
+
+def test_engine_entry_without_persist_makes_no_network_calls(tmp_path, monkeypatch, capsys):
+    import socket
+    from server.engine import __main__ as entry
+    attempts = []
+
+    def refuse(self, address, *args):
+        attempts.append(address)
+        raise OSError("the engine tried to reach the network")
+
+    monkeypatch.setattr(socket.socket, "connect", refuse)
+    monkeypatch.setattr(socket.socket, "connect_ex", refuse)
+    # Run from tmp_path so var/runs, var/logs, and var/state.json stay out of the repo.
+    tape = json.loads(TAPE.read_text())
+    for frame in tape["frames"]:
+        frame["risk_fixture"] = str(ROOT / frame["risk_fixture"])
+    (tmp_path / "tape.json").write_text(json.dumps(tape))
+    monkeypatch.chdir(tmp_path)
+
+    assert entry.run_then_persist(["--tape", str(tmp_path / "tape.json")]) == 0
+    assert attempts == []
+    assert "runs_" not in capsys.readouterr().out
+    assert (tmp_path / "var" / "runs" / "latest.json").exists()

@@ -4,7 +4,7 @@
 
 **Summary.**
 
-- One entry point makes a run: `python -m server.engine` (`server/engine/__main__.py` calls `loop.main`, then `scripts/persist_run.py`). It plays a tape, rates risk for each frame, picks the reserve floor, splits the target across homes, simulates zone acks, discharges, and writes `var/runs/<run_id>.json` plus `var/runs/latest.json` after every tick. That run file is the source of truth.
+- One entry point makes a run: `python -m server.engine` (`server/engine/__main__.py` calls `loop.main`, then `scripts/persist_run.py` only with `--persist`). It plays a tape, rates risk for each frame, picks the reserve floor, splits the target across homes, simulates zone acks, discharges, and writes `var/runs/<run_id>.json` plus `var/runs/latest.json` after every tick. That run file is the source of truth.
 - Upstream, `scripts/` load ERCOT history into Supabase and build local files: tapes, posting fixtures, baselines, and evidence JSON. `data/fixtures/heather/` and `tapes/heather.json` are built by `scripts/build_tape.py`.
 - For Live, `scripts/live_cycle.py` is the laptop worker: each cycle it fetches ERCOT, upserts the posting and price into Supabase as `event=live`, and calls `loop.run()` for one tick with that same posting.
 - The API (`uvicorn server.app:app`) reads the run file and Supabase (through `server/api/archive.py`: the newest `event=live` row in Live, the pinned posting for Demo with an archive event). In Live it falls back to ERCOT directly (through `server/api/feeds.py`) when no worker row is usable. It rates the posting again with the engine's `compute_risk` and `reserve_policy`; it never writes a second rule. See [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
@@ -68,7 +68,7 @@ flowchart LR
   ALLOC --> RUN
   ALLOC --> ROLL
   STATE <--> LOOP
-  RUN -.->|"persist_run.py, best effort"| SB
+  RUN -.->|"persist_run.py, --persist only, best effort"| SB
 
   LIVEW["scripts/live_cycle.py<br/>laptop worker, --loop"]
   ERCOTW["ERCOT public API"]
@@ -163,7 +163,7 @@ flowchart TD
   JEV --> JEVOUT["data/fixtures/jev_harris.json, shadow only, nothing reads it"]
 
   subgraph engine["Run: python -m server.engine"]
-    MAIN["__main__.py: loop.main, then persist_after_run"]
+    MAIN["__main__.py: strip --persist, loop.main, then persist_after_run if --persist"]
     LOADTAPE["load_tape, TEMP in loop.py"]
     SYNTH["synthetic_frames, --live with no tape"]
     LOADB["baseline.load_baseline"]
@@ -211,7 +211,7 @@ flowchart TD
   TR --> RUN["var/runs/{run_id}.json and var/runs/latest.json, written every tick"]
   DIS --> ROLLS
   ROLLS --> ROLLFILE["var/fleet/rollups.json"]
-  MAIN -.->|"scripts/persist_run.py, runs_skipped on failure"| SB
+  MAIN -.->|"--persist only: scripts/persist_run.py, runs_skipped on failure"| SB
 
   subgraph worker["Live worker: python scripts/live_cycle.py [--loop]"]
     LCFETCH["fetch_outages + fetch_price"]
@@ -300,7 +300,7 @@ How one engine tick runs, in order (`run()` in `server/engine/loop.py`):
 7. The mode comes from `frame.events["operator"]`, else the current mode, and is written back to `var/state.json`. `scale_target_mw` scales the target to the fleet. Then `allocate`, `simulate_zone_acks`, and `discharge` (which returns the breach count).
 8. Build a `TickResult` (with zone floors, zone delivered MW, zone acks, and price), call `write_brief`, then `log_event("tick", ...)` and print one line.
 9. Write `var/fleet/rollups.json`, then the run record (`run_id`, `tape`, `source`, `baseline`, `settings`, `ticks`, `totals: {}`) to `var/runs/<run_id>.json` and `var/runs/latest.json`. This happens every tick, so `/v1/snapshot` can read a live run mid-way.
-10. After `loop.main` returns, `__main__.py` calls `scripts/persist_run.py` to upsert the run into Supabase `runs`. Any failure prints `runs_skipped: <reason>` and the exit code is unchanged.
+10. `__main__.py` strips `--persist` from argv (`parse_known_args`) before `loop.main`. Only with `--persist`, after `loop.main` returns, it calls `scripts/persist_run.py` to upsert the run into Supabase `runs`. Any failure prints `runs_skipped: <reason>` and the exit code is unchanged. Without the flag, `--tape` makes no network calls.
 
 How `GET /v1/snapshot` builds one tick for the wall (`server/api/snapshot.py`):
 
@@ -353,7 +353,7 @@ Engine and API (`server/`):
 - `server/api/archive.py`: reads `ercot_postings` and `ercot_prices` for Demo with an archive event. `ArchiveUnavailable` on a missing config or failed call.
 - `server/api/prices.py`: binds NP6-905-CD rows to the four load zones. `fetch_archive_prices` fills the three zones live NP6 does not return.
 - `server/api/fixtures.py`: `FixtureStore`. Reads `web/src/fixtures/console/<name>.json` on every call (`CONSOLE_FIXTURES_DIR` overrides the folder).
-- `server/engine/__main__.py`: `python -m server.engine` calls `loop.main`, then `persist_after_run`.
+- `server/engine/__main__.py`: `python -m server.engine` calls `loop.main`, then `persist_after_run` only with `--persist`.
 - `server/engine/loop.py`: the tick loop. Parses arguments, holds the TEMP `load_tape`, and writes the run record every tick.
 - `server/engine/cli.py`: the one-shot risk CLI and `read_settings()`, which reads `.env`.
 - `server/engine/signal.py`: the ERCOT NP3-233-CD and NP6-905-CD fetches, the stale check, `load_signal`, and `to_signal`.
@@ -382,7 +382,7 @@ Scripts (`scripts/`):
 - `scripts/load_ercot_reports.py`: pulls ERCOT reports from the public API into Supabase. Postings go to `ercot_postings`, NP6-905-CD prices go to `ercot_prices`. It skips Beryl and Heather NP3-233-CD, which came from the archive.
 - `scripts/check_margin.py`: reads `ercot_postings`, rates every posting at several margins with `compute_risk`, and writes `data/margin_check.json`.
 - `scripts/build_tape.py`: reads Heather's postings and prices from Supabase. Writes `tapes/heather.json`, `data/fixtures/heather/np3_233_cd_<posted>.json`, and `data/fixtures/heather/baseline.json`. It reuses `check_margin`'s fetch and baseline code.
-- `scripts/persist_run.py`: upserts `var/runs/latest.json` into Supabase `runs`. Called by `server/engine/__main__.py` and `scripts/live_cycle.py` after every run; also runnable by hand. Best effort.
+- `scripts/persist_run.py`: upserts `var/runs/latest.json` into Supabase `runs`. Called by `server/engine/__main__.py` (with `--persist`) and `scripts/live_cycle.py` after every run; also runnable by hand. Best effort.
 - `scripts/live_cycle.py`: the Live worker. Fetches ERCOT, upserts `event=live` rows, runs one `loop.run()` tick with that posting, then persists the run. Reuses `load_ercot_reports.posting_rows` and `price_rows` and `load_ercot_archive.send`.
 - `scripts/jev_shadow.py`: asks TypeSafe Jev one question about an NWS alert and writes `data/fixtures/jev_harris.json`. Shadow only: no engine code reads it.
 
@@ -435,4 +435,4 @@ Each box above belongs to the owner of its file, listed in [CONSTRAINTS.md, File
 
 ## 7. Supabase
 
-Scripts write `ercot_postings` and `ercot_prices` (`load_ercot_archive.py`, `load_ercot_reports.py`) and read them (`check_margin.py`, `build_tape.py`). At run time, `scripts/live_cycle.py` upserts `event=live` postings and prices, `server/api/archive.py` reads the newest `event=live` row for Live and the pinned posting for Demo with an archive event, `server/api/feeds.py` reads the latest posting per report for the Feeds panel, and `scripts/persist_run.py` writes `runs` after each engine run. The engine's tick loop never imports Supabase, and a failure never blocks a run or the wall. Rules and keys: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
+Scripts write `ercot_postings` and `ercot_prices` (`load_ercot_archive.py`, `load_ercot_reports.py`) and read them (`check_margin.py`, `build_tape.py`). At run time, `scripts/live_cycle.py` upserts `event=live` postings and prices, `server/api/archive.py` reads the newest `event=live` row for Live and the pinned posting for Demo with an archive event, `server/api/feeds.py` reads the latest posting per report for the Feeds panel, and `scripts/persist_run.py` writes `runs` after an engine run started with `--persist` and after each live cycle. The engine's tick loop never imports Supabase, and a failure never blocks a run or the wall. Rules and keys: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
