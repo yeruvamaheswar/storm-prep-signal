@@ -172,3 +172,15 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   (40 min old) | quality: unchecked | source: ERCOT NP3-233-CD`. Log and saved file checked
   for the three `.env` secrets: none found.
 - Not done: staleness check (the line shows the age but nothing rejects old data).
+
+## 2026-09-25: Stale live data rejected, baseline is a setup error
+
+- New setting `STALE_AFTER_MIN=90` (`.env.example`, `read_settings()` as `stale_after_min`,
+  `CONSTRAINTS.md` "Stale data"). `signal.reject_stale` runs on `--live` only, right after the
+  fetch: a newest posting more than the limit old raises `SignalUnavailable("data is N min old
+  (limit 90)")`, so risk is None and the floor is 60% (`signal_unavailable`). File modes never check age.
+- `baseline.BaselineError` (a `ValueError`) for a missing or too-short baseline. `run()` re-raises
+  it in live mode too, so it stops the run like the engine instead of reading as signal unavailable.
+  A baseline with bad JSON inside is still treated as signal unavailable in live mode.
+- 3 new tests in `tests/test_signal.py` (120 min old gives None and 60%; 40 min old is rated;
+  live run with no baseline raises). `pytest -q`: 25 passed. Disabling either fix makes its test fail.

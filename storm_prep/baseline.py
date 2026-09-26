@@ -9,15 +9,19 @@ from pathlib import Path
 BASELINE_PATH = Path(__file__).resolve().parent.parent / "data" / "baseline_by_lead.json"
 
 
+class BaselineError(ValueError):
+    """The baseline file is missing or too short: a setup error, never a signal problem."""
+
+
 def load_baseline(path=BASELINE_PATH, lookahead_hours=6):
     path = Path(path)
     if not path.exists():
-        raise ValueError(f"baseline file missing: {path} (run scripts/make_baseline.py)")
+        raise BaselineError(f"baseline file missing: {path} (run scripts/make_baseline.py)")
     baseline = json.loads(path.read_text())
     count = len(baseline["median_mw_by_lead"])
     # compute_risk needs a typical value for every hour in the look-ahead window.
     if count < lookahead_hours:
-        raise ValueError(f"baseline too short: {count} lead hours in {path}, need {lookahead_hours}")
+        raise BaselineError(f"baseline too short: {count} lead hours in {path}, need {lookahead_hours}")
     return baseline
 
 

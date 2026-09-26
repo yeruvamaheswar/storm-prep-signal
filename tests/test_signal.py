@@ -1,13 +1,15 @@
 """Slice 2, the live ERCOT fetch. The network is faked, so no test makes a real call."""
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 import requests
 
+import storm_prep.__main__ as cli
 from storm_prep import signal
 from storm_prep.__main__ import parse_args, run
+from storm_prep.baseline import load_baseline
 from storm_prep.signal import CENTRAL, fetch_outages, to_signal
 
 FIXTURE = Path(__file__).parent / "fixtures" / "np3_233_cd.json"
@@ -16,7 +18,7 @@ NOW = datetime(2026, 9, 25, 12, 0, 47, tzinfo=CENTRAL)
 SECRETS = {"ERCOT_USERNAME": "user-SECRET-1", "ERCOT_PASSWORD": "pass-SECRET-2",
            "ERCOT_SUBSCRIPTION_KEY": "key-SECRET-3"}
 TOKEN = "token-SECRET-4"
-SETTINGS = {"margin_pct": 15, "lookahead_hours": 6, "fetch_timeout_s": 3,
+SETTINGS = {"margin_pct": 15, "lookahead_hours": 6, "fetch_timeout_s": 3, "stale_after_min": 90,
             "base_reserve_pct": 30, "storm_reserve_pct": 60}
 
 
@@ -97,6 +99,39 @@ def test_timeout_gives_no_risk_and_the_storm_floor(fake_ercot, monkeypatch, tmp_
     [failed] = [event for event in events if event["stage"] == "compute_risk"]
     assert (failed["event"], failed["ok"]) == ("failed", False)
     assert failed["reason"] == "ERCOT did not answer within 3 s"
+
+
+def pin_clock(monkeypatch, minutes_after_posting):
+    later = NOW + timedelta(minutes=minutes_after_posting)
+
+    class LaterClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return later
+
+    monkeypatch.setattr(signal, "datetime", LaterClock)
+
+
+def test_live_posting_120_min_old_gives_no_risk_and_the_storm_floor(fake_ercot, monkeypatch, tmp_path):
+    pin_clock(monkeypatch, 120)
+    line, batteries = run(parse_args(["--live"]), SETTINGS, log_dir=tmp_path)
+    assert line == ("[RESERVE] risk unknown | data is 120 min old (limit 90)"
+                    " | reserve floor 60% (signal_unavailable) | source: ERCOT NP3-233-CD")
+    assert set(batteries.values()) == {"RESERVE"}
+
+
+def test_live_posting_40_min_old_is_still_rated(fake_ercot, monkeypatch, tmp_path):
+    pin_clock(monkeypatch, 40)
+    line, _ = run(parse_args(["--live"]), SETTINGS, log_dir=tmp_path)
+    assert line.startswith("[NORMAL] risk LOW | peak outages 22,194 MW at HE15")
+    assert "(40 min old)" in line
+
+
+def test_live_run_without_baseline_stops_with_a_setup_error(fake_ercot, monkeypatch, tmp_path):
+    missing = tmp_path / "baseline_by_lead.json"
+    monkeypatch.setattr(cli, "load_baseline", lambda **kwargs: load_baseline(missing, **kwargs))
+    with pytest.raises(ValueError, match="baseline file missing"):
+        run(parse_args(["--live"]), SETTINGS, log_dir=tmp_path / "logs")
 
 
 def test_no_secret_reaches_the_log_or_the_screen(fake_ercot, monkeypatch, tmp_path):

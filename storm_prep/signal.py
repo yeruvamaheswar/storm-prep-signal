@@ -88,15 +88,25 @@ def parse_central(text):
     return datetime.fromisoformat(text).replace(tzinfo=CENTRAL)
 
 
+def reject_stale(raw, now, limit_min):
+    """An old forecast rated as current would hide a storm, so treat it as no signal at all."""
+    posted = parse_central(newest_posting_time(rows_by_name(raw)))
+    if now - posted > timedelta(minutes=limit_min):
+        # Same rounding as the decision line's "N min old".
+        age_min = int((now - posted).total_seconds() // 60)
+        raise SignalUnavailable(f"data is {age_min} min old (limit {limit_min})")
+
+
 def load_signal(args, settings=None):
     """Read a saved response (--fixture or --file), or fetch the live one (--live).
 
     File modes pin the clock to the posting time so a saved file rates the same way every run.
-    Live mode uses the real clock.
+    Live mode uses the real clock, and only live data can be too old: saved files are old on purpose.
     """
     if not (args.fixture or args.file):
         now = datetime.now(CENTRAL)
         raw = fetch_outages(settings, now)
+        reject_stale(raw, now, settings["stale_after_min"])
         return {"raw": raw, "now": now, "source": LIVE_SOURCE, "clock_pinned": False,
                 "path": str(LIVE_PATH)}
     path = FIXTURE_PATH if args.fixture else Path(args.file)

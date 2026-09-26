@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from storm_prep.baseline import baseline_span, load_baseline
+from storm_prep.baseline import BaselineError, baseline_span, load_baseline
 from storm_prep.batteries import apply_to_batteries, new_batteries
 from storm_prep.decision import format_decision
 from storm_prep.events import log_event, start_run
@@ -34,6 +34,7 @@ def read_settings():
         "margin_pct": float(os.getenv("RISK_MARGIN_PCT", "15")),
         "lookahead_hours": int(os.getenv("LOOKAHEAD_HOURS", "6")),
         "fetch_timeout_s": float(os.getenv("FETCH_TIMEOUT_S", "3")),
+        "stale_after_min": int(os.getenv("STALE_AFTER_MIN", "90")),
         # Example simulation settings, not Base specs.
         "fleet_size": int(os.getenv("FLEET_SIZE", "100")),
         "home_kwh": float(os.getenv("HOME_KWH", "20")),
@@ -87,8 +88,9 @@ def run(args, settings, log_dir=LOG_DIR):
         loaded, signal, baseline, risk = rate(args, settings, risk_settings)
     except Exception as exc:
         # Live data can fail many ways (network, login, bad JSON, missing hour); each must fail
-        # safe. File modes read known files, so their errors still surface.
-        if not args.live:
+        # safe. File modes read known files, so their errors still surface. A broken baseline is
+        # our own setup, not the signal, so it stops the run in every mode, as the engine does.
+        if not args.live or isinstance(exc, BaselineError):
             raise
         return signal_unavailable(exc, settings)
     mode = decide_mode(risk)
