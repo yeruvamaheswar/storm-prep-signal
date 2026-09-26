@@ -1,4 +1,4 @@
-import type { TickView } from "./contracts"
+import type { FleetRollups, TickView } from "./contracts"
 import { zoneAggregate } from "./fleetAggregate"
 import { formatGridMw, formatPrice } from "./format"
 import { zonePaint, type LoadZone } from "./zonePaint"
@@ -25,6 +25,7 @@ export type ZoneFacts = {
   floorCaption: string
   discharging: number
   reserved: number
+  supplyingMw: number
 }
 
 const FLEET_FLOOR = "fleet floor, not a zone floor"
@@ -61,9 +62,9 @@ function zoneOutageMw(tick: TickView, zone: LoadZone): number | null {
   return zonePaint(tick).zones.find((item) => item.zone === zone)?.mw ?? null
 }
 
-export function zoneFacts(tick: TickView, zone: LoadZone): ZoneFacts {
+export function zoneFacts(tick: TickView, zone: LoadZone, rollups?: FleetRollups | null): ZoneFacts {
   const price = priceFact(tick, zone)
-  const homes = zoneAggregate(tick, zone) ?? { discharging: 0, reserved: 0 }
+  const homes = zoneAggregate(tick, zone, rollups) ?? { discharging: 0, reserved: 0, supplyingMw: 0 }
   return {
     zone,
     outageMw: zoneOutageMw(tick, zone),
@@ -73,6 +74,7 @@ export function zoneFacts(tick: TickView, zone: LoadZone): ZoneFacts {
     floorCaption: FLEET_FLOOR,
     discharging: homes.discharging,
     reserved: homes.reserved,
+    supplyingMw: homes.supplyingMw,
   }
 }
 

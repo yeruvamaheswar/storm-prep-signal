@@ -1,6 +1,6 @@
 # 10k fleet seed and rollups
 
-**Decision.** `new_fleet` still takes the settings dict. It also takes an int `n`. `new_fleet(n)` uses `HOME_KWH=20`, `HOME_MAX_KW=5`, a 45–75% charge spread, status `live`, and round-robin zones `South, North, West, Houston` (the wall `ZONE_ORDER`). Persist is opt-in under `var/fleet/` (git-ignored). The wall never receives one row per home. `GET /v1/fleet/rollups` returns per-zone counts and MW. Each tick fills `TickResult.zone_delivered_mw`.
+**Decision.** `new_fleet` still takes the settings dict. It also takes an int `n`. `new_fleet(n)` uses `HOME_KWH=20`, `HOME_MAX_KW=5`, a 45–75% charge spread, status `live`, and round-robin zones `South, North, West, Houston` (the wall `ZONE_ORDER`). Persist is opt-in under `var/fleet/` (git-ignored). The wall never receives one row per home. `GET /v1/fleet/rollups` returns per-zone counts and MW. The wall (`web/src/api/rollups.ts`) reads that body and paints South/North/West/Houston from it; a missing fetch keeps `index % 4`. Each tick fills `TickResult.zone_delivered_mw`.
 
 ## Why
 
@@ -29,6 +29,7 @@ Silent is stale (this fleet has no unconfirmed). Reserved is every live home tha
 ## Persist
 
 - `new_fleet(n, persist=True)` writes `var/fleet/homes.json`.
+- After each tick's `discharge`, `loop.run` writes that same file (`<runs_dir>/../fleet/homes.json`) with current `soc_kwh`, `status`, `zone`, and `updated_at`. The next `run` loads it when `len(homes) == FLEET_SIZE`; a size mismatch reseeds. Demo stays 100 homes when `FLEET_SIZE` is 100.
 - Each engine tick writes `var/fleet/rollups.json` next to `var/runs/` (`<runs_dir>/../fleet/rollups.json`).
 - The route prefers `rollups.json`, else computes from `homes.json`, else seeds `FLEET_SIZE` in memory.
 

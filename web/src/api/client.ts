@@ -1,6 +1,17 @@
 import { parseAttention, parseFleet, parseHome, parsePlayback, parseTape, parseTick, parseZone } from "../domain/parse"
 import type { Attention, AttentionChoice, Fleet, Home, HomeStatus, Playback, Tape, Tick, Zone } from "../domain/types"
 
+export const HOMES_PAGE_LIMIT = 50
+export const HOMES_PAGE_MAX = 200
+
+export type HomesQuery = {
+  zone?: string
+  status?: HomeStatus
+  q?: string
+  limit?: number
+  offset?: number
+}
+
 export type FeedStream = {
   quality: string
   as_of: string | null
@@ -18,7 +29,7 @@ export type LiveStreamEvent =
 export type ConsoleClient = {
   zone: () => Promise<Zone>
   live: () => Promise<Tick>
-  homes: (status?: HomeStatus) => Promise<Home[]>
+  homes: (query?: HomesQuery) => Promise<Home[]>
   home: (id: string) => Promise<Home>
   ticks: (range: { from: string; to: string }) => Promise<Tick[]>
   tick: (id: string) => Promise<Tick>
@@ -219,10 +230,17 @@ export function createClient(options: {
     async live() {
       return parseTick(await getJson("/live"))
     },
-    async homes(status?: HomeStatus) {
-      const suffix =
-        status === undefined ? "/homes" : `/homes?status=${encodeURIComponent(status)}`
-      return list(await getJson(suffix), parseHome, "homes")
+    async homes(query: HomesQuery = {}) {
+      const limit = Math.min(HOMES_PAGE_MAX, Math.max(1, query.limit ?? HOMES_PAGE_LIMIT))
+      const offset = Math.max(0, query.offset ?? 0)
+      const params = new URLSearchParams()
+      if (query.zone) params.set("zone", query.zone)
+      if (query.status) params.set("status", query.status)
+      if (query.q) params.set("q", query.q)
+      params.set("limit", String(limit))
+      params.set("offset", String(offset))
+      // Slice if a server still dumps the whole list. Prefer the query so we never ask for 10k.
+      return list(await getJson(`/homes?${params}`), parseHome, "homes").slice(0, limit)
     },
     async home(id: string) {
       return parseHome(await getJson(`/homes/${encodeURIComponent(id)}`))

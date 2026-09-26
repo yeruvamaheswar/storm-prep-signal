@@ -1,4 +1,4 @@
-import type { Ack, HomeStatus, SkipReason, StatusFilter } from "./types"
+import type { Ack, ChargeState, HomeStatus, HomeZone, SkipReason, StatusFilter, ZoneFilter } from "./types"
 
 export const STATUS_FILTERS: StatusFilter[] = [
   "all",
@@ -8,11 +8,16 @@ export const STATUS_FILTERS: StatusFilter[] = [
   "unconfirmed",
 ]
 
+export const ZONE_FILTERS: ZoneFilter[] = ["all", "South", "North", "West", "Houston"]
+
 export function quantity(value: number): string {
   return value.toFixed(1)
 }
 
 export function formatSeen(iso: string): string {
+  if (iso === "") {
+    return "—"
+  }
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) {
     return iso
@@ -42,6 +47,26 @@ export function filterText(status: StatusFilter): string {
       return unexpected
     }
   }
+}
+
+export function zoneText(zone: ZoneFilter): string {
+  switch (zone) {
+    case "all":
+      return "all zones"
+    case "South":
+    case "North":
+    case "West":
+    case "Houston":
+      return zone
+    default: {
+      const unexpected: never = zone
+      return unexpected
+    }
+  }
+}
+
+export function zoneLabel(zone: HomeZone | null): string {
+  return zone === null ? "—" : zone
 }
 
 export function ackText(ack: Ack): string {
@@ -136,4 +161,46 @@ export function chargeClass(socKwh: number, floorKwh: number): string {
     return "fleet-tone-warn"
   }
   return "fleet-tone-ink"
+}
+
+export function chargeStateText(state: ChargeState | null): string {
+  switch (state) {
+    case "CHARGING":
+    case "DISCHARGING":
+    case "HOLDING":
+    case "FULL":
+    case "EMPTY":
+      return state
+    case null:
+      return "—"
+    default: {
+      const unexpected: never = state
+      return unexpected
+    }
+  }
+}
+
+export function chargeStateClass(state: ChargeState | null): string {
+  switch (state) {
+    case "DISCHARGING":
+      return "fleet-tone-ok"
+    case "CHARGING":
+      return "fleet-tone-warn"
+    case "HOLDING":
+    case "FULL":
+    case "EMPTY":
+    case null:
+      return "fleet-tone-muted"
+    default: {
+      const unexpected: never = state
+      return unexpected
+    }
+  }
+}
+
+export function powerText(kw: number | null): string {
+  if (kw === null) {
+    return "—"
+  }
+  return quantity(kw)
 }

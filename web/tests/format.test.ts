@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { TickView } from "../src/contracts"
 import { scenes } from "../src/fixtures/scenes"
 import run from "../src/fixtures/layout-run.json"
-import { briefDecision, headerIdentity, headerReason, lossCaption, reasonText, tapeStamp, tickBrief } from "../src/format"
+import { briefDecision, callCaption, headerIdentity, headerReason, lossCaption, reasonText, tapeStamp, tickBrief } from "../src/format"
 
 const ticks = run.ticks as TickView[]
 
@@ -95,6 +95,20 @@ describe("reason text", () => {
 
   it("stamps quality and the tape tick once", () => {
     expect(tapeStamp(5, 12)).toBe("quality: ok · tape tick 5/12")
+  })
+})
+
+describe("call caption", () => {
+  it("names discharging homes when they are on the tick", () => {
+    expect(callCaption(tapeTick(1), 40, 0)).toBe(
+      "ERCOT call 0.20 MW (synthetic) · supplying 0.20 MW from 40 homes · 0 held",
+    )
+  })
+
+  it("falls back to live homes when the rollup has no one discharging", () => {
+    expect(callCaption(tapeTick(1), 0, 0, 10_000)).toBe(
+      "ERCOT call 0.20 MW (synthetic) · supplying 0.20 MW from 10000 homes · 0 held",
+    )
   })
 })
 

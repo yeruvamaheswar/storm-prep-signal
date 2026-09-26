@@ -54,6 +54,10 @@ def read_settings():
         "charge_threshold_usd_mwh": float(os.getenv("CHARGE_BELOW_USD", "25")),
         "discharge_threshold_usd_mwh": float(os.getenv("DISCHARGE_ABOVE_USD", "60")),
         "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
+        # Simulated bad network for every tick (0 = clean). A tape "network" event overrides per tick.
+        "channel_drop_rate": float(os.getenv("CHANNEL_DROP_RATE", "0")),
+        "channel_dup_rate": float(os.getenv("CHANNEL_DUP_RATE", "0")),
+        "channel_late_rate": float(os.getenv("CHANNEL_LATE_RATE", "0")),
         # Simulated battery feed (docs/agents/telemetry-vpp.md). On unless TELEMETRY_FEED=0:
         # a real VPP never plans without battery reports. Example values, not Base specs.
         "telemetry_feed": os.getenv("TELEMETRY_FEED", "1") != "0",

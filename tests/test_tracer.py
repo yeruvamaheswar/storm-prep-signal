@@ -140,3 +140,15 @@ def test_a_tape_without_zone_prices_leaves_them_empty(traced_run):
     record, _, _ = traced_run
     assert all(t["zone_prices"] == {} and t["zone_price_label"] == "none" for t in record["ticks"])
     assert all(e["dollars"] is None for e in record["totals"]["by_zone"].values())
+
+
+def test_failures_tape_holds_the_floor_and_labels_every_faulted_tick(tmp_path, monkeypatch):
+    record, _, seen = traced(tmp_path, monkeypatch, tape=ROOT / "tapes" / "failures.json")
+    faulted = [t["tick"] for t in record["ticks"] if "faults_injected" in t["reasons"]]
+    assert faulted == [3, 5, 7, 9]
+    assert all(t["breaches"] == 0 for t in record["ticks"])
+    assert all(seen["floor_ok"])
+    by_tick = {t["tick"]: t for t in record["ticks"]}
+    assert any(r.startswith("timed_out:") for r in by_tick[3]["reasons"])
+    assert by_tick[5]["dead_homes"] > by_tick[4]["dead_homes"]   # crashed homes go dead
+    assert any(r.startswith("charge_mismatch:") for r in by_tick[7]["reasons"])

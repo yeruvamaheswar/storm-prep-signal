@@ -8,6 +8,8 @@ import { runtimeLabel, type RuntimeMode } from "../../runtimeMode"
 import { outageLine, deliverableFloorCaption } from "../../wallLines"
 import { wallSnapshot, type SnapshotAsOf, type WallSnapshot } from "../../wallSnapshot"
 import type { WallOrigin } from "../../wallOrigin"
+import { fleetListHref } from "../../features/fleet/query"
+import type { LoadZone } from "../../zonePaint"
 import { Metric } from "../atoms/Metric"
 import { CalmMeter } from "../molecules/CalmMeter"
 import { StripItem } from "../molecules/StripItem"
@@ -27,6 +29,7 @@ type TopStripProps = {
   feeds?: ReportFeeds
   api: ApiHealth
   origin?: WallOrigin
+  zone?: LoadZone | null
 }
 
 function apiTone(api: ApiHealth): string {
@@ -58,6 +61,7 @@ export function TopStrip({
   feeds,
   api,
   origin,
+  zone = null,
 }: TopStripProps) {
   const row = snapshot ?? wallSnapshot({ runtime, tick, calm })
   const line = outageLine({
@@ -97,6 +101,13 @@ export function TopStrip({
       <div className="mast">
         <div className="mast-head">
           <h1>ReserveGate</h1>
+          <a
+            className="mast-link"
+            href={fleetListHref(zone)}
+            aria-label={zone === null ? "Fleet homes" : `Fleet homes in ${zone}`}
+          >
+            Fleet
+          </a>
         </div>
         <p>
           {place}
