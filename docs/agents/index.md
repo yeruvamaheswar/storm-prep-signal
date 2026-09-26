@@ -17,3 +17,4 @@ Open this index, then the one file the task needs.
 | `plans/operator-console-prompts.md` | You are launching a parallel agent to build that console |
 | `stress-strip.md` | You are changing the Storm Prep numbers under the wall metrics |
 | `calm-meter.md` | You are changing the calm N/2 meter or the Risk caption on the wall |
+| `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime (Rajat's lane) |
