@@ -5,7 +5,8 @@ Open this index, then the one file the task needs.
 | File | Open it when |
 |---|---|
 | `PROJECT_CONTEXT.md` | You need why we build this, the design principles, or how Supabase fits |
-| `team-manifest.md` | You need owners, what we will not cut, or what we say out loud |
+| `gap-work.md` | You need how work is chosen, or you are about to name the next gap |
+| `team-manifest.md` | You need what we will not cut, or what we say out loud |
 | `working-rules.md` | You are about to edit code |
 | `plan.md` | You need the risk rule, the event schema, or a past decision |
 | `progress.md` | You need what is already built |
@@ -33,4 +34,4 @@ Open this index, then the one file the task needs.
 | `persist-run.md` | You are copying an engine run into Supabase `public.runs` |
 | `archive-feeds.md` | You are serving snapshot price/outage from `ercot_prices` / `ercot_postings` |
 | `live-ingest.md` | You are changing the laptop live worker, `event=live` rows, or Live snapshot ingest |
-| `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime (Rajat's lane) |
+| `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime |
