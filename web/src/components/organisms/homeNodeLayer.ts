@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from "react"
 import L from "leaflet"
 import type { TickView } from "../../contracts"
-import { homeNodePaint, homeNodes, homeTooltip, parseZonePolygons, type HomeNode, type ZonePolygon } from "./homeNodes"
+import { clusterCaption } from "../../format"
+import { isLoadZone, zonePaint } from "../../zonePaint"
+import { clusterCounts, clusterGroups } from "../../zoneLabels"
+import { homeNodePaint, homeNodes, parseZonePolygons, type HomeNode, type ZonePolygon } from "./homeNodes"
 
 const GEO_URL = "/geo/ercot-load-zones.json"
 const groups = new WeakMap<L.Map, L.LayerGroup>()
@@ -91,7 +94,16 @@ export function useHomeNodes(mapRef: RefObject<L.Map | null>, tick: TickView): v
         }
       }
     })
-    syncHomeMarkers(group, homeNodes(tick, polygons))
+    const nodes = homeNodes(tick, polygons)
+    const mw = new Map(zonePaint(tick).zones.map((zone) => [zone.zone, zone.mw]))
+    const tips = new Map(
+      clusterGroups(nodes).map((cluster) => {
+        const zoneName = cluster[0]?.zone ?? ""
+        const posted = isLoadZone(zoneName) ? (mw.get(zoneName) ?? null) : null
+        return [cluster, clusterCaption(clusterCounts(cluster, posted))] as const
+      }),
+    )
+    syncHomeMarkers(group, nodes, tips)
   }, [mapRef, tick, polygons])
 }
 
@@ -106,12 +118,19 @@ const DEAD_RADIUS_PX = 5
  * A later tick may change status. The seeded point does not move.
  * Dead homes are added last so live dots never cover them.
  */
-export function syncHomeMarkers(group: L.LayerGroup, nodes: readonly HomeNode[]): void {
+export function syncHomeMarkers(
+  group: L.LayerGroup,
+  nodes: readonly HomeNode[],
+  tips: ReadonlyMap<readonly HomeNode[], string> = new Map(),
+): void {
   group.clearLayers()
   const alive = nodes.filter((node) => node.status !== "dead")
   const dead = nodes.filter((node) => node.status === "dead")
   for (const node of [...alive, ...dead]) {
     markerFor(node).addTo(group)
+  }
+  for (const [cluster, text] of tips) {
+    clusterHit(cluster, text).addTo(group)
   }
 }
 
@@ -127,13 +146,33 @@ function markerFor(node: HomeNode): L.CircleMarker {
     fillOpacity: hollow ? 0 : 1,
     opacity: 1,
   })
-  marker.bindTooltip(homeTooltip(node), {
-    direction: "top",
-    opacity: 1,
-    className: "home-node-tip",
-  })
   marker.on("add", () => {
     marker.getElement()?.setAttribute("data-status", node.status)
   })
   return marker
+}
+
+/** A clear pad over the dots. Hovering any home in the metro reads the same counts. */
+function clusterHit(nodes: readonly HomeNode[], text: string): L.Rectangle {
+  const bounds = L.latLngBounds(nodes.map((node) => [node.lat, node.lng] as L.LatLngTuple)).pad(0.35)
+  const hit = L.rectangle(bounds, {
+    pane: "home-nodes",
+    className: "cluster-hit",
+    stroke: false,
+    fill: true,
+    fillOpacity: 0,
+    interactive: true,
+  })
+  hit.bindTooltip(text, {
+    direction: "top",
+    opacity: 1,
+    className: "home-node-tip",
+  })
+  const zone = nodes[0]?.zone
+  if (zone !== undefined) {
+    hit.on("click", (event) => {
+      event.target._map?.fire("selectzone", { zone })
+    })
+  }
+  return hit
 }

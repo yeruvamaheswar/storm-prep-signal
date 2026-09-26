@@ -4,6 +4,7 @@ Open this index, then the one file the task needs.
 
 | File | Open it when |
 |---|---|
+| `PROJECT_CONTEXT.md` | You need why we build this, the design principles, or how Supabase fits |
 | `team-manifest.md` | You need owners, what we will not cut, or what we say out loud |
 | `working-rules.md` | You are about to edit code |
 | `plan.md` | You need the risk rule, the event schema, or a past decision |
@@ -17,4 +18,11 @@ Open this index, then the one file the task needs.
 | `plans/operator-console-prompts.md` | You are launching a parallel agent to build that console |
 | `stress-strip.md` | You are changing the Storm Prep numbers under the wall metrics |
 | `calm-meter.md` | You are changing the calm N/2 meter or the Risk caption on the wall |
+| `zone-lens.md` | You are changing zone drill-in from the map or the ack row |
+| `fleet-intent.md` | You are changing the fleet intent line on the banner |
+| `fleet-scale.md` | You are changing how the map, ack rail, or fleet list handle large fleets |
+| `runtime-mode.md` | You are changing Live versus Demo, the tick scrubber, or the pinned clock |
+| `wall-snapshot.md` | You are changing the header tiles or the Demo/Live snapshot they read |
+| `reports-drawer.md` | You are changing the Reports panel on the wall |
+| `interval-strip.md` | You are changing the bottom tape chart or the live interval strip |
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime (Rajat's lane) |

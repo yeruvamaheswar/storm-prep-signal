@@ -37,7 +37,7 @@ function finite(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
-function isLoadZone(value: string): value is LoadZone {
+export function isLoadZone(value: string): value is LoadZone {
   return (LOAD_ZONES as readonly string[]).includes(value)
 }
 
@@ -87,6 +87,27 @@ export type ZonePathPaint = {
   fillOpacity: number
   stroke: string
   weight: number
+}
+
+/**
+ * The chosen zone keeps the posting fill. Every other zone is a muted polygon.
+ * With no choice, the driving zone is the one that stays filled.
+ */
+export function zoneHierarchyPaint(
+  fill: ZoneFill,
+  muted: boolean,
+  risk: RiskLevel | null,
+  selected: boolean,
+): ZonePathPaint {
+  if (!muted && selected) {
+    return zonePathPaint({ ...fill, emphasized: true }, false, risk)
+  }
+  return {
+    fill: MUTED,
+    fillOpacity: muted ? 0.22 : 0.28,
+    stroke: selected ? INK : LINE,
+    weight: selected ? 2 : 1,
+  }
 }
 
 /** Fill strength follows that zone's share of the posting. HIGH paints reserved; a missing report stays muted. */

@@ -16,7 +16,7 @@ export type Scene = {
 export const scenes: Scene[] = [
   {
     id: "devices",
-    label: "15% dead",
+    label: "15% offline",
     quality: "ok",
     tick: {
       tick: 0,

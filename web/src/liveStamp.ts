@@ -12,7 +12,9 @@ import { LOAD_ZONES, type LoadZone } from "./zonePaint"
 const API = "https://api.ercot.com/api/public-reports"
 const SETTLEMENT_POINT = "LZ_NORTH"
 const TIMEOUT_MS = 8_000
-const POLL_MS = 5 * 60_000
+/** How often the wall asks ERCOT again. The outage product itself posts about hourly. */
+export const LIVE_POLL_MIN = 5
+const POLL_MS = LIVE_POLL_MIN * 60_000
 /** SPP settles every 15 minutes, so two missed intervals is stale. */
 const PRICE_STALE_MIN = 30
 /** NP3-233-CD posts hourly. */
@@ -246,6 +248,35 @@ export async function fetchLiveStamp(options: LiveOptions): Promise<LiveStamp> {
   }
 }
 
+export type LiveWatch = {
+  latest: LiveStamp | null
+  /** Last pull that passed. A later failure does not clear this. */
+  lastOk: Extract<LiveStamp, { quality: "ok" }> | null
+}
+
+export const EMPTY_WATCH: LiveWatch = { latest: null, lastOk: null }
+
+/** Keep the last good pull when a later read fails. */
+export function rememberLive(previous: LiveWatch, next: LiveStamp): LiveWatch {
+  if (next.quality === "ok") return { latest: next, lastOk: next }
+  return { latest: next, lastOk: previous.lastOk }
+}
+
+/**
+ * Live numbers for one tick. A failure after a good pull keeps that pull's as-of
+ * and names the new reason. Threshold stays empty: the tape trigger is not this posting.
+ */
+export function viewTick(tick: TickView, watch: LiveWatch): TickView {
+  const latest = watch.latest
+  if (latest !== null && latest.quality !== "ok" && watch.lastOk !== null) {
+    const kept = stampTick(tick, watch.lastOk)
+    const named: TickView & Record<string, unknown> = { ...kept, stress_quality: latest.quality }
+    return named
+  }
+  if (latest !== null && latest.quality === "ok") return stampTick(tick, latest)
+  return tick
+}
+
 /**
  * Lays the live stamp over a tape tick. A failed read keeps every tape number and only
  * names the reason. Threshold and margin stay empty on a live read: the trigger belongs to
@@ -288,9 +319,9 @@ export function stampTick(tick: TickView, stamp: LiveStamp | null): TickView {
   return live
 }
 
-/** Reads on mount and every five minutes. A later failure replaces an earlier ok. */
-export function useLiveStamp(): LiveStamp | null {
-  const [stamp, setStamp] = useState<LiveStamp | null>(null)
+/** Reads on mount and every five minutes. A later failure keeps the last good as-of. */
+export function useLiveStamp(): LiveWatch {
+  const [watch, setWatch] = useState<LiveWatch>(EMPTY_WATCH)
   useEffect(() => {
     let cancelled = false
     function read() {
@@ -300,7 +331,7 @@ export function useLiveStamp(): LiveStamp | null {
         idToken: import.meta.env.VITE_ERCOT_ID_TOKEN,
         now: Date.now(),
       }).then((next) => {
-        if (!cancelled) setStamp(next)
+        if (!cancelled) setWatch((previous) => rememberLive(previous, next))
       })
     }
     read()
@@ -310,5 +341,5 @@ export function useLiveStamp(): LiveStamp | null {
       window.clearInterval(timer)
     }
   }, [])
-  return stamp
+  return watch
 }
