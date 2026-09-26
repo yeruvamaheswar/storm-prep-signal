@@ -1,4 +1,7 @@
+import { chartPoint } from "../../chartPlot"
 import type { TickView } from "../../contracts"
+
+export { chartPoint, valuesPolyline } from "../../chartPlot"
 
 /** Why a tape column is marked on the sparkline. */
 export type TapeEvent = "risk-high" | "home-died" | "missed-on-purpose"
@@ -10,8 +13,6 @@ export type TapeColumn = {
   delivered: number
   events: TapeEvent[]
 }
-
-const PLOT_PAD = 14
 
 export function padTick(tick: number): string {
   return String(tick).padStart(2, "0")
@@ -42,14 +43,6 @@ export function tapeColumns(ticks: TickView[]): TapeColumn[] {
 
 export function seriesMax(columns: TapeColumn[]): number {
   return columns.reduce((max, column) => Math.max(max, column.target, column.delivered), 0)
-}
-
-/** Chart space is 0–100. Y grows downward so a larger MW sits higher. */
-export function chartPoint(index: number, count: number, value: number, max: number): { x: number; y: number } {
-  const x = count === 0 ? 0 : ((index + 0.5) / count) * 100
-  const span = 100 - PLOT_PAD * 2
-  const y = max <= 0 ? 100 - PLOT_PAD : PLOT_PAD + (1 - value / max) * span
-  return { x, y }
 }
 
 export function polyline(columns: TapeColumn[], key: "target" | "delivered", max: number): string {

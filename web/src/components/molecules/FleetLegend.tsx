@@ -1,13 +1,13 @@
 import { HomeCell } from "./HomeCell"
-import { HOME_STATES, countState, type HomeState } from "../organisms/fleetCells"
+import { HOME_STATES, type FleetCounts } from "../organisms/fleetCells"
 
 type FleetLegendProps = {
-  cells: readonly HomeState[]
+  counts: FleetCounts
 }
 
-/** Compact key for the map dots. Counts are this tick’s fleetCells reading. A zero row is hidden so a new state reads as news. */
-export function FleetLegend({ cells }: FleetLegendProps) {
-  const rows = HOME_STATES.map((state) => ({ state, count: countState(cells, state) })).filter((row) => row.count > 0)
+/** Compact key for the map dots. Counts are this tick’s fleetCounts reading. A zero row is hidden so a new state reads as news. */
+export function FleetLegend({ counts }: FleetLegendProps) {
+  const rows = HOME_STATES.map((state) => ({ state, count: counts[state] })).filter((row) => row.count > 0)
   if (rows.length === 0) {
     return null
   }

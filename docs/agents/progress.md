@@ -235,6 +235,146 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   output file (checked without printing it). A blank `JEV_API_KEY` exits 1 with
   "JEV_API_KEY is not set in .env". `pytest -q`: 30 passed. Not committed.
 
+## 2026-09-26: Quality cell uses an operator status
+
+- The Storm Prep Quality cell was printing the raw live-stamp code (`auth`) in Dead red with
+  the caption "named fail". That code is a fetch failure laid over the pinned layout tape.
+- `web/src/qualityStatus.ts` maps the code to Live, Degraded, Stale, Auth error, Unchecked, or
+  Demo data, with a short reason, a tooltip, and an existing wall color token. Synthetic tape
+  with a pinned clock shows Demo data for `auth` and the other live-overlay failures. A staged
+  timeout whose clock is not pinned stays Degraded.
+- `web/tests/qualityStatus.test.ts`. The raw code on the tick is unchanged.
+  `npx vitest run`: 76 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Floor and Risk captions hide reason codes
+
+- Floor and Risk were printing `policy_reason` as the subtitle, so a high tick read `storm_risk_high`.
+- `headerReason` in `web/src/format.ts` maps `normal`, `storm_risk_high`, `signal_unavailable`, and
+  `weather_alert` to a sentence-case label and a tooltip for why the floor moved. Calm sentences
+  such as "1 more calm reading" pass through. `riskCaption` still returns the engine code.
+- `Metric` takes an optional `title` on the caption. `web/tests/format.test.ts` and
+  `web/tests/topStrip.test.ts`.
+
+## 2026-09-26: Calm is a 0–2 meter
+
+- The Calm cell was two empty squares and "calm 0/2", which did not say what the count is.
+- It now uses the header metric number, a filled track, and the line "clean LOW readings in a row".
+  Zero keeps the ruled track and a muted 0. The streak rule in `calmStreak.ts` is unchanged.
+- `web/tests/calmMeter.test.ts`.
+
+## 2026-09-26: Worker ack marks follow the selected tick
+
+- The rail was painting every non-dead home green, so tick 05 read `25/25` and
+  `0 silent · 100 acked` while the map showed 50 reserved and 50 discharging.
+- `ackMark` in `web/src/components/organisms/ackTicks.ts` keeps the old timer
+  (`ackState`: dead homes still go pending, unconfirmed, then dead). The paint is
+  separate: discharging and idle homes are acked, reserved homes are held, stale
+  and unconfirmed homes are silent, and a missing signal (`risk_level` null or
+  `signal_unavailable`) is fail-safe. Zone numerators count only acked homes.
+- Settled tick 05: `0 silent · 50 acked · 50 held · call 0.31 MW`, zones 12/25,
+  12/25, 13/25, 13/25. Tick 06: 10/25 and 20 dead. `ackCaption` is unchanged.
+- `web/tests/ackTicks.test.ts`. `npx vitest run tests/ackTicks.test.ts`: 9 passed.
+  `pytest -q`: 30 passed.
+
+## 2026-09-26: Fixture labels sit behind a Demo badge
+
+- The mast was printing `layout-fixture` and the brief footer was the tape disclaimer
+  "Layout fixture for the 12-tick demo tape. Not an engine run."
+- `headerIdentity` in `web/src/format.ts` treats a fixture run id (`layout-fixture`, `demo-…`)
+  and that disclaimer as tape chrome. The wall shows a compact Demo badge; the labels stay
+  on its title. SYNTHETIC stays in the mast, with tighter padding. A timestamp run id and a
+  real decision line still print. `briefDecision` drops the disclaimer, so the brief is the
+  tick's decision text.
+- `npx vitest run`: 91 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Zone drill-in from the map and the ack row
+
+- There was no selected zone. The header Zone cell is the driving zone (North on this tape). Outage MW is the only grid series keyed by load zone. Price is one number, and a live read is LZ_NORTH. The floor on the tick is the fleet floor.
+- Clicking a zone on the map or its ack row filters the brief, the map callout, and the chart to that zone: outage MW, price, floor, and homes discharging versus reserved. **All zones** clears the filter. The header Zone cell stays the driving zone.
+- Noted in `docs/agents/zone-lens.md`. `npx vitest run`: 107 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Banner and margin name two different lines
+
+- The reserve banner said outage MW was "over the line" while Margin said "+191 MW above the line".
+  Both were outage 22,539 minus threshold 22,348. "Above the line" also reads as spare energy
+  above a home's floor.
+- `web/src/wallLines.ts` is the one model. Margin is that subtraction, captioned "past the reserve
+  threshold" or "under the reserve threshold". The banner states the action and the same trigger:
+  "Raise the reserve floor. Outage 22,539 MW vs 22,348 MW threshold." A bad report says
+  "Hold the reserve floor. The outage report cannot be trusted." Delivered MW is captioned
+  "above the {floor}% floor".
+- `docs/agents/stress-strip.md`. `npx vitest run`: 92 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Mode controls are two groups
+
+- The bottom row mixed Hold, Auto, a debug status line (`AUTO · default`), and scenario chips
+  in one strip. Hold and Auto only logged the click.
+- Mode is one pair. The filled control is the tick's mode. Hold is the reserved stop.
+  The buttons do not call the engine. They open the tape tick that already carries that mode:
+  Hold is tick 08 (`operator_hold`, delivered 0), Auto after that is tick 09.
+- Scenarios are a second group: Fail-safe, High risk, Radar, 15% offline. The devices scene
+  label is `15% offline`. Radar stays a map overlay.
+- `web/src/components/organisms/modeTicks.ts`. `web/tests/controlBar.test.ts`.
+  `npx vitest run`: 100 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Map labels clear the clusters
+
+- Zone captions were pinned to each polygon’s center, so Houston, West, and South sat on the metro dots. Only the driving zone was filled. The ERCOT callout was centered on top of Texas.
+- Labels now pick a spot that clears every home dot, and step into open water when the zone is too small. The selected zone keeps the posting fill; the other zones are muted. No selection still fills the driving zone. A cluster hover reads homes, reserved, discharging, supplying MW, and zone outage MW. The callout is a row above the map.
+- `web/src/zoneLabels.ts`. `docs/agents/zone-lens.md`. `npx vitest run`: 111 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Fleet UI at 10k homes, research and plan (no app code)
+
+- Timed the per-home paths at 100 and 10k homes. The label picker costs 464 ms per tick at 10k. Home coordinates are recomputed twice per tick. The map rebuilds one SVG marker per home, and the ack rail re-renders one span per home every 100 ms.
+- Five web-only slices proposed, plus two asks for other owners (per-zone fleet counts on the tick, and paged `/v1/homes`). Status: DRAFT, waiting for approval.
+- `docs/agents/fleet-scale.md`. No code changed, so `pytest -q` was not run.
+- Approved: bars at every fleet size, 500-dot cap, one slice at a time.
+
+## 2026-09-26: Live and Demo run modes
+
+- The wall assumed the 12-tick tape: tick 05/12, a pinned 12:00 CT clock, buttons 01–12, and sparkline marks on ticks 05 and 06.
+- Run is now Live or Demo. Demo keeps that tape. Live uses the current 15-minute ERCOT interval, sets As of from the last good pull, and hides the tick scrubber. The live chart is the interval strip, which stays empty until a series exists. Quality in Live is feed health, not "Demo data".
+- Live is the default when ERCOT credentials are set and the first pull has not failed. No credentials, or a failed first pull, falls back to Demo. Live cannot be selected in that fallback.
+- Noted in `docs/agents/runtime-mode.md`. `npx vitest run`: 174 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Fleet slice 1, zone counts without one entry per home
+
+- `fleetCounts(tick)` holds the per-state math. `web/src/fleetAggregate.ts` `zoneAggregates(tick)` gives each load zone's homes by state with the same `index % 4` rule, in O(zones). The zone lens, the fleet legend, and the call caption read counts. The zone chart reads outage MW directly. No visual change: tick 05 still reads 50 reserved, 12/12/13/13 discharging.
+- `web/tests/fleetAggregate.test.ts` (18 tests). `npx vitest run`: 142 passed, 2 failed in `tests/topStrip.test.ts` (`SideRail` now needs `feeds`, from the parallel Reports drawer work, not this slice). `tsc --noEmit`: errors only in `ReportsDrawer.tsx` and `topStrip.test.ts`. `.venv/bin/python -m pytest -q`: 30 passed.
+
+## 2026-09-26: One fleet intent line on the banner
+
+- Charge, discharge, and backup were not three controllers. Backup is `reserve_policy`. Discharge is the 0 kW stub in `engine.py`. Charge is starting state of charge. The wall was saying the floor in a fail banner and again in the brief.
+- The banner now reads the tick: discharge or hold. An untrusted report outranks operator Hold. A HIGH tick that is still selling leads with discharge and keeps the outage trigger. Charging stays out of the frozen plan.
+- `web/src/fleetIntent.ts`. `docs/agents/fleet-intent.md`. `npx vitest run`: 144 passed. `tsc --noEmit` clean. `pytest -q`: 30 passed.
+
+## 2026-09-26: Feeds freshness list on Quality
+
+- Quality and the side rail now list the two ERCOT products: NP3-233-CD outage and NP6-905-CD price at LZ_NORTH. Each row is product, LZ, as-of, last success, and state (live / stale / hold / auth). No EMIL columns.
+- Demo fills those rows from the fixture posting. Live copies ingest health. A later engine list in the same `FeedRow` shape is used as written.
+- Late, missing, or auth-fail sets Quality, holds the reserve banner, and adds "Holding spare energy" without opening a raw report.
+- `web/src/reportFeeds.ts`. `docs/agents/reports-drawer.md`.
+
+## 2026-09-26: Reports panel instead of an EMIL dump
+
+- A bad pull opens Reports in the side rail. The purpose line is "View grid data reports". The rows are product, load zone, as-of, last success, next pull, and hold-on-fail. No EMIL columns.
+- The two wall fetchers stay NP3-233-CD outage and NP6-905-CD price at LZ_NORTH. Quality already turns `auth` into Auth error. A pinned synthetic overlay stays Demo data. Hold-on-fail uses the same untrusted-report sentence as the banner.
+- `web/src/reportFeeds.ts`. `docs/agents/reports-drawer.md`. `npx vitest run`: 144 passed. `tsc --noEmit` clean. `.venv/bin/pytest -q`: 30 passed.
+
+## 2026-09-26: Header tiles bind to one snapshot
+
+- TARGET through QUALITY were reading the tape tick and a stress reading, so Live still showed fixture QUALITY (Unchecked, Demo data) and a pinned clock.
+- Both modes now fill `WallSnapshot` in `web/src/wallSnapshot.ts`. Demo maps the tape. Live maps the backend poll. TopStrip tiles read only that row.
+- Live QUALITY is Live / Stale / Auth error / Degraded. AS OF is feed lag unless the operator pins.
+- Noted in `docs/agents/wall-snapshot.md`. `npx vitest run`: 174 passed. `tsc --noEmit` clean. `.venv/bin/pytest -q`: 30 passed.
+
+## 2026-09-26: Live interval strip, no 01–12 fallback
+
+- The bottom chart was one 12-tick tape. Demo still uses that: tick buttons, "05 missed on purpose", "06 homes died". Live is a rolling interval strip for target, delivered, and reserved. An empty series shows a skeleton and "Waiting for intervals". It does not paint ticks 01–12.
+- Chart math is in `web/src/chartPlot.ts`. Tape playback is `tapeSpark.ts` + `TapeScrubber.tsx`. The live series is `intervalSeries.ts` + `IntervalStrip.tsx`. Event marks on the live strip are risk HIGH, floor raised, homes offline, and hold.
+- `OperatorWall` passes `intervals={[]}` until a backend series exists. Scenario chips stay Demo. Radar stays on both.
+- `docs/agents/interval-strip.md`. `npx vitest run tests/intervalSeries.test.ts tests/controlBar.test.ts tests/tapeSpark.test.ts`: 16 passed. Full `npx vitest run`: 169 passed, 2 failed in `reportFeeds.test.ts` and `topStrip.test.ts` (parallel Live chrome, not this strip). `tsc --noEmit`: errors only in `tests/reportFeeds.test.ts`. `.venv/bin/pytest -q`: 30 passed.
+
 ## 2026-09-26: FastAPI backend scaffold
 
 - Uma approved `fastapi`, `uvicorn`, and `httpx2` (test client) in `requirements.txt`. Recorded in

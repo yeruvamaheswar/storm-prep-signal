@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react"
 import type { TickView } from "../../contracts"
-import { ackCaption } from "../../format"
+import { isLoadZone, type LoadZone } from "../../zonePaint"
+import { Button } from "../atoms/Button"
 import { Key } from "../atoms/Key"
-import { DEAD_AFTER_MS, ackCounts, ackState, ackTicks, ackZones } from "./ackTicks"
+import {
+  DEAD_AFTER_MS,
+  ackMark,
+  ackMarkCounts,
+  ackSummary,
+  ackTicks,
+  ackZones,
+  tickFailSafe,
+  zoneAcked,
+} from "./ackTicks"
 
 type AckRailProps = {
   tick: TickView
+  zone?: LoadZone | null
+  onSelectZone?: (zone: LoadZone) => void
+  onClearZone?: () => void
 }
 
 const STEP_MS = 100
@@ -38,42 +51,55 @@ function useAckClock(tick: TickView): number {
   return elapsed
 }
 
-/** One tick per home, grouped by zone: pending, then acked or unconfirmed at 2s, then dead. */
-export function AckRail({ tick }: AckRailProps) {
+/** One tick per home. Color follows the home: discharging ack, held, silent, or dead / fail-safe. */
+export function AckRail({ tick, zone = null, onSelectZone, onClearZone }: AckRailProps) {
   const elapsed = useAckClock(tick)
   const ticks = ackTicks(tick)
-  const counts = ackCounts(ticks, elapsed)
+  const failSafe = tickFailSafe(tick)
+  const marks = ackMarkCounts(ticks, elapsed, failSafe)
 
   return (
     <section className="ack-rail" aria-label="Worker acks">
       <div className="ack-rail-head">
         <Key>Worker acks</Key>
+        <Button pressed={zone === null} label="Show every load zone" onClick={() => onClearZone?.()}>
+          All zones
+        </Button>
         <p className="ack-caption" role="status">
-          {ackCaption(counts, tick.delivered_mw)}
+          {ackSummary(marks, tick.delivered_mw)}
         </p>
       </div>
       <div className="ack-zones">
-        {ackZones(ticks).map(({ zone, ticks: zoneTicks }) => {
-          const acked = zoneTicks.filter((item) => ackState(item, elapsed) === "acked").length
+        {ackZones(ticks).map(({ zone: name, ticks: zoneTicks }) => {
+          const acked = zoneAcked(zoneTicks, elapsed, failSafe)
+          const selected = zone === name
           return (
-            <div key={zone} className="ack-zone">
+            <button
+              key={name}
+              type="button"
+              className={selected ? "ack-zone is-selected" : "ack-zone"}
+              aria-pressed={selected}
+              onClick={() => {
+                if (isLoadZone(name)) onSelectZone?.(name)
+              }}
+            >
               <span className="label">
-                {zone} {acked}/{zoneTicks.length}
+                {name} {acked}/{zoneTicks.length}
               </span>
               <div className="ack-ticks">
                 {zoneTicks.map((item) => {
-                  const state = ackState(item, elapsed)
+                  const mark = ackMark(item, elapsed, failSafe)
                   return (
                     <span
                       key={item.index}
-                      className={`ack-tick ack-${state}`}
-                      data-state={state}
-                      title={`${zone} · ${state} · ${item.home}`}
+                      className={`ack-tick ack-${mark}`}
+                      data-state={mark}
+                      title={`${name} · ${mark} · ${item.home}`}
                     />
                   )
                 })}
               </div>
-            </div>
+            </button>
           )
         })}
       </div>

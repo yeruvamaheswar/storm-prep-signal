@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { TickView } from "../src/contracts"
 import { scenes } from "../src/fixtures/scenes"
 import run from "../src/fixtures/layout-run.json"
-import { lossCaption, reasonText, tapeStamp } from "../src/format"
+import { briefDecision, headerIdentity, headerReason, lossCaption, reasonText, tapeStamp } from "../src/format"
 
 const ticks = run.ticks as TickView[]
 
@@ -21,6 +21,57 @@ describe("reason text", () => {
     expect(reasonText("homes_dead:20")).toBe("20 homes are dead")
     expect(reasonText("homes_stale:1")).toBe("1 home is stale")
     expect(reasonText("operator_hold")).toBe("Operator hold")
+    expect(reasonText("holding_spare_energy")).toBe("Holding spare energy")
+  })
+
+  it("turns floor and risk reason codes into sentence-case labels", () => {
+    expect(headerReason("storm_risk_high")).toEqual({
+      label: "Storm risk high",
+      tooltip: "Outage MW is past the reserve threshold, so every home's floor rose to the storm reserve.",
+    })
+    expect(headerReason("signal_unavailable").label).toBe("Signal unavailable")
+    expect(headerReason("weather_alert").label).toBe("Weather alert")
+    expect(headerReason("normal").label).toBe("Normal")
+    for (const code of ["storm_risk_high", "signal_unavailable", "weather_alert", "normal"]) {
+      const copy = headerReason(code)
+      expect(copy.label).not.toContain("_")
+      expect(copy.tooltip).toBeTruthy()
+      expect(copy.tooltip).not.toContain("_")
+    }
+  })
+
+  it("leaves a calm-meter sentence alone", () => {
+    expect(headerReason("1 more calm reading")).toEqual({ label: "1 more calm reading" })
+  })
+
+  it("does not pass an unknown reason code through with underscores", () => {
+    const copy = headerReason("zone_floor_raised")
+    expect(copy.label).toBe("Zone floor raised")
+    expect(copy.label).not.toContain("_")
+    expect(copy.tooltip).toBeUndefined()
+  })
+
+  it("gates layout-fixture and the demo-tape disclaimer behind a Demo title", () => {
+    expect(headerIdentity("layout-fixture", run.decision_line)).toEqual({
+      runId: null,
+      demoTitle: "layout-fixture — Layout fixture for the 12-tick demo tape. Not an engine run.",
+    })
+    expect(headerIdentity("demo-stress", null)).toEqual({
+      runId: null,
+      demoTitle: "demo-stress",
+    })
+    expect(briefDecision(run.decision_line)).toBeNull()
+  })
+
+  it("keeps an engine run id and a real decision line on the wall", () => {
+    const line = "[NORMAL] risk LOW | source: live"
+    expect(headerIdentity("20260926-131900-000001", line)).toEqual({
+      runId: "20260926-131900-000001",
+      demoTitle: null,
+    })
+    expect(briefDecision(line)).toBe(line)
+    expect(briefDecision(null)).toBeNull()
+    expect(briefDecision("  ")).toBeNull()
   })
 
   it("stamps quality and the tape tick once", () => {
