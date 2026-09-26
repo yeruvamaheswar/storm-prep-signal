@@ -723,3 +723,16 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `python -m server.engine --tape <tape>` with no flag makes zero network calls. Checked with sockets blocked: 0 connect attempts without the flag, 2 with it (exit 0 both times).
 - `tests/test_persist_run.py`: the old entry test asserted persist ran with no flag, which is the behavior this change removes; it now passes `--persist` and checks that `loop.main` gets argv without it. New `test_engine_entry_without_persist_makes_no_network_calls` plays a real tape from `tmp_path` with sockets blocked.
 - Docs: `docs/agents/persist-run.md`, `docs/humans/persist-run.md`, `docs/agents/code-flow.md` (both diagrams and text). `loop.py`, `policy.py`, `controller.py`, `fleet.py` untouched. `pytest -q`: 337 passed.
+
+## 2026-09-26: `orchestration.run_cycle` renamed to `orchestrate_tick` (Rajat)
+
+- `scripts/live_cycle.py` has its own `run_cycle(settings)` (the live worker). To stop the two being
+  confused, the orchestrator's entry point is now `orchestrate_tick(homes, frame, policy, mode,
+  settings, seed) -> CycleResult`. Same arguments, same behavior. `run_cycle` now means only the
+  live worker.
+- Updated: `server/engine/orchestration.py`, `server/engine/fleet.py` (comment),
+  `tests/test_{orchestration,failures,invariants}.py`, `docs/agents/epic-3-controller.md`.
+- Still say `orchestration.run_cycle` (Sunny's files, not edited): `server/engine/supervisor.py`
+  line 12 comment, `docs/agents/zone-acks.md` line 7. Uma's file: `docs/agents/code-flow.md`
+  lines 232 and 370.
+- `pytest -q`: 327 passed. Runner output unchanged.

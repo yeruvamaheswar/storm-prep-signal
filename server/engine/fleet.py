@@ -303,7 +303,7 @@ def discharge(homes, alloc, policy, settings):
     Second guard on the floor: each order is clamped to the home's safe kW (headroom under its
     current zone floor, and its max kW), so a clamp instead of a breach is the normal outcome
     of a bad order. A home that is not live cannot act on an order, so it is left alone.
-    Called once per tick; it sees no command ids, so duplicate protection lives in run_cycle.
+    Called once per tick; it sees no command ids, so duplicate protection lives in orchestrate_tick.
     """
     by_id = {h.home_id: h for h in homes}
     breaches = 0

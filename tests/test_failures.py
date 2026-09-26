@@ -8,7 +8,7 @@ import pytest
 
 from server.engine.contracts import Policy, TapeFrame
 from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import HomeWorker, run_cycle
+from server.engine.orchestration import HomeWorker, orchestrate_tick
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 EPS = 1e-9
@@ -66,7 +66,7 @@ def run(homes, target_mw, pol, s, seed=1, events=None, tick=1):
     f = frame(target_mw, events, tick)
     apply_events(homes, f.events)
     before = {h.home_id: h.soc_kwh for h in homes}
-    return run_cycle(homes, f, pol, "AUTO", s, seed), f, before
+    return orchestrate_tick(homes, f, pol, "AUTO", s, seed), f, before
 
 
 # --- mass failure ----------------------------------------------------------------
