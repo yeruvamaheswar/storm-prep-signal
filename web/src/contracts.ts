@@ -23,6 +23,10 @@ export type TickResult = {
   breaches: number
   reasons: string[]
   zone_acks?: Record<string, ZoneAckCounts>
+  /** Simulated battery feed rollups; empty objects when TELEMETRY_FEED=0. */
+  plant?: Record<string, unknown>
+  feed?: Record<string, unknown>
+  zone_telemetry?: Record<string, Record<string, unknown>>
 }
 
 export type ZoneAckCounts = {

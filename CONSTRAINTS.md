@@ -94,6 +94,7 @@ New contract fields, all with defaults:
 - `TapeFrame.weather_fixture: Optional[str] = None`
 - `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)
 - `TickResult.zone_reserve_pct`, `zone_reasons`, `zone_delivered_mw: dict` (all `default_factory=dict`) and `weather_label: str = "none"`
+- `TickResult.plant`, `feed`, `zone_telemetry: dict` (all `default_factory=dict`; empty when `TELEMETRY_FEED=0`). Shapes: `docs/agents/telemetry-vpp.md`.
 
 Rule: zones react only to weather alerts; there is no per-zone ERCOT threshold.
 

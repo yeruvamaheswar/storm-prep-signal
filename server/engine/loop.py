@@ -21,7 +21,7 @@ from server.engine.fleet import (
     scale_target_mw,
 )
 from server.engine.fleet_state import STATE_PATH, load_fleet_mode, write_fleet_mode
-from server.engine.orchestration import orchestrate_tick, zone_acks
+from server.engine.orchestration import orchestrate_tick, plant_line, zone_acks
 from server.engine.policy import reserve_policy
 from server.engine.risk import compute_risk
 from server.engine.score import new_board, update
@@ -35,11 +35,13 @@ from server.engine.signal import (
     stamp_price,
     to_signal,
 )
+from server.engine.telemetry import TelemetryState
 
 LOG_DIR = Path("var") / "logs"
 RUNS_DIR = Path("var") / "runs"
 SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "storm_reserve_pct",
-                 "charge_threshold_usd_mwh", "discharge_threshold_usd_mwh", "tick_minutes")
+                 "charge_threshold_usd_mwh", "discharge_threshold_usd_mwh", "tick_minutes",
+                 "telemetry_feed")
 # --live with no tape plays this many ticks at a flat synthetic target (not a real grid request).
 SYNTHETIC_TICKS = 12
 SYNTHETIC_TARGET_MW = 0.2
@@ -61,6 +63,8 @@ _FLEET_DEFAULTS = {
     # Simulation bands, not Base specs. Short test settings omit them.
     "charge_threshold_usd_mwh": 25.0,
     "discharge_threshold_usd_mwh": 60.0,
+    # read_settings() turns the battery feed on. A caller that does not ask for it runs without.
+    "telemetry_feed": False,
 }
 
 
@@ -212,6 +216,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
     fleet_path = fleet_homes_path(runs_dir)
     homes = load_or_seed_homes(settings, fleet_path)
+    # One feed for the whole run, so each battery's report history carries from tick to tick.
+    telemetry = TelemetryState(homes, settings, int(settings.get("seed", 1))) if settings["telemetry_feed"] else None
     mode = read_operator_mode(state_path)
     ticks = []
     board = new_board(settings)
@@ -247,8 +253,10 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         # Plan, send each order over a lossy simulated channel, retry at 60 s, close at 120 s.
         # The workers drain the batteries, so there is no separate discharge call.
         # Delivered is confirmed MW only. A seed per tick replays the same faults.
+        # With the feed on, the plan uses what the batteries reported, never the simulator's truth.
         cycle = orchestrate_tick(homes, frame, policy, mode, settings,
-                                 int(settings.get("seed", 1)) * 100_000 + frame.tick)
+                                 int(settings.get("seed", 1)) * 100_000 + frame.tick,
+                                 telemetry=telemetry)
         alloc = cycle.allocation
         persist_discharged_homes(homes, fleet_path)
         result = TickResult(
@@ -269,12 +277,18 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             intent_reason=policy.intent_reason,
             zone_prices=zone_prices,
             zone_price_label=zone_price_label,
+            # plant["zones"] repeats zone_telemetry, so the tick keeps one copy.
+            plant={k: v for k, v in cycle.plant.items() if k != "zones"},
+            feed=dict(cycle.feed),
+            zone_telemetry=dict(cycle.zones),
         )
         board = update(board, result, homes)
         brief = write_brief(result)
         log_event("tick", "ok", **asdict(result), brief=brief)
         print(f"tick {result.tick}: delivered {result.delivered_mw:.3f} of {result.target_mw:.3f} MW"
               f" ({result.target_label} target) | reserve {result.reserve_pct:g}% | {result.policy_reason}")
+        if telemetry is not None:
+            print(plant_line(cycle))
         ticks.append({**asdict(result), "brief": brief})
         # Aggregates only. The wall reads this file, never the 10k-home seed.
         save_rollups(fleet_rollups(homes, alloc, policy), Path(runs_dir) / ".." / "fleet" / "rollups.json")

@@ -28,9 +28,9 @@ def traced(tmp_path, monkeypatch, tape=TAPE, **over):
         seen["homes"] = fleet.new_fleet(settings)
         return seen["homes"]
 
-    def orchestrate_tick(homes, frame, policy, mode, settings, seed):
+    def orchestrate_tick(homes, frame, policy, mode, settings, seed, **feed):
         before = {h.home_id: h.soc_kwh for h in homes}
-        result = orchestration.orchestrate_tick(homes, frame, policy, mode, settings, seed)
+        result = orchestration.orchestrate_tick(homes, frame, policy, mode, settings, seed, **feed)
         # Homes start at 45-75% charge, so at a 60% floor some are already under it before
         # any discharge. The rule is: never push a home below its floor. So a home that lost
         # charge this tick must end at or above the floor of the policy in force this tick.
