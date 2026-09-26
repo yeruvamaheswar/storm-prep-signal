@@ -173,6 +173,34 @@ describe("zone ack totals", () => {
     )
   })
 
+  it("does not keep a 100-home zone_acks split when persisted rollups are 10k", () => {
+    const stamped = {
+      ...tapeTick(5),
+      zone_acks: {
+        South: { acked: 25, held: 0, silent: 0, dead: 0, unconfirmed: 0 },
+        North: { acked: 25, held: 0, silent: 0, dead: 0, unconfirmed: 0 },
+        West: { acked: 25, held: 0, silent: 0, dead: 0, unconfirmed: 0 },
+        Houston: { acked: 25, held: 0, silent: 0, dead: 0, unconfirmed: 0 },
+      },
+    }
+    const rollups = {
+      n: 10_000,
+      zones: {
+        South: { live: 2500, reserved: 0, discharging: 0, stale: 0, dead: 0, silent: 0, reserved_mw: 0, discharging_mw: 0 },
+        North: { live: 2500, reserved: 0, discharging: 0, stale: 0, dead: 0, silent: 0, reserved_mw: 0, discharging_mw: 0 },
+        West: { live: 2500, reserved: 0, discharging: 0, stale: 0, dead: 0, silent: 0, reserved_mw: 0, discharging_mw: 0 },
+        Houston: { live: 2500, reserved: 0, discharging: 0, stale: 0, dead: 0, silent: 0, reserved_mw: 0, discharging_mw: 0 },
+      },
+    }
+    const rows = zoneAckTotals(stamped, rollups)
+    expect(rows.map((row) => [row.zone, row.homes])).toEqual([
+      ["South", 2500],
+      ["North", 2500],
+      ["West", 2500],
+      ["Houston", 2500],
+    ])
+  })
+
   it("falls back to zone aggregates on a tape with no zone_acks, still as four bars", () => {
     const rows = zoneAckTotals(tapeTick(5))
     expect(rows.map((row) => [row.zone, row.acked, row.homes])).toEqual([

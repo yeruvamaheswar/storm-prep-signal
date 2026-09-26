@@ -28,6 +28,16 @@ export type AttentionChoice = "approve" | "retry" | "skip"
 
 export type HomeStatus = "live" | "stale" | "dead" | "unconfirmed"
 
+/** ERCOT load zones on a home row. Missing on older fixtures. */
+export const HOME_ZONES = ["South", "North", "West", "Houston"] as const
+
+export type HomeZone = (typeof HOME_ZONES)[number]
+
+/** Last reported SunSpec-style charge state. Missing until the feed writes. */
+export const CHARGE_STATES = ["CHARGING", "DISCHARGING", "HOLDING", "FULL", "EMPTY"] as const
+
+export type ChargeState = (typeof CHARGE_STATES)[number]
+
 export type Ack = "ok" | "rejected" | "timeout"
 
 export type SkipReason =
@@ -125,6 +135,7 @@ export type HomeCommand = {
 export type Home = {
   home_id: string
   status: HomeStatus
+  zone: HomeZone | null
   capacity_kwh: number
   soc_kwh: number
   floor_kwh: number
@@ -134,6 +145,8 @@ export type Home = {
   skip_reason: SkipReason | null
   last_seen: string
   last_command: HomeCommand | null
+  charge_state: ChargeState | null
+  power_kw: number | null
 }
 
 export type Tape = {

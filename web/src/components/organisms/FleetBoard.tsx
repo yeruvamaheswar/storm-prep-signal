@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import "./zoneMap.css"
-import type { TickView } from "../../contracts"
+import type { FleetRollups, TickView } from "../../contracts"
+import { dotSampleNote, zoneAggregates, visibleHomeNodes } from "../../fleetAggregate"
 import { callCaption, formatGridMw, homeRoleNote, lossCaption } from "../../format"
 import { isLoadZone, zoneHierarchyPaint, zonePaint, type LoadZone, type ZoneFill, type ZonePathPaint } from "../../zonePaint"
 import {
@@ -14,8 +15,7 @@ import {
   type PlaneRect,
 } from "../../zoneLabels"
 import { FleetLegend } from "../molecules/FleetLegend"
-import { fleetCounts } from "./fleetCells"
-import { homeNodes, labelCandidates, parseZonePolygons, zoneContains, type HomeNode, type ZonePolygon } from "./homeNodes"
+import { labelCandidates, parseZonePolygons, zoneContains, type HomeNode, type ZonePolygon } from "./homeNodes"
 import { useHomeNodes } from "./homeNodeLayer"
 import { attachNwsRadar } from "./radarLayer"
 
@@ -85,6 +85,7 @@ type FleetBoardProps = {
   tick: TickView
   radar?: boolean
   zone?: LoadZone | null
+  rollups?: FleetRollups | null
   callout?: string | null
   calloutTitle?: string
   onSelectZone?: (zone: LoadZone) => void
@@ -136,11 +137,12 @@ function pathPaint(
   return pathOptions(zoneHierarchyPaint(fill, muted, risk, selected))
 }
 
-function zoneCaption(name: string, fill: ZoneFill | undefined): string {
-  if (fill?.mw == null) {
-    return name
+function zoneCaption(name: string, fill: ZoneFill | undefined, homes?: number): string {
+  const head = fill?.mw == null ? name : `${name} ${formatGridMw(fill.mw)} MW`
+  if (homes === undefined || homes <= 0) {
+    return head
   }
-  return `${name} ${formatGridMw(fill.mw)} MW`
+  return `${head} · ${homes}`
 }
 
 type LabelJob = {
@@ -256,12 +258,24 @@ export function FleetBoard({
   tick,
   radar = false,
   zone = null,
+  rollups = null,
   callout = null,
   calloutTitle,
   onSelectZone,
 }: FleetBoardProps) {
   const paintNow = zonePaint(tick)
-  const counts = fleetCounts(tick)
+  const zones = zoneAggregates(tick, rollups)
+  const homesByZone = new Map(zones.map((row) => [row.zone, row.homes]))
+  const counts = {
+    ok: zones.reduce((sum, row) => sum + row.ok, 0),
+    reserved: zones.reduce((sum, row) => sum + row.reserved, 0),
+    discharging: zones.reduce((sum, row) => sum + row.discharging, 0),
+    stale: zones.reduce((sum, row) => sum + row.stale, 0),
+    dead: zones.reduce((sum, row) => sum + row.dead, 0),
+    unconfirmed: zones.reduce((sum, row) => sum + row.unconfirmed, 0),
+  }
+  const liveHomes = counts.ok + counts.discharging + counts.reserved
+  const fleetHomes = zones.reduce((sum, row) => sum + row.homes, 0)
   const loss = lossCaption(tick)
   const hostRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -343,7 +357,7 @@ export function FleetBoard({
     }
   }, [])
 
-  useHomeNodes(mapRef, tick)
+  useHomeNodes(mapRef, tick, rollups)
 
   useEffect(() => {
     const map = mapRef.current
@@ -370,7 +384,7 @@ export function FleetBoard({
           const fill = byName.get(area.name.toLowerCase())
           const selected = zoneIsSelected(fill, zone)
           const rect = L.rectangle(area.bounds, pathPaint(fill, paint.muted, tick.risk_level, selected))
-          captions.set(area.name, zoneCaption(area.name, fill))
+          captions.set(area.name, zoneCaption(area.name, fill, isLoadZone(area.name) ? homesByZone.get(area.name) : undefined))
           if (isLoadZone(area.name)) {
             const name = area.name
             rect.on("click", () => onSelectRef.current?.(name))
@@ -389,7 +403,7 @@ export function FleetBoard({
           onEachFeature: (feature, layer) => {
             const name = featureZoneName(feature.properties)
             names.push(name)
-            captions.set(name, zoneCaption(name, byName.get(name.toLowerCase())))
+            captions.set(name, zoneCaption(name, byName.get(name.toLowerCase()), isLoadZone(name) ? homesByZone.get(name) : undefined))
             if (isLoadZone(name)) {
               layer.on("click", () => onSelectRef.current?.(name))
             }
@@ -400,7 +414,7 @@ export function FleetBoard({
       }
       labelJobRef.current = {
         polygons,
-        nodes: homeNodes(tick, polygons),
+        nodes: visibleHomeNodes(tick, polygons, rollups),
         captions,
       }
       fitTexas(board)
@@ -412,7 +426,7 @@ export function FleetBoard({
       cancelled = true
       group.remove()
     }
-  }, [tick, zone])
+  }, [tick, zone, rollups])
 
   useEffect(() => {
     const map = mapRef.current
@@ -432,7 +446,7 @@ export function FleetBoard({
       data-north={paintNow.zones.find((zone) => zone.zone === "North")?.emphasized ? "emphasized" : "plain"}
     >
       <p className="call-caption" role="status" title={calloutTitle}>
-        {callout ?? callCaption(tick, counts.discharging, counts.reserved)}
+        {callout ?? callCaption(tick, counts.discharging, counts.reserved, liveHomes)}
         {callout !== null || loss === null ? null : (
           <span className="loss-line" data-loss={loss.kind} style={LOSS_LINE_STYLE}>
             <span ref={missedRef} style={LOSS_MISSED_STYLE}>
@@ -450,7 +464,7 @@ export function FleetBoard({
           </p>
         )}
       </div>
-      <FleetLegend counts={counts} />
+      <FleetLegend counts={counts} sampleNote={dotSampleNote(fleetHomes)} />
       <p className="zone-map-names">{zoneNames.join(" · ")}</p>
     </section>
   )

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import { AckRail } from "../src/components/organisms/AckRail"
 import { ControlBar } from "../src/components/organisms/ControlBar"
-import type { TickView } from "../src/contracts"
+import type { FleetRollups, TickView } from "../src/contracts"
 import layoutRun from "../src/fixtures/layout-run.json"
 import { zoneBrief, zoneCallout, zoneFacts, zoneOutageSeries } from "../src/zoneLens"
 
@@ -73,9 +73,57 @@ describe("zone lens", () => {
     expect(zoneOutageSeries(ticks, "North").slice(0, 5)).toEqual([9429, 9429, 9429, 9429, 9294])
     expect(zoneOutageSeries(ticks, "Houston")[0]).toBe(3427)
   })
+
+  it("reads reserved, discharging, and MW from persisted rollups instead of index % 4", () => {
+    const rollups: FleetRollups = {
+      n: 10_000,
+      zones: {
+        North: {
+          live: 1700,
+          reserved: 40,
+          discharging: 60,
+          stale: 6,
+          dead: 4,
+          silent: 6,
+          reserved_mw: 0.2,
+          discharging_mw: 0.3,
+        },
+      },
+    }
+    const facts = zoneFacts(tapeTick(5), "North", rollups)
+    expect(facts.discharging).toBe(60)
+    expect(facts.reserved).toBe(40)
+    expect(facts.supplyingMw).toBe(0.3)
+    expect(zoneBrief(facts)).toContain("60 homes discharging, 40 homes reserved")
+    expect(zoneCallout(facts)).toContain("60 discharging · 40 reserved")
+    expect(zoneFacts(tapeTick(5), "North", null).discharging).toBe(12)
+  })
 })
 
 describe("zone controls", () => {
+  it("paints ack bars from persisted rollups when the tape has no zone_acks", () => {
+    const rollups: FleetRollups = {
+      n: 10_000,
+      zones: {
+        North: {
+          live: 1700,
+          reserved: 40,
+          discharging: 60,
+          stale: 6,
+          dead: 4,
+          silent: 6,
+          reserved_mw: 0.2,
+          discharging_mw: 0.3,
+        },
+      },
+    }
+    const html = renderToStaticMarkup(
+      createElement(AckRail, { tick: tapeTick(1), rollups, onSelectZone: () => undefined, onClearZone: () => undefined }),
+    )
+    expect(html).toContain("North 1660/1710")
+    expect(html).not.toContain("North 10/25")
+  })
+
   it("presses the North ack row and leaves All zones as the reset", () => {
     const html = renderToStaticMarkup(
       createElement(AckRail, { tick: tapeTick(1), zone: "North", onSelectZone: () => undefined, onClearZone: () => undefined }),
