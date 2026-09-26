@@ -4,7 +4,7 @@ from pathlib import Path
 
 import requests
 
-from storm_prep.engine import run
+from server.engine.loop import run
 
 ROOT = Path(__file__).parent.parent
 TAPE = ROOT / "tests" / "fixtures" / "tape_tiny.json"

@@ -6,8 +6,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from server import v1
-from server.fixtures import FixtureStore
+from server.api import v1
+from server.api.fixtures import FixtureStore
 
 
 def cors_origins() -> list[str]:

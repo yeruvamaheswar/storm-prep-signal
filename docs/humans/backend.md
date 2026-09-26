@@ -4,7 +4,7 @@ We now have a small web server in `server/`. It uses FastAPI.
 
 It answers the same questions the operator wall asks: the zone, the latest tick, the homes, the tapes, and playback. For now the answers come from sample files. They are not live ERCOT data.
 
-It never decides how much a home sells or what the reserve floor is. The engine still does that.
+It never decides how much a home sells or what the reserve floor is. The engine in `server/engine/` still does that.
 
 **Run it on your laptop**
 

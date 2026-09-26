@@ -4,7 +4,8 @@ import json
 import os
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+# server/api/fixtures.py → repo root is two parents up.
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DIR = REPO_ROOT / "web" / "src" / "fixtures" / "console"
 
 # Scenes a live tick can come from. Each name is a JSON file in the fixture folder.

@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server.app import create_app
-from server.fixtures import FixtureStore
+from server.api.fixtures import FixtureStore
 
 OPERATOR = {"X-Operator-Id": "op-test"}
 

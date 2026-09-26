@@ -256,3 +256,30 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `web/tests/health.test.ts` (6 tests). `npx vitest run`: 71 passed. `tsc --noEmit` clean.
   `pytest -q`: 43 passed. Checked in the browser: `API OK` with uvicorn up, `api down · http 500`
   with it stopped.
+
+## 2026-09-26: Backend merged under `server/`
+
+- Moved the Storm Prep package into `server/engine/` (risk CLI is `cli.py`, tick loop is `loop.py`).
+- HTTP routes live in `server/api/` (`v1.py`, `fixtures.py`). uvicorn is still `server.app:app`.
+- `storm_prep/` was a short-lived alias and was then removed. Imports and commands use `server.engine`.
+- Owner paths in `CONSTRAINTS.md` now point at `server/engine/` and `server/api/`.
+- Details: `docs/agents/backend.md`.
+- `pytest -q`: 43 passed.
+
+## 2026-09-26: Next-build list replaces the unfinished tape plan
+
+- The engine can read live NP3-233-CD, then the tick loop still assigns 0 kW. The wall still opens on a sample run. The 12-frame synthetic tape is no longer the thing to finish first.
+- People pick from `docs/humans/improvements.md`. Copy-paste prompts are in `docs/agents/improvements.md`.
+- No application code in this change. `pytest -q` was not run.
+
+## 2026-09-26: Demo data is live ERCOT or a saved ERCOT replay
+
+- Updated `docs/humans/improvements.md` and `docs/agents/improvements.md`. A run is `--live` or `--replay` of a file ERCOT published. Beryl (`data/events/beryl/`) is the saved week. That replay rated LOW on every posting. Sample console scenes, the layout fixture, and a hand-edited outage spike stay off the wall.
+- No application code in this change. `pytest -q` was not run.
+
+## 2026-09-26: Dropped the `storm_prep/` alias
+
+- Tests and `scripts/replay_event.py` import `server.engine` only.
+- Removed the compatibility package. Commands are `python -m server.engine.cli` and `python -m server.engine`.
+- Details: `docs/agents/backend.md`.
+- `pytest -q`: 43 passed.

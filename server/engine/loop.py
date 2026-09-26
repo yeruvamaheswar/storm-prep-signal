@@ -1,4 +1,4 @@
-"""Tick loop: python -m storm_prep.engine --tape PATH | --live [--tape PATH]"""
+"""Tick loop: python -m server.engine --tape PATH | --live [--tape PATH]"""
 import argparse
 import json
 import sys
@@ -6,13 +6,13 @@ from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from storm_prep.__main__ import read_settings
-from storm_prep.baseline import load_baseline
-from storm_prep.contracts import Allocation, Home, TapeFrame, TickResult
-from storm_prep.events import log_event, start_run
-from storm_prep.policy import reserve_policy
-from storm_prep.risk import compute_risk
-from storm_prep.signal import CENTRAL, LIVE_SOURCE, SignalUnavailable, load_signal, to_signal
+from server.engine.baseline import load_baseline
+from server.engine.cli import read_settings
+from server.engine.contracts import Allocation, Home, TapeFrame, TickResult
+from server.engine.events import log_event, start_run
+from server.engine.policy import reserve_policy
+from server.engine.risk import compute_risk
+from server.engine.signal import CENTRAL, LIVE_SOURCE, SignalUnavailable, load_signal, to_signal
 
 LOG_DIR = Path("var") / "logs"
 RUNS_DIR = Path("var") / "runs"
@@ -152,7 +152,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="storm_prep.engine", description="Run a tape through the fleet.")
+    parser = argparse.ArgumentParser(prog="server.engine", description="Run a tape through the fleet.")
     parser.add_argument("--tape", help="path to a tape JSON file (optional with --live)")
     parser.add_argument("--live", action="store_true", help="fetch ERCOT once and use that risk on every tick")
     args = parser.parse_args(argv)

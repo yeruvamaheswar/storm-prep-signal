@@ -9,7 +9,9 @@ The API contract is `plans/operator-console.md` ("Endpoints" and "Contracts"). D
 ```bash
 pip install -r requirements.txt
 uvicorn server.app:app --reload          # http://localhost:8000, docs at /docs
-pytest -q tests/test_server.py
+python -m server.engine.cli --fixture    # risk CLI
+python -m server.engine --tape PATH      # tick loop
+pytest -q
 ```
 
 ## How the wall reaches it
@@ -26,8 +28,9 @@ pytest -q tests/test_server.py
 | File | What it holds |
 |---|---|
 | `server/app.py` | `create_app()`: CORS, `/health`, the `ApiError` handler, in-memory state. `app` is the module-level instance uvicorn loads. |
-| `server/v1.py` | Every `/v1` route, the request bodies, `ConsoleState`, `ApiError`. |
-| `server/fixtures.py` | `FixtureStore`: reads `<name>.json` from the fixture folder on every call. |
+| `server/api/v1.py` | Every `/v1` route, the request bodies, `ConsoleState`, `ApiError`. |
+| `server/api/fixtures.py` | `FixtureStore`: reads `<name>.json` from the fixture folder on every call. |
+| `server/engine/` | Risk, policy, contracts, tick loop. Routes import results from here; they do not recompute them. |
 | `tests/test_server.py` | One test per contract rule (operator header, 409s, retry once, playback). |
 | `render.yaml` | Render Blueprint for the API service. |
 
@@ -57,7 +60,7 @@ The server reads plain environment variables. It does not load `.env`.
 
 ## Rules for changes
 
-- The server never allocates, rates risk, or sets a floor. Import results from `storm_prep/`; do not recompute them in a route.
+- Routes never allocate, rate risk, or set a floor. Import results from `server.engine`; do not recompute them in a route.
 - Keep the error body `{ "error", "brief" }`. Raise `ApiError`; do not use FastAPI's `HTTPException`, whose body is `{ "detail" }` and which the wall does not read.
 - Every `POST` calls `_require_operator` first.
 - Build each app with `create_app()` in tests so state does not leak between tests.
