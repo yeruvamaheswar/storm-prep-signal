@@ -46,7 +46,7 @@ File ownership is retired. The desired end state and the next gap live in `docs/
 
 ## Rules for agents
 - Stay inside the named gap. Do not start a second gap in the same sitting.
-- Do not add dependencies without saying why. The only network calls in `server/engine/` are the ERCOT fetches in `signal.py` (`--live`): NP3-233-CD outages and NP6-905-CD LZ_NORTH price. Do not add others, and the engine never calls Supabase.
+- Do not add dependencies without saying why. The only network calls in `server/engine/` are the ERCOT fetches in `signal.py` (`--live`): NP3-233-CD outages and NP6-905-CD prices (LZ_NORTH headline, plus the four load zones). Do not add others, and the engine never calls Supabase.
 - Add or update a test for every behavior change, and run the full test suite before finishing.
 - Update `docs/agents/progress.md` with what changed and why.
 - Proven findings go in the README; do not invent numbers. Example: in the Hurricane Beryl replay, statewide outages peaked at 22,389 MW, 5% under the 23,653 MW grid-wide trigger, while Houston roughly doubled. That is why the storm rule works per zone.
