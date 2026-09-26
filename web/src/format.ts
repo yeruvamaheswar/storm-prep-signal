@@ -23,6 +23,21 @@ function homesPhrase(count: number): string {
   return count === 1 ? "1 home" : `${count} homes`
 }
 
+/** Hover copy for one metro cluster. Both MW figures keep a word in front of them. */
+export function clusterCaption(counts: {
+  homes: number
+  reserved: number
+  discharging: number
+  supplyingMw: number
+  zoneMw: number | null
+}): string {
+  const fleet = `${counts.homes} homes · ${counts.reserved} reserved · ${counts.discharging} discharging · supplying ${formatMw(counts.supplyingMw)} MW`
+  if (counts.zoneMw === null) {
+    return fleet
+  }
+  return `${fleet} · zone ${formatGridMw(counts.zoneMw)} MW`
+}
+
 /** Who is answering ERCOT on this tick. The target keeps its label, as every on-screen MW must. */
 export function callCaption(tick: TickView, discharging: number, reserved: number): string {
   const call = `ERCOT call ${formatMw(tick.target_mw)} MW (${tick.target_label})`
@@ -121,6 +136,51 @@ export function modeName(mode: Mode): string {
 
 export type FeedChip = "TAPE" | "LIVE" | "SYNTHETIC"
 
+/** What the mast shows for this run. Fixture copy stays on the Demo badge title. */
+export type HeaderIdentity = {
+  runId: string | null
+  demoTitle: string | null
+}
+
+function isFixtureRunId(runId: string): boolean {
+  return /fixture|^demo[-_]/i.test(runId)
+}
+
+function isFixtureDisclaimer(line: string): boolean {
+  return /layout fixture|not an engine run|demo tape/i.test(line)
+}
+
+/**
+ * A layout fixture and a demo tape id are tape chrome.
+ * A timestamp run id and a real decision line stay on the wall.
+ */
+export function headerIdentity(runId: string, decisionLine: string | null): HeaderIdentity {
+  const id = runId.trim()
+  const line = decisionLine?.trim() ?? ""
+  const fixtureId = id !== "" && isFixtureRunId(id)
+  const fixtureLine = line !== "" && isFixtureDisclaimer(line)
+  if (!fixtureId && !fixtureLine) {
+    return { runId: id === "" ? null : id, demoTitle: null }
+  }
+  const gated = [fixtureId ? id : "", fixtureLine ? line : ""].filter((part) => part !== "").join(" — ")
+  return {
+    runId: fixtureId ? null : id,
+    demoTitle: gated,
+  }
+}
+
+/** The brief footer is the decision line. A fixture disclaimer is not a decision. */
+export function briefDecision(decisionLine: string | null): string | null {
+  if (decisionLine === null) {
+    return null
+  }
+  const text = decisionLine.trim()
+  if (text === "" || isFixtureDisclaimer(text)) {
+    return null
+  }
+  return text
+}
+
 // One chip for the whole strip. Synthetic wins so a mixed tick is not read as live.
 export function feedChip(targetLabel: string, priceLabel: string): FeedChip {
   const kinds = [labelKind(targetLabel), labelKind(priceLabel)]
@@ -144,6 +204,45 @@ const REASON_LINES: Record<string, string> = {
   fleet_headroom_short: "Not enough headroom above the floor",
   operator_hold: "Operator hold",
   signal_unavailable: "Storm signal could not be read",
+  holding_spare_energy: "Holding spare energy",
+}
+
+export type ReasonCopy = {
+  label: string
+  tooltip?: string
+}
+
+// Floor and Risk share these codes. The label is what the operator reads; the tooltip says why the floor moved.
+const FLOOR_REASONS: Record<string, ReasonCopy> = {
+  normal: {
+    label: "Normal",
+    tooltip: "Outage MW is under the reserve threshold, so the floor stays at the base reserve.",
+  },
+  storm_risk_high: {
+    label: "Storm risk high",
+    tooltip: "Outage MW is past the reserve threshold, so every home's floor rose to the storm reserve.",
+  },
+  signal_unavailable: {
+    label: "Signal unavailable",
+    tooltip: "The storm signal could not be read, so the floor rose to the storm reserve.",
+  },
+  weather_alert: {
+    label: "Weather alert",
+    tooltip: "A weather alert covers this zone, so that zone's floor rose to the storm reserve.",
+  },
+}
+
+/** Sentence-case a floor or risk reason. A caption that is already a sentence is left as written. */
+export function headerReason(code: string): ReasonCopy {
+  const known = FLOOR_REASONS[code]
+  if (known !== undefined) {
+    return known
+  }
+  if (!code.includes("_")) {
+    return { label: code }
+  }
+  const words = code.replaceAll("_", " ").replaceAll(":", " ")
+  return { label: words.charAt(0).toUpperCase() + words.slice(1) }
 }
 
 export function reasonText(code: string): string {
@@ -195,15 +294,4 @@ export function riskName(level: RiskLevel | null): string {
       return neverLevel
     }
   }
-}
-
-/** Two reserve stops. Bad data and a high outage reading are not the same reason. */
-export function reserveBanner(tick: TickView, quality: string): string | null {
-  if (tick.policy_reason === "signal_unavailable" || quality === "timeout" || quality === "stale") {
-    return "RESERVE because data cannot be trusted"
-  }
-  if (tick.policy_reason === "storm_risk_high" && tick.risk_level === "HIGH" && tick.mode !== "HOLD") {
-    return "RESERVE because outage MW is over the line."
-  }
-  return null
 }

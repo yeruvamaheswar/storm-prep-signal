@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import zonesFile from "../../geo/ercot-load-zones.json"
+import layoutRun from "../src/fixtures/layout-run.json"
+import type { RunFile } from "../src/contracts"
 import { scenes } from "../src/fixtures/scenes"
 import { ackCaption } from "../src/format"
 import {
@@ -7,11 +9,25 @@ import {
   DEAD_AFTER_MS,
   ackAtMs,
   ackCounts,
+  ackMarkCounts,
   ackState,
+  ackSummary,
   ackTicks,
   ackZones,
+  tickFailSafe,
+  zoneAcked,
 } from "../src/components/organisms/ackTicks"
 import { homeNodes, parseZonePolygons, ZONE_ORDER } from "../src/components/organisms/homeNodes"
+
+const run = layoutRun as RunFile
+
+function tapeTick(n: number) {
+  const found = run.ticks.find((item) => item.tick === n)
+  if (found === undefined) {
+    throw new Error(`missing tick ${n}`)
+  }
+  return found
+}
 
 const devices = scenes.find((scene) => scene.id === "devices")
 if (devices === undefined) {
@@ -53,6 +69,62 @@ describe("ackTicks", () => {
         expect(ackState(item, at)).toBe("acked")
       }
     }
+  })
+})
+
+describe("ack marks", () => {
+  it("paints the storm tick as discharging acks and held homes, per zone", () => {
+    const storm = tapeTick(5)
+    const ticks = ackTicks(storm)
+    expect(tickFailSafe(storm)).toBe(false)
+    expect(ackMarkCounts(ticks, DEAD_AFTER_MS, false)).toEqual({
+      pending: 0,
+      acked: 50,
+      held: 50,
+      silent: 0,
+      dead: 0,
+      failsafe: 0,
+    })
+    expect(ackZones(ticks).map((group) => zoneAcked(group.ticks, DEAD_AFTER_MS, false))).toEqual([12, 12, 13, 13])
+    expect(ackSummary(ackMarkCounts(ticks, DEAD_AFTER_MS, false), storm.delivered_mw)).toBe(
+      "0 silent · 50 acked · 50 held · call 0.31 MW",
+    )
+  })
+
+  it("keeps dead homes out of the zone ack count on the tick where homes died", () => {
+    const died = tapeTick(6)
+    const ticks = ackTicks(died)
+    expect(ackMarkCounts(ticks, DEAD_AFTER_MS, false)).toEqual({
+      pending: 0,
+      acked: 40,
+      held: 40,
+      silent: 0,
+      dead: 20,
+      failsafe: 0,
+    })
+    expect(ackZones(ticks).map((group) => zoneAcked(group.ticks, DEAD_AFTER_MS, false))).toEqual([10, 10, 10, 10])
+    expect(ackMarkCounts(ticks, ACK_TIMEOUT_MS, false).silent).toBe(20)
+  })
+
+  it("marks stale homes silent and a missing signal fail-safe, without counting them acked", () => {
+    const ticks = ackTicks(tick)
+    const settled = ackMarkCounts(ticks, DEAD_AFTER_MS, false)
+    expect(settled.silent).toBe(4)
+    expect(settled.dead).toBe(15)
+    expect(settled.acked).toBe(81)
+    expect(zoneAcked(ticks, DEAD_AFTER_MS, false)).toBe(81)
+
+    const failsafe = scenes.find((scene) => scene.id === "failsafe")
+    if (failsafe === undefined) {
+      throw new Error("missing fail-safe scene")
+    }
+    const failed = ackTicks(failsafe.tick)
+    expect(tickFailSafe(failsafe.tick)).toBe(true)
+    expect(ackMarkCounts(failed, DEAD_AFTER_MS, true).failsafe).toBe(100)
+    expect(zoneAcked(failed, DEAD_AFTER_MS, true)).toBe(0)
+    expect(ackSummary(ackMarkCounts(failed, DEAD_AFTER_MS, true), failsafe.tick.delivered_mw)).toBe(
+      "0 silent · 0 acked · 100 fail-safe · call still 0.00 MW",
+    )
   })
 })
 

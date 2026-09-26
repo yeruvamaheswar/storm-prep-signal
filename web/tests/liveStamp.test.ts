@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import layoutRun from "../src/fixtures/layout-run.json"
 import type { RunFile, TickView } from "../src/contracts"
-import { fetchLiveStamp, stampTick, type LiveOptions } from "../src/liveStamp"
+import { EMPTY_WATCH, fetchLiveStamp, rememberLive, stampTick, viewTick, type LiveOptions } from "../src/liveStamp"
 import { stressReading } from "../src/stressReading"
 import { zonePaint } from "../src/zonePaint"
 
@@ -103,6 +103,29 @@ describe("live stamp", () => {
   it("names stale when the outage posting is old", async () => {
     const oldOutage = () => json(np3("2026-09-25T20:00:12", [NEXT_HOUR]))
     expect(await fetchLiveStamp(options(fakeFetch(goodPrice, oldOutage)))).toEqual({ quality: "stale" })
+  })
+
+  it("keeps the last successful as-of when a later pull fails", () => {
+    const tape = run.ticks[4] as TickView
+    const ok = {
+      quality: "ok" as const,
+      priceUsdMwh: 42,
+      outageMw: 19000,
+      zone: "North" as const,
+      zoneMw: 9000,
+      zoneColumns: {},
+      asOfLabel: "14:00 CT",
+      ageMin: 12,
+    }
+    const watched = rememberLive(rememberLive(EMPTY_WATCH, ok), { quality: "timeout" })
+    expect(watched.lastOk).toEqual(ok)
+    const tick = viewTick(tape, watched)
+    expect(stressReading(tick)).toMatchObject({
+      asOfLabel: "14:00 CT",
+      ageMin: 12,
+      clockPinned: false,
+      quality: "timeout",
+    })
   })
 
   it("keeps every tape number on a failure and only names the reason", () => {

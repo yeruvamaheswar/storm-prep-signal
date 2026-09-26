@@ -1,54 +1,114 @@
 import { riskCaption } from "../../calmStreak"
 import type { TickView } from "../../contracts"
-import { feedChip, formatGridMw, formatMw, formatPrice, formatSignedGridMw, formatTs, modeName, riskName } from "../../format"
-import { stressReading, type StressReading } from "../../stressReading"
+import { feedChip, formatGridMw, formatMw, formatPrice, formatSignedGridMw, formatTs, headerIdentity, headerReason, modeName, riskName } from "../../format"
+import { qualityView } from "../../qualityStatus"
+import type { ReportFeeds } from "../../reportFeeds"
+import { runtimeLabel, type RuntimeMode } from "../../runtimeMode"
+import { outageLine, deliverableFloorCaption } from "../../wallLines"
+import { wallSnapshot, type SnapshotAsOf, type WallSnapshot } from "../../wallSnapshot"
 import { Metric } from "../atoms/Metric"
 import { CalmMeter } from "../molecules/CalmMeter"
 import { StripItem } from "../molecules/StripItem"
+import { FeedsList } from "./ReportsDrawer"
 
 type TopStripProps = {
   tick: TickView
   runId: string
+  decisionLine?: string | null
   tickCount: number
   calm: number
   sceneLabel?: string
+  snapshot?: WallSnapshot
+  runtime?: RuntimeMode
+  intervalLabel?: string
+  clockLabel?: string
+  feeds?: ReportFeeds
 }
 
-export function TopStrip({ tick, runId, tickCount, calm, sceneLabel }: TopStripProps) {
-  const missed = tick.missed_mw > 0
+export function TopStrip({
+  tick,
+  runId,
+  decisionLine = null,
+  tickCount,
+  calm,
+  sceneLabel,
+  snapshot,
+  runtime = "demo",
+  intervalLabel,
+  clockLabel,
+  feeds,
+}: TopStripProps) {
+  const row = snapshot ?? wallSnapshot({ runtime, tick, calm })
+  const line = outageLine({
+    outageMw: row.outageMw,
+    thresholdMw: row.outageThresholdMw,
+    marginMw: row.marginMw,
+    zone: row.zone,
+    zoneMw: row.zoneMw,
+    asOfLabel: row.asOf.label,
+    ageMin: row.asOf.ageMin,
+    clockPinned: row.asOf.pinned,
+    quality: row.quality,
+  })
+  const missed = row.missedMw > 0
+  const feed = runtime === "live" ? "LIVE" : feedChip(tick.target_label, tick.price_label)
+  const identity = headerIdentity(runId, decisionLine)
+  const when = runtime === "live" ? (clockLabel ?? formatTs(tick.ts)) : formatTs(tick.ts)
+  const place =
+    runtime === "live" ? `${runtimeLabel(runtime)} · ${intervalLabel ?? "—"}` : (sceneLabel ?? tickPlace(tick.tick, tickCount))
+  const floor = headerReason(tick.policy_reason)
+  const risk = headerReason(riskCaption(tick, row.calm))
   const floorTone = tick.policy_reason === "normal" ? "ink" : "reserved"
-  const riskTone = tick.risk_level === "HIGH" ? "reserved" : tick.risk_level === "LOW" ? "ok" : "dead"
+  const riskTone = row.risk === "HIGH" ? "reserved" : row.risk === "LOW" ? "ok" : "dead"
 
   return (
     <header className="top-strip">
       <div className="mast">
         <div className="mast-head">
           <h1>ReserveGate</h1>
-          <span className="source-chip">{feedChip(tick.target_label, tick.price_label)}</span>
         </div>
         <p>
-          {sceneLabel ?? `tick ${String(tick.tick).padStart(2, "0")} / ${String(tickCount).padStart(2, "0")}`}
+          {place}
           <span className="mast-gap" />
-          {formatTs(tick.ts)}
+          {when}
           <span className="mast-gap" />
           {modeName(tick.mode)}
           <span className="mast-gap" />
-          <span className="run-id">{runId}</span>
+          <span className="source-chip">{feed}</span>
+          {identity.runId !== null ? (
+            <>
+              <span className="mast-gap" />
+              <span className="run-id">{identity.runId}</span>
+            </>
+          ) : null}
+          {runtime === "demo" && identity.demoTitle !== null ? (
+            <>
+              <span className="mast-gap" />
+              <span className="demo-badge" title={identity.demoTitle}>
+                Demo
+              </span>
+            </>
+          ) : null}
         </p>
       </div>
       <div key={tick.tick}>
         <div className="strip">
           <div className="strip-pair">
             <StripItem name="Target">
-              <Metric value={formatMw(tick.target_mw)} unit="MW" tone="ink" />
+              <Metric value={formatMw(row.targetMw)} unit="MW" tone="ink" />
             </StripItem>
             <StripItem name="Delivered">
-              <Metric value={formatMw(tick.delivered_mw)} unit="MW" />
+              <Metric
+                value={formatMw(row.deliveredMw)}
+                unit="MW"
+                caption={deliverableFloorCaption(row.floorPct)}
+                title="Delivered MW versus the home reserve floor"
+              />
             </StripItem>
             <div className={missed ? "strip-miss" : "strip-miss is-quiet"}>
               <StripItem name="Missed">
                 <Metric
-                  value={formatMw(tick.missed_mw)}
+                  value={formatMw(row.missedMw)}
                   unit="MW"
                   caption={missed ? "left unsold" : undefined}
                   tone={missed ? "reserved" : "ink"}
@@ -57,55 +117,91 @@ export function TopStrip({ tick, runId, tickCount, calm, sceneLabel }: TopStripP
             </div>
           </div>
           <StripItem name="Price">
-            <Metric value={formatPrice(tick.price_usd_mwh)} unit="$/MWh" />
+            <Metric value={formatPrice(row.priceMwh)} unit="$/MWh" />
           </StripItem>
           <StripItem name="Floor">
-            <Metric value={String(tick.reserve_pct)} unit="%" caption={tick.policy_reason} tone={floorTone} />
+            <Metric value={String(row.floorPct)} unit="%" caption={floor.label} title={floor.tooltip} tone={floorTone} />
           </StripItem>
           <StripItem name="Risk">
-            <Metric value={riskName(tick.risk_level)} unit="" caption={riskCaption(tick, calm)} tone={riskTone} />
+            <Metric value={riskName(row.risk)} unit="" caption={risk.label} title={risk.tooltip} tone={riskTone} />
           </StripItem>
           <StripItem name="Calm">
-            <CalmMeter streak={calm} />
+            <CalmMeter streak={row.calm} />
           </StripItem>
         </div>
-        <StressStrip reading={stressReading(tick)} />
+        <StressStrip snapshot={row} line={line} runtime={runtime} feeds={feeds} />
       </div>
     </header>
   )
 }
 
-function StressStrip({ reading }: { reading: StressReading }) {
-  const marginTone = reading.marginMw !== null && reading.marginMw > 0 ? "reserved" : "ink"
+function StressStrip({
+  snapshot,
+  line,
+  runtime,
+  feeds,
+}: {
+  snapshot: WallSnapshot
+  line: ReturnType<typeof outageLine>
+  runtime: RuntimeMode
+  feeds?: ReportFeeds
+}) {
+  const marginTone = line.side === "past" ? "reserved" : "ink"
+  const quality = feeds?.quality ?? qualityView(snapshot.quality)
   return (
     <section className="stress-strip" aria-label="Storm Prep">
       <StripItem name="Outage">
         <StressFact
-          value={reading.outageMw === null ? "—" : formatGridMw(reading.outageMw)}
-          unit={reading.outageMw === null ? "" : "MW"}
-          caption={thresholdCaption(reading.thresholdMw)}
+          value={snapshot.outageMw === null ? "—" : formatGridMw(snapshot.outageMw)}
+          unit={snapshot.outageMw === null ? "" : "MW"}
+          caption={thresholdCaption(snapshot.outageThresholdMw)}
         />
       </StripItem>
       <StripItem name="Margin">
         <StressFact
-          value={reading.marginMw === null ? "—" : formatSignedGridMw(reading.marginMw)}
-          unit={reading.marginMw === null ? "" : "MW"}
-          caption={marginCaption(reading.marginMw)}
+          value={line.marginMw === null ? "—" : formatSignedGridMw(line.marginMw)}
+          unit={line.marginMw === null ? "" : "MW"}
+          caption={line.marginCaption}
+          title={line.trigger ?? undefined}
           tone={marginTone}
         />
       </StripItem>
       <StripItem name="Zone">
-        <StressFact value={reading.zone ?? "—"} unit="" caption={zoneCaption(reading.zoneMw)} />
+        <StressFact value={snapshot.zone ?? "—"} unit="" caption={zoneCaption(snapshot.zoneMw)} />
       </StripItem>
       <StripItem name="As of">
         <StressFact
-          value={reading.ageMin === null ? "—" : String(reading.ageMin)}
-          unit={reading.ageMin === null ? "" : "min"}
-          caption={ageCaption(reading)}
+          value={snapshot.asOf.ageMin === null ? "—" : String(snapshot.asOf.ageMin)}
+          unit={snapshot.asOf.ageMin === null ? "" : "min"}
+          caption={ageCaption(snapshot.asOf, runtime)}
         />
       </StripItem>
       <StripItem name="Quality">
-        <StressFact value={reading.quality} unit="" caption={qualityCaption(reading.quality)} tone={qualityTone(reading.quality)} />
+        {feeds === undefined ? (
+          <StressFact
+            value={quality.label}
+            unit=""
+            caption={quality.reason}
+            tone={quality.tone}
+            title={quality.tooltip}
+          />
+        ) : (
+          <details className="feeds-popover">
+            <summary aria-label="Feeds freshness">
+              <StressFact
+                value={quality.label}
+                unit=""
+                caption={quality.reason}
+                tone={quality.tone}
+                title={quality.tooltip}
+              />
+            </summary>
+            <div className="feeds-panel">
+              {feeds.purpose !== null ? <p className="reports-purpose">{feeds.purpose}</p> : null}
+              <FeedsList rows={feeds.rows} />
+            </div>
+          </details>
+        )}
       </StripItem>
     </section>
   )
@@ -116,14 +212,16 @@ function StressFact({
   unit,
   caption,
   tone = "ink",
+  title,
 }: {
   value: string
   unit: string
   caption: string
   tone?: "ink" | "ok" | "reserved" | "dead" | "stale"
+  title?: string
 }) {
   return (
-    <div className="stress-fact">
+    <div className="stress-fact" title={title}>
       <div className={`stress-value tone-${tone}`}>
         {value}
         {unit ? <span className="metric-unit">{unit}</span> : null}
@@ -140,19 +238,6 @@ function thresholdCaption(thresholdMw: number | null): string {
   return `vs ${formatGridMw(thresholdMw)} MW threshold`
 }
 
-function marginCaption(marginMw: number | null): string {
-  if (marginMw === null) {
-    return "no margin"
-  }
-  if (marginMw > 0) {
-    return "above the line"
-  }
-  if (marginMw < 0) {
-    return "under the line"
-  }
-  return "on the line"
-}
-
 function zoneCaption(zoneMw: number | null): string {
   if (zoneMw === null) {
     return "zone MW missing"
@@ -160,30 +245,17 @@ function zoneCaption(zoneMw: number | null): string {
   return `${formatGridMw(zoneMw)} MW`
 }
 
-function ageCaption(reading: StressReading): string {
-  const stamp = reading.asOfLabel ?? "time missing"
-  if (reading.clockPinned) {
-    return `${stamp} · clock pinned`
-  }
-  return stamp
+function tickPlace(tick: number, tickCount: number): string {
+  return `tick ${String(tick).padStart(2, "0")} / ${String(tickCount).padStart(2, "0")}`
 }
 
-function qualityCaption(quality: string): string {
-  if (quality === "ok") {
-    return "check passed"
+function ageCaption(asOf: SnapshotAsOf, runtime: RuntimeMode): string {
+  if (asOf.pinned) {
+    return `${asOf.label ?? "time missing"} · clock pinned`
   }
-  if (quality === "unchecked") {
-    return "no check ran"
+  if (runtime === "live" && asOf.label === null) {
+    return "waiting on pull"
   }
-  return "named fail"
+  return asOf.label ?? "time missing"
 }
 
-function qualityTone(quality: string): "ok" | "stale" | "dead" {
-  if (quality === "ok") {
-    return "ok"
-  }
-  if (quality === "unchecked") {
-    return "stale"
-  }
-  return "dead"
-}

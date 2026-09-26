@@ -3,7 +3,7 @@ import layoutRun from "../src/fixtures/layout-run.json"
 import { scenes } from "../src/fixtures/scenes"
 import type { RunFile, TickView } from "../src/contracts"
 import { countState, fleetCells } from "../src/components/organisms/fleetCells"
-import { zonePaint, zonePathPaint } from "../src/zonePaint"
+import { zoneHierarchyPaint, zonePaint, zonePathPaint } from "../src/zonePaint"
 
 const run = layoutRun as RunFile
 
@@ -151,5 +151,22 @@ describe("zonePaint", () => {
     const muted = zonePaint(failsafe.tick)
     const paints = muted.zones.map((zone) => zonePathPaint(zone, muted.muted, failsafe.tick.risk_level))
     expect(paints.every((paint) => paint.fill === "#6B645B" && paint.fillOpacity === 0.22)).toBe(true)
+  })
+
+  it("fills the selected zone and mutes the others", () => {
+    const storm = zonePaint(tick(5))
+    const north = storm.zones.find((zone) => zone.zone === "North")
+    const houston = storm.zones.find((zone) => zone.zone === "Houston")
+    if (north === undefined || houston === undefined) {
+      throw new Error("missing zone")
+    }
+    const selected = zoneHierarchyPaint(north, storm.muted, "HIGH", true)
+    const quiet = zoneHierarchyPaint(houston, storm.muted, "HIGH", false)
+    expect(selected.fill).toBe("#B45309")
+    expect(selected.fillOpacity).toBeGreaterThan(quiet.fillOpacity)
+    expect(quiet.fill).toBe("#6B645B")
+    const chosen = zoneHierarchyPaint(houston, false, "HIGH", true)
+    expect(chosen.fill).toBe("#B45309")
+    expect(chosen.weight).toBe(2)
   })
 })

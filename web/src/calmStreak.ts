@@ -2,6 +2,9 @@ import type { TickView } from "./contracts"
 
 export const CALM_NEEDED = 2
 
+/** One line under the meter. Calm is a streak of clean LOW readings, separate from this tick's Risk. */
+export const CALM_LINE = "clean LOW readings in a row"
+
 /**
  * LOW readings in a row, capped at CALM_NEEDED. HIGH or a fail-safe tick resets it to 0.
  * Display only: the engine's reserve_policy still returns the base floor on the first LOW tick.
