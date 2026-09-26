@@ -635,3 +635,9 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Notes: `docs/agents/runtime-mode.md`, `docs/agents/backend.md`, `docs/humans/runtime-mode.md`.
 - Tests: `tests/test_runtime_clock.py`, `web/tests/loadRun.test.ts`, `web/tests/wallOrigin.test.ts`.
 
+## 2026-09-26: Archive inject does not need Supabase env
+
+- CI has no `server/.env`. `test_serve_archive_skips_live_fetch` injects `archive_get` but `fetch_rows` still required `SUPABASE_URL` / `SUPABASE_SECRET_KEY`, so quality was `unavailable` on GitHub and `ok` on a laptop with keys.
+- An injected getter is the I/O. Missing keys still fail when `http_get` is unset (`test_missing_config_is_unavailable`).
+- `pytest -q`: 228 passed.
+

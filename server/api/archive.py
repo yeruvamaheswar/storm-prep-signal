@@ -118,7 +118,11 @@ def fetch_rows(table, params, settings=None, http_get=None):
     settings = settings or archive_settings()
     url, key = settings["url"], settings["key"]
     if not (url and key):
-        raise ArchiveUnavailable("unavailable", "no_config")
+        if http_get is None:
+            raise ArchiveUnavailable("unavailable", "no_config")
+        # Injected getter is the I/O. CI has no server/.env; do not require keys.
+        url = url or "https://example.invalid"
+        key = key or "injected"
     get = http_get or requests.get
     try:
         reply = get(
