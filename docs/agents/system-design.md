@@ -134,6 +134,7 @@ Each decision links to its home. The principles themselves are in [PROJECT_CONTE
 8. **Zones react to weather only.** ERCOT HIGH or no signal raises every zone. A tape weather event raises only the warned zones. There is no per-zone ERCOT threshold. Contract: [CONSTRAINTS.md, Zones](../../CONSTRAINTS.md#zones).
 9. **Contracts only grow.** Shared shapes live in `server/engine/contracts.py`. Fields may be added, never renamed or removed, so the engine, API, and wall never break each other. Rule: [CONSTRAINTS.md](../../CONSTRAINTS.md).
 10. **Operators act on the fleet, not one home.** HOLD and AUTO are fleet-wide. Why: per-home clicking does not scale and invites mistakes.
+11. **A replay starts fresh; only Live carries charge over.** A `--tape` or synthetic run starts from a new fleet and never reads or writes `var/fleet/homes.json`. A live run (`--live`, `scripts/live_cycle.py`) loads that file and saves it once after its last tick. Why: the same tape must give the same totals every time, while Live batteries must remember what they already gave. Detail: [fleet-rollups.md, Persist](fleet-rollups.md#persist).
 
 ## 5. How the decisions are made
 
@@ -189,10 +190,12 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
 | `var/state.json` | Operator mode, `AUTO` or `HOLD`, shared by the API and the live engine. | Local, gitignored |
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
-| `var/fleet/rollups.json` | Zone counts and MW for large fleets. | Local, gitignored |
+| `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
+| `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
 | Supabase `ercot_postings` | One row per ERCOT posting (archive weeks and `event=live`). | Remote, optional |
 | Supabase `ercot_prices` | Zone prices, one row per zone per 15 minutes. | Remote, optional |
 | Supabase `runs` | Copies of run files. | Remote, optional |
+| Supabase `homes` | One current-state row per home (10k). Row level security on, no policies: only the service role key reaches it. | Remote, optional |
 
 Who reads and writes each file, step by step: [code-flow.md, Data files per step](code-flow.md#4-data-files-per-step). Supabase rules: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
 
@@ -292,6 +295,7 @@ Python: `requests`, `python-dotenv`, `pytest`, `fastapi`, `uvicorn`, `httpx2` (t
 
 - ERCOT and Supabase keys stay on the server (`server/.env` or the process env). The browser never sees them and never calls ERCOT.
 - Keys are never printed, logged, or committed. `.env.example` holds names only.
+- Supabase `homes` has row level security on with no policies, so the public (anon) key reads nothing. The server uses the service role key, which bypasses it.
 - Every `POST` needs an `X-Operator-Id` header. A refused write returns `{ "error", "brief" }`.
 - No write can return the fleet to `AUTO` over a bad reading.
 - CORS allows only origins in `CORS_ORIGINS`.

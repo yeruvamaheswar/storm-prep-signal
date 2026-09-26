@@ -116,31 +116,31 @@ def _copy_tape_fixtures(dest):
             shutil.copyfile(ROOT / name, dest / name)
 
 
-def _cli_totals(folder, monkeypatch, capsys):
-    """One pass through `python3 -m server.engine --tape` from a fresh cwd, read back from the run file it wrote.
-
-    A run reloads the last run's var/fleet/homes.json, so a fresh start needs its own folder.
-    """
-    folder.mkdir()
-    _copy_tape_fixtures(folder)
-    monkeypatch.chdir(folder)
+def _cli_totals(capsys):
+    """One pass through `python3 -m server.engine --tape` in the current cwd, read back from the run file it wrote."""
     assert run_then_persist(["--tape", str(DEMO)]) == 0
     totals = json.loads(Path("var/runs/latest.json").read_text())["totals"]
     assert capsys.readouterr().out.rstrip().endswith(summary_line(totals))
     return {key: totals[key] for key in TOTAL_KEYS}
 
 
-def test_cli_tape_replay_writes_nothing_under_repo_var(tmp_path, monkeypatch, capsys, connects):
+def test_cli_tape_replay_twice_in_one_folder_gives_the_same_totals(tmp_path, monkeypatch, capsys, connects):
     for name, value in CLI_ENV.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv("CALL_TARGET_MW", raising=False)
     before = _var_files()
+    _copy_tape_fixtures(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
-    first = _cli_totals(tmp_path / "first", monkeypatch, capsys)
-    second = _cli_totals(tmp_path / "second", monkeypatch, capsys)
+    # Same folder, no cleanup: whatever the first run left under var/ is there for the second.
+    first = _cli_totals(capsys)
+    second = _cli_totals(capsys)
 
     assert connects == []
     assert _var_files() == before
+    assert not (tmp_path / "var" / "fleet" / "homes.json").exists()
     assert first == second
-    assert (round(first["delivered_mwh"], 3), round(first["target_mwh"], 3)) == (0.164, 0.317)
-    assert (first["breaches"], first["hold_ticks"]) == (0, 1)
+    for totals in (first, second):
+        assert (round(totals["delivered_mwh"], 3), round(totals["target_mwh"], 3)) == (0.164, 0.317)
+        assert round(totals["delivery_pct"], 1) == 51.9
+        assert (totals["breaches"], totals["hold_ticks"]) == (0, 1)
