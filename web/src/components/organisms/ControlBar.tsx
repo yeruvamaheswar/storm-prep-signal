@@ -26,6 +26,8 @@ type ControlBarProps = {
   intervals?: readonly IntervalPoint[]
   liveSelectable?: boolean
   onRuntime?: (mode: RuntimeMode) => void
+  /** 01–12 tape chrome. False for live and archive-clocked sources. */
+  showTapeChrome?: boolean
 }
 
 export function ControlBar({
@@ -44,7 +46,9 @@ export function ControlBar({
   intervals = [],
   liveSelectable = false,
   onRuntime,
+  showTapeChrome,
 }: ControlBarProps) {
+  const showTape = showTapeChrome ?? runtime !== "live"
   const live = runtime === "live"
 
   return (
@@ -81,7 +85,7 @@ export function ControlBar({
           <Button
             pressed={mode === "HOLD"}
             armed={mode === "HOLD"}
-            disabled={live || modeTickIndex(ticks, "HOLD", selected) === null}
+            disabled={showTape && modeTickIndex(ticks, "HOLD", selected) === null}
             label="Hold. Discharge stays at zero until Auto."
             onClick={() => {
               onMode("HOLD")
@@ -91,7 +95,6 @@ export function ControlBar({
           </Button>
           <Button
             pressed={mode === "AUTO"}
-            disabled={live}
             label="Auto. The controller dispatches to live homes."
             onClick={() => {
               onMode("AUTO")
@@ -101,10 +104,10 @@ export function ControlBar({
           </Button>
         </div>
         <span className="control-label" id="scenario-label">
-          {live ? "Overlay" : "Scenario"}
+          {showTape ? "Scenario" : "Overlay"}
         </span>
         <div className="scene-keys" role="group" aria-labelledby="scenario-label">
-          {live ? null : (
+          {showTape ? (
             <Button
               pressed={scene === "failsafe"}
               label="Fail-safe. The outage report timed out, so the floor rises and discharge stops."
@@ -114,8 +117,8 @@ export function ControlBar({
             >
               Fail-safe
             </Button>
-          )}
-          {live ? null : (
+          ) : null}
+          {showTape ? (
             <Button
               pressed={scene === "high"}
               label="High risk. Opens the storm tick, then the tick where homes go offline."
@@ -125,11 +128,11 @@ export function ControlBar({
             >
               High risk
             </Button>
-          )}
+          ) : null}
           <Button pressed={radar} label="NWS radar" onClick={onRadar}>
             Radar
           </Button>
-          {live ? null : (
+          {showTape ? (
             <Button
               pressed={scene === "devices"}
               label="15 percent offline. Silent homes get no work. Live homes keep the rest."
@@ -139,12 +142,10 @@ export function ControlBar({
             >
               15% offline
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
-      {live ? (
-        <IntervalStrip intervals={intervals} />
-      ) : (
+      {showTape ? (
         <TapeScrubber
           ticks={ticks}
           selected={selected}
@@ -153,6 +154,8 @@ export function ControlBar({
           zone={zone}
           zoneTick={zoneTick}
         />
+      ) : (
+        <IntervalStrip intervals={intervals} />
       )}
     </footer>
   )

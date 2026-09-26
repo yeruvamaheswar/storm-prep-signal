@@ -3,7 +3,7 @@ import type { RunFile, TickView } from "../src/contracts"
 import layoutRun from "../src/fixtures/layout-run.json"
 import { scenes } from "../src/fixtures/scenes"
 import { fleetIntent } from "../src/fleetIntent"
-import { feedReasons, feedStateLabel, readSuppliedFeeds, reportFeeds, type FeedRow, type ReportFeeds } from "../src/reportFeeds"
+import { feedChipSource, feedChipTitle, feedReasons, feedStateLabel, historyChips, loadFeedCatalog, readFeedCatalog, readSuppliedFeeds, reportFeeds, type FeedProduct, type FeedRow, type ReportFeeds } from "../src/reportFeeds"
 import { stressReading, type StressReading } from "../src/stressReading"
 import { outageLine, UNTRUSTED_REPORT } from "../src/wallLines"
 
@@ -213,9 +213,74 @@ describe("report feeds", () => {
     expect(readSuppliedFeeds({ product: "nope" })).toBeNull()
   })
 
+  it("maps snapshot feed health onto drawer rows and holds only the outage flag", () => {
+    const health = [
+      {
+        product: "NP3-233-CD",
+        path: "/api/public-reports/np3-233-cd/hourly_res_outage_cap",
+        as_of: "13:00 CT",
+        age_min: 20,
+        quality: "stale",
+        hold_on_fail: true,
+        http_status: 200,
+      },
+      {
+        product: "NP6-905-CD",
+        path: "/api/public-reports/np6-905-cd/spp_node_zone_hub",
+        as_of: "13:15 CT",
+        age_min: 5,
+        quality: "ok",
+        hold_on_fail: false,
+        http_status: 200,
+      },
+    ]
+    expect(readSuppliedFeeds(health)).toEqual([
+      { product: "NP3-233-CD outage", lz: "—", asOf: "13:00 CT · 20 min", lastSuccess: "13:00 CT", state: "stale", holdOnFail: true },
+      { product: "NP6-905-CD price", lz: "LZ_NORTH", asOf: "13:15 CT · 5 min", lastSuccess: "13:15 CT", state: "live", holdOnFail: false },
+    ])
+    const reading = stressReading(tapeTick(1))
+    const feeds = reportFeeds(reading, "LIVE", null, "live", { supplied: readSuppliedFeeds(health) })
+    expect(feeds.holdOnFail).toBe("holding")
+    expect(feeds.quality.label).toBe("Stale")
+    const priceOnly = [
+      { ...health[0], quality: "ok", hold_on_fail: false },
+      { ...health[1], quality: "timeout", hold_on_fail: false, http_status: null },
+    ]
+    const priceFeeds = reportFeeds(reading, "LIVE", null, "live", { supplied: readSuppliedFeeds(priceOnly) })
+    expect(priceFeeds.rows[1]?.state).toBe("hold")
+    expect(priceFeeds.holdOnFail).toBe("clear")
+    expect(priceFeeds.holdingSpare).toBe(false)
+  })
+
   it("adds holding spare energy without a raw report dump", () => {
     expect(feedReasons(["homes_dead:2"], true)).toEqual(["holding_spare_energy", "homes_dead:2"])
     expect(feedReasons(["signal_unavailable"], true)).toEqual(["holding_spare_energy"])
     expect(feedReasons(["operator_hold"], false)).toEqual(["operator_hold"])
+  })
+
+  it("turns catalog products into read-only history chips and leaves QUALITY on live rows", async () => {
+    const catalog: FeedProduct[] = [
+      { report: "NP3-233-CD", posted_at: "2024-07-11T23:01:04-05:00", row_count: 3, event: "beryl", file_name: "hourly.zip.csv", quality: "ok", role: "floor" },
+      { report: "NP6-905-CD", posted_at: null, row_count: null, event: "beryl", file_name: null, quality: "stale", role: "price" },
+      { report: "NP3-565-CD", posted_at: "2024-07-11T22:00:00-05:00", row_count: 4, event: "beryl", file_name: null, quality: null, role: "history" },
+    ]
+    const chips = historyChips(catalog)
+    expect(chips.map((row) => row.report)).toEqual(["NP3-233-CD", "NP3-565-CD"])
+    expect(feedChipSource(chips[0]!)).toBe("zip")
+    expect(feedChipSource(chips[1]!)).toBe("api")
+    expect(feedChipTitle(chips[0]!)).toBe("beryl · 3 rows · 2024-07-11T23:01:04-05:00")
+    const reading = stressReading(tapeTick(1))
+    const feeds = reportFeeds(reading, "LIVE", null, "live", { catalog, ingestQuality: "ok" })
+    expect(feeds.chips).toEqual(chips)
+    expect(feeds.rows).toHaveLength(2)
+    expect(feeds.quality.label).toBe("Live")
+    const stale = reportFeeds(reading, "LIVE", null, "live", { catalog, ingestQuality: "stale" })
+    expect(stale.quality.label).toBe("Stale")
+    expect(stale.chips).toEqual(chips)
+    expect(readFeedCatalog({ event: "beryl", products: catalog })).toEqual(catalog)
+    expect(readFeedCatalog({ products: [{ report: "nope" }] })).toBeNull()
+    const fetchMock = (async () =>
+      new Response(JSON.stringify({ event: "beryl", products: catalog }))) as typeof fetch
+    expect(await loadFeedCatalog(fetchMock, "")).toEqual(catalog)
   })
 })

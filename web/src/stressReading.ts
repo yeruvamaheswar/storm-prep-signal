@@ -13,36 +13,11 @@ export type StressReading = {
   quality: string
 }
 
-const THRESHOLD_MW = 22348
-
 const PINNED: Pick<StressReading, "asOfLabel" | "ageMin" | "clockPinned" | "quality"> = {
   asOfLabel: "12:00 CT",
   ageMin: 0,
   clockPinned: true,
   quality: "unchecked",
-}
-
-/**
- * Tick 05 of the demo brief is HIGH, floor 60%, missed 0.09 MW.
- * Used only when a HIGH tick still has no houston_mw columns and no outage fields.
- */
-const TICK_05: StressReading = {
-  outageMw: 22539,
-  thresholdMw: THRESHOLD_MW,
-  marginMw: 191,
-  zone: "North",
-  zoneMw: 9294,
-  ...PINNED,
-}
-
-/** Saved real posting. Same trigger, under the line. LOW ticks without zone columns. */
-const CALM_POSTING: StressReading = {
-  outageMw: 22194,
-  thresholdMw: THRESHOLD_MW,
-  marginMw: -154,
-  zone: "North",
-  zoneMw: 9429,
-  ...PINNED,
 }
 
 const UNREAD: StressReading = {
@@ -88,6 +63,11 @@ function largestZone(totals: ZoneMwTotals): keyof ZoneMwTotals {
   return best
 }
 
+function triggerMw(tick: TickView): number | null {
+  const row = tick as TickView & Record<string, unknown>
+  return finiteNumber(row.trigger_mw) ?? finiteNumber(row.threshold_mw)
+}
+
 function readingFromZoneColumns(tick: TickView): StressReading | null {
   if (tick.policy_reason === "signal_unavailable" || tick.risk_level === null) {
     return null
@@ -98,10 +78,11 @@ function readingFromZoneColumns(tick: TickView): StressReading | null {
   }
   const outageMw = totals.Houston + totals.North + totals.South + totals.West
   const zone = largestZone(totals)
+  const thresholdMw = triggerMw(tick)
   return {
     outageMw,
-    thresholdMw: THRESHOLD_MW,
-    marginMw: outageMw - THRESHOLD_MW,
+    thresholdMw,
+    marginMw: thresholdMw === null ? null : outageMw - thresholdMw,
     zone,
     zoneMw: totals[zone],
     ...PINNED,
@@ -115,10 +96,8 @@ function readingFromFields(tick: TickView): StressReading | null {
     return { ...UNREAD, quality: named }
   }
   const outageMw = finiteNumber(row.outage_mw)
-  const thresholdMw = finiteNumber(row.threshold_mw)
-  const marginMw = finiteNumber(row.margin_mw)
+  const thresholdMw = triggerMw(tick)
   const zone = text(row.driving_zone)
-  // A live posting carries no threshold; the strip shows "no threshold" instead of borrowing the tape's.
   if (outageMw === null || zone === null) {
     return null
   }
@@ -126,7 +105,7 @@ function readingFromFields(tick: TickView): StressReading | null {
   return {
     outageMw,
     thresholdMw,
-    marginMw,
+    marginMw: thresholdMw === null ? finiteNumber(row.margin_mw) : outageMw - thresholdMw,
     zone,
     zoneMw: finiteNumber(row.zone_mw),
     asOfLabel: text(row.stress_as_of),
@@ -140,19 +119,10 @@ function fallback(level: RiskLevel | null, policyReason: string): StressReading 
   if (policyReason === "signal_unavailable" || level === null) {
     return UNREAD
   }
-  switch (level) {
-    case "HIGH":
-      return TICK_05
-    case "LOW":
-      return CALM_POSTING
-    default: {
-      const neverLevel: never = level
-      return neverLevel
-    }
-  }
+  return { ...UNREAD, quality: "unchecked" }
 }
 
-/** Prefer outage fields on the tick, then houston_mw columns. HIGH/LOW fallbacks are last. */
+/** Prefer outage fields on the tick, then houston_mw columns. Do not invent a MW trigger. */
 export function stressReading(tick: TickView): StressReading {
   return readingFromFields(tick) ?? readingFromZoneColumns(tick) ?? fallback(tick.risk_level, tick.policy_reason)
 }
