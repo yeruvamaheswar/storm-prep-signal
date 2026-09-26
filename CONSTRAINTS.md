@@ -18,7 +18,7 @@ If you need something in a file you don't own, like a new dependency, a new sett
 
 | Function | Owner | Signature and promise |
 |---|---|---|
-| `reserve_policy` | Uma | `(risk: RiskResult \| None, settings) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
+| `reserve_policy` | Uma | `(risk: RiskResult \| None, settings, alerted=None) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
 | `new_fleet` | Rajath | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
 | `apply_events` | Rajath | `(homes, events) -> None`: sets status only. |
 | `allocate` | Rajath | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
@@ -28,6 +28,8 @@ If you need something in a file you don't own, like a new dependency, a new sett
 | `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
 | `render` | Sunny | `(log_path) -> Path`: one static HTML file from `stage == "tick"` events. No server needed. |
 | `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
+
+alerted is a dict of zone name to NWS event name; statewide reasons outrank zone alerts.
 
 ## Allocation rule (Rajath implements it; Uma must be able to say it out loud)
 
