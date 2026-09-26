@@ -31,6 +31,7 @@ from server.engine.signal import (
     SignalUnavailable,
     load_price,
     load_signal,
+    load_zone_prices,
     stamp_price,
     to_signal,
 )
@@ -142,6 +143,19 @@ def read_live_price(settings):
     return price
 
 
+def read_live_zone_prices(settings):
+    """Fetch the four load-zone prices once. A failure is {}, so no zone shows a price."""
+    try:
+        zone_prices = load_zone_prices(settings)
+    except SignalUnavailable as exc:
+        log_event("fetch_zone_prices", "failed", ok=False, reason=str(exc), source=PRICE_SOURCE)
+        print(f"live: zone prices unknown | {exc} | source: {PRICE_SOURCE}")
+        return {}
+    log_event("fetch_zone_prices", "ok", source=PRICE_SOURCE, zone_prices=zone_prices)
+    print(f"live: zone prices {zone_prices} $/MWh | source: {PRICE_SOURCE}")
+    return zone_prices
+
+
 def synthetic_frames(settings, start):
     """The frames used by --live with no tape: a flat target, labeled synthetic, no price."""
     step = timedelta(minutes=settings["tick_minutes"])
@@ -188,12 +202,13 @@ def write_run_files(runs_dir, run_id, record):
 
 
 def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, state_path=None,
-        frames=None, live_risk=_UNSET, live_price=_UNSET, baseline_path=BASELINE_PATH):
+        frames=None, live_risk=_UNSET, live_price=_UNSET, baseline_path=BASELINE_PATH,
+        live_zone_prices=_UNSET):
     """Play every frame of the tape through the fleet. Returns the run record written to disk.
 
     live=True fetches ERCOT once and uses that risk on every tick, ignoring the frames' risk
     fixtures. With no tape it plays SYNTHETIC_TICKS synthetic frames. A caller that already
-    fetched (the live worker) may pass `frames`, `live_risk`, and `live_price`.
+    fetched (the live worker) may pass `frames`, `live_risk`, `live_price`, and `live_zone_prices`.
     baseline_path lets a past storm be rated against the month before it, not against today's baseline.
 
     Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → TickResult.
@@ -210,9 +225,12 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         # Skip a second login when the outage fetch already failed on the token.
         if live_price is _UNSET:
             live_price = read_live_price(settings) if live_risk is not None else None
+        if live_zone_prices is _UNSET:
+            live_zone_prices = read_live_zone_prices(settings) if live_risk is not None else {}
     else:
         live_risk = None
         live_price = None
+        live_zone_prices = {}
     if frames is None:
         frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
     if live:
@@ -243,9 +261,13 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         else:
             priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
                       "price_as_of": None}
-        # Recorded zone prices belong to the tape's moment. A live run never shows them as now.
-        zone_prices = {} if live else dict(frame.zone_prices)
-        zone_price_label = "none" if live or not zone_prices else frame.zone_price_label
+        # Recorded zone prices belong to the tape's moment. A live run never shows them as now:
+        # it uses the four zones fetched from ERCOT for this run, or none if that fetch failed.
+        zone_prices = dict(live_zone_prices or {}) if live else dict(frame.zone_prices)
+        if not zone_prices:
+            zone_price_label = "none"
+        else:
+            zone_price_label = "ercot" if live else frame.zone_price_label
         # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
         policy = reserve_policy(
             risk, settings, alerted, mode=mode,

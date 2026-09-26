@@ -1,7 +1,7 @@
 """Bind NP6-905-CD prices to the four load zones.
 
-PK on public.ercot_prices is (settlement_point, interval_ending). Live GET stays
-LZ_NORTH. Archive (or a multi-LZ body) can fill the other three. Ignore
+PK on public.ercot_prices is (settlement_point, interval_ending). The live worker
+upserts all four load zones; archive rows fill them for past weeks. Ignore
 LZ_AEN|CPS|LCRA|RAYBN. Label ercot only when the number came from a row.
 """
 
@@ -11,14 +11,10 @@ from datetime import datetime
 import requests
 
 from server.env import load_env
-from server.engine.signal import CENTRAL, price_interval_end, rows_by_name
+from server.engine.signal import CENTRAL, ZONE_POINTS, price_interval_end, rows_by_name
 
-LOAD_ZONE_POINTS = {
-    "Houston": "LZ_HOUSTON",
-    "North": "LZ_NORTH",
-    "South": "LZ_SOUTH",
-    "West": "LZ_WEST",
-}
+# One home for the zone -> settlement point map: server/engine/signal.py.
+LOAD_ZONE_POINTS = ZONE_POINTS
 IGNORE_POINTS = {"LZ_AEN", "LZ_CPS", "LZ_LCRA", "LZ_RAYBN"}
 POINT_TO_ZONE = {point: zone for zone, point in LOAD_ZONE_POINTS.items()}
 ARCHIVE_TIMEOUT_S = 3
