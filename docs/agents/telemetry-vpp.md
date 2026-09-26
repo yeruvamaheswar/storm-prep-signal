@@ -25,7 +25,7 @@ ReserveGate has no real batteries. Today a home's charge is exact and known to t
 1. Every battery reports continuously: each home every 10 virtual seconds, which is 3,000 readings per 5-minute tick across 100 homes. That is a demo rate, slower than the sub-second telemetry Base says it runs.
 2. A home that goes silent is marked stale within 190 virtual seconds (the 180 s stale rule plus one reading interval), and gets no work from the next plan.
 3. A battery whose numbers do not add up is flagged `suspect` at the end of the tick in which it lied, and gets 0 kW from the next tick on.
-4. 0 floor breaches across the fuzzer (30 seeds by default, 50 on request) with the feed and all faults switched on.
+4. 0 floor breaches across the fuzzer (30 seeds by default, more on request with `TELEMETRY_FUZZ_SEEDS`, e.g. `TELEMETRY_FUZZ_SEEDS=50`) with the feed and all faults switched on.
 5. The operator gets one plant view (per zone and in total), and the backend keeps every battery's state and reading counters.
 
 ## Non-goals
@@ -75,6 +75,7 @@ The **data status** is derived from data age: 180 s or less is `live`, over 180 
 ### P0: feed, intake, HomeState, rollups (cut line 1)
 
 **R1. Feed on the virtual clock.** Each home sends a Reading every `telemetry_every_s` (default 10) through `channel.py`, on the same `Scheduler` as the orders. The first reading is offset by a seeded amount, so homes do not all report at once. `Channel.send` requires a `command_id`, so each reading message carries `command_id = "telemetry:{home_id}:{boot_id}:{seq}"`. That id is for channel logging only; `channel.py` does not change.
+
 Before the first tick, every battery registers with one reading, so tick 1 plans from a report.
 - [ ] Given seed S, two runs produce identical readings, faults and rollups.
 - [ ] 100 homes produce about 3,000 readings per 300 s tick.
@@ -107,7 +108,7 @@ The reboot fault (a new `boot_id` with `seq` restarting) is cut for tonight and 
 - [ ] **Tape-dead and suspect do not revive:** a home the tape marked `dead` or `stale`, or one flagged `suspect`, stays out of planning even if readings arrive. The planning status is the worse of the tape status and the data status.
 
 **R5. Energy check (suspect), per tick.** For each home that confirmed an order this tick: expected charge = the charge in `pre_tick` (`pre_tick["soc_kwh"]`) − confirmed actual_kw × tick_minutes / 60. The expected charge is compared with the latest reported charge at the end of the tick (300 s). A difference of more than 0.1 kWh (setting `suspect_kwh`; 0.1 kWh over a 5-minute tick catches a lie of 1.2 kW or more, and honest simulated homes match exactly) marks the home `suspect`. Checked only when both readings were sent at least 5 s after a books close (this covers ±2 s clock skew). Homes with no fresh reading before and after the tick are skipped, not flagged. The continuous 10-second check is P2.
-- [ ] The planted lying battery is flagged at the end of its first tick with a confirmed order.
+- [ ] The planted lying battery is flagged at the end of its first tick with a confirmed order of 1.2 kW or more.
 - [ ] Across 30 seeds, no honest home is ever flagged.
 - [ ] A home that was silent all tick is not flagged.
 
@@ -115,6 +116,7 @@ The reboot fault (a new `boot_id` with `seq` restarting) is cut for tonight and 
   - `allocate` and the rollups use reported data only (`reported_homes`, `HomeState.last`).
   - `HomeWorker`, `discharge`, the floor clamp and the breach count use the simulator's true `Home` objects only.
   - A wrong report can therefore cause a missed target, but never a breach.
+
 Reassignment at the 60 s deadline (`ZoneSupervisor.pick_home`) also reads the plan's reported copies (`rt.plan_view`), never the simulator's truth.
 - [ ] No object returned by `reported_homes` is the same object as a simulator `Home` (an identity test).
 - [ ] `allocate` is never called with the simulator's own `Home` objects when the feed is on.
@@ -183,12 +185,12 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
 
 | Metric | Target | How measured |
 |---|---|---|
-| Floor breaches, feed and all faults on | 0 over 30 seeds (50 with `FUZZ_SEEDS=50`) | `tests/test_invariants.py` |
+| Floor breaches, feed and all faults on | 0 over 30 seeds (more with `TELEMETRY_FUZZ_SEEDS=50`) | `tests/test_telemetry.py::test_fuzz_with_feed_never_breaches_and_never_blames_an_honest_home` |
 | Stale detection | at most 190 s after the last reading | test R4 |
 | Lying battery caught | at the end of its first tick with a confirmed order of 1.2 kW or more | test R5 |
-| False suspects | 0 over 30 seeds | fuzzer |
+| False suspects | 0 over 30 seeds | `tests/test_telemetry.py::test_fuzz_with_feed_never_breaches_and_never_blames_an_honest_home`, with `TELEMETRY_FUZZ_SEEDS` (default 30) |
 | Replayability | same seed, byte-identical run file | test R1 |
-| Speed | 30-seed fuzz under 30 s on a laptop; measured 3.681 s | `pytest -q` timing |
+| Speed | 30-seed fuzz under 30 s on a laptop; measured 3.14 s | `pytest -q` timing |
 
 ## Open questions
 
@@ -217,3 +219,4 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
 - Say "OpenTelemetry-shaped metrics over a simulated transport". There is no exporter or collector.
 - The zone and plant rollups are operator health views, not ERCOT settlement-grade telemetry. ADER does not require per-home telemetry at our cadence.
 - Suspect detection is checked once per tick, not on every reading.
+- The feed shares each tick's seeded random stream with the command channel, so the same seed with and without `--telemetry` sees different command faults; replay of either run is still exact.

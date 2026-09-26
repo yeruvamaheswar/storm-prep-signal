@@ -332,7 +332,9 @@ def test_hold_with_feed_sends_nothing_and_flags_nobody():
 def test_same_seed_same_cycle_with_feed():
     a = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
     b = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
-    assert [(x.credited_mw, x.feed) for x in a] == [(y.credited_mw, y.feed) for y in b]
+    assert [(x.credited_mw, x.feed, x.plant, x.zones) for x in a] == [
+        (y.credited_mw, y.feed, y.plant, y.zones) for y in b
+    ]
 
 
 def test_reassignment_uses_reported_status_not_the_truth():
@@ -358,6 +360,7 @@ def test_plant_is_the_sum_of_its_zones():
     assert r.plant["delivering_mw"] == pytest.approx(r.confirmed_mw)
     assert r.plant["data_label"] == "synthetic"
     assert r.plant["zones"] == r.zones
+    assert r.plant["zones"] is not r.zones
 
 
 def test_rollup_counts_statuses():
@@ -382,10 +385,17 @@ def test_a_lying_battery_is_flagged_after_its_first_order_then_gets_no_work():
     results, homes, state = cycle_with_feed(target_mw=1.0, ticks=2, telemetry_liar_ids=("home-100",))
     first, second = results
     assert first.command_states.get("home-100:1") == "confirmed"
+    assert first.feed["newly_suspect"] == ["home-100"]
+    assert second.feed["newly_suspect"] == []
     assert state.homes["home-100"].suspect
     assert [i for i, hs in state.homes.items() if hs.suspect] == ["home-100"]
     assert "home-100" not in second.allocation.per_home_kw
     assert second.plant["homes"]["suspect"] == 1
+
+
+def test_honest_homes_are_not_suspect_with_four_second_clock_skew():
+    results, homes, state = cycle_with_feed(target_mw=0.5, ticks=3, telemetry_skew_s=4.0)
+    assert not any(hs.suspect for hs in state.homes.values())
 
 
 def test_honest_homes_are_never_flagged_over_many_ticks():
@@ -401,7 +411,7 @@ def test_a_silent_home_is_skipped_not_flagged():
 
 
 def test_fuzz_with_feed_never_breaches_and_never_blames_an_honest_home():
-    for seed in range(1, int(os.environ.get("TELEMETRY_FUZZ_SEEDS", "10")) + 1):
+    for seed in range(1, int(os.environ.get("TELEMETRY_FUZZ_SEEDS", "30")) + 1):
         rng = random.Random(seed)
         s = settings(channel_drop_rate=0.05, channel_dup_rate=0.05, channel_late_rate=0.05)
         homes = new_fleet(s)

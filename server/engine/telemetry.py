@@ -8,6 +8,7 @@ Readings travel on the cycle's seeded Scheduler through their own lossy Channel,
 replays exactly from its seed. Metric names follow the OpenTelemetry hardware conventions
 (hw.battery.charge, hw.power, hw.status); there is no exporter, only the shape.
 """
+import copy
 import random
 from dataclasses import dataclass, field
 from typing import Optional
@@ -207,7 +208,11 @@ class TelemetryState:
         Checked once per tick: orders move a battery's charge all at once when they execute, so a
         per-reading check would blame honest homes. Homes we can't be sure about are skipped.
         """
-        close = self.settings.get("cycle_close_s", 120.0) + 5.0   # 5 s covers +-2 s clock skew
+        skew = knob(self.settings, "telemetry_skew_s")
+        margin = max(5.0, skew + 1.0)
+        # Keep checked readings after the books close even with clock skew. Default skew 2 s keeps
+        # the old 5 s margin.
+        close = self.settings.get("cycle_close_s", 120.0) + margin
         tick_h = self.settings["tick_minutes"] / 60
         flagged = []
         for home_id, hs in self.homes.items():
@@ -265,11 +270,11 @@ class TelemetryState:
             z["homes"]["total"] += 1
             z["homes"][status] += 1
             soc = hs.last["soc_kwh"] if hs.last else 0.0
-            copy = Home(h.home_id, h.capacity_kwh, soc, h.max_kw, "live", h.zone)
+            reported = Home(h.home_id, h.capacity_kwh, soc, h.max_kw, "live", h.zone)
             z["soc_mwh"] += soc / 1000
-            z["floor_mwh"] += floor_kwh(copy, policy) / 1000
+            z["floor_mwh"] += floor_kwh(reported, policy) / 1000
             if status == "live":
-                z["available_mw"] += safe_kw(copy, policy, self.settings) / 1000
+                z["available_mw"] += safe_kw(reported, policy, self.settings) / 1000
             z["max_data_age_s"] = max(z["max_data_age_s"], now - hs.last_seen)
         for name, z in zones.items():
             z["delivering_mw"] = result.zone_delivered_mw.get(name, 0.0)
@@ -283,7 +288,7 @@ class TelemetryState:
             plant["max_data_age_s"] = max(plant["max_data_age_s"], z["max_data_age_s"])
             plant["grid_down"] = plant["grid_down"] or z["grid_down"]
         plant["coverage"] = plant["homes"]["live"] / plant["homes"]["total"] if plant["homes"]["total"] else 0.0
-        plant["zones"] = zones
+        plant["zones"] = copy.deepcopy(zones)
         return plant, zones
 
     @staticmethod
