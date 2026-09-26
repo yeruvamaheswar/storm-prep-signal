@@ -42,8 +42,8 @@ def read_settings():
         "stale_after_min": int(os.getenv("STALE_AFTER_MIN", "90")),
         # Example simulation settings, not Base specs.
         "fleet_size": int(os.getenv("FLEET_SIZE", "100")),
-        "home_kwh": float(os.getenv("HOME_KWH", "20")),
-        "home_max_kw": float(os.getenv("HOME_MAX_KW", "5")),
+        "home_kwh": float(os.getenv("HOME_KWH", "25")),
+        "home_max_kw": float(os.getenv("HOME_MAX_KW", "11.4")),
         # Live/archive high call. Unset scales the demo 0.40 peak with FLEET_SIZE.
         "call_target_mw": _optional_float("CALL_TARGET_MW"),
         "home_start_soc_min_pct": float(os.getenv("HOME_START_SOC_MIN_PCT", "45")),

@@ -224,7 +224,35 @@ def _feeds(quality, as_of=None, age_min=None, http_status=None, hold_outage=Fals
 
 
 def _finish(tick: dict) -> dict:
-    return apply_tick_brief(apply_mode(tick))
+    original_mode = tick.get("mode")
+    overlaid = apply_mode(tick)
+    new_mode = overlaid.get("mode")
+    if original_mode != new_mode:
+        overlaid = _reconcile_mode_overlay(overlaid, original_mode, new_mode)
+    return apply_tick_brief(overlaid)
+
+
+def _reconcile_mode_overlay(tick: dict, original_mode, new_mode) -> dict:
+    """Strip a stale operator hold when the wall already requested AUTO.
+
+    The run file holds the last dispatched tick (e.g. HOLD, delivered 0,
+    reasons ['operator_hold']). Overlaying the requested mode (e.g. AUTO)
+    without touching the other fields leaves an impossible tick on the wall:
+    AUTO + 0 MW + "Operator hold". The engine invariant is that
+    `operator_hold` appears only when mode is HOLD, so drop it when
+    overlaying AUTO and rebuild the brief. Delivered MW stays stale until
+    the next live_cycle tick runs; the wall reads the empty reasons on a
+    full miss as "next dispatch pending" instead of Hold.
+    A HOLD overlay keeps the dispatched reasons untouched: the last dispatch
+    really did run under those codes, and the next tick will record the hold.
+    """
+    if not (new_mode == "AUTO" and original_mode == "HOLD"):
+        return tick
+    stamped = dict(tick)
+    stamped["reasons"] = [code for code in (stamped.get("reasons") or []) if code != "operator_hold"]
+    if stamped.get("intent") == "hold" and stamped.get("intent_reason") == "operator_hold":
+        stamped["intent_reason"] = ""
+    return stamped
 
 
 def _with_fleet(fleet, body):
@@ -556,7 +584,8 @@ def build_snapshot(
     zone: Optional[str] = None,
 ) -> dict:
     run = load_latest_run()
-    tick = scale_tick_to_fleet(dict(run["ticks"][-1]), read_settings())
+    # Size from the run's own fleet so a 10k live tick never shrinks to the demo env.
+    tick = scale_tick_to_fleet(dict(run["ticks"][-1]), {**read_settings(), "fleet_size": _fleet_size(run)})
     named = event if isinstance(event, str) else (run.get("event") if isinstance(run.get("event"), str) else None)
     replay = discover_runtime(event=named, clock=_iso_clock(clock))
     origin = _origin_fields(replay, run, named)

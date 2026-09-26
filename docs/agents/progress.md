@@ -989,3 +989,22 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `loop.py` (Uma's file, one line): writes `var/fleet/rollups.json` with `cycle_rollups`. Before, a 50%-loss tick showed every planned home as discharging.
 - Docs: `docs/agents/fleet-rollups.md`, `docs/agents/code-flow.md`.
 - Tests: 1 in `tests/test_fleet.py`, 4 in `tests/test_orchestration.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 501 passed after merging main. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Calm meter counts successive LOW snapshots
+
+- Named gap: Live scored only the newest snapshot, so the meter stayed at 1/2 after later LOW cycles.
+- `rememberSnapshot` keeps each new `ts`. The same `ts` replaces the last reading. A timeout or stale pull resets the streak. Demo tape still counts the scrubber prefix.
+- Tests: `web/tests/calmStreak.test.ts`, `web/tests/liveStamp.test.ts` (vitest 237 passed). `pytest -q`: 479 passed. Notes: `docs/agents/calm-meter.md`.
+
+## 2026-09-26: Stale Hold after requesting Auto (live wall)
+
+- Named gap: Live showed masthead AUTO with banner "Hold above the 30% floor. Delivered 0.00 of 40.00 MW" and reasons "Operator hold". The run file still held the last HOLD dispatch; `GET /v1/snapshot` overlaid the requested AUTO without touching delivered/reasons, breaking the engine invariant (`operator_hold` only when mode is HOLD). The wall also flipped to Auto before the POST resolved.
+- Fix: snapshot strips stale `operator_hold` (and matching intent reason) on an AUTO overlay and rebuilds the brief; delivered stays stale until the next `live_cycle` tick (routes still do not allocate). The wall reads AUTO + full miss + zero reasons as "Auto requested — next dispatch pending" (`web/src/fleetIntent.ts`); the Live POST resolves before the local flip (`OperatorWall.showMode`).
+- Tests: `tests/test_snapshot_mode.py` (strip on AUTO overlay, keep dispatched reasons on HOLD overlay); `web/tests/fleetIntent.test.ts` (pending line). `pytest -q`: 502 passed. Vitest on fleetIntent/wallMode/wallSnapshot passed. `tsc --noEmit` clean.
+- Notes: `docs/agents/mode-stale-hold.md`. Live proof: next `live_cycle` tick with state AUTO returned AUTO + 40.0 MW delivered.
+
+## 2026-09-26: Capacity-planning parallel prompts (docs only)
+
+- Named gap: intent already says charge/hold/discharge from the LZ price, but allocate still only sells, live price is LZ_NORTH only, snapshot omits `price_label`, and the wall never says Charge. Pack size is still 20 kWh / 5 kW.
+- Wrote seven file-exclusive prompts and the charge/zone-price contract in `docs/agents/plans/capacity-planning-prompts.md`. People page: `docs/humans/capacity-planning.md`. Index row added.
+- Docs only. `pytest -q` not rerun.

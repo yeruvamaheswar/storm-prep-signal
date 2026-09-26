@@ -16,8 +16,8 @@ STATUSES = ("live", "stale", "dead")
 # still win when new_fleet gets a dict; this order is for new_fleet(n).
 ZONE_ORDER = ("South", "North", "West", "Houston")
 ZONE_FIPS = {"South": "48355", "North": "48113", "West": "48329", "Houston": "48201"}
-HOME_KWH = 20.0
-HOME_MAX_KW = 5.0
+HOME_KWH = 25.0
+HOME_MAX_KW = 11.4
 SOC_MIN_PCT = 45.0
 SOC_MAX_PCT = 75.0
 # Demo tape is 100 homes / 0.40 MW peak. Live/archive scale from that, not the fixture number.
@@ -44,7 +44,7 @@ def assign_zone(index, zones):
 
 
 def fleet_cap_mw(settings):
-    """Hard cap: FLEET_SIZE × HOME_MAX_KW / 1000. 10k × 5 kW = 50 MW."""
+    """Hard cap: FLEET_SIZE × HOME_MAX_KW / 1000. 10k × 11.4 kW = 114 MW."""
     return float(settings["fleet_size"]) * float(settings["home_max_kw"]) / 1000.0
 
 
@@ -127,7 +127,7 @@ def scale_tick_to_fleet(tick, settings):
 
 
 def seed_settings(n):
-    """Example 5 kW / 20 kWh homes, 45–75% charge, wall zone order. Not Base specs."""
+    """Example 11.4 kW / 25 kWh homes, 45–75% charge, wall zone order. Not Base specs."""
     return {
         "fleet_size": n,
         "home_kwh": HOME_KWH,

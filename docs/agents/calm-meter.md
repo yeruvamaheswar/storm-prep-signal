@@ -13,6 +13,7 @@ The control is a 0–2 meter: the count, a fill, and the line "clean LOW reading
 - The Floor cell always keeps the engine's `policy_reason`, because it reports the floor the engine actually set.
 - Both cells show that code through `headerReason`: a sentence-case label plus a tooltip for why the floor moved. The raw code stays in the tick. `riskCaption` still returns the code, and the header maps it.
 - A wall scene is a staged tick with no history, so it is counted on its own.
+- Live and archive do not use the demo tape. Each snapshot with a new `ts` is the next reading. The same `ts` replaces the last reading, so a 20s poll of one cycle does not add a second point. A `timeout` or `stale` pull resets the streak. The next clean LOW starts at 1 again.
 
 On the layout fixture, ticks 9, 10, 11, and 12 read 0/2, 1/2, 2/2, and 2/2.
 
@@ -22,7 +23,8 @@ On the layout fixture, ticks 9, 10, 11, and 12 read 0/2, 1/2, 2/2, and 2/2.
 
 ## Code
 
-- `web/src/calmStreak.ts`: `calmStep`, `calmStreak`, `riskCaption`
+- `web/src/calmStreak.ts`: `calmStep`, `calmStreak`, `pushCalmSample`, `calmFromSamples`, `wallCalm`, `riskCaption`
+- `web/src/liveStamp.ts`: `rememberSnapshot` keeps `calmSamples` on the watch
 - `web/src/format.ts`: `headerReason` maps `normal`, `storm_risk_high`, `signal_unavailable`, and `weather_alert`
 - `web/src/components/molecules/CalmMeter.tsx`
 - `web/tests/calmStreak.test.ts`

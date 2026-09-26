@@ -22,13 +22,15 @@ def settings(**over):
     return base
 
 
-def policy(pct=30.0, reason="normal", **zone_over):
+def policy(pct=30.0, reason="normal", intent="discharge", **zone_over):
     """Every zone at `pct`, except the zones named in zone_over (for example Houston=60.0)."""
     floors = {z: pct for z in ZONES}
     floors.update(zone_over)
     reasons = {z: reason for z in ZONES}
     level = "HIGH" if reason == "storm_risk_high" else "LOW"
-    return Policy(pct, reason, level, zone_reserve_pct=floors, zone_reasons=reasons)
+    p = Policy(pct, reason, level, zone_reserve_pct=floors, zone_reasons=reasons)
+    p.intent = intent
+    return p
 
 
 def frame(target_mw):
@@ -47,11 +49,19 @@ def check_books(alloc, target_mw):
     assert all(kw > 0 for kw in alloc.per_home_kw.values())
 
 
+def check_charge_books(alloc, target_mw):
+    """A charge tick delivers 0, misses the call, and writes negative kW only."""
+    assert alloc.delivered_mw == 0.0
+    assert alloc.missed_mw == pytest.approx(target_mw)
+    assert all(kw < 0 for kw in alloc.per_home_kw.values())
+
+
 def assert_real_reasons(alloc):
     """Wall codes only. A TEMP stub must never leak `temp_stub` onto the tick."""
     assert "temp_stub" not in alloc.reasons
     for code in alloc.reasons:
-        ok = code in ("operator_hold", "storm_reserve", "fleet_headroom_short", "unknown_zone")
+        ok = code in ("operator_hold", "holding_spare_energy", "charging",
+                      "storm_reserve", "fleet_headroom_short", "unknown_zone")
         ok = ok or code.startswith("homes_dead:") or code.startswith("homes_stale:")
         assert ok, f"unexpected reason {code!r}"
 
@@ -205,6 +215,7 @@ def test_unknown_zone_gets_nothing_with_unknown_zone():
 def test_policy_without_zone_floors_falls_back_to_reserve_pct():
     # An older Policy with no zone table: every home uses reserve_pct, and no zone is "unknown".
     p = Policy(30.0, "normal", "LOW")
+    p.intent = "discharge"
     alloc = allocate([home("a", 7.0, zone="")], frame(1.0), p, "AUTO", settings())
     assert alloc.per_home_kw == {"a": 12.0}
     assert alloc.reasons == ["fleet_headroom_short"]
@@ -285,3 +296,131 @@ def test_storm_60_floor_misses_040_mw_without_breaches():
         assert h.soc_kwh >= min(start[h.home_id], floor_kwh(h, p)) - 1e-9
         if start[h.home_id] <= floor_kwh(h, p):
             assert h.soc_kwh == start[h.home_id]
+
+
+# --- intent: hold writes nothing, discharge sells, charge absorbs ----------------
+
+def test_hold_intent_writes_nothing_and_holds_spare_energy():
+    # A mid-band price holds: no kW, missed is the call, reason names the hold.
+    homes = [home("a", 10.0), home("b", 10.0)]
+    alloc = allocate(homes, frame(0.2), policy(intent="hold"), "AUTO", settings())
+    assert alloc.per_home_kw == {}
+    assert alloc.delivered_mw == 0.0
+    assert alloc.missed_mw == pytest.approx(0.2)
+    assert alloc.reasons == ["holding_spare_energy"]
+    assert_real_reasons(alloc)
+
+
+def test_hold_intent_still_counts_dead_and_stale():
+    homes = [home("a", 10.0), home("b", 10.0, status="dead"), home("c", 10.0, status="stale")]
+    alloc = allocate(homes, frame(0.2), policy(intent="hold"), "AUTO", settings())
+    assert alloc.per_home_kw == {}
+    assert alloc.delivered_mw == 0.0 and alloc.missed_mw == pytest.approx(0.2)
+    assert alloc.reasons == ["holding_spare_energy", "homes_dead:1", "homes_stale:1"]
+    assert_real_reasons(alloc)
+
+
+def test_discharge_intent_keeps_the_positive_split():
+    # Cheap-tick fix must not change a sell tick: same proportional shares as before.
+    homes = [home("a", 7.0), home("b", 8.0), home("c", 9.0)]
+    alloc = allocate(homes, frame(0.036), policy(intent="discharge"), "AUTO", settings())
+    assert alloc.per_home_kw["a"] == pytest.approx(6.0)
+    assert alloc.per_home_kw["b"] == pytest.approx(12.0)
+    assert alloc.per_home_kw["c"] == pytest.approx(18.0)
+    assert alloc.delivered_mw == pytest.approx(0.036)
+    check_books(alloc, 0.036)
+
+
+def test_charge_intent_writes_negative_kw_only_and_misses_the_call():
+    # Room to a 20 kWh cap: 10, 5, 1 kWh x12 = 120, 60, 12 kW, capped by max_kw 100.
+    homes = [home("a", 10.0), home("b", 15.0), home("c", 19.0)]
+    alloc = allocate(homes, frame(0.2), policy(intent="charge"), "AUTO", settings())
+    assert alloc.per_home_kw == {"a": -100.0, "b": -60.0, "c": -12.0}
+    assert alloc.delivered_mw == 0.0
+    assert alloc.missed_mw == pytest.approx(0.2)
+    assert alloc.reasons == ["charging"]
+    assert_real_reasons(alloc)
+    check_charge_books(alloc, 0.2)
+
+
+def test_charge_cap_is_room_to_capacity_capped_by_max_kw():
+    # Room 13 kWh x12 = 156 kW, so the 5 kW inverter wins; room 0.1 kWh x12 = 1.2 kW wins.
+    homes = [home("a", 7.0, max_kw=5.0), home("b", 19.9, max_kw=5.0)]
+    alloc = allocate(homes, frame(0.2), policy(intent="charge"), "AUTO", settings())
+    assert alloc.per_home_kw == {"a": -5.0, "b": -1.2}
+    check_charge_books(alloc, 0.2)
+
+
+def test_charge_never_fills_past_capacity_and_skips_full_homes():
+    homes = [home("a", 20.0), home("b", 19.0, max_kw=5.0)]
+    alloc = allocate(homes, frame(0.2), policy(intent="charge"), "AUTO", settings())
+    assert "a" not in alloc.per_home_kw
+    assert alloc.per_home_kw == {"b": -5.0}
+    # No order can fill past the cap: energy added is |kw| x tick/60 <= room.
+    s = settings()
+    for h in homes:
+        if h.home_id in alloc.per_home_kw:
+            added = abs(alloc.per_home_kw[h.home_id]) * s["tick_minutes"] / 60
+            assert h.soc_kwh + added <= h.capacity_kwh + 1e-9
+    check_charge_books(alloc, 0.2)
+
+
+def test_charge_leaves_dead_and_stale_at_zero():
+    homes = [home("a", 10.0), home("b", 10.0, status="dead"),
+             home("c", 10.0, status="stale"), home("d", 10.0, zone="Panhandle")]
+    alloc = allocate(homes, frame(0.2), policy(intent="charge"), "AUTO", settings())
+    assert set(alloc.per_home_kw) == {"a"}
+    assert alloc.per_home_kw["a"] < 0
+    assert alloc.reasons == ["charging", "homes_dead:1", "homes_stale:1", "unknown_zone"]
+    assert_real_reasons(alloc)
+    check_charge_books(alloc, 0.2)
+
+
+def test_charge_allocate_never_changes_the_homes():
+    homes = [home("a", 10.0), home("b", 15.0)]
+    before = copy.deepcopy(homes)
+    allocate(homes, frame(0.2), policy(intent="charge"), "AUTO", settings())
+    allocate(homes, frame(0.2), policy(intent="hold"), "AUTO", settings())
+    assert homes == before
+
+
+# --- zone intent: each home follows its own zone --------------------------------
+
+def test_zone_intent_splits_discharge_charge_and_hold_by_zone():
+    p = policy(intent="hold")
+    p.zone_intent = {"Houston": "discharge", "North": "charge", "South": "hold"}
+    homes = [home("h", 10.0, zone="Houston"), home("n", 10.0, zone="North"),
+             home("s", 10.0, zone="South"), home("w", 10.0, zone="West")]
+    alloc = allocate(homes, frame(1.0), p, "AUTO", settings())
+    assert alloc.per_home_kw["h"] > 0          # Houston sells its headroom cap
+    assert alloc.per_home_kw["n"] < 0          # North absorbs at its room cap
+    assert "s" not in alloc.per_home_kw        # South holds
+    assert "w" not in alloc.per_home_kw        # West has no row, so it holds
+    assert alloc.delivered_mw == pytest.approx(alloc.per_home_kw["h"] / 1000)
+    assert alloc.missed_mw == pytest.approx(1.0 - alloc.delivered_mw)
+    assert "charging" in alloc.reasons
+    assert_real_reasons(alloc)
+
+
+def test_zone_intent_missing_zone_holds_while_others_charge():
+    p = policy(intent="discharge")
+    p.zone_intent = {"Houston": "charge"}
+    homes = [home("h", 10.0, zone="Houston"), home("n", 10.0, zone="North")]
+    alloc = allocate(homes, frame(0.2), p, "AUTO", settings())
+    assert alloc.per_home_kw["h"] < 0
+    assert "n" not in alloc.per_home_kw
+    assert alloc.delivered_mw == 0.0 and alloc.missed_mw == pytest.approx(0.2)
+    assert "charging" in alloc.reasons
+    assert_real_reasons(alloc)
+
+
+def test_zone_intent_leaves_dead_and_stale_at_zero():
+    p = policy(intent="discharge")
+    p.zone_intent = {"Houston": "discharge", "North": "charge"}
+    homes = [home("h", 10.0, zone="Houston", status="dead"),
+             home("n", 10.0, zone="North", status="stale"),
+             home("m", 10.0, zone="Houston")]
+    alloc = allocate(homes, frame(0.2), p, "AUTO", settings())
+    assert set(alloc.per_home_kw) == {"m"}
+    assert alloc.per_home_kw["m"] > 0
+    assert_real_reasons(alloc)

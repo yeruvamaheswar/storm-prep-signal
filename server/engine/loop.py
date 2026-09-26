@@ -24,6 +24,7 @@ from server.engine.orchestration import cycle_rollups, orchestrate_tick, plant_l
 from server.engine.policy import reserve_policy
 from server.engine.risk import compute_risk
 from server.engine.score import new_board, update
+from server.engine.tick_emit import build_tick_emit
 from server.engine.signal import (
     CENTRAL,
     LIVE_SOURCE,
@@ -77,6 +78,11 @@ def with_fleet_defaults(settings):
 def fleet_homes_path(runs_dir):
     """Same folder as rollups.json: <runs_dir>/../fleet/homes.json (var/fleet/ in production)."""
     return Path(runs_dir) / ".." / "fleet" / "homes.json"
+
+
+def fleet_emit_path(runs_dir):
+    """Per-tick controller emit beside homes.json. Whole fleet, every tick."""
+    return Path(runs_dir) / ".." / "fleet" / "tick_emit.json"
 
 
 def load_or_seed_homes(settings, path):
@@ -296,6 +302,10 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         # Aggregates only. The wall reads this file, never the 10k-home seed.
         # Discharging is what the homes confirmed, not what was planned.
         save_rollups(cycle_rollups(homes, cycle, policy), Path(runs_dir) / ".." / "fleet" / "rollups.json")
+        # Whole-fleet controller emit for writers: confirmed kW only, null when unsent.
+        emit_path = fleet_emit_path(runs_dir)
+        emit_path.parent.mkdir(parents=True, exist_ok=True)
+        emit_path.write_text(json.dumps(build_tick_emit(frame, homes, cycle)))
         record = {
             "run_id": run_id,
             "tape": str(tape_path) if tape_path else "synthetic",

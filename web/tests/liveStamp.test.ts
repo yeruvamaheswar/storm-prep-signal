@@ -13,6 +13,7 @@ import {
   stampTick,
   viewTick,
 } from "../src/liveStamp"
+import { calmFromSamples } from "../src/calmStreak"
 import { stressReading } from "../src/stressReading"
 
 const run = layoutRun as RunFile
@@ -214,6 +215,55 @@ describe("live stamp", () => {
       tick,
     )
     expect(watched.tick?.mode).toBe("HOLD")
+  })
+
+  it("keeps consecutive LOW snapshots on the calm meter, and a repeat of the same ts stays at 1", () => {
+    const stamp = {
+      quality: "ok" as const,
+      priceUsdMwh: 1,
+      outageMw: 1,
+      zone: "North" as const,
+      zoneMw: 1,
+      zoneColumns: {},
+      asOfLabel: "15:00 CT",
+      ageMin: 1,
+    }
+    const low = (ts: string) => ({
+      ...(run.ticks[0] as TickView),
+      ts,
+      risk_level: "LOW" as const,
+      policy_reason: "normal",
+    })
+    const first = rememberSnapshot(EMPTY_WATCH, stamp, low("2026-09-26T15:00:00-05:00"))
+    const repeated = rememberSnapshot(first, stamp, low("2026-09-26T15:00:00-05:00"))
+    const second = rememberSnapshot(repeated, stamp, low("2026-09-26T15:05:00-05:00"))
+    expect(calmFromSamples(first.calmSamples ?? [])).toBe(1)
+    expect(calmFromSamples(repeated.calmSamples ?? [])).toBe(1)
+    expect(calmFromSamples(second.calmSamples ?? [])).toBe(2)
+  })
+
+  it("a failed pull resets the calm streak so the next LOW starts at 1", () => {
+    const stamp = {
+      quality: "ok" as const,
+      priceUsdMwh: 1,
+      outageMw: 1,
+      zone: "North" as const,
+      zoneMw: 1,
+      zoneColumns: {},
+      asOfLabel: "15:00 CT",
+      ageMin: 1,
+    }
+    const low = (ts: string) => ({
+      ...(run.ticks[0] as TickView),
+      ts,
+      risk_level: "LOW" as const,
+      policy_reason: "normal",
+    })
+    const first = rememberSnapshot(EMPTY_WATCH, stamp, low("2026-09-26T15:00:00-05:00"))
+    const failed = rememberSnapshot(first, { quality: "timeout" }, null)
+    const again = rememberSnapshot(failed, stamp, low("2026-09-26T15:05:00-05:00"))
+    expect(calmFromSamples(failed.calmSamples ?? [])).toBe(0)
+    expect(calmFromSamples(again.calmSamples ?? [])).toBe(1)
   })
 
   it("replaces the last interval when the snapshot ts does not move", () => {

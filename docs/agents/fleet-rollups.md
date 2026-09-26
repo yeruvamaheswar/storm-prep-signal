@@ -1,6 +1,6 @@
 # 10k fleet seed and rollups
 
-**Decision.** `new_fleet` still takes the settings dict. It also takes an int `n`. `new_fleet(n)` uses `HOME_KWH=20`, `HOME_MAX_KW=5`, a 45–75% charge spread, status `live`, and round-robin zones `South, North, West, Houston` (the wall `ZONE_ORDER`). Persist is opt-in under `var/fleet/` (git-ignored). The wall never receives one row per home. `GET /v1/fleet/rollups` returns per-zone counts and MW. The wall (`web/src/api/rollups.ts`) reads that body and paints South/North/West/Houston from it; a missing fetch keeps `index % 4`. Each tick fills `TickResult.zone_delivered_mw`.
+**Decision.** `new_fleet` still takes the settings dict. It also takes an int `n`. `new_fleet(n)` uses `HOME_KWH=25`, `HOME_MAX_KW=11.4`, a 45–75% charge spread, status `live`, and round-robin zones `South, North, West, Houston` (the wall `ZONE_ORDER`). Persist is opt-in under `var/fleet/` (git-ignored). The wall never receives one row per home. `GET /v1/fleet/rollups` returns per-zone counts and MW. The wall (`web/src/api/rollups.ts`) reads that body and paints South/North/West/Houston from it; a missing fetch keeps `index % 4`. Each tick fills `TickResult.zone_delivered_mw`.
 
 ## Why
 
@@ -34,4 +34,4 @@ The engine writes the rollup with `orchestration.cycle_rollups(homes, cycle, pol
 - Each engine tick writes `var/fleet/rollups.json` next to `var/runs/` (`<runs_dir>/../fleet/rollups.json`).
 - The route prefers `rollups.json`, else computes from `homes.json`, else seeds `FLEET_SIZE` in memory.
 
-`FLEET_SIZE` stays 100 for the Demo tape (0.40 MW peak). Live/archive allocate against `FLEET_SIZE * HOME_MAX_KW / 1000` as the fleet cap (10k × 5 kW = 50 MW) and a separate call target (`CALL_TARGET_MW` or `GET /v1/meta.call_target_mw`). Unset, the call is the 0.40 demo peak scaled by `FLEET_SIZE / 100` (40 MW at 10k), never the fixture 0.40. Rollups ignore a saved `n` that does not match `FLEET_SIZE` and seed in memory. Do not persist a `homes` table.
+`FLEET_SIZE` stays 100 for the Demo tape (0.40 MW peak). Live/archive allocate against `FLEET_SIZE * HOME_MAX_KW / 1000` as the fleet cap (10k × 11.4 kW = 114 MW) and a separate call target (`CALL_TARGET_MW` or `GET /v1/meta.call_target_mw`). Unset, the call is the 0.40 demo peak scaled by `FLEET_SIZE / 100` (40 MW at 10k), never the fixture 0.40. Rollups ignore a saved `n` that does not match `FLEET_SIZE` and seed in memory. Do not persist a `homes` table.

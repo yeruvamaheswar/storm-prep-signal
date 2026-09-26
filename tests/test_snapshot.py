@@ -332,3 +332,50 @@ def test_snapshot_archive_stale_posting_is_fail_safe(tmp_path, monkeypatch):
     assert tick["policy_reason"] == "signal_unavailable"
     assert tick["reserve_pct"] == 60
     assert tick["trigger_mw"] is None
+
+
+def _sized_run(fleet_size, target_mw, live_homes):
+    return {
+        "run_id": "sized-run",
+        "source": "live",
+        "settings": {"fleet_size": fleet_size},
+        "ticks": [{
+            "tick": 1, "ts": "2026-09-25T12:00:47-05:00", "mode": "AUTO",
+            "target_mw": target_mw, "target_label": "synthetic",
+            "delivered_mw": target_mw, "missed_mw": 0.0,
+            "price_usd_mwh": None, "price_label": "none",
+            "reserve_pct": 30, "policy_reason": "normal", "risk_level": "LOW",
+            "live_homes": live_homes, "stale_homes": 0, "dead_homes": 0,
+            "breaches": 0, "reasons": [],
+        }],
+    }
+
+
+def test_snapshot_keeps_ten_thousand_tick_when_env_is_demo(tmp_path, monkeypatch):
+    # A 10k live tick must not shrink to 0.40 when the demo env still says 100.
+    latest = tmp_path / "latest.json"
+    latest.write_text(json.dumps(_sized_run(10_000, 40.0, 10_000)), encoding="utf-8")
+    monkeypatch.setattr("server.api.snapshot.LATEST_RUN", latest)
+    monkeypatch.setenv("FLEET_SIZE", "100")
+
+    def boom(_now):
+        raise IngestError("timeout")
+
+    tick = build_snapshot(ingest=boom)
+    assert tick["target_mw"] == 40.0
+    assert tick["delivered_mw"] == 40.0
+    assert tick["live_homes"] == 10_000
+
+
+def test_snapshot_keeps_demo_tick_when_env_is_ten_thousand(tmp_path, monkeypatch):
+    latest = tmp_path / "latest.json"
+    latest.write_text(json.dumps(_sized_run(100, 0.4, 100)), encoding="utf-8")
+    monkeypatch.setattr("server.api.snapshot.LATEST_RUN", latest)
+    monkeypatch.setenv("FLEET_SIZE", "10000")
+
+    def boom(_now):
+        raise IngestError("timeout")
+
+    tick = build_snapshot(ingest=boom)
+    assert tick["target_mw"] == 0.4
+    assert tick["live_homes"] == 100
