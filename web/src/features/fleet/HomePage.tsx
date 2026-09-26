@@ -1,4 +1,16 @@
-import { ackClass, ackText, chargeClass, formatSeen, quantity, skipClass, skipText, statusClass } from "./display"
+import {
+  ackClass,
+  ackText,
+  chargeClass,
+  chargeStateClass,
+  chargeStateText,
+  formatSeen,
+  powerText,
+  quantity,
+  skipClass,
+  skipText,
+  statusClass,
+} from "./display"
 import type { HomePageProps } from "./types"
 import "./fleet.css"
 
@@ -53,6 +65,10 @@ export function HomePage({ home, onBack }: HomePageProps) {
       </section>
       <dl className="fleet-facts">
         <div>
+          <dt className="fleet-key">Zone</dt>
+          <dd>{home.zone ?? "—"}</dd>
+        </div>
+        <div>
           <dt className="fleet-key">Status</dt>
           <dd className={statusClass(home.status)}>{home.status}</dd>
         </div>
@@ -63,6 +79,17 @@ export function HomePage({ home, onBack }: HomePageProps) {
         <div>
           <dt className="fleet-key">skip_reason</dt>
           <dd className={skipClass(home.skip_reason)}>{skipText(home.skip_reason)}</dd>
+        </div>
+        <div>
+          <dt className="fleet-key">Charge state</dt>
+          <dd className={chargeStateClass(home.charge_state)}>{chargeStateText(home.charge_state)}</dd>
+        </div>
+        <div>
+          <dt className="fleet-key">Power</dt>
+          <dd className={home.power_kw === null ? "fleet-tone-muted" : undefined}>
+            {powerText(home.power_kw)}
+            {home.power_kw === null ? null : <span className="fleet-unit">kW</span>}
+          </dd>
         </div>
         <div>
           <dt className="fleet-key">Last seen</dt>

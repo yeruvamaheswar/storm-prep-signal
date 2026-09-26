@@ -817,6 +817,107 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/code-flow.md` diagrams and steps now show `orchestrate_tick` then `score.update`; the "New here?" steps 4 to 6 describe the orchestrator. `docs/agents/system-design.md`: the second floor guard is the orchestration worker's `safe_kw` clamp, a failure row for lost orders, a "Confirmed MW" glossary line.
 - Demo tape: all 12 tick lines and `run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1` are byte-identical to the pre-merge branch. `pytest -q`: 405 passed. `policy.py`, `controller.py`, and `fleet.py` untouched.
 
+## 2026-09-26: Open epics listed against the end state
+
+- `docs/agents/epics.md` groups what is left into nine epics, each with the gap found in code
+  and what "filled" looks like. People page: `docs/humans/epics.md`. Epics are areas, not a
+  queue; `gap-work.md` still picks one gap at a time.
+- Docs only. `pytest -q` not rerun.
+
+## 2026-09-26: public.homes table and 10k seed
+
+- Added `supabase/migrations/20260926_homes.sql`: one current-state row per home (`home_id` PK), zone check South/North/West/Houston, status live|stale|dead, telemetry columns nullable, indexes on `zone` and `(zone, status)`, replica identity FULL, no RLS.
+- `scripts/seed_homes.py` builds the same 10k fleet as `new_fleet` (round-robin zones, 45–75% SOC) and upserts on `home_id` through `load_ercot_archive.send`. `--dry-run` sends nothing. Missing keys print `homes_skipped: no_config` and exit 0.
+- Tests: `tests/test_seed_homes.py`. The engine still does not import Supabase.
+- Notes: `docs/agents/code-flow.md`.
+
+## 2026-09-26: Seed homes with random SOC in the 45–75% band
+
+- `scripts/seed_homes.py` still uses `new_fleet` for ids, zones, and 20 kWh / 5 kW. `soc_kwh` is now a uniform roll in 45–75%, not the even index spread. `new_fleet` itself is unchanged so engine ticks stay repeatable.
+- Tests: `tests/test_seed_homes.py`.
+
+## 2026-09-26: Persist fleet truth after discharge and reload it
+
+- Named gap: `loop.run` reseeds 45–75% SOC on every process because it never called `save_fleet`.
+- After each tick's `discharge`, `server/engine/loop.py` writes `var/fleet/homes.json` (`<runs_dir>/../fleet/homes.json`) with current `soc_kwh`, `status`, `zone`, and `updated_at`. The next run loads that file when `len(homes) == FLEET_SIZE`; a size change reseeds. Demo stays 100 homes when `FLEET_SIZE` is 100.
+- Reused `save_fleet` / `load_fleet` in `fleet.py`. No Supabase import. `allocate` and `discharge` unchanged.
+- Notes: `docs/agents/fleet-rollups.md`, `docs/agents/code-flow.md`, `docs/humans/fleet-rollups.md`.
+- Tests: `tests/test_fleet_persist.py`.
+
+## 2026-09-26: Parallel prompts to persist 10k homes in Supabase
+
+- Named gap: persist a simulated 10k fleet with LZ assignment for high-write telemetry, without sending 10k rows to the wall.
+- Today: `new_fleet` / `discharge` stay in memory; optional `var/fleet/homes.json`; Supabase has only `ercot_postings`, `ercot_prices`, `runs`. The wall paints zones with `index % 4`. `GET /v1/homes` is three fixtures.
+- Wrote seven file-exclusive prompts and the `public.homes` current-state contract in `docs/agents/plans/fleet-persist-prompts.md`. People page: `docs/humans/fleet-persist.md`. Index row added.
+- Docs only. `pytest -q` not rerun.
+
+## 2026-09-26: Batch-upsert discharged homes into public.homes
+
+- Named gap: after a tick, SOC and zone lived only in memory / `var/fleet/`; nothing copied the current-state rows to Supabase `homes`.
+- Added `scripts/persist_homes.py`: reads `var/fleet/homes.json` (Home dict list or `{homes, assigned_kw, run_id, tick}`), batch-upserts `public.homes` on `home_id` via `load_ercot_archive.send` (400-row batches, `Prefer: resolution=merge-duplicates`). `--dry-run` builds and sends nothing. Missing keys or a failed POST print `homes_skipped: <reason>` and exit 0. The engine does not import it.
+- Tests: `tests/test_persist_homes.py`. Notes: `docs/agents/persist-homes.md`.
+
+## 2026-09-26: Serve paged homes and zone rollups from Supabase
+
+- Named gap: `GET /v1/homes` was three fixture rows and `GET /v1/fleet/rollups` read `var/fleet/` or reseeded, so the wall could not show a persisted 10k fleet by load zone.
+- Added `server/api/homes.py`: PostgREST reader that pages `public.homes` (`zone`, `status`, `q`, default limit 50, max 200) and aggregates the existing rollups shape. Console Home JSON stays add-only; `zone` may be present. Missing config or a failed GET falls back to fixtures / `current_rollups()`, never 500.
+- Wired `get_homes`, `get_home`, and `get_fleet_rollups` in `server/api/v1.py` only.
+- Tests: `tests/test_homes_api.py`. Notes: `docs/agents/code-flow.md`.
+
+## 2026-09-26: Last telemetry on the fleet list
+
+- Named gap: `/fleet` already paged `GET /v1/homes` and showed last seen, but not the last streamed charge state or power.
+- `GET /v1/homes` now selects `charge_state` and `power_kw` (add-only, null until persist writes). `/fleet` and `/fleet/{home_id}` show those two facts; empty is an em dash. No new route, still one page at a time.
+- Tests: `tests/test_homes_api.py`, `web/tests/fleetPage.test.ts`. Notes: `docs/agents/fleet-telemetry.md`, `docs/humans/fleet-telemetry.md`.
+
+## 2026-09-26: Stream last telemetry onto the same homes rows
+
+- Named gap: `TelemetryState` kept `HomeState.last` in memory only, so a restart lost last-seen / charge_state and nothing upserted telemetry onto `public.homes`.
+- Added `scripts/persist_telemetry.py`: `write_snapshot` dumps last readings keyed by `home_id` to `var/fleet/telemetry.json`; the CLI merge-upserts only `last_seen`, `charge_state`, `power_kw`, `boot_id`, `last_seq`, and `soc_kwh` when reported, on `home_id` via `load_ercot_archive.send` (400-row batches). `--dry-run` sends nothing. Missing keys or a failed POST print `telemetry_skipped: <reason>` and exit 0. The engine does not import it; `telemetry.py` has no Supabase import.
+- Tests: `tests/test_persist_telemetry.py`. Notes: `docs/agents/persist-telemetry.md`, `docs/agents/code-flow.md`.
+
+## 2026-09-26: Wall 10k counts over a 100-home live tick
+
+- Named gap: Live still showed 100 homes (25/zone acks, five stacked metro pins) after rollups landed at 10k.
+- `GET /v1/fleet/rollups` now counts `public.homes` with `Prefer: count=exact` (PostgREST rejects `count()`/`sum()`). `zoneAckTotals` keeps engine `zone_acks` unless persisted `n` is larger, so 10k rollups beat a 100-home snapshot. Map stays at 500 dots; caption/legend/zone labels name the 10k fleet and `1 dot ≈ 20 homes`. Header Target/Delivered still follow the live tick (`FLEET_SIZE=100` → 0.40 MW) until a 10k live run.
+- Tests: `web/tests/ackTicks.test.ts`, `web/tests/format.test.ts`, `web/tests/fleetAggregate.test.ts`, `tests/test_homes_api.py`.
+
+## 2026-09-26: Bind the wall to persisted load-zone rollups
+
+- Named gap: the map, zone lens, and call caption invented per-zone counts with `index % 4` over `fleetCells(tick)`, so a 10k `assign_zone` fleet did not match the dots or the ack bars.
+- `web/src/api/rollups.ts` reads `GET /v1/fleet/rollups`. `zoneAggregates` / `zoneFacts` paint South/North/West/Houston from that body (`live`, `reserved`, `discharging`, `stale`, `dead`, `silent`, MW, `clusters`). `visibleHomeNodes` keeps `MAX_VISIBLE_POINTS` at 500 and never expands 10k DOM nodes. A missing or empty body keeps today's `index % 4` fallback. The Demo fixture tape also keeps that fallback so a live idle rollup cannot flatten tick 05.
+- `FleetPage`, `client.ts`, and Python were left alone.
+- Tests: `web/tests/fleetAggregate.test.ts`, `web/tests/zoneLens.test.ts`, `web/tests/rollups.test.ts`. Notes: `docs/agents/fleet-scale.md`, `docs/agents/fleet-rollups.md`, `docs/agents/zone-lens.md`, `docs/agents/code-flow.md`.
+
+## 2026-09-26: Page the fleet list by zone
+
+- Named gap: `/fleet` rendered every `homes()` row, so a 10k fleet would freeze; no zone column, search, or window.
+- `createClient().homes` always sends `GET /v1/homes?zone=&status=&q=&limit=&offset=` (default 50, max 200) and never requests the bare list. Home grows add-only `zone`. The table is a fixed-height window, shows zone and soc_kwh, and defaults the zone filter to the wall LZ from `?zone=`.
+- Tests: `web/tests/fleetPage.test.ts`. Notes: `docs/agents/code-flow.md`, `docs/humans/fleet-list.md`. Map unchanged.
+
+## 2026-09-26: Fleet link from the wall
+
+- Named gap: `/fleet.html` existed but the wall had no link, so the zone handoff could not be used.
+- Mast **Fleet** opens `/fleet.html`, or `/fleet.html?zone=` when a load zone is selected. The fleet page **Wall** link returns to `/`.
+- Tests: `web/tests/topStrip.test.ts`, `web/tests/fleetPage.test.ts`.
+
+## 2026-09-26: `/fleet` is a wall route
+
+- Named gap: Fleet lived at `fleet.html`, so `localhost:5173/fleet` still showed the wall and the mast link missed the SPA path.
+- Removed `web/fleet.html`, `wall.html`, and `history.html`. `App` renders `FleetApp` on `/fleet` (no extra HTML, no router package). Mast **Fleet** goes to `/fleet` or `/fleet?zone=`.
+- Tests: `web/tests/fleetPage.test.ts`, `web/tests/topStrip.test.ts`. Notes: `docs/agents/code-flow.md`, `docs/humans/fleet-list.md`.
+
+## 2026-09-26: Pack the fleet list
+
+- Named gap: `/fleet` stretched the table to the viewport and capped the pane at 320px, so columns sat far apart and a short list left a dead band.
+- `.fleet-page` is a column flex at `100vh`; `.fleet-scroll` fills leftover height. The table is `width: 100%` with `table-layout: fixed` so columns share the pane without a dead band on the right. Wall and home detail unchanged.
+
+## 2026-09-26: Stream synthetic last telemetry onto public.homes
+
+- Named gap: persist and `/fleet` last-reading columns existed, but nothing wrote `var/fleet/telemetry.json`, so Charge state / Power / Last seen stayed empty.
+- Added `scripts/stream_telemetry.py`: builds a realistic 10k last-reading snapshot (HOLDING-heavy, 5–8% silent, live/stale/dead ages, power sign locked to `charge_state`), writes the JSON, and persist-upserts each pulse. `--loop` repeats every 15 s. The engine does not import it.
+- Tests: `tests/test_stream_telemetry.py`. Notes: `docs/agents/persist-telemetry.md`, `docs/agents/code-flow.md`, `docs/humans/fleet-telemetry.md`.
+
 ## 2026-09-26: Brief names a zone floor that differs from the fleet floor
 
 - `server/engine/brief.py`: `zone_floor_notes(result)`; `write_brief` puts `Floor 30% (Houston 60%: weather_alert)` first among the reason clauses when any zone's floor differs from `reserve_pct`. When all zones match, the text is unchanged. `write_brief_from_tick` now passes `zone_reserve_pct` and `zone_reasons`, so the snapshot's Live brief names the zone too. Text only; no policy, floor, or dispatch change.
@@ -840,9 +941,18 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Heather replay: fleet `dollars` $126.50 `recorded:ERCOT NP6-905-CD`, equal to the four zones (was $87.00 at LZ_HOUSTON only). Demo tape has no zone prices, so it is unchanged.
 - Tests: 4 in `tests/test_score.py`. `pytest -q`: 421 passed.
 
+## 2026-09-26: Failure modes a tape or .env can switch on (Rajat's lane)
+
+- `orchestration.py`: `tick_faults` applies tape events `network` (drop/dup/late rates), `crash` (home ids whose worker raises and goes dead), `misreport` (home id to report factor) per tick; bad values, unknown keys or homes raise `ValueError`. A faulted tick (including `short_delivery`) gets reason `faults_injected`.
+- `cli.py` + `.env.example`: `CHANNEL_DROP_RATE`, `CHANNEL_DUP_RATE`, `CHANNEL_LATE_RATE` (default 0) for a whole run. Listed in `docs/agents/system-design.md`.
+- New `tapes/failures.json`: the demo tape plus faults on ticks 3 (40% lost), 5 (five homes crash), 7 (two misreport), 9 (60% lost). 0 floor breaches; recovers to 0.2 of 0.2 on ticks 10-11.
+- Docs: new `docs/agents/failure-modes.md`, `docs/humans/failure-modes.md`, index line; `contracts.py` events comment; code-flow tape node.
+- Tests: 10 in `tests/test_orchestration.py`, 2 in `tests/test_run.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 434 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
 ## 2026-09-26: A tape run writes nothing under the repo's var/
 
-- `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked and cwd set to `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.164 of 0.317 MWh, 0 breaches, 1 hold tick.
-- The tape's `risk_fixture` paths are relative to cwd. With cwd set to `tmp_path` and no copies, every tick fails safe and the demo delivers 0.076 MWh. The test copies the fixture files that exist into `tmp_path`.
-- Settings the demo reads are pinned in the test, because `read_settings()` loads the repo `.env` whatever the cwd.
-- No `server/` change. `pytest -q`: 422 passed.
+- `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked, each run with cwd set to its own fresh folder under `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.164 of 0.317 MWh, 0 breaches, 1 hold tick.
+- Each run gets its own folder because a run reloads the last run's `var/fleet/homes.json` (the fleet-persist decision in `docs/agents/fleet-rollups.md`). Two runs in one folder: the second starts drained and delivers 0.128 MWh. That is intended, so the test checks a fresh start, not carry-over.
+- The tape's `risk_fixture` paths are relative to cwd. Without copies, every tick fails safe and the demo delivers 0.076 MWh. The test copies the fixture files that exist into each folder.
+- Settings the demo reads, including the `CHANNEL_*` rates, are pinned in the test, because `read_settings()` loads the repo `.env` whatever the cwd.
+- No `server/` change. `pytest -q`: 486 passed after merging main.

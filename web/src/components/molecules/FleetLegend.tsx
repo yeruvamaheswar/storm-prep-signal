@@ -3,10 +3,11 @@ import { HOME_STATES, type FleetCounts } from "../organisms/fleetCells"
 
 type FleetLegendProps = {
   counts: FleetCounts
+  sampleNote?: string | null
 }
 
 /** Compact key for the map dots. Counts are this tick’s fleetCounts reading. A zero row is hidden so a new state reads as news. */
-export function FleetLegend({ counts }: FleetLegendProps) {
+export function FleetLegend({ counts, sampleNote = null }: FleetLegendProps) {
   const rows = HOME_STATES.map((state) => ({ state, count: counts[state] })).filter((row) => row.count > 0)
   if (rows.length === 0) {
     return null
@@ -21,6 +22,11 @@ export function FleetLegend({ counts }: FleetLegendProps) {
           </span>
         </span>
       ))}
+      {sampleNote === null ? null : (
+        <span className="fleet-legend-item" role="listitem">
+          {sampleNote}
+        </span>
+      )}
     </div>
   )
 }

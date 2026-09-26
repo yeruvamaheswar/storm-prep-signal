@@ -39,9 +39,15 @@ export function clusterCaption(counts: {
 }
 
 /** Who is answering ERCOT on this tick. The target keeps its label, as every on-screen MW must. */
-export function callCaption(tick: TickView, discharging: number, reserved: number): string {
+export function callCaption(
+  tick: TickView,
+  discharging: number,
+  reserved: number,
+  liveHomes: number = discharging,
+): string {
+  const answering = discharging > 0 ? discharging : liveHomes
   const call = `ERCOT call ${formatMw(tick.target_mw)} MW (${tick.target_label})`
-  const supply = `supplying ${formatMw(tick.delivered_mw)} MW from ${homesPhrase(discharging)}`
+  const supply = `supplying ${formatMw(tick.delivered_mw)} MW from ${homesPhrase(answering)}`
   return `${call} · ${supply} · ${reserved} held`
 }
 

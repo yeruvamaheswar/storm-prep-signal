@@ -6,6 +6,7 @@ Open this index, then the one file the task needs.
 |---|---|
 | `PROJECT_CONTEXT.md` | You need why we build this, the design principles, or how Supabase fits |
 | `gap-work.md` | You need how work is chosen, or you are about to name the next gap |
+| `epics.md` | You need the big areas still open between the repo and the end state, before naming a gap |
 | `team-manifest.md` | You need what we will not cut, or what we say out loud |
 | `working-rules.md` | You are about to edit code |
 | `system-design.md` | You are new to the repo, you need the parts, stores, failure handling, or deploy picture, or you added a part, setting, dependency, or contract shape |
@@ -21,6 +22,7 @@ Open this index, then the one file the task needs.
 | `backend.md` | You are changing `server/`, the `/v1` API, or the Render deploy |
 | `feeds-proxy.md` | You are changing ERCOT auth, `/v1/feeds`, or Vite ERCOT keys |
 | `plans/operator-console-prompts.md` | You are launching a parallel agent to build that console |
+| `plans/fleet-persist-prompts.md` | You are launching a parallel agent to persist the 10k fleet in Supabase |
 | `stress-strip.md` | You are changing the Storm Prep numbers under the wall metrics |
 | `calm-meter.md` | You are changing the calm N/2 meter or the Risk caption on the wall |
 | `zone-lens.md` | You are changing zone drill-in from the map or the ack row |
@@ -34,7 +36,11 @@ Open this index, then the one file the task needs.
 | `reports-drawer.md` | You are changing the Reports panel on the wall |
 | `interval-strip.md` | You are changing the bottom tape chart or the live interval strip |
 | `persist-run.md` | You are copying an engine run into Supabase `public.runs` |
+| `persist-homes.md` | You are copying `var/fleet/homes.json` into Supabase `public.homes` |
+| `persist-telemetry.md` | You are copying last readings from `var/fleet/telemetry.json` onto `public.homes` |
+| `fleet-telemetry.md` | You are showing last charge state and power on `/fleet` |
 | `archive-feeds.md` | You are serving snapshot price/outage from `ercot_prices` / `ercot_postings` |
 | `live-ingest.md` | You are changing the laptop live worker, `event=live` rows, or Live snapshot ingest |
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime |
+| `failure-modes.md` | You are switching on simulated faults (bad network, crashing or lying homes) in a tape or `.env` |
 | `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |

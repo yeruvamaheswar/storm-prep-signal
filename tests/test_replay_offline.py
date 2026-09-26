@@ -22,7 +22,8 @@ COMPARED = ("reserve_pct", "zone_reserve_pct", "policy_reason", "delivered_mw")
 TOTAL_KEYS = ("delivered_mwh", "target_mwh", "delivery_pct", "breaches", "hold_ticks")
 # read_settings() loads the repo .env; load_dotenv never overrides a set variable, so pin the defaults.
 CLI_ENV = {"RISK_MARGIN_PCT": "15", "LOOKAHEAD_HOURS": "6", "FLEET_SIZE": "100", "HOME_KWH": "20",
-           "HOME_MAX_KW": "5", "BASE_RESERVE_PCT": "30", "STORM_RESERVE_PCT": "60", "TICK_MINUTES": "5"}
+           "HOME_MAX_KW": "5", "BASE_RESERVE_PCT": "30", "STORM_RESERVE_PCT": "60", "TICK_MINUTES": "5",
+           "CHANNEL_DROP_RATE": "0", "CHANNEL_DUP_RATE": "0", "CHANNEL_LATE_RATE": "0"}
 
 
 @pytest.fixture
@@ -115,8 +116,14 @@ def _copy_tape_fixtures(dest):
             shutil.copyfile(ROOT / name, dest / name)
 
 
-def _cli_totals(capsys):
-    """One pass through `python3 -m server.engine --tape`, read back from the run file it wrote."""
+def _cli_totals(folder, monkeypatch, capsys):
+    """One pass through `python3 -m server.engine --tape` from a fresh cwd, read back from the run file it wrote.
+
+    A run reloads the last run's var/fleet/homes.json, so a fresh start needs its own folder.
+    """
+    folder.mkdir()
+    _copy_tape_fixtures(folder)
+    monkeypatch.chdir(folder)
     assert run_then_persist(["--tape", str(DEMO)]) == 0
     totals = json.loads(Path("var/runs/latest.json").read_text())["totals"]
     assert capsys.readouterr().out.rstrip().endswith(summary_line(totals))
@@ -127,12 +134,10 @@ def test_cli_tape_replay_writes_nothing_under_repo_var(tmp_path, monkeypatch, ca
     for name, value in CLI_ENV.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv("CALL_TARGET_MW", raising=False)
-    _copy_tape_fixtures(tmp_path)
-    monkeypatch.chdir(tmp_path)
     before = _var_files()
 
-    first = _cli_totals(capsys)
-    second = _cli_totals(capsys)
+    first = _cli_totals(tmp_path / "first", monkeypatch, capsys)
+    second = _cli_totals(tmp_path / "second", monkeypatch, capsys)
 
     assert connects == []
     assert _var_files() == before

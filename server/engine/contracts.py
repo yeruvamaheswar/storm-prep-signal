@@ -22,7 +22,8 @@ class TapeFrame:
     price_label: str          # "synthetic", "recorded:<source>", "ercot", or "none"
     risk_fixture: Optional[str] = None   # path to an ERCOT outage posting
     events: dict = field(default_factory=dict)
-    # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO")
+    # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO"),
+    # simulated faults "network", "crash", "misreport", "short_delivery" (docs/agents/failure-modes.md)
     weather_fixture: Optional[str] = None  # path to a saved weather alerts response
     # Load-zone name to $/MWh, only zones with a price (same map as the snapshot's zone_prices).
     zone_prices: dict = field(default_factory=dict)

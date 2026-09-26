@@ -308,6 +308,71 @@ def test_money_invariants_hold_under_random_faults(seed):
         assert home.soc_kwh >= floor_kwh(home, policy()) - 1e-9
 
 
+# --- failures scheduled by the tape: events "network", "crash", "misreport" ----------
+
+def run_frame(events, seed=3, **over):
+    s = settings(**over)
+    homes = new_fleet(s)
+    f = frame(0.2, events)
+    apply_events(homes, f.events)
+    return orchestrate_tick(homes, f, policy(), "AUTO", s, seed), homes, f
+
+
+def test_a_network_event_is_the_same_as_those_channel_settings_and_says_so():
+    by_tape, _, f = run_frame({"network": {"drop_rate": 0.5, "dup_rate": 0.3, "late_rate": 0.2}})
+    by_settings, _, _ = run_frame({}, channel_drop_rate=0.5, channel_dup_rate=0.3, channel_late_rate=0.2)
+    assert by_tape.timed_out > 0
+    assert "faults_injected" in by_tape.allocation.reasons
+    assert "faults_injected" not in by_settings.allocation.reasons
+    a, b = asdict(by_tape), asdict(by_settings)
+    a["allocation"]["reasons"].remove("faults_injected")
+    assert a == b
+    check_books(by_tape, f.target_mw)
+
+
+def test_a_crash_event_kills_only_the_listed_homes_that_ran_an_order():
+    crash = ["home-001", "home-002", "home-003"]
+    result, homes, f = run_frame({"crash": crash}, **FAST)
+    ordered = {h for h, kw in result.allocation.per_home_kw.items() if kw > 0}
+    status = {h.home_id: h.status for h in homes}
+    assert set(crash) & ordered, "the fleet should give at least one listed home an order"
+    for home_id in crash:
+        assert status[home_id] == ("dead" if home_id in ordered else "live")
+    assert sum(1 for s in status.values() if s == "dead") == len(set(crash) & ordered)
+    assert len(kinds(result, "worker_error")) == len(set(crash) & ordered)
+    assert "faults_injected" in result.allocation.reasons
+    check_books(result, f.target_mw)
+
+
+def test_a_misreport_event_is_caught_as_a_charge_mismatch():
+    result, _, f = run_frame({"misreport": {"home-001": 1.5}}, **FAST)
+    assert any(r.startswith("charge_mismatch:") for r in result.allocation.reasons)
+    assert "faults_injected" in result.allocation.reasons
+    check_books(result, f.target_mw)
+
+
+def test_a_short_delivery_event_also_says_faults_injected():
+    result, _, _ = run_frame({"short_delivery": {"home-001": 0.5}}, **FAST)
+    assert "faults_injected" in result.allocation.reasons
+
+
+def test_a_frame_without_fault_events_does_not_say_faults_injected():
+    result, _, _ = run_frame({"dead": ["home-001"]}, **FAST)
+    assert "faults_injected" not in result.allocation.reasons
+
+
+@pytest.mark.parametrize("events", [
+    {"network": {"drop_rate": 1.5}},
+    {"network": {"drop": 0.5}},
+    {"crash": ["home-999"]},
+    {"misreport": {"home-001": -1.0}},
+    {"misreport": {"home-999": 1.5}},
+])
+def test_a_bad_fault_event_stops_the_run_with_a_clear_error(events):
+    with pytest.raises(ValueError):
+        run_frame(events)
+
+
 # --- zone acks: the per-zone counts the wall reads ---------------------------------
 
 def check_acks(acks, homes):

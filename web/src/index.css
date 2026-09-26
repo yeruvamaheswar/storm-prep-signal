@@ -66,6 +66,21 @@ h1 {
   gap: var(--space-3);
 }
 
+.mast-link {
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink);
+}
+
+.mast-link:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
 .mast p {
   margin-top: var(--space-1);
   color: var(--muted);

@@ -1,8 +1,13 @@
 html:has(.fleet-page),
-body:has(.fleet-page) {
+body:has(.fleet-page),
+#root:has(.fleet-page) {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
   background: var(--field);
+}
+
+#root:has(.fleet-page) {
+  height: 100vh;
 }
 
 .fleet-page,
@@ -13,7 +18,10 @@ body:has(.fleet-page) {
 }
 
 .fleet-page {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: var(--space-5) var(--space-6) var(--space-6);
   background: var(--field);
   color: var(--ink);
@@ -78,6 +86,7 @@ body:has(.fleet-page) {
   letter-spacing: 0.04em;
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
+  text-decoration: none;
 }
 
 .fleet-button:hover {
@@ -98,7 +107,7 @@ body:has(.fleet-page) {
 }
 
 .fleet-count {
-  margin-bottom: var(--space-3);
+  margin: 0;
   color: var(--muted);
   font-size: var(--text-label);
   font-weight: 500;
@@ -107,12 +116,60 @@ body:has(.fleet-page) {
   font-variant-numeric: tabular-nums;
 }
 
+.fleet-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.fleet-search-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fleet-search {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-body);
+  padding: var(--space-2) var(--space-3);
+}
+
+.fleet-search:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.fleet-pager {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.fleet-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .fleet-scroll {
-  overflow-x: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .fleet-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
@@ -124,11 +181,67 @@ body:has(.fleet-page) {
   font-weight: 400;
   text-align: left;
   vertical-align: baseline;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fleet-table th:nth-child(1),
+.fleet-table td:nth-child(1) {
+  width: 8%;
+}
+
+.fleet-table th:nth-child(2),
+.fleet-table td:nth-child(2) {
+  width: 8%;
+}
+
+.fleet-table th:nth-child(3),
+.fleet-table td:nth-child(3) {
+  width: 7%;
+}
+
+.fleet-table th:nth-child(4),
+.fleet-table td:nth-child(4) {
+  width: 11%;
+}
+
+.fleet-table th:nth-child(5),
+.fleet-table td:nth-child(5) {
+  width: 7%;
+}
+
+.fleet-table th:nth-child(6),
+.fleet-table td:nth-child(6) {
+  width: 16%;
+}
+
+.fleet-table th:nth-child(7),
+.fleet-table td:nth-child(7) {
+  width: 11%;
+}
+
+.fleet-table th:nth-child(8),
+.fleet-table td:nth-child(8) {
+  width: 7%;
+}
+
+.fleet-table th:nth-child(9),
+.fleet-table td:nth-child(9) {
+  width: 14%;
+}
+
+.fleet-table th:nth-child(10),
+.fleet-table td:nth-child(10) {
+  width: 11%;
 }
 
 .fleet-table thead th {
+  position: sticky;
+  top: 0;
   padding-top: 0;
   padding-bottom: var(--space-2);
+  background: var(--field);
   color: var(--muted);
   font-size: var(--text-label);
   font-weight: 600;

@@ -77,6 +77,7 @@ flowchart TB
   subgraph core["Decision core, server/engine/"]
     ENGINE["Tick loop<br/>python -m server.engine"]
     WORKER["Live worker<br/>scripts/live_cycle.py"]
+    STREAM["Telemetry stream<br/>scripts/stream_telemetry.py"]
   end
 
   subgraph serve["Serving, server/api/"]
@@ -88,7 +89,7 @@ flowchart TB
   end
 
   FILES[("Local files<br/>tapes/, data/, var/")]
-  SB[("Supabase<br/>ercot_postings, ercot_prices, runs")]
+  SB[("Supabase<br/>ercot_postings, ercot_prices, runs, homes")]
   ERCOT["ERCOT API"]
 
   SCRIPTS --> SB
@@ -97,6 +98,8 @@ flowchart TB
   ERCOT --> WORKER
   WORKER --> SB
   WORKER --> ENGINE
+  STREAM --> SB
+  STREAM --> FILES
   ENGINE -->|"run file, every tick"| FILES
   ENGINE -.->|"--persist"| SB
   FILES --> API
@@ -111,6 +114,7 @@ flowchart TB
 | `scripts/` | Pulls ERCOT history into Supabase and writes tapes, baselines, and evidence files. | Runs during a tick. |
 | `server/engine/` | Rates risk, picks floors, splits the target, simulates the homes, scores the run, writes the run file. | Calls Supabase. Uses an LLM to decide. |
 | `scripts/live_cycle.py` | Fetches the newest ERCOT posting, saves it to Supabase as `event=live`, and runs one engine tick with it. | Deletes archived history. |
+| `scripts/stream_telemetry.py` | Writes a synthetic last-reading snapshot for the 10k homes and merge-upserts it onto `public.homes`. `--loop` keeps the feed moving. | Imports into the engine. Touches zone, status, or assigned_kw. |
 | `server/api/` | Reads the run file, ERCOT, and Supabase, re-rates the posting with the engine's own functions, and serves `/v1` to the wall. | Allocates or writes a second risk rule. |
 | `web/` | Shows the tick, the floors, the zones, data quality, and the brief. Sends HOLD and AUTO. | Calls ERCOT. Decides anything. |
 
@@ -256,7 +260,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall itself is not deployed yet.
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (10k last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall itself is not deployed yet.
 
 ### Settings
 
@@ -266,6 +270,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 |---|---|
 | `ERCOT_USERNAME`, `ERCOT_PASSWORD`, `ERCOT_SUBSCRIPTION_KEY` | ERCOT API login. Server side only. |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Optional history. Server side only. |
+| `SUPABASE_DB_PASSWORD` | Optional. DDL only (CREATE TABLE). Not the Data API secret. |
 | `JEV_API_KEY` | Optional shadow weather question in `scripts/jev_shadow.py`. Nothing decides on it. |
 | `RISK_MARGIN_PCT`, `LOOKAHEAD_HOURS` | The storm rule: margin over baseline, hours ahead. |
 | `FETCH_TIMEOUT_S`, `STALE_AFTER_MIN` | Network timeout, and when a posting counts as too old. |
@@ -274,6 +279,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 | `BASE_RESERVE_PCT`, `STORM_RESERVE_PCT` | The two floors. |
 | `CHARGE_BELOW_USD`, `DISCHARGE_ABOVE_USD` | Price bands for intent. |
 | `TICK_MINUTES` | Length of one tick. |
+| `CHANNEL_DROP_RATE`, `CHANNEL_DUP_RATE`, `CHANNEL_LATE_RATE` | Simulated bad network for every tick, 0 to 1 (default 0, clean). A tape `network` event overrides them for one tick. |
 | `ZONES` | Load zones and their anchor counties. |
 
 API-only settings (`PORT`, `CORS_ORIGINS`, `CONSOLE_SCENE`, `CONSOLE_FIXTURES_DIR`): [backend.md, Settings](backend.md#settings-environment-variables). Wall build setting: `VITE_API_BASE_URL`.

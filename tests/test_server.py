@@ -14,6 +14,10 @@ OPERATOR = {"X-Operator-Id": "op-test"}
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.delenv("CONSOLE_SCENE", raising=False)
+    monkeypatch.setattr(
+        "server.api.homes.homes_settings",
+        lambda: {"url": "", "key": "", "timeout_s": 3},
+    )
     return TestClient(create_app(FixtureStore()))
 
 

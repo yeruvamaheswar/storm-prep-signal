@@ -310,6 +310,49 @@ def short_fractions(frame):
     return fractions
 
 
+NETWORK_RATES = ("drop_rate", "dup_rate", "late_rate")
+
+
+def tick_faults(frame, homes, settings):
+    """This tick's settings with the tape's fault events applied, and whether any were.
+
+    "network": {drop_rate, dup_rate, late_rate} sets the channel's fault rates (0 to 1).
+    "crash": [home_id] makes those homes' workers raise when they run an order (home goes dead).
+    "misreport": {home_id: factor} makes those homes report factor x what they really gave.
+    A bad value or an unknown home or key raises ValueError: a typo in a tape must not pass quietly.
+    """
+    events, known = frame.events, {home.home_id for home in homes}
+    tick_settings, injected = dict(settings), False
+
+    def check_ids(key, ids):
+        unknown = sorted(set(ids) - known)
+        if unknown:
+            raise ValueError(f"{key} event names homes not in the fleet: {unknown}")
+
+    network = events.get("network", {})
+    for key, rate in network.items():
+        if key not in NETWORK_RATES:
+            raise ValueError(f"network event key {key!r} is not one of {NETWORK_RATES}")
+        if not 0.0 <= rate <= 1.0:
+            raise ValueError(f"network {key} must be between 0 and 1, got {rate}")
+        tick_settings[f"channel_{key}"] = rate
+        injected = True
+    crash = events.get("crash", [])
+    if crash:
+        check_ids("crash", crash)
+        tick_settings["_fail_home_ids"] = set(settings.get("_fail_home_ids", ())) | set(crash)
+        injected = True
+    misreport = events.get("misreport", {})
+    if misreport:
+        check_ids("misreport", misreport)
+        for home_id, factor in misreport.items():
+            if factor < 0:
+                raise ValueError(f"misreport factor for {home_id} must be 0 or more, got {factor}")
+        tick_settings["_misreport"] = {**settings.get("_misreport", {}), **misreport}
+        injected = True
+    return tick_settings, injected
+
+
 def build_jobs(homes, plan, rt, fractions):
     """One supervisor per zone and one worker per home; the plan's commands go to supervisors."""
     supervisors = {}
@@ -344,6 +387,7 @@ def orchestrate_tick(homes, frame, policy, mode, settings, seed, telemetry=None)
     until the tick ends at 300 s, and the result carries plant, zones and feed.
     """
     fractions = short_fractions(frame)
+    settings, injected = tick_faults(frame, homes, settings)
     plan_homes = homes if telemetry is None else telemetry.reported_homes(homes)
     plan = allocate(plan_homes, frame, policy, mode, settings)
     rt = Runtime(settings, policy, frame.tick, seed)
@@ -369,6 +413,9 @@ def orchestrate_tick(homes, frame, policy, mode, settings, seed, telemetry=None)
     # Drain what is still in flight: stragglers can only be logged as late or expired now.
     rt.sched.run_until(math.inf)
     result = build_result(frame, plan, rt, supervisors, books)
+    if injected or fractions:
+        # Say on screen that this tick's failures were simulated on purpose.
+        result.allocation.reasons.append("faults_injected")
     if telemetry is not None:
         confirmed_kw, unsure = home_books(supervisors)
         telemetry.finish(result, homes, policy, confirmed_kw, unsure)

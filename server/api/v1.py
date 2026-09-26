@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from server.api.archive import event_for_clock
 from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
+from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, table_rollups
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
 from server.engine.fleet import current_rollups
 from server.engine.fleet_state import write_fleet_mode
@@ -244,24 +245,50 @@ def get_live_stream(request: Request):
 @router.get("/fleet/rollups")
 def get_fleet_rollups():
     # Zone counts and MW only. Never the seeded homes list.
-    return current_rollups()
+    try:
+        return table_rollups()
+    except HomesUnavailable:
+        return current_rollups()
 
 
 @router.get("/homes")
-def get_homes(request: Request, status: Optional[str] = None):
-    # Fixture rows for the console list. Do not load var/fleet homes.json here.
-    homes = _store(request).load("homes")
-    if status is None:
-        return homes
-    return [h for h in homes if h["status"] == status]
+def get_homes(
+    request: Request,
+    zone: Optional[str] = None,
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    # public.homes when configured; console fixtures otherwise. Never 10k in one body.
+    limit = page_limit(limit)
+    offset = page_offset(offset)
+    try:
+        return list_homes(zone=zone, status=status, q=q, limit=limit, offset=offset)
+    except HomesUnavailable:
+        homes = _store(request).load("homes")
+        if status is not None:
+            homes = [h for h in homes if h["status"] == status]
+        if zone is not None:
+            homes = [h for h in homes if h.get("zone") == zone]
+        if q:
+            needle = q.lower()
+            homes = [h for h in homes if needle in h["home_id"].lower()]
+        return homes[offset:offset + limit]
 
 
 @router.get("/homes/{home_id}")
 def get_home(request: Request, home_id: str):
-    for home in _store(request).load("homes"):
-        if home["home_id"] == home_id:
-            return home
-    raise ApiError(404, "unknown_home", f"No home {home_id}.")
+    try:
+        home = read_home(home_id)
+    except HomesUnavailable:
+        home = None
+        for row in _store(request).load("homes"):
+            if row["home_id"] == home_id:
+                return row
+    if home is None:
+        raise ApiError(404, "unknown_home", f"No home {home_id}.")
+    return home
 
 
 @router.get("/ticks")
