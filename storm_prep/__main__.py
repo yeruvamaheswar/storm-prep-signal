@@ -7,6 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from storm_prep.baseline import baseline_span, load_baseline
 from storm_prep.batteries import apply_to_batteries, new_batteries
 from storm_prep.decision import format_decision
 from storm_prep.events import log_event, start_run
@@ -28,7 +29,7 @@ def read_settings():
     load_dotenv()
     # The fallbacks match compute_risk's defaults and .env.example.
     return {
-        "margin_pct": float(os.getenv("RISK_MARGIN_PCT", "20")),
+        "margin_pct": float(os.getenv("RISK_MARGIN_PCT", "15")),
         "lookahead_hours": int(os.getenv("LOOKAHEAD_HOURS", "6")),
     }
 
@@ -41,7 +42,10 @@ def run(args, settings, log_dir=LOG_DIR):
     signal = to_signal(loaded["raw"], loaded["now"])
     log_event("load_signal", "ok", path=loaded["path"], source=loaded["source"],
               clock_pinned=loaded["clock_pinned"], now=loaded["now"], rows=len(signal["rows"]))
-    risk = compute_risk(signal, **settings)
+    baseline = load_baseline(lookahead_hours=settings["lookahead_hours"])
+    log_event("load_baseline", "ok", postings=baseline["postings"],
+              baseline_from=baseline["from"], baseline_to=baseline["to"])
+    risk = compute_risk(signal, baseline, **settings)
     log_event("compute_risk", "ok", **asdict(risk))
     mode = decide_mode(risk)
     log_event("decide_mode", "ok", mode=mode)
@@ -50,7 +54,8 @@ def run(args, settings, log_dir=LOG_DIR):
     log_event("apply_to_batteries", "mode_set", mode=mode, acks=acks)
     # "unchecked" until validate() exists (Slice 3); the line must not claim checks that never ran.
     line = format_decision(mode, risk, signal["posted_at"], loaded["now"], loaded["source"],
-                           quality="unchecked", clock_pinned=loaded["clock_pinned"], **settings)
+                           quality="unchecked", clock_pinned=loaded["clock_pinned"],
+                           baseline_span=baseline_span(baseline), **settings)
     log_event("run", "finished", decision=line)
     return line, batteries
 
