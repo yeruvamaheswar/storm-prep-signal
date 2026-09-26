@@ -77,6 +77,27 @@ describe("floor and risk subtitles", () => {
   })
 })
 
+describe("fleet handoff", () => {
+  it("links the mast to the fleet list and carries the selected load zone", () => {
+    const open = strip(1)
+    expect(open).toContain('href="/fleet"')
+    expect(open).toContain("Fleet homes")
+    const north = renderToStaticMarkup(
+      createElement(TopStrip, {
+        tick: tick(1),
+        runId: run.run_id,
+        tickCount: run.ticks.length,
+        calm: 0,
+        snapshot: wallSnapshot({ runtime: "demo", tick: tick(1), calm: 0 }),
+        api: apiOk,
+        zone: "North",
+      }),
+    )
+    expect(north).toContain('href="/fleet?zone=North"')
+    expect(north).toContain("Fleet homes in North")
+  })
+})
+
 describe("fixture chrome", () => {
   it("names the margin as the reserve threshold and delivered MW as the home floor", () => {
     const html = strip(5)

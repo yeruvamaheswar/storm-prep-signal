@@ -266,6 +266,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 |---|---|
 | `ERCOT_USERNAME`, `ERCOT_PASSWORD`, `ERCOT_SUBSCRIPTION_KEY` | ERCOT API login. Server side only. |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Optional history. Server side only. |
+| `SUPABASE_DB_PASSWORD` | Optional. DDL only (CREATE TABLE). Not the Data API secret. |
 | `JEV_API_KEY` | Optional shadow weather question in `scripts/jev_shadow.py`. Nothing decides on it. |
 | `RISK_MARGIN_PCT`, `LOOKAHEAD_HOURS` | The storm rule: margin over baseline, hours ahead. |
 | `FETCH_TIMEOUT_S`, `STALE_AFTER_MIN` | Network timeout, and when a posting counts as too old. |

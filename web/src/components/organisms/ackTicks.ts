@@ -1,4 +1,4 @@
-import type { TickView, ZoneAckCounts } from "../../contracts"
+import type { FleetRollups, TickView, ZoneAckCounts } from "../../contracts"
 import { zoneAggregates } from "../../fleetAggregate"
 import { formatMw } from "../../format"
 import { fleetCells, type HomeState } from "./fleetCells"
@@ -185,13 +185,24 @@ function paintZone(zone: string, counts: ZoneAckCounts, failSafe: boolean): Zone
  * One stacked bar per zone. Prefer engine zone_acks. A tape without that field
  * still paints from zoneAggregates so Demo does not grow 100 spans.
  */
-export function zoneAckTotals(tick: TickView): ZoneAckTotals[] {
+function writtenAckHomes(written: Record<string, ZoneAckCounts>): number {
+  return ZONE_ORDER.reduce((sum, zone) => {
+    const row = written[zone]
+    if (row === undefined) {
+      return sum
+    }
+    return sum + row.acked + row.held + row.silent + row.dead + row.unconfirmed
+  }, 0)
+}
+
+export function zoneAckTotals(tick: TickView, rollups?: FleetRollups | null): ZoneAckTotals[] {
   const failSafe = tickFailSafe(tick)
   const written = readZoneAcks(tick)
-  if (written !== null) {
+  const persisted = rollups != null && rollups.n > 0 && ZONE_ORDER.some((zone) => rollups.zones[zone] !== undefined)
+  if (written !== null && !(persisted && rollups.n > writtenAckHomes(written))) {
     return ZONE_ORDER.map((zone) => paintZone(zone, written[zone] ?? emptyZoneAcks(), failSafe))
   }
-  return zoneAggregates(tick).map((row) =>
+  return zoneAggregates(tick, rollups).map((row) =>
     paintZone(
       row.zone,
       {

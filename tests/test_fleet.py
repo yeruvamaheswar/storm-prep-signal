@@ -322,6 +322,10 @@ def test_rollups_route_omits_homes(tmp_path, monkeypatch):
     save_rollups(fleet_rollups(new_fleet(16)), tmp_path / "rollups.json")
     monkeypatch.setattr("server.engine.fleet.FLEET_DIR", tmp_path)
     monkeypatch.setenv("FLEET_SIZE", "16")
+    monkeypatch.setattr(
+        "server.api.homes.homes_settings",
+        lambda: {"url": "", "key": "", "timeout_s": 3},
+    )
     body = TestClient(create_app(FixtureStore())).get("/v1/fleet/rollups").json()
     assert body["n"] == 16
     assert "homes" not in body

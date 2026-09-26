@@ -1,4 +1,4 @@
-import type { TickView } from "../../contracts"
+import type { FleetRollups, TickView } from "../../contracts"
 import { isLoadZone, type LoadZone } from "../../zonePaint"
 import { Button } from "../atoms/Button"
 import { Key } from "../atoms/Key"
@@ -7,13 +7,14 @@ import { ackSummary, barSegments, totalsToMarks, zoneAckTotals } from "./ackTick
 type AckRailProps = {
   tick: TickView
   zone?: LoadZone | null
+  rollups?: FleetRollups | null
   onSelectZone?: (zone: LoadZone) => void
   onClearZone?: () => void
 }
 
 /** Stacked bars from snapshot zone_acks. One bar per zone, never one span per home. */
-export function AckRail({ tick, zone = null, onSelectZone, onClearZone }: AckRailProps) {
-  const rows = zoneAckTotals(tick)
+export function AckRail({ tick, zone = null, rollups = null, onSelectZone, onClearZone }: AckRailProps) {
+  const rows = zoneAckTotals(tick, rollups)
   const marks = totalsToMarks(rows)
 
   return (

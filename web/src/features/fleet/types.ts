@@ -2,7 +2,13 @@
 
 export type HomeStatus = "live" | "stale" | "dead" | "unconfirmed"
 
+export type HomeZone = "South" | "North" | "West" | "Houston"
+
+export type ChargeState = "CHARGING" | "DISCHARGING" | "HOLDING" | "FULL" | "EMPTY"
+
 export type StatusFilter = "all" | HomeStatus
+
+export type ZoneFilter = "all" | HomeZone
 
 export type Ack = "ok" | "rejected" | "timeout" | null
 
@@ -24,6 +30,7 @@ export type LastCommand = {
 export type Home = {
   home_id: string
   status: HomeStatus
+  zone: HomeZone | null
   capacity_kwh: number
   soc_kwh: number
   floor_kwh: number
@@ -33,12 +40,22 @@ export type Home = {
   skip_reason: SkipReason
   last_seen: string
   last_command: LastCommand | null
+  charge_state: ChargeState | null
+  power_kw: number | null
 }
 
 export type FleetPageProps = {
   homes: Home[]
   statusFilter: StatusFilter
+  zoneFilter: ZoneFilter
+  query: string
+  offset: number
+  limit: number
+  hasMore: boolean
   onFilter: (status: StatusFilter) => void
+  onZone: (zone: ZoneFilter) => void
+  onQuery: (query: string) => void
+  onPage: (offset: number) => void
   onOpenHome: (homeId: string) => void
 }
 

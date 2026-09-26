@@ -14,7 +14,9 @@ from server.engine.events import log_event, start_run
 from server.engine.fleet import (
     apply_events,
     fleet_rollups,
+    load_fleet,
     new_fleet,
+    save_fleet,
     save_rollups,
     scale_target_mw,
 )
@@ -67,6 +69,27 @@ def with_fleet_defaults(settings):
     for key, value in _FLEET_DEFAULTS.items():
         filled.setdefault(key, value)
     return filled
+
+
+def fleet_homes_path(runs_dir):
+    """Same folder as rollups.json: <runs_dir>/../fleet/homes.json (var/fleet/ in production)."""
+    return Path(runs_dir) / ".." / "fleet" / "homes.json"
+
+
+def load_or_seed_homes(settings, path):
+    """Load the last discharged snapshot when its length matches FLEET_SIZE. Else reseed."""
+    saved = load_fleet(path)
+    if saved is not None and len(saved) == settings["fleet_size"]:
+        return saved
+    return new_fleet(settings)
+
+
+def persist_discharged_homes(homes, path):
+    """Write current soc_kwh, status, zone, and updated_at. The engine never talks to Supabase."""
+    stamp = datetime.now(CENTRAL).isoformat(timespec="seconds")
+    for home in homes:
+        home.updated_at = stamp
+    save_fleet(homes, path)
 
 
 def rate(path, baseline, settings):
@@ -170,7 +193,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
     fetched (the live worker) may pass `frames`, `live_risk`, and `live_price`.
     baseline_path lets a past storm be rated against the month before it, not against today's baseline.
 
-    Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → TickResult.
+    Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → save_fleet → TickResult.
+    The next run loads var/fleet/homes.json when its length matches fleet_size; otherwise it reseeds.
     """
     settings = with_fleet_defaults(settings)
     run_id = start_run(log_dir)
@@ -186,7 +210,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         live_price = None
     if frames is None:
         frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
-    homes = new_fleet(settings)
+    fleet_path = fleet_homes_path(runs_dir)
+    homes = load_or_seed_homes(settings, fleet_path)
     mode = read_operator_mode(state_path)
     ticks = []
     board = new_board(settings)
@@ -222,6 +247,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         cycle = orchestrate_tick(homes, frame, policy, mode, settings,
                                  int(settings.get("seed", 1)) * 100_000 + frame.tick)
         alloc = cycle.allocation
+        persist_discharged_homes(homes, fleet_path)
         result = TickResult(
             tick=frame.tick, ts=frame.ts, mode=mode,
             target_mw=target_mw, target_label=frame.target_label,
