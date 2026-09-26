@@ -6,11 +6,11 @@ The person you are helping is new to this repo. Explain the step, then make the 
 
 Run `pytest -q` after the change. If a test fails, fix the code and leave the test as written.
 
-Dependencies stay `requests`, `python-dotenv`, and `pytest` unless the owner of `requirements.txt` approves another.
+Dependencies stay `requests`, `python-dotenv`, `pytest`, and the backend set in `CONSTRAINTS.md` ("Backend") unless the owner of `requirements.txt` approves another.
 
 Secrets come only from `.env`. Do not print them, log them, or commit `.env` or `var/`.
 
-Import shared dataclasses from `storm_prep/contracts.py`. Do not paste a second copy into another file. Fields on those types may be added. Do not rename or remove them. Ask the owner of `contracts.py` first.
+Import shared dataclasses from `server/engine/contracts.py`. Do not paste a second copy into another file. Fields on those types may be added. Do not rename or remove them. Ask the owner of `contracts.py` first.
 
 `compute_risk` and `allocate` stay pure: no files, no clock, no network.
 

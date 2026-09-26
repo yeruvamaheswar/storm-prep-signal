@@ -2,15 +2,15 @@
 
 Fields may be added, never renamed or removed. Change only with Uma.
 
-Source: `docs/reservegate.md` section 2. The data shapes live in `storm_prep/contracts.py`.
+Source: `docs/reservegate.md` section 2. The data shapes live in `server/engine/contracts.py`.
 
 ## Files and owners (one owner per file; nobody else edits it)
 
 | Owner | Files |
 |---|---|
-| **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
-| **Rajat** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/ci.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
+| **Uma** (policy core, glue, and merges) | `server/engine/contracts.py`, `CONSTRAINTS.md`, `server/engine/policy.py`, `server/engine/loop.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `cli.py`, `batteries.py` (frozen, left alone). HTTP: `server/app.py`, `server/api/`. Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `test_server.py`, `tests/fixtures/np3_*.json` |
+| **Rajat** (controller and stress) | `server/engine/controller.py`, `server/engine/fleet.py`, `server/engine/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
+| **Sunny** (story) | `server/engine/tape.py`, `server/engine/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/ci.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
 
 If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
 
@@ -32,18 +32,30 @@ If you need something in a file you don't own, like a new dependency, a new sett
 
 ## UI (Sunny). The engine stays the backend.
 
-There is no `storm_prep/screen.py`. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change. The UI does not allocate, set the reserve, or read the brief to make a decision.
+There is no screen module in the engine. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change, except the backend set below. The UI does not allocate, set the reserve, or read the brief to make a decision.
+
+## Backend (`server/`)
+
+Approved by Uma on 2026-09-26: `fastapi`, `uvicorn`, and `httpx2` (test client only) join `requirements.txt`. No other dependency is added without the same approval.
+
+- `server/` serves the `/v1` API in `docs/agents/plans/operator-console.md`. That plan's contracts are the API contract. Fields may be added, never renamed.
+- HTTP routes in `server/api/` do not allocate, rate risk, or set a reserve floor. Those stay in `server/engine/`. Routes only read their output and record operator writes.
+- No write returns the fleet to `AUTO` or normal selling over a bad reading.
+- Every `POST` needs `X-Operator-Id`. A refused write is `{ "error", "brief" }`.
+- Details for agents: `docs/agents/backend.md`.
 
 How they connect:
 
 1. The engine still writes the JSONL log. Each `stage == "tick"` line carries a `TickResult` inside `data`, plus `brief`.
-2. At the end of the run, `engine.py` (Uma) writes `var/runs/<run_id>.json` from those tick lines. Shape: `{ "run_id", "decision_line", "ticks" }`. Each tick is the `TickResult` fields plus `brief`. Field names match `storm_prep/contracts.py`. They may be added, never renamed or removed.
+2. At the end of the run, `server/engine/loop.py` (Uma) writes `var/runs/<run_id>.json` from those tick lines. Shape: `{ "run_id", "decision_line", "ticks" }`. Each tick is the `TickResult` fields plus `brief`. Field names match `server/engine/contracts.py`. They may be added, never renamed or removed.
 3. `demo.sh` copies that file to `web/public/runs/latest.json`. The app fetches `/runs/latest.json`. `web/src/contracts.ts` repeats those field names for TypeScript. `contracts.py` wins if they disagree.
 4. HOLD and AUTO are already `TickResult.mode`, set from the tape. Buttons on screen do not call the engine.
 
 ```
-storm_prep/contracts.py     TickResult and the other shapes (Uma)
-storm_prep/engine.py        writes var/runs/<run_id>.json (Uma)
+server/engine/contracts.py  TickResult and the other shapes (Uma)
+server/engine/loop.py       writes var/runs/<run_id>.json (Uma)
+server/api/                 /v1 HTTP routes (Uma)
+server/app.py               FastAPI entry (Uma)
 var/runs/<run_id>.json      generated, not committed
 web/                        Vite + React + TypeScript (Sunny)
   src/contracts.ts          same field names as TickResult
@@ -96,7 +108,7 @@ Setting `STALE_AFTER_MIN` in `.env.example`: `STALE_AFTER_MIN=90`. `read_setting
 
 ## Tape file format (read by `load_tape`)
 
-A tape is one JSON object with a `label` and a list of `frames`. Each frame holds the `TapeFrame` fields from `storm_prep/contracts.py`.
+A tape is one JSON object with a `label` and a list of `frames`. Each frame holds the `TapeFrame` fields from `server/engine/contracts.py`.
 
 ```json
 {
@@ -152,7 +164,7 @@ Shape:
 }
 ```
 
-- Each item in `ticks` holds every `TickResult` field from `storm_prep/contracts.py`, plus `brief` (a string).
+- Each item in `ticks` holds every `TickResult` field from `server/engine/contracts.py`, plus `brief` (a string).
 - `totals` stays `{}` until `score.py` fills it in.
 - `source` is `"live"` when the engine ran with `--live` (one ERCOT fetch, its risk used on every tick; a failed fetch means risk None on every tick) and `"scenario"` when each frame's `risk_fixture` was rated.
 - `--live` with no tape plays 12 frames at a flat 0.2 MW target labeled `synthetic`, and `tape` is `"synthetic"`.
