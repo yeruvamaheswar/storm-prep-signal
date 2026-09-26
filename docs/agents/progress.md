@@ -981,3 +981,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `loop.run` keeps both: `live=True` loads or seeds `homes.json` at the start and saves it once after the last tick; tape and synthetic runs use `new_fleet(settings)`. The one `TelemetryState` per run is built from whichever fleet that gives. The feed reads and writes no file, so tape runs still never touch `homes.json`.
 - Docs: `code-flow.md` step 7 (feed plus "nothing saved per tick"); `system-design.md` parts diagram (feed label, live-only `homes.json` edge) and the one-tick paragraph.
 - `pytest -q`: 495 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root, feed on (`plant:` line every tick), both print `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`; no `var/fleet/homes.json` created.
+
+## 2026-09-26: Rollups count confirmed work, not the plan (Rajat's lane)
+
+- `fleet_rollups` takes optional `confirmed_kw` and `unconfirmed`. With them, `discharging` / `discharging_mw` are the homes and kW booked this tick, and a live home sent work but never heard back from is `silent` (not `live`), which the wall already reads as unconfirmed. Without them it still counts the plan (`current_rollups`, tests).
+- `orchestration.py`: `CycleResult.home_confirmed_kw` (home_id to booked kW; sums to `confirmed_mw`; a share goes to the original first, then its reassignment). New `cycle_rollups(homes, cycle, policy)`; `asked_and_heard` shared with `zone_acks`, so rollup unconfirmed equals ack unconfirmed.
+- `loop.py` (Uma's file, one line): writes `var/fleet/rollups.json` with `cycle_rollups`. Before, a 50%-loss tick showed every planned home as discharging.
+- Docs: `docs/agents/fleet-rollups.md`, `docs/agents/code-flow.md`.
+- Tests: 1 in `tests/test_fleet.py`, 4 in `tests/test_orchestration.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 501 passed after merging main. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
