@@ -1,3 +1,5 @@
+Judges: start here → [docs/humans/judges.md](docs/humans/judges.md)
+
 # ReserveGate
 
 ## Run
