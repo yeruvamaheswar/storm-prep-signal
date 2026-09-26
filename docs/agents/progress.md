@@ -138,3 +138,14 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   `compute_risk` and `format_decision`, because those functions reject extra keys.
 - New test: `read_settings()` gives `base_reserve_pct` 30 and `storm_reserve_pct` 60 when `.env`
   doesn't set them. `pytest -q`: 13 passed.
+
+## 2026-09-25: Per-zone reserve floors from weather alerts
+
+- `reserve_policy(risk, settings, alerted=None)`. `alerted` maps zone name to the alert's
+  event name. `reserve_pct`, `reason` and `risk_level` are unchanged.
+- When `settings["zones"]` exists, every zone gets `zone_reserve_pct` and `zone_reasons`, in
+  this order: risk None gives storm floor `signal_unavailable`; HIGH gives storm floor
+  `storm_risk_high`; zone in `alerted` gives storm floor `weather_alert`; else base `normal`.
+- `engine.py` still calls it without `alerted`, so zones follow the fleet floor until alerts
+  are wired in. `CONSTRAINTS.md` still shows the old 2-argument signature.
+- 4 new tests in `tests/test_policy.py`. `pytest -q`: 18 passed.
