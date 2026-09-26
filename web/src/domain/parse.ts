@@ -8,6 +8,9 @@ import type {
   Fleet,
   Home,
   HomeCommand,
+  HomeHistory,
+  HomeHistoryCommand,
+  HomeReading,
   HomeStatus,
   HomeZone,
   Mode,
@@ -350,5 +353,50 @@ export function parsePlayback(value: unknown): Playback | null {
     tape_id: readString(row, "tape_id"),
     tick_index: readNumber(row, "tick_index"),
     tick_count: readNumber(row, "tick_count"),
+  }
+}
+
+function readHistoryTick(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  throw new Error("missing tick")
+}
+
+function readHistoryReading(value: unknown): HomeReading {
+  const row = readRecord(value, "reading")
+  return {
+    tick: readHistoryTick(row.tick),
+    seen_at: readString(row, "seen_at"),
+    soc_kwh: readNumber(row, "soc_kwh"),
+    charge_state: readChargeState(row.charge_state),
+    power_kw: readOptionalNumber(row.power_kw, "power_kw"),
+  }
+}
+
+function readHistoryCommand(value: unknown): HomeHistoryCommand {
+  const row = readRecord(value, "command")
+  const sentAt = row.sent_at
+  return {
+    command_id: readString(row, "command_id"),
+    tick: readHistoryTick(row.tick),
+    kw: readNumber(row, "kw"),
+    actual_kw: readOptionalNumber(row.actual_kw, "actual_kw"),
+    ack: readAck(row.ack),
+    sent_at: sentAt === null || sentAt === undefined ? "" : readString(row, "sent_at"),
+  }
+}
+
+function readHistoryList<T>(value: unknown, parseOne: (item: unknown) => T, label: string): T[] {
+  if (value === null || value === undefined) return []
+  if (!Array.isArray(value)) throw new Error(`expected ${label}`)
+  return value.map(parseOne)
+}
+
+export function parseHomeHistory(value: unknown): HomeHistory {
+  const row = readRecord(value, "history")
+  return {
+    home_id: readString(row, "home_id"),
+    readings: readHistoryList(row.readings, readHistoryReading, "readings"),
+    commands: readHistoryList(row.commands, readHistoryCommand, "commands"),
   }
 }

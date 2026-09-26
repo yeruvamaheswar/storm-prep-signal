@@ -127,12 +127,18 @@ def test_one_cycle_upserts_live_rows_and_allocates(tmp_path, monkeypatch):
     tick = result["record"]["ticks"][-1]
     assert result["record"]["source"] == "live"
     assert len(result["record"]["ticks"]) == 1
-    assert tick["delivered_mw"] == pytest.approx(0.40)
+    # Live allocates the 10k fleet even though SETTINGS is 100 homes.
+    assert result["record"]["settings"]["fleet_size"] == 10_000
+    assert tick["target_mw"] == pytest.approx(40.0)
+    assert tick["target_label"] == "synthetic"
+    assert tick["delivered_mw"] == pytest.approx(40.0)
     assert tick["missed_mw"] == pytest.approx(0.0)
+    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 10_000
     assert "temp_stub" not in tick["reasons"]
     assert tick["breaches"] == 0
     latest = json.loads((tmp_path / "runs" / "latest.json").read_text())
-    assert latest["ticks"][-1]["delivered_mw"] == pytest.approx(0.40)
+    assert latest["ticks"][-1]["delivered_mw"] == pytest.approx(40.0)
+    assert latest["ticks"][-1]["target_mw"] == pytest.approx(40.0)
 
 
 def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
@@ -142,7 +148,50 @@ def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )
     assert result["upsert"].startswith("skipped")
-    assert result["record"]["ticks"][-1]["delivered_mw"] == pytest.approx(0.40)
+    tick = result["record"]["ticks"][-1]
+    assert tick["delivered_mw"] == pytest.approx(40.0)
+    assert tick["target_mw"] == pytest.approx(40.0)
+    assert tick["target_label"] == "synthetic"
+
+
+def test_one_live_frame_stays_synthetic_demo_peak():
+    # The frame is the demo 0.40 call; loop.run scales it to the live call.
+    frame = cycle.one_live_frame(NOW)
+    assert frame.target_mw == pytest.approx(0.40)
+    assert frame.target_label == "synthetic"
+
+
+def test_live_tick_allocates_ten_thousand_ids(tmp_path, monkeypatch):
+    from server.engine.fleet import new_fleet
+
+    _fake_ercot(monkeypatch, tmp_path)
+    result = cycle.run_cycle(
+        SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
+    )
+    tick = result["record"]["ticks"][-1]
+    assert tick["live_homes"] == 10_000
+    assert tick["target_label"] == "synthetic"
+    expected_ids = [home.home_id for home in new_fleet(10_000)]
+    saved = json.loads((tmp_path / "fleet" / "homes.json").read_text())
+    assert [row["home_id"] for row in saved] == expected_ids
+
+
+def test_live_call_follows_call_target_and_cap(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    result = cycle.run_cycle(
+        {**SETTINGS, "call_target_mw": 30.0}, now=NOW,
+        runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
+    )
+    assert result["record"]["ticks"][-1]["target_mw"] == pytest.approx(30.0)
+    result = cycle.run_cycle(
+        {**SETTINGS, "call_target_mw": 80.0}, now=NOW,
+        runs_dir=tmp_path / "runs2", log_dir=tmp_path / "logs",
+        state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
+    )
+    # Fleet cap is 10k x 5 kW = 50 MW.
+    assert result["record"]["ticks"][-1]["target_mw"] == pytest.approx(50.0)
 
 
 def test_snapshot_live_reads_event_live_posting(tmp_path, monkeypatch):

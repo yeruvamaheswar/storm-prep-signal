@@ -27,7 +27,7 @@ Decision (2026-09-26, Rajat): the snapshot carries the engine's battery feed as 
 - `snapshot._with_telemetry` runs once on the loaded tick, so Live, Archive and the fail-safe paths all carry it. `readings` is the engine tick's `feed` dict. It is moved off the tick because `feed` on the snapshot is the ERCOT status text (`"LIVE"`, `"ARCHIVE"`).
 - The counts are what the engine reported. They are not scaled to `FLEET_SIZE`, so the line can say "of 100" while other tiles show a scaled fleet. The line names its own total.
 - No `telemetry` (feed off, or an old run file) hides the line. A missing count also hides it; `telemetryLine` never guesses a number. The suspect count uses `--dead` only when above 0.
-- Demo: ticks 1 to 9 of `web/src/fixtures/layout-run.json` carry `telemetry` copied from `loop.run("tapes/demo.json", ...)` with `telemetry_feed` on and `fleet_size` 100 (only `plant.homes.{total,live,suspect}` and the four `readings` counts). Ticks 10 to 12 have none, because the file was hand-edited off the tape there (tick 10 target 0.4 vs the tape's 0.2; ticks 11 and 12 show every home live). Regenerate ticks 1 to 9 the same way if `tapes/demo.json` changes.
+- Demo: ticks 1 to 9 of `web/src/fixtures/layout-run.json` carry `telemetry` copied from `loop.run("tapes/demo.json", ...)` with `telemetry_feed` on, `fleet_size` 100 and the 25 kWh / 11.4 kW pack (only `plant.homes.{total,live,suspect}` and the four `readings` counts). Ticks 10 to 12 have none, because the file was hand-edited off the tape there (tick 10 target 0.4 vs the tape's 0.2; ticks 11 and 12 show every home live). Regenerate ticks 1 to 9 the same way if `tapes/demo.json` changes.
 
 ## Code
 

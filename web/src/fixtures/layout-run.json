@@ -155,10 +155,10 @@
           }
         },
         "readings": {
-          "received": 2979,
-          "accepted": 2905,
-          "duplicates": 32,
-          "late": 42
+          "received": 2976,
+          "accepted": 2901,
+          "duplicates": 30,
+          "late": 45
         }
       }
     },
@@ -198,9 +198,9 @@
           }
         },
         "readings": {
-          "received": 2963,
-          "accepted": 2874,
-          "duplicates": 29,
+          "received": 2966,
+          "accepted": 2873,
+          "duplicates": 33,
           "late": 60
         }
       }
@@ -242,9 +242,9 @@
           }
         },
         "readings": {
-          "received": 2981,
-          "accepted": 2912,
-          "duplicates": 24,
+          "received": 2982,
+          "accepted": 2911,
+          "duplicates": 26,
           "late": 45
         }
       }
@@ -287,10 +287,10 @@
           }
         },
         "readings": {
-          "received": 2998,
-          "accepted": 2933,
-          "duplicates": 24,
-          "late": 41
+          "received": 2996,
+          "accepted": 2937,
+          "duplicates": 23,
+          "late": 36
         }
       }
     },
@@ -374,10 +374,10 @@
           }
         },
         "readings": {
-          "received": 2979,
-          "accepted": 2910,
-          "duplicates": 32,
-          "late": 37
+          "received": 2977,
+          "accepted": 2908,
+          "duplicates": 29,
+          "late": 40
         }
       }
     },

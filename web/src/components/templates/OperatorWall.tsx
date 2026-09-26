@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { createClient } from "../../api/client"
 import { apiBaseUrl, useApiHealth } from "../../api/health"
 import { useFleetRollups } from "../../api/rollups"
-import { calmStreak } from "../../calmStreak"
+import { wallCalm } from "../../calmStreak"
 import type { Mode, RunFile, WallMeta } from "../../contracts"
 import { feedChip, formatTs } from "../../format"
 import { scenes, type SceneId } from "../../fixtures/scenes"
@@ -162,9 +162,16 @@ export function OperatorWall({ run }: OperatorWallProps) {
     catalog,
   })
   const status = feeds.quality
-  // A scene is a staged tick with no history. Live is one interval, not a tape prefix.
-  const calm =
-    runtime === "live" || overlay ? calmStreak([tick], quality) : calmStreak(run.ticks.slice(0, selected + 1))
+  // Each new snapshot time is another reading. A repeat of the same time does not add one.
+  const calm = wallCalm({
+    tapeChosen,
+    overlay: overlay !== undefined,
+    tapeTicks: run.ticks,
+    selected,
+    tick,
+    quality,
+    samples: watch.calmSamples ?? [],
+  })
   const snapshot = wallSnapshot({
     runtime: archiveOn ? "demo" : runtime,
     tick,
@@ -202,12 +209,19 @@ export function OperatorWall({ run }: OperatorWallProps) {
         setSelected(plan.index)
         return
       case "live":
-        setLiveMode(plan.mode)
         void createClient({
           fetch: window.fetch.bind(window),
           baseUrl: `${apiBaseUrl()}/v1`,
           operatorId: "operator-demo",
-        }).mode(plan.mode)
+        })
+          .mode(plan.mode)
+          .then(() => {
+            setLiveMode(plan.mode)
+          })
+          .catch(() => {
+            // Backend still holds the old mode; keep showing it instead of
+            // an Auto the engine never received.
+          })
         return
       default: {
         const neverPlan: never = plan

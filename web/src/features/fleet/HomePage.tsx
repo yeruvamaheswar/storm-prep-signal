@@ -1,3 +1,8 @@
+import { useEffect, useState } from "react"
+import { createClient } from "../../api/client"
+import { apiBaseUrl } from "../../api/health"
+import type { HomeHistory } from "../../domain/types"
+import { ChargeHistory } from "./ChargeHistory"
 import {
   ackClass,
   ackText,
@@ -17,6 +22,27 @@ import "./fleet.css"
 export function HomePage({ home, onBack }: HomePageProps) {
   const command = home.last_command
   const ack = command === null ? null : command.ack
+  const [history, setHistory] = useState<HomeHistory | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const client = createClient({
+      fetch: window.fetch.bind(window),
+      baseUrl: `${apiBaseUrl()}/v1`,
+      operatorId: "operator-demo",
+    })
+    client
+      .history(home.home_id)
+      .then((body) => {
+        if (!cancelled) setHistory(body)
+      })
+      .catch(() => {
+        if (!cancelled) setHistory(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [home.home_id])
 
   return (
     <main className="fleet-page">
@@ -114,6 +140,11 @@ export function HomePage({ home, onBack }: HomePageProps) {
           <span className={ackClass(ack)}>{ackText(ack)}</span>
         </p>
       </section>
+      <ChargeHistory
+        readings={history?.readings ?? []}
+        commands={history?.commands ?? []}
+        floorKwh={home.floor_kwh}
+      />
     </main>
   )
 }

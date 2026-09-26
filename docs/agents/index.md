@@ -23,6 +23,8 @@ Open this index, then the one file the task needs.
 | `feeds-proxy.md` | You are changing ERCOT auth, `/v1/feeds`, or Vite ERCOT keys |
 | `plans/operator-console-prompts.md` | You are launching a parallel agent to build that console |
 | `plans/fleet-persist-prompts.md` | You are launching a parallel agent to persist the 10k fleet in Supabase |
+| `plans/fleet-controller-prompts.md` | You are launching parallel agents to run the 10k fleet through the controller |
+| `plans/capacity-planning-prompts.md` | You are launching parallel agents to charge when the LZ price is cheap and sell when it is high |
 | `stress-strip.md` | You are changing the Storm Prep numbers under the wall metrics |
 | `calm-meter.md` | You are changing the calm N/2 meter or the Risk caption on the wall |
 | `zone-lens.md` | You are changing zone drill-in from the map or the ack row |
@@ -44,3 +46,4 @@ Open this index, then the one file the task needs.
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime |
 | `failure-modes.md` | You are switching on simulated faults (bad network, crashing or lying homes) in a tape or `.env` |
 | `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |
+| `mode-stale-hold.md` | You are changing snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path |

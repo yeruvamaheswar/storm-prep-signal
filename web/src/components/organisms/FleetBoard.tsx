@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css"
 import "./zoneMap.css"
 import type { FleetRollups, TickView } from "../../contracts"
 import { dotSampleNote, zoneAggregates, visibleHomeNodes } from "../../fleetAggregate"
-import { callCaption, formatGridMw, homeRoleNote, lossCaption } from "../../format"
+import { callCaption, formatGridMw, homeRoleNote, lossCaption, tickFleetHomes } from "../../format"
 import { isLoadZone, zoneHierarchyPaint, zonePaint, type LoadZone, type ZoneFill, type ZonePathPaint } from "../../zonePaint"
 import {
   haloCandidates,
@@ -15,6 +15,7 @@ import {
   type PlaneRect,
 } from "../../zoneLabels"
 import { FleetLegend } from "../molecules/FleetLegend"
+import { fleetCounts } from "./fleetCells"
 import { labelCandidates, parseZonePolygons, zoneContains, type HomeNode, type ZonePolygon } from "./homeNodes"
 import { useHomeNodes } from "./homeNodeLayer"
 import { attachNwsRadar } from "./radarLayer"
@@ -276,6 +277,13 @@ export function FleetBoard({
   }
   const liveHomes = counts.ok + counts.discharging + counts.reserved
   const fleetHomes = zones.reduce((sum, row) => sum + row.homes, 0)
+  // Caption stays on the tick fleet: trust the rollup only when its total equals the tick's.
+  // The map, legend, and labels below keep the 10k sample.
+  const tickFleet = tickFleetHomes(tick)
+  const useRollupForCaption = fleetHomes === tickFleet
+  const captionDischarging = useRollupForCaption ? counts.discharging : 0
+  const captionReserved = useRollupForCaption ? counts.reserved : fleetCounts(tick).reserved
+  const captionLiveHomes = useRollupForCaption ? liveHomes : tickFleet
   const loss = lossCaption(tick)
   const hostRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -446,7 +454,7 @@ export function FleetBoard({
       data-north={paintNow.zones.find((zone) => zone.zone === "North")?.emphasized ? "emphasized" : "plain"}
     >
       <p className="call-caption" role="status" title={calloutTitle}>
-        {callout ?? callCaption(tick, counts.discharging, counts.reserved, liveHomes)}
+        {callout ?? callCaption(tick, captionDischarging, captionReserved, captionLiveHomes)}
         {callout !== null || loss === null ? null : (
           <span className="loss-line" data-loss={loss.kind} style={LOSS_LINE_STYLE}>
             <span ref={missedRef} style={LOSS_MISSED_STYLE}>

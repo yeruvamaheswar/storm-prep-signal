@@ -17,9 +17,14 @@ HOME_SELECT = (
     "last_seen,charge_state,power_kw"
 )
 CHARGE_STATES = ("CHARGING", "DISCHARGING", "HOLDING", "FULL", "EMPTY")
+COMMAND_ACKS = ("ok", "timeout")
 BASE_RESERVE_PCT = 30.0
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
+HISTORY_DEFAULT_LIMIT = 48
+HISTORY_MAX_LIMIT = 200
+READING_SELECT = "tick,seen_at,soc_kwh,charge_state,power_kw"
+COMMAND_SELECT = "command_id,tick,kw,actual_kw,ack,sent_at"
 SEARCH_SAFE = re.compile(r"[^A-Za-z0-9_-]")
 
 
@@ -49,6 +54,17 @@ def page_limit(limit):
     return min(MAX_LIMIT, max(1, int(limit)))
 
 
+def history_limit(limit):
+    # History never returns 10k rows: default 48, max 200, oldest first.
+    if limit is None:
+        return HISTORY_DEFAULT_LIMIT
+    try:
+        value = int(limit)
+    except (TypeError, ValueError):
+        return HISTORY_DEFAULT_LIMIT
+    return min(HISTORY_MAX_LIMIT, max(1, value))
+
+
 def page_offset(offset):
     if offset is None:
         return 0
@@ -71,6 +87,57 @@ def _as_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _as_tick(value):
+    # Tick may be null in the history tables; keep it null, never 0-by-default.
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def as_reading(row):
+    # One home_readings row in the history shape. Missing state stays null,
+    # never a synthetic HOLDING row.
+    charge = row.get("charge_state")
+    return {
+        "tick": _as_tick(row.get("tick")),
+        "seen_at": row.get("seen_at"),
+        "soc_kwh": _as_float(row.get("soc_kwh")),
+        "charge_state": charge if charge in CHARGE_STATES else None,
+        "power_kw": None if row.get("power_kw") is None else _as_float(row.get("power_kw")),
+    }
+
+
+def as_command(row):
+    # One home_commands row in the history shape. Ack is ok/timeout only.
+    ack = row.get("ack")
+    if ack not in COMMAND_ACKS:
+        ack = None
+    actual = row.get("actual_kw")
+    return {
+        "command_id": row.get("command_id"),
+        "tick": _as_tick(row.get("tick")),
+        "kw": _as_float(row.get("kw")),
+        "actual_kw": None if actual is None else _as_float(actual),
+        "ack": ack,
+        "sent_at": row.get("sent_at"),
+    }
+
+
+def as_last_command(row):
+    # Newest command collapsed to the HomeCommand shape web/src/domain/types.ts reads.
+    ack = row.get("ack")
+    if ack not in COMMAND_ACKS:
+        ack = None
+    return {
+        "kw": _as_float(row.get("kw")),
+        "sent_at": row.get("sent_at"),
+        "ack": ack,
+    }
 
 
 def as_console_home(row):
@@ -105,8 +172,8 @@ def as_console_home(row):
     return home
 
 
-def _homes_get(params, settings=None, http_get=None, extra_headers=None):
-    """One GET public.homes. Injected getter is the I/O so CI needs no keys."""
+def _table_get(table, params, settings=None, http_get=None, extra_headers=None):
+    """One GET to a PostgREST table. Injected getter is the I/O so CI needs no keys."""
     settings = settings or homes_settings()
     url, key = settings["url"], settings["key"]
     if not (url and key):
@@ -120,7 +187,7 @@ def _homes_get(params, settings=None, http_get=None, extra_headers=None):
         headers.update(extra_headers)
     try:
         reply = get(
-            f"{url.rstrip('/')}/rest/v1/homes",
+            f"{url.rstrip('/')}/rest/v1/{table}",
             params=params,
             headers=headers,
             timeout=settings["timeout_s"],
@@ -134,9 +201,14 @@ def _homes_get(params, settings=None, http_get=None, extra_headers=None):
     return reply
 
 
-def fetch_home_rows(params, settings=None, http_get=None):
-    """GET public.homes rows. Never uses aggregate functions."""
-    reply = _homes_get(params, settings=settings, http_get=http_get)
+def _homes_get(params, settings=None, http_get=None, extra_headers=None):
+    """One GET public.homes. Kept so existing callers keep working."""
+    return _table_get("homes", params, settings=settings, http_get=http_get, extra_headers=extra_headers)
+
+
+def fetch_table_rows(table, params, settings=None, http_get=None):
+    """GET rows from any fleet table. Never uses aggregate functions."""
+    reply = _table_get(table, params, settings=settings, http_get=http_get)
     try:
         rows = reply.json()
     except ValueError:
@@ -144,6 +216,80 @@ def fetch_home_rows(params, settings=None, http_get=None):
     if not isinstance(rows, list):
         raise HomesUnavailable("malformed")
     return rows
+
+
+def fetch_home_rows(params, settings=None, http_get=None):
+    """GET public.homes rows. Never uses aggregate functions."""
+    return fetch_table_rows("homes", params, settings=settings, http_get=http_get)
+
+
+def fetch_readings(home_id, limit=None, settings=None, http_get=None):
+    """Oldest-first readings for one home. Capped so history never returns 10k rows."""
+    rows = fetch_table_rows(
+        "home_readings",
+        {
+            "select": READING_SELECT,
+            "home_id": f"eq.{home_id}",
+            "order": "seen_at.asc",
+            "limit": str(history_limit(limit)),
+        },
+        settings=settings,
+        http_get=http_get,
+    )
+    return [as_reading(item) for item in rows]
+
+
+def fetch_commands(home_id, limit=None, settings=None, http_get=None):
+    """Oldest-first commands for one home. Capped so history never returns 10k rows."""
+    rows = fetch_table_rows(
+        "home_commands",
+        {
+            "select": COMMAND_SELECT,
+            "home_id": f"eq.{home_id}",
+            "order": "sent_at.asc",
+            "limit": str(history_limit(limit)),
+        },
+        settings=settings,
+        http_get=http_get,
+    )
+    return [as_command(item) for item in rows]
+
+
+def read_home_history(home_id, limit=None, settings=None, http_get=None):
+    """History payload for GET /v1/homes/{home_id}/history.
+
+    A missing table or missing config returns empty arrays, never a 500 and
+    never a synthetic HOLDING series. Each side fails independently so one
+    missing table does not hide the other table's rows.
+    """
+    capped = history_limit(limit)
+    try:
+        readings = fetch_readings(home_id, limit=capped, settings=settings, http_get=http_get)
+    except HomesUnavailable:
+        readings = []
+    try:
+        commands = fetch_commands(home_id, limit=capped, settings=settings, http_get=http_get)
+    except HomesUnavailable:
+        commands = []
+    return {"home_id": home_id, "readings": readings, "commands": commands}
+
+
+def read_last_command(home_id, settings=None, http_get=None):
+    """Newest command as HomeCommand {kw, sent_at, ack}. None when unknown."""
+    rows = fetch_table_rows(
+        "home_commands",
+        {
+            "select": COMMAND_SELECT,
+            "home_id": f"eq.{home_id}",
+            "order": "sent_at.desc",
+            "limit": "1",
+        },
+        settings=settings,
+        http_get=http_get,
+    )
+    if not rows:
+        return None
+    return as_last_command(rows[0])
 
 
 def _content_range_total(reply):
@@ -198,7 +344,14 @@ def read_home(home_id, settings=None, http_get=None):
     )
     if not rows:
         return None
-    return as_console_home(rows[0])
+    home = as_console_home(rows[0])
+    # Fill last_command from the newest command. A missing history table or
+    # missing config keeps null instead of raising, so the home still returns.
+    try:
+        home["last_command"] = read_last_command(home_id, settings=settings, http_get=http_get)
+    except HomesUnavailable:
+        home["last_command"] = None
+    return home
 
 
 def _empty_zone_row():

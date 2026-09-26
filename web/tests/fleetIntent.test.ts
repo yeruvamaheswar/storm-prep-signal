@@ -74,6 +74,20 @@ describe("fleet intent", () => {
     )
   })
 
+  it("names AUTO with a full unexplained miss as next dispatch pending", () => {
+    const next = intent({
+      ...tapeTick(1),
+      mode: "AUTO",
+      delivered_mw: 0,
+      missed_mw: 0.2,
+      target_mw: 0.2,
+      reasons: [],
+    })
+    expect(next.action).toBe("hold")
+    expect(next.line).toMatch(/pending/)
+    expect(next.line).not.toMatch(/Operator hold/)
+  })
+
   it("reads the offline scene as discharge from the homes still live", () => {
     const devices = scenes.find((scene) => scene.id === "devices")
     if (devices === undefined) {

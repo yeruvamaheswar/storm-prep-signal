@@ -22,6 +22,12 @@ export function fleetIntent(tick: TickView, quality: string, line: OutageLine): 
   if (tick.mode === "HOLD") {
     return { action: "hold", line: "Hold. Discharge stays at zero until Auto." }
   }
+  if (isPendingAuto(tick)) {
+    return {
+      action: "hold",
+      line: `Auto requested — next dispatch pending. Delivered ${formatMw(tick.delivered_mw)} of ${formatMw(tick.target_mw)} MW (${tick.target_label}).`,
+    }
+  }
   const delivered = `Delivered ${formatMw(tick.delivered_mw)} of ${formatMw(tick.target_mw)} MW (${tick.target_label})`
   const floor = `above the ${String(tick.reserve_pct)}% floor`
   const trigger = stormTrigger(tick, line)
@@ -35,6 +41,21 @@ export function fleetIntent(tick: TickView, quality: string, line: OutageLine): 
 
 function untrusted(tick: TickView, quality: string): boolean {
   return untrustedReport(tick, quality)
+}
+
+/**
+ * AUTO with a full miss and no reason code is not a policy hold: it is the
+ * stale HOLD tick after the operator already requested AUTO. The engine
+ * always names a miss (storm_reserve, fleet_headroom_short, homes_dead:n,
+ * ...), so an empty list means the next live_cycle dispatch has not run yet.
+ */
+function isPendingAuto(tick: TickView): boolean {
+  if (tick.mode !== "AUTO") return false
+  if (!(tick.delivered_mw <= 0)) return false
+  if (!(tick.target_mw > 0)) return false
+  if (!(tick.missed_mw >= tick.target_mw - 1e-9)) return false
+  const reasons = tick.reasons ?? []
+  return reasons.length === 0
 }
 
 /** The outage crossing, included only when this tick's floor was raised for that posting. */

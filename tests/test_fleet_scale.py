@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from server.api.snapshot import IngestError, build_meta, build_snapshot
 from server.engine.fleet import (
     call_target_mw,
@@ -17,20 +19,20 @@ from server.engine.loop import run
 
 
 def _settings(n, call=None):
-    return {"fleet_size": n, "home_max_kw": 5.0, "call_target_mw": call}
+    return {"fleet_size": n, "home_max_kw": 11.4, "call_target_mw": call}
 
 
 def test_demo_tape_stays_at_100_and_0_40():
     demo = _settings(100)
-    assert fleet_cap_mw(demo) == 0.5
+    assert fleet_cap_mw(demo) == 1.14
     assert call_target_mw(demo) == 0.4
     assert scale_target_mw(0.40, demo) == 0.40
     assert scale_target_mw(0.20, demo) == 0.20
 
 
-def test_ten_thousand_homes_cap_is_50_mw_not_fixture_0_40():
+def test_ten_thousand_homes_cap_is_114_mw_not_fixture_0_40():
     live = _settings(10_000)
-    assert fleet_cap_mw(live) == 50.0
+    assert fleet_cap_mw(live) == 114.0
     assert call_target_mw(live) == 40.0
     assert scale_target_mw(0.40, live) == 40.0
     assert scale_target_mw(0.20, live) == 20.0
@@ -38,7 +40,7 @@ def test_ten_thousand_homes_cap_is_50_mw_not_fixture_0_40():
 
 def test_call_target_setting_clamps_to_fleet_cap():
     assert call_target_mw(_settings(10_000, call=30)) == 30.0
-    assert call_target_mw(_settings(10_000, call=80)) == 50.0
+    assert call_target_mw(_settings(10_000, call=200)) == 114.0
     assert scale_target_mw(0.40, _settings(10_000, call=30)) == 30.0
 
 
@@ -68,8 +70,8 @@ def test_archive_run_scales_tape_and_still_misses_on_storm(tmp_path, monkeypatch
     root = Path(__file__).resolve().parents[1]
     monkeypatch.chdir(root)
     settings = {
-        "margin_pct": 15, "lookahead_hours": 6, "fleet_size": 200, "home_kwh": 20,
-        "home_max_kw": 5, "base_reserve_pct": 30, "storm_reserve_pct": 60, "tick_minutes": 5,
+        "margin_pct": 15, "lookahead_hours": 6, "fleet_size": 200, "home_kwh": 25,
+        "home_max_kw": 11.4, "base_reserve_pct": 30, "storm_reserve_pct": 60, "tick_minutes": 5,
     }
     record = run(
         root / "tests" / "fixtures" / "tape_tiny.json",
@@ -81,8 +83,9 @@ def test_archive_run_scales_tape_and_still_misses_on_storm(tmp_path, monkeypatch
     assert ticks[0]["live_homes"] == 200
     assert ticks[0]["target_mw"] == 0.4
     assert ticks[1]["target_mw"] == 0.8
-    assert ticks[1]["missed_mw"] > 0
-    assert ticks[0]["delivered_mw"] == ticks[0]["target_mw"]
+    assert ticks[2]["target_mw"] == 0.8
+    assert ticks[2]["missed_mw"] > 0
+    assert ticks[0]["delivered_mw"] == pytest.approx(ticks[0]["target_mw"])
 
 
 def test_current_rollups_ignore_stale_n(tmp_path, monkeypatch):
@@ -107,7 +110,7 @@ def test_meta_live_10k_exposes_cap_and_call(tmp_path, monkeypatch):
     monkeypatch.setattr("server.api.snapshot.LATEST_RUN", latest)
     meta = build_meta()
     assert meta["fleet_size"] == 10000
-    assert meta["fleet_cap_mw"] == 50.0
+    assert meta["fleet_cap_mw"] == 114.0
     assert meta["call_target_mw"] == 40.0
 
 
@@ -123,7 +126,7 @@ def test_snapshot_counts_follow_fleet_size(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("server.api.snapshot.LATEST_RUN", latest)
     monkeypatch.setenv("FLEET_SIZE", "10000")
-    monkeypatch.setenv("HOME_MAX_KW", "5")
+    monkeypatch.setenv("HOME_MAX_KW", "11.4")
 
     def boom(_now):
         raise IngestError("timeout")

@@ -105,9 +105,21 @@ describe("call caption", () => {
     )
   })
 
-  it("falls back to live homes when the rollup has no one discharging", () => {
+  it("falls back to the tick fleet when a 10k rollup has no one discharging", () => {
     expect(callCaption(tapeTick(1), 0, 0, 10_000)).toBe(
-      "ERCOT call 0.20 MW (synthetic) · supplying 0.20 MW from 10000 homes · 0 held",
+      "ERCOT call 0.20 MW (synthetic) · supplying 0.20 MW from 100 homes · 0 held",
+    )
+  })
+
+  it("keeps a real 100-home 0.40 MW tick at 100 homes", () => {
+    expect(callCaption(tapeTick(3), 0, 0, 100)).toBe(
+      "ERCOT call 0.40 MW (synthetic) · supplying 0.40 MW from 100 homes · 0 held",
+    )
+  })
+
+  it("clamps an inflated rollup count to the tick fleet", () => {
+    expect(callCaption(tapeTick(3), 10_000, 10_000)).toBe(
+      "ERCOT call 0.40 MW (synthetic) · supplying 0.40 MW from 100 homes · 100 held",
     )
   })
 })

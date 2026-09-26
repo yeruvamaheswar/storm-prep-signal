@@ -38,17 +38,37 @@ export function clusterCaption(counts: {
   return `${fleet} · zone ${formatGridMw(counts.zoneMw)} MW`
 }
 
-/** Who is answering ERCOT on this tick. The target keeps its label, as every on-screen MW must. */
+/** Fleet the tick allocated: live + stale + dead. The caption trusts rollups only at this total. */
+export function tickFleetHomes(tick: TickView): number {
+  const live = Number.isFinite(tick.live_homes) ? Math.max(0, Math.floor(tick.live_homes)) : 0
+  const stale = Number.isFinite(tick.stale_homes) ? Math.max(0, Math.floor(tick.stale_homes)) : 0
+  const dead = Number.isFinite(tick.dead_homes) ? Math.max(0, Math.floor(tick.dead_homes)) : 0
+  return live + stale + dead
+}
+
+function safeCount(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+}
+
+/** Who is answering ERCOT on this tick. The target keeps its label, as every on-screen MW must.
+ * Home counts stay on the tick fleet, so a 10k rollup never moves a 0.40 MW / 100-home call.
+ * A discharging subset (40 of 100) still reads; anything past the tick total clamps to it.
+ */
 export function callCaption(
   tick: TickView,
   discharging: number,
   reserved: number,
   liveHomes: number = discharging,
 ): string {
-  const answering = discharging > 0 ? discharging : liveHomes
+  const total = tickFleetHomes(tick)
+  const safeDis = safeCount(discharging)
+  const safeLive = safeCount(liveHomes)
+  const safeRes = safeCount(reserved)
+  const answering = safeDis > 0 ? Math.min(safeDis, total) : safeLive === total ? safeLive : total
+  const held = Math.min(safeRes, total)
   const call = `ERCOT call ${formatMw(tick.target_mw)} MW (${tick.target_label})`
   const supply = `supplying ${formatMw(tick.delivered_mw)} MW from ${homesPhrase(answering)}`
-  return `${call} · ${supply} · ${reserved} held`
+  return `${call} · ${supply} · ${held} held`
 }
 
 export type LossCaption = {
