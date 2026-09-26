@@ -345,3 +345,32 @@ def test_reassignment_uses_reported_status_not_the_truth():
     moves = [e for e in second.events if e["kind"] == "reassigned"]
     assert any(e["parent_command_id"] == "home-093:2" for e in moves)
     assert all(e["home_id"] != "home-097" for e in moves)
+
+
+def test_plant_is_the_sum_of_its_zones():
+    (r,), homes, state = cycle_with_feed()
+    assert set(r.zones) == set(ZONES)
+    for key in ("soc_mwh", "floor_mwh", "available_mw", "delivering_mw"):
+        assert r.plant[key] == pytest.approx(sum(z[key] for z in r.zones.values()), abs=1e-9)
+    assert r.plant["homes"]["total"] == 100
+    assert r.plant["delivering_mw"] == pytest.approx(r.confirmed_mw)
+    assert r.plant["data_label"] == "synthetic"
+    assert r.plant["zones"] == r.zones
+
+
+def test_rollup_counts_statuses():
+    (r,), homes, state = cycle_with_feed(telemetry_outages={"home-001": [(0.0, 10_000.0)]},
+                                         telemetry_liar_ids=())
+    apply_events(homes, {"dead": ["home-002"]})
+    plant, zones = state.rollups(homes, policy(), r)
+    assert plant["homes"]["dead"] >= 1
+    assert plant["homes"]["live"] + plant["homes"]["stale"] + plant["homes"]["dead"] \
+        + plant["homes"]["suspect"] == 100
+
+
+def test_zone_with_every_home_silent():
+    houston = {f"home-{i:03d}": [(0.0, 10_000.0)] for i in range(1, 101, 4)}
+    results, homes, state = cycle_with_feed(ticks=2, telemetry_outages=houston)
+    z = results[-1].zones["Houston"]
+    assert z["coverage"] == 0.0 and z["available_mw"] == 0.0 and z["homes"]["live"] == 0
+    assert results[-1].zones["North"]["coverage"] == 1.0

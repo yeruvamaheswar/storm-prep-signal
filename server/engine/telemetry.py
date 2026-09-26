@@ -14,6 +14,7 @@ from typing import Optional
 
 from server.engine.channel import Channel
 from server.engine.contracts import Home
+from server.engine.fleet import floor_kwh, safe_kw
 
 DEFAULTS = {
     "telemetry_every_s": 10.0,        # one reading per home per 10 virtual s (a demo rate)
@@ -211,6 +212,7 @@ class TelemetryState:
                          if not str(e.get("command_id", "")).startswith("telemetry:")]
         for key, value in self.stats.items():
             self.totals[key] += value
+        result.plant, result.zones = self.rollups(homes, policy, result)
         self.base_s += self.tick_s
 
     def _emit(self, home_id):
@@ -229,6 +231,44 @@ class TelemetryState:
             self.stats["cut_at_tick_end"] += 1
             return
         ingest(self.homes[reading["home_id"]], reading, self.base_s + self.sched.now, self.stats)
+
+    def rollups(self, homes, policy, result):
+        """One ADER-like view per zone and one for the plant, from reports only (never the truth)."""
+        now = self.base_s + self.tick_s
+        zones = {}
+        for h in homes:
+            hs = self.homes[h.home_id]
+            status = view_status(h.status, data_status(hs, now, self.settings))
+            z = zones.setdefault(h.zone, self._empty_rollup())
+            z["homes"]["total"] += 1
+            z["homes"][status] += 1
+            soc = hs.last["soc_kwh"] if hs.last else 0.0
+            copy = Home(h.home_id, h.capacity_kwh, soc, h.max_kw, "live", h.zone)
+            z["soc_mwh"] += soc / 1000
+            z["floor_mwh"] += floor_kwh(copy, policy) / 1000
+            if status == "live":
+                z["available_mw"] += safe_kw(copy, policy, self.settings) / 1000
+            z["max_data_age_s"] = max(z["max_data_age_s"], now - hs.last_seen)
+        for name, z in zones.items():
+            z["delivering_mw"] = result.zone_delivered_mw.get(name, 0.0)
+            z["coverage"] = z["homes"]["live"] / z["homes"]["total"]
+        plant = self._empty_rollup()
+        for z in zones.values():
+            for key in z["homes"]:
+                plant["homes"][key] += z["homes"][key]
+            for key in ("soc_mwh", "floor_mwh", "available_mw", "delivering_mw"):
+                plant[key] += z[key]
+            plant["max_data_age_s"] = max(plant["max_data_age_s"], z["max_data_age_s"])
+            plant["grid_down"] = plant["grid_down"] or z["grid_down"]
+        plant["coverage"] = plant["homes"]["live"] / plant["homes"]["total"] if plant["homes"]["total"] else 0.0
+        plant["zones"] = zones
+        return plant, zones
+
+    @staticmethod
+    def _empty_rollup():
+        return {"homes": dict.fromkeys(("total", "live", "stale", "dead", "suspect"), 0),
+                "soc_mwh": 0.0, "floor_mwh": 0.0, "available_mw": 0.0, "delivering_mw": 0.0,
+                "grid_down": False, "coverage": 0.0, "max_data_age_s": 0.0, "data_label": "synthetic"}
 
     def reported_homes(self, homes):
         """New Home objects built from the reports, for allocate. Never the simulator's own."""
