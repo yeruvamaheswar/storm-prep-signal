@@ -62,10 +62,19 @@ def random_floors(rng):
     return {zone: rng.choice((30.0, 60.0)) for zone in ZONES}
 
 
-def make_policy(floors):
+INTENTS = ("discharge", "hold", "charge")
+
+
+def make_policy(floors, intent_rng=None):
     # A copy of floors, so a later floor move never rewrites a policy an earlier tick used.
     reasons = {zone: ("weather_alert" if pct == 60.0 else "normal") for zone, pct in floors.items()}
-    return Policy(30.0, "normal", "LOW", zone_reserve_pct=dict(floors), zone_reasons=reasons)
+    policy = Policy(30.0, "normal", "LOW", zone_reserve_pct=dict(floors), zone_reasons=reasons)
+    if intent_rng is not None:
+        # Price intent: fleet-wide, or now and then each zone its own (charge and discharge mixed).
+        policy.intent = intent_rng.choice(INTENTS)
+        if intent_rng.random() < 0.3:
+            policy.zone_intent = {zone: intent_rng.choice(INTENTS) for zone in ZONES}
+    return policy
 
 
 def random_events(rng, homes):
@@ -139,11 +148,17 @@ def check_tick(seed, tick, result, homes, policy, before, status_before, target_
     assert not twice, f"{at}: commands executed more than once: {twice}"
 
     by_id = {h.home_id: h for h in homes}
+    # Charging is never delivery, never past full, and never booked above what was taken.
+    gained = sum(max(0.0, by_id[i].soc_kwh - soc) for i, soc in before.items()) * 60 / TICK_MINUTES / 1000
+    assert -EPS <= result.charged_mw <= gained + EPS, \
+        f"{at}: charged {result.charged_mw} MW but homes took {gained}"
     for home_id, soc_before in before.items():
         home = by_id[home_id]
         lost = soc_before - home.soc_kwh
+        assert home.soc_kwh <= home.capacity_kwh + EPS, \
+            f"{at}: {home_id} filled past full ({home.soc_kwh} > {home.capacity_kwh} kWh)"
         if status_before[home_id] != "live":
-            assert lost <= EPS, f"{at}: {home_id} was {status_before[home_id]} but lost {lost} kWh"
+            assert abs(lost) <= EPS, f"{at}: {home_id} was {status_before[home_id]} but moved {lost} kWh"
         if lost > EPS:
             floor = floor_kwh(home, policy)
             assert home.soc_kwh >= floor - EPS, \
@@ -153,6 +168,8 @@ def check_tick(seed, tick, result, homes, policy, before, status_before, target_
 def run_scenario(seed, verbose=False):
     """Build seed's random world, run TICKS cycles, check every tick. Returns (ticks, breaches)."""
     rng = random.Random(seed)
+    # Intents draw from their own stream, so each seed's world (fleet, faults, floors) is unchanged.
+    intent_rng = random.Random(f"intent-{seed}")
     settings = base_settings(rng)
     homes = new_fleet(settings)
     floors = random_floors(rng)
@@ -171,7 +188,7 @@ def run_scenario(seed, verbose=False):
         # already below a newly raised floor must get nothing and not count as breaches.
         if rng.random() < 0.25:
             floors[rng.choice(list(ZONES))] = rng.choice((30.0, 60.0))
-        policy = make_policy(floors)
+        policy = make_policy(floors, intent_rng)
         events = random_events(rng, homes)
         frame = make_frame(tick, target_mw, events)
         apply_events(homes, events)

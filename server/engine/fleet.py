@@ -303,6 +303,12 @@ def safe_kw(home, policy, settings):
     return min(home.max_kw, headroom * 60 / settings["tick_minutes"])
 
 
+def room_kw(home, settings):
+    """The most this home can take in this tick: room left to full, capped by its max kW."""
+    room = max(0.0, home.capacity_kwh - home.soc_kwh)
+    return min(home.max_kw, room * 60 / settings["tick_minutes"])
+
+
 def discharge(homes, alloc, policy, settings):
     """Apply the allocation and return how many homes ended below their floor (must be 0).
 

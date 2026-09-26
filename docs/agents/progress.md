@@ -1017,3 +1017,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Real ERCOT check (read-only, 2026-09-26 17:45 CT interval): Houston 34.17, North 31.56, South 36.95, West 59.21 $/MWh; North equals the headline `fetch_price`.
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Charge orders run safely in the runtime (Rajat's lane)
+
+- Found after PR #31: a charge tick (negative kW) went through `orchestrate_tick` as if it were delivery. One 0.2 MW call booked credited -0.515 MW and missed 0.715 MW; with a lossy channel, retries and reassignments charged homes past full (824 cases over 39 seeds). No test set `intent` to charge, so CI stayed green. Live runs charge when the LZ price is at or below $25/MWh.
+- `fleet.room_kw` (room to full, capped by `max_kw`). `HomeWorker.run` caps charge at it (second guard, logs `clamped`); breaches count discharge only, so charging a home under a newly raised floor is not a breach.
+- `orchestration.py`: charge commands sit in `ZoneSupervisor.charges`, sent once, never timed out, retried or reassigned; a home with a charge order is never picked for reassigned work. Reports log `charge_confirmed`. The charge-drop check books the amount nearer zero. Add-only `CycleResult.charged_mw` (positive MW absorbed). Charge stays out of planned, confirmed, credited, `home_confirmed_kw` and rollups; telemetry gets it as negative confirmed kW, so a charging battery is not flagged suspect.
+- Docs: `docs/agents/policy-intent.md` ("How a charge tick runs").
+- Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.164/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q`: 559 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
