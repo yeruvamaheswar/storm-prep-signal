@@ -99,6 +99,32 @@ def test_hold_state_delivers_zero(tmp_path, monkeypatch):
     assert tick["reasons"] == ["operator_hold"]
 
 
+def test_table_hold_overrides_local_auto(tmp_path, monkeypatch):
+    """Wall HOLD lands in Supabase; the laptop worker must allocate 0 even if
+    its local var/state.json is still AUTO."""
+    _fake_ercot(monkeypatch, tmp_path)
+    (tmp_path / "state.json").write_text(json.dumps({"mode": "AUTO"}))
+
+    class Table:
+        ok = True
+        status_code = 200
+
+        def json(self):
+            return [{"mode": "HOLD"}]
+
+    result = cycle.run_cycle(
+        SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        state_path=tmp_path / "state.json", url="https://example.supabase.co",
+        key="test-key", persist=False, send=None,
+        http_get=lambda *args, **kwargs: Table(),
+    )
+    tick = result["record"]["ticks"][-1]
+    assert tick["mode"] == "HOLD"
+    assert tick["delivered_mw"] == 0.0
+    assert tick["reasons"] == ["operator_hold"]
+    assert json.loads((tmp_path / "state.json").read_text()) == {"mode": "HOLD"}
+
+
 def test_live_posting_rows_use_event_live():
     rows = cycle.live_posting_rows(json.loads(NP3.read_text()))
     assert rows
