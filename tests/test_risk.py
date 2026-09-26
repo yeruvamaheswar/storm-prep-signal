@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from storm_prep.baseline import load_baseline
+from storm_prep.baseline import BaselineError, load_baseline
 from storm_prep.risk import ZONES, compute_risk, zone_fields
 
 FLAT = {"median_mw_by_lead": [1000] * 6}  # example, not real data
@@ -63,3 +63,10 @@ def test_short_baseline_file_is_rejected(tmp_path):
     path.write_text(json.dumps({"median_mw_by_lead": [1000] * 5}))
     with pytest.raises(ValueError, match="baseline too short: 5 lead hours"):
         load_baseline(path, lookahead_hours=6)
+
+
+def test_broken_baseline_json_is_a_setup_error(tmp_path):
+    path = tmp_path / "broken.json"
+    path.write_text('{"median_mw_by_lead": [1000, 1000,')
+    with pytest.raises(BaselineError, match="baseline file is not valid JSON"):
+        load_baseline(path)

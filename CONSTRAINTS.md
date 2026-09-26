@@ -18,7 +18,7 @@ If you need something in a file you don't own, like a new dependency, a new sett
 
 | Function | Owner | Signature and promise |
 |---|---|---|
-| `reserve_policy` | Uma | `(risk: RiskResult \| None, settings) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
+| `reserve_policy` | Uma | `(risk: RiskResult \| None, settings, alerted=None) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). |
 | `new_fleet` | Rajat | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
 | `apply_events` | Rajat | `(homes, events) -> None`: sets status only. |
 | `allocate` | Rajat | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
@@ -28,6 +28,8 @@ If you need something in a file you don't own, like a new dependency, a new sett
 | `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
 | `render` | Sunny | `(log_path) -> Path`: one static HTML file from `stage == "tick"` events. No server needed. |
 | `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
+
+alerted is a dict of zone name to NWS event name; statewide reasons outrank zone alerts.
 
 ## Allocation rule (Rajat implements it; Uma must be able to say it out loud)
 
@@ -45,6 +47,50 @@ If you need something in a file you don't own, like a new dependency, a new sett
 - Nothing reads the brief. It's written after the decision.
 - Every target and price shown on screen shows its label. No unlabeled $/MWh or MW anywhere.
 
+## Zones
+
+Setting `ZONES` in `.env.example`: `ZONES=Houston:48201,North:48113,South:48355,West:48329`. These are ERCOT's 4 load zones, each with one anchor county (Harris, Dallas, Nueces, Midland). `read_settings()` returns it as `"zones"`, a dict of zone name to county FIPS code (a string), and defaults to the same value.
+
+New contract fields, all with defaults:
+
+- `Home.zone: str = ""`
+- `TapeFrame.weather_fixture: Optional[str] = None`
+- `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)
+- `TickResult.zone_reserve_pct`, `zone_reasons`, `zone_delivered_mw: dict` (all `default_factory=dict`) and `weather_label: str = "none"`
+
+Rule: zones react only to weather alerts; there is no per-zone ERCOT threshold.
+
+## Stale data
+
+Setting `STALE_AFTER_MIN` in `.env.example`: `STALE_AFTER_MIN=90`. `read_settings()` returns it as `"stale_after_min"` (an int) and defaults to 90.
+
+- `--live` only: if the newest posting is more than `stale_after_min` minutes old, the signal is unavailable with reason `data is <N> min old (limit 90)`. Risk is None, so the floor is `storm_reserve_pct` with reason `signal_unavailable`.
+- `--fixture` and `--file` are recorded on purpose. Their clock is pinned to the posting, and they are never rejected for age.
+- A missing or too-short `data/baseline_by_lead.json` is a setup error in every mode. The run stops, as the engine does. It is never reported as signal unavailable.
+
+## Tape file format (read by `load_tape`)
+
+A tape is one JSON object with a `label` and a list of `frames`. Each frame holds the `TapeFrame` fields from `storm_prep/contracts.py`.
+
+```json
+{
+  "label": "str",
+  "frames": [
+    {
+      "tick": 0, "ts": "2026-09-25T12:00:00-05:00",
+      "target_mw": 0.0, "target_label": "synthetic",
+      "price_usd_mwh": null, "price_label": "none",
+      "risk_fixture": null,
+      "events": {}
+    }
+  ]
+}
+```
+
+- `risk_fixture`, `weather_fixture` and `events` are optional in a frame; every other `TapeFrame` field is required.
+- `load_tape` still returns `list[TapeFrame]` (the frames only).
+- Fields may be added, never renamed.
+
 ## Engine output (read by web/)
 
 The engine writes one file per run to `var/runs/<run_id>.json`, plus `var/runs/latest.json`, which is a copy of the most recent run.
@@ -55,6 +101,7 @@ Shape:
 {
   "run_id": "str",
   "tape": "str (path to the tape file)",
+  "source": "str (\"live\" or \"scenario\")",
   "settings": {
     "fleet_size": 0,
     "home_kwh": 0.0,
@@ -81,6 +128,8 @@ Shape:
 
 - Each item in `ticks` holds every `TickResult` field from `storm_prep/contracts.py`, plus `brief` (a string).
 - `totals` stays `{}` until `score.py` fills it in.
+- `source` is `"live"` when the engine ran with `--live` (one ERCOT fetch, its risk used on every tick; a failed fetch means risk None on every tick) and `"scenario"` when each frame's `risk_fixture` was rated.
+- `--live` with no tape plays 12 frames at a flat 0.2 MW target labeled `synthetic`, and `tape` is `"synthetic"`.
 
 Rules:
 
