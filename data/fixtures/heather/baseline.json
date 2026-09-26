@@ -1,0 +1,14 @@
+{
+ "source": "Supabase public.ercot_postings, event heather, ERCOT NP3-233-CD",
+ "postings": 720,
+ "from": "2023-12-13T00:03:59",
+ "to": "2024-01-11T23:03:21",
+ "median_mw_by_lead": [
+  18939.0,
+  18912.5,
+  18849.0,
+  18768.5,
+  18736.5,
+  18698.5
+ ]
+}

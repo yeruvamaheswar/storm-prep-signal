@@ -1,4 +1,4 @@
-"""Tick loop: python -m server.engine --tape PATH | --live [--tape PATH]"""
+"""Tick loop: python -m server.engine --tape PATH | --live [--tape PATH] [--baseline PATH]"""
 import argparse
 import json
 import sys
@@ -6,7 +6,7 @@ from dataclasses import asdict, replace
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from server.engine.baseline import load_baseline
+from server.engine.baseline import BASELINE_PATH, load_baseline
 from server.engine.brief import write_brief
 from server.engine.cli import read_settings
 from server.engine.contracts import TapeFrame, TickResult
@@ -149,18 +149,19 @@ def write_run_files(runs_dir, run_id, record):
 
 
 def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, state_path=None,
-        frames=None, live_risk=_UNSET, live_price=_UNSET):
+        frames=None, live_risk=_UNSET, live_price=_UNSET, baseline_path=BASELINE_PATH):
     """Play every frame of the tape through the fleet. Returns the run record written to disk.
 
     live=True fetches ERCOT once and uses that risk on every tick, ignoring the frames' risk
     fixtures. With no tape it plays SYNTHETIC_TICKS synthetic frames. A caller that already
     fetched (the live worker) may pass `frames`, `live_risk`, and `live_price`.
+    baseline_path lets a past storm be rated against the month before it, not against today's baseline.
 
     Each tick is apply_events → compute_risk → reserve_policy → allocate → simulate_zone_acks → discharge → TickResult.
     """
     settings = with_fleet_defaults(settings)
     run_id = start_run(log_dir)
-    baseline = load_baseline(lookahead_hours=settings["lookahead_hours"])
+    baseline = load_baseline(baseline_path, lookahead_hours=settings["lookahead_hours"])
     if live:
         if live_risk is _UNSET:
             live_risk = read_live_risk(baseline, settings)
@@ -222,6 +223,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             "run_id": run_id,
             "tape": str(tape_path) if tape_path else "synthetic",
             "source": "live" if live else "scenario",
+            "baseline": str(baseline_path),
             "settings": {key: settings[key] for key in SETTINGS_KEYS},
             "ticks": list(ticks),
             "totals": {},
@@ -234,6 +236,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             "run_id": run_id,
             "tape": str(tape_path) if tape_path else "synthetic",
             "source": "live" if live else "scenario",
+            "baseline": str(baseline_path),
             "settings": {key: settings[key] for key in SETTINGS_KEYS},
             "ticks": [],
             "totals": {},
@@ -246,10 +249,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="server.engine", description="Run a tape through the fleet.")
     parser.add_argument("--tape", help="path to a tape JSON file (optional with --live)")
     parser.add_argument("--live", action="store_true", help="fetch ERCOT once and use that risk on every tick")
+    parser.add_argument("--baseline", default=BASELINE_PATH,
+                        help="baseline JSON to rate against (default data/baseline_by_lead.json)")
     args = parser.parse_args(argv)
     if not (args.tape or args.live):
         parser.error("give --tape PATH, --live, or both")
-    run(args.tape, read_settings(), live=args.live, state_path=STATE_PATH)
+    run(args.tape, read_settings(), live=args.live, state_path=STATE_PATH, baseline_path=args.baseline)
     return 0
 
 

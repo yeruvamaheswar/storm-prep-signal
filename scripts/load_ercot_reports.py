@@ -1,4 +1,4 @@
-"""Pull ERCOT reports for the Beryl week and the tuning month from the public API into Supabase.
+"""Pull ERCOT reports for the Beryl and Heather weeks and the tuning month from the public API into Supabase.
 
 Usage: python scripts/load_ercot_reports.py [--window beryl] [--report NP4-732-CD]
                                             [--start 2024-07-05 --end 2024-07-05]
@@ -25,7 +25,8 @@ from server.env import ENV_PATH, load_env  # noqa: E402
 from server.engine.signal import CENTRAL, SignalUnavailable, get_id_token, parse_central, rows_by_name  # noqa: E402
 
 API_URL = "https://api.ercot.com/api/public-reports"
-WINDOWS = {"beryl": ("2024-07-05", "2024-07-11"), "tuning-2026": ("2026-08-25", "2026-09-25")}
+WINDOWS = {"beryl": ("2024-07-05", "2024-07-11"), "heather": ("2024-01-12", "2024-01-17"),
+           "tuning-2026": ("2026-08-25", "2026-09-25")}
 # report -> (API path, extra query filters). Every one of these has a postedDatetime per row.
 POSTED = {
     "NP3-233-CD": ("np3-233-cd/hourly_res_outage_cap", {}),
@@ -37,9 +38,9 @@ POSTED = {
     "NP4-738-CD": ("np4-738-cd/spp_actual_5min_avg_values", {}),
 }
 PRICES = ("NP6-905-CD", "np6-905-cd/spp_node_zone_hub", {"settlementPointType": "LZ"})
-# Beryl NP3-233-CD came from the saved zips (scripts/load_ercot_archive.py). Their posted_at is the
-# file-name time, seconds off the API's postedDatetime, so an API copy would sit beside it, not on it.
-SKIP = {("beryl", "NP3-233-CD")}
+# Beryl and Heather NP3-233-CD came from the saved zips (scripts/load_ercot_archive.py). Their posted_at
+# is the file-name time, seconds off the API's postedDatetime, so an API copy would sit beside it, not on it.
+SKIP = {("beryl", "NP3-233-CD"), ("heather", "NP3-233-CD")}
 PAGE_SIZE = 10000
 TIMEOUT_S = 60
 # ERCOT answered HTTP 429 after about 30 calls in one minute, so stay under 30 a minute.
