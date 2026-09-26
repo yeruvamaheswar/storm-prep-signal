@@ -71,7 +71,7 @@ flowchart LR
   end
 
   subgraph files["2. Local files"]
-    TAPES["tapes/heather.json<br/>tapes/demo.json, hand-written"]
+    TAPES["tapes/heather.json<br/>tapes/demo.json, hand-written<br/>tapes/failures.json, simulated faults"]
     FIX["data/fixtures/heather/<br/>postings + baseline.json"]
     BASE["data/baseline_by_lead.json"]
     MARGIN["data/margin_check.json<br/>evidence only"]

@@ -839,3 +839,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `score.py`: on a tick with `zone_prices` where every delivering zone is priced, the fleet `dollars` adds the zone dollars (label `zone_price_label`); a zone-priced tick that delivered nothing adds $0 under that label. Otherwise the tick's one price, as before. New `add_usd` helper shared by fleet and zones.
 - Heather replay: fleet `dollars` $126.50 `recorded:ERCOT NP6-905-CD`, equal to the four zones (was $87.00 at LZ_HOUSTON only). Demo tape has no zone prices, so it is unchanged.
 - Tests: 4 in `tests/test_score.py`. `pytest -q`: 421 passed.
+
+## 2026-09-26: Failure modes a tape or .env can switch on (Rajat's lane)
+
+- `orchestration.py`: `tick_faults` applies tape events `network` (drop/dup/late rates), `crash` (home ids whose worker raises and goes dead), `misreport` (home id to report factor) per tick; bad values, unknown keys or homes raise `ValueError`. A faulted tick (including `short_delivery`) gets reason `faults_injected`.
+- `cli.py` + `.env.example`: `CHANNEL_DROP_RATE`, `CHANNEL_DUP_RATE`, `CHANNEL_LATE_RATE` (default 0) for a whole run. Listed in `docs/agents/system-design.md`.
+- New `tapes/failures.json`: the demo tape plus faults on ticks 3 (40% lost), 5 (five homes crash), 7 (two misreport), 9 (60% lost). 0 floor breaches; recovers to 0.2 of 0.2 on ticks 10-11.
+- Docs: new `docs/agents/failure-modes.md`, `docs/humans/failure-modes.md`, index line; `contracts.py` events comment; code-flow tape node.
+- Tests: 10 in `tests/test_orchestration.py`, 2 in `tests/test_run.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 434 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

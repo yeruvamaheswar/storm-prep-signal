@@ -59,3 +59,20 @@ def test_read_settings_defaults_reserves_to_env_example(monkeypatch):
     assert settings["storm_reserve_pct"] == 60
     assert settings["charge_threshold_usd_mwh"] == 25
     assert settings["discharge_threshold_usd_mwh"] == 60
+
+
+def test_read_settings_channel_faults_default_to_a_clean_network(monkeypatch):
+    monkeypatch.setattr(cli, "load_dotenv", lambda: None)
+    for name in ("CHANNEL_DROP_RATE", "CHANNEL_DUP_RATE", "CHANNEL_LATE_RATE"):
+        monkeypatch.delenv(name, raising=False)
+    settings = read_settings()
+    assert (settings["channel_drop_rate"], settings["channel_dup_rate"], settings["channel_late_rate"]) == (0, 0, 0)
+
+
+def test_read_settings_reads_a_bad_network_from_env(monkeypatch):
+    monkeypatch.setattr(cli, "load_dotenv", lambda: None)
+    monkeypatch.setenv("CHANNEL_DROP_RATE", "0.3")
+    monkeypatch.setenv("CHANNEL_DUP_RATE", "0.2")
+    monkeypatch.setenv("CHANNEL_LATE_RATE", "0.1")
+    settings = read_settings()
+    assert (settings["channel_drop_rate"], settings["channel_dup_rate"], settings["channel_late_rate"]) == (0.3, 0.2, 0.1)
