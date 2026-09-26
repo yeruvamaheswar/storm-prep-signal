@@ -13,7 +13,7 @@ pip install -r requirements.txt
 uvicorn server.app:app --reload
 ```
 
-Then open http://localhost:8000/docs to try each call. For a live snapshot, keep the ERCOT names in `server/.env` (the API loads them, then the process env). Without them, `/v1/feeds/outage` returns quality `auth` and `/v1/snapshot` still answers with the demo tape. `/v1/feeds` is the product list for the Feeds chips.
+Then open http://localhost:8000/docs to try each call. For a live snapshot, keep the ERCOT and Supabase names in `server/.env` and run `python scripts/live_cycle.py --loop` on this laptop (`docs/humans/live-worker.md`). Without the worker, `/v1/snapshot` can still fall back to a direct ERCOT pull or the last run file. `/v1/feeds` is the product list for the Feeds chips.
 
 **Put it online.** In Render, choose New, then Blueprint, and pick this repo. Render reads `render.yaml`.
 

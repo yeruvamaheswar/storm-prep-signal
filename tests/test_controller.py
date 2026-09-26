@@ -47,6 +47,15 @@ def check_books(alloc, target_mw):
     assert all(kw > 0 for kw in alloc.per_home_kw.values())
 
 
+def assert_real_reasons(alloc):
+    """Wall codes only. A TEMP stub must never leak `temp_stub` onto the tick."""
+    assert "temp_stub" not in alloc.reasons
+    for code in alloc.reasons:
+        ok = code in ("operator_hold", "storm_reserve", "fleet_headroom_short", "unknown_zone")
+        ok = ok or code.startswith("homes_dead:") or code.startswith("homes_stale:")
+        assert ok, f"unexpected reason {code!r}"
+
+
 # --- units and splitting ---------------------------------------------------
 
 def test_half_a_megawatt_is_treated_as_500_kw():
@@ -224,6 +233,54 @@ def test_discharge_of_an_allocation_never_breaches(pct, reason, target_mw):
     check_books(alloc, target_mw)
     assert discharge(homes, alloc, p, settings()) == 0
     # At 60% about half the fleet starts under the floor; those homes must simply not move.
+    for h in homes:
+        assert h.soc_kwh >= min(start[h.home_id], floor_kwh(h, p)) - 1e-9
+        if start[h.home_id] <= floor_kwh(h, p):
+            assert h.soc_kwh == start[h.home_id]
+
+
+# --- archive 0.40 MW wall cases (HOLD / AUTO under cap / storm 60% miss) ---
+
+def test_hold_on_archive_call_delivers_zero():
+    # HOLD is the reserved stop: every home 0 kW, missed is the 0.40 MW call.
+    homes = new_fleet(settings())
+    p, s = policy(), settings()
+    alloc = allocate(homes, frame(0.40), p, "HOLD", s)
+    assert alloc.per_home_kw == {}
+    assert alloc.delivered_mw == 0.0 and alloc.missed_mw == pytest.approx(0.40)
+    assert alloc.reasons == ["operator_hold"]
+    assert_real_reasons(alloc)
+    check_books(alloc, 0.40)
+    assert discharge(homes, alloc, p, s) == 0
+
+
+def test_auto_under_cap_splits_040_mw_across_live_homes():
+    # 100 live homes above a 30% floor can give 0.50 MW. 0.40 MW is under that cap.
+    homes = new_fleet(settings())
+    p, s = policy(), settings()
+    alloc = allocate(homes, frame(0.40), p, "AUTO", s)
+    assert alloc.delivered_mw == pytest.approx(0.40)
+    assert alloc.missed_mw == pytest.approx(0.0)
+    assert len(alloc.per_home_kw) == 100
+    assert all(0 < kw <= 5.0 for kw in alloc.per_home_kw.values())
+    assert alloc.reasons == []
+    assert_real_reasons(alloc)
+    check_books(alloc, 0.40)
+    assert discharge(homes, alloc, p, s) == 0
+
+
+def test_storm_60_floor_misses_040_mw_without_breaches():
+    # About half the seeded fleet starts under 60%, so the 0.40 MW call is missed on purpose.
+    homes = new_fleet(settings())
+    p, s = policy(60.0, "storm_risk_high"), settings()
+    start = {h.home_id: h.soc_kwh for h in homes}
+    alloc = allocate(homes, frame(0.40), p, "AUTO", s)
+    assert 0 < alloc.delivered_mw < 0.40
+    assert alloc.missed_mw == pytest.approx(0.40 - alloc.delivered_mw)
+    assert alloc.reasons == ["storm_reserve"]
+    assert_real_reasons(alloc)
+    check_books(alloc, 0.40)
+    assert discharge(homes, alloc, p, s) == 0
     for h in homes:
         assert h.soc_kwh >= min(start[h.home_id], floor_kwh(h, p)) - 1e-9
         if start[h.home_id] <= floor_kwh(h, p):
