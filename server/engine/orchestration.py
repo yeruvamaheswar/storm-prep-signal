@@ -26,6 +26,7 @@ from server.engine.controller import allocate, round_down
 from server.engine.fleet import apply_events, floor_kwh, new_fleet, safe_kw, set_status
 from server.engine.policy import reserve_policy
 from server.engine.scheduler import Scheduler
+from server.engine.telemetry import TelemetryState
 
 OUT_DIR = Path("var") / "orchestration"
 COUNTERS = ("breaches", "timed_out", "retried", "reassigned", "duplicates_ignored", "late",
@@ -401,26 +402,38 @@ def tick_line(frame, result):
             f" | duplicates ignored {result.duplicates_ignored} | breaches {result.breaches}")
 
 
-def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR):
+def plant_line(result):
+    p, f = result.plant, result.feed
+    return (f"  plant: live {p['homes']['live']}/{p['homes']['total']} | stored {p['soc_mwh']:.3f} MWh"
+            f" | available {p['available_mw']:.3f} MW | coverage {p['coverage']:.0%}"
+            f" | feed {f['accepted']}/{f['received']} accepted, dups {f['duplicates']}, late {f['late']}"
+            f" | suspect {p['homes']['suspect']} (synthetic)")
+
+
+def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR, telemetry=False):
     """Play every frame through run_cycle, print one line per tick, write one JSON file."""
     settings = read_settings()
     settings["seed"] = seed
     policy = build_policy(floor, settings)
     homes = new_fleet(settings)
+    state = TelemetryState(homes, settings, seed) if telemetry else None
     mode, ticks = "AUTO", []
     for frame in load_frames(tape):
         apply_events(homes, frame.events)
         mode = frame.events.get("operator", mode)   # HOLD/AUTO stays until the tape changes it
         # A different seed per tick, so each tick sees its own faults, still fixed by --seed.
-        result = run_cycle(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick)
+        result = run_cycle(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick,
+                           telemetry=state)
         print(tick_line(frame, result))
+        if state is not None:
+            print(plant_line(result))
         ticks.append({"tick": frame.tick, "ts": frame.ts, "mode": mode, "target_mw": frame.target_mw,
                       "target_label": frame.target_label, **asdict(result)})
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{seed}.json"
     record = {"seed": seed, "tape": str(tape), "floor": floor, "reserve_pct": policy.reserve_pct,
-              "policy_reason": policy.reason, "ticks": ticks}
+              "policy_reason": policy.reason, "telemetry": telemetry, "ticks": ticks}
     path.write_text(json.dumps(record, indent=2))
     return path
 
@@ -432,8 +445,10 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, required=True, help="seed for every random fault")
     parser.add_argument("--floor", choices=("base", "storm"), default="storm",
                         help="reserve floor for every tick (default: storm)")
+    parser.add_argument("--telemetry", action="store_true",
+                        help="plan from a simulated battery feed instead of perfect knowledge")
     args = parser.parse_args(argv)
-    print(f"wrote {run_tape(args.tape, args.seed, args.floor)}")
+    print(f"wrote {run_tape(args.tape, args.seed, args.floor, telemetry=args.telemetry)}")
     return 0
 
 

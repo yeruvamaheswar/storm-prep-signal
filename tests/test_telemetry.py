@@ -1,5 +1,7 @@
 """Tests for server/engine/telemetry.py: the battery feed, the intake, and the VPP's view of each home."""
 import math
+import os
+import random
 
 import pytest
 
@@ -396,3 +398,34 @@ def test_a_silent_home_is_skipped_not_flagged():
     results, homes, state = cycle_with_feed(target_mw=1.0, ticks=3,
                                             telemetry_outages={"home-050": [(0.0, 10_000.0)]})
     assert not state.homes["home-050"].suspect
+
+
+def test_fuzz_with_feed_never_breaches_and_never_blames_an_honest_home():
+    for seed in range(1, int(os.environ.get("TELEMETRY_FUZZ_SEEDS", "10")) + 1):
+        rng = random.Random(seed)
+        s = settings(channel_drop_rate=0.05, channel_dup_rate=0.05, channel_late_rate=0.05)
+        homes = new_fleet(s)
+        state = tm.TelemetryState(homes, s, seed)
+        for tick in range(1, 13):
+            pol = policy(rng.choice([30.0, 60.0]))
+            events = {"dead": [rng.choice(homes).home_id]} if rng.random() < 0.3 else {}
+            f = frame(rng.uniform(0.05, 0.6), events, tick=tick)
+            apply_events(homes, f.events)
+            before = {h.home_id: h.soc_kwh for h in homes}
+            r = run_cycle(homes, f, pol, "AUTO", s, seed * 1000 + tick, telemetry=state)
+            assert r.breaches == 0, (seed, tick)
+            for h in homes:
+                if h.soc_kwh < before[h.home_id] - 1e-12:
+                    assert h.soc_kwh >= floor_kwh(h, pol) - 1e-9, (seed, tick, h.home_id)
+            blamed = {i for i, hs in state.homes.items() if hs.suspect}
+            assert blamed <= set(state.liar_ids), (seed, tick, blamed)
+            assert r.plant["available_mw"] == pytest.approx(
+                sum(z["available_mw"] for z in r.zones.values()), abs=1e-9)
+
+
+def test_runner_prints_a_plant_line_with_telemetry(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(orchestration.Path(__file__).resolve().parent.parent)
+    path = orchestration.run_tape("tests/fixtures/tape_tiny.json", 1, out_dir=tmp_path, telemetry=True)
+    out = capsys.readouterr().out
+    assert "plant: live" in out and path.exists()
+    assert '"telemetry": true' in path.read_text()

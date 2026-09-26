@@ -60,9 +60,9 @@ Units: kWh, kW (+ = discharging), virtual seconds. Each OTel name is shown next 
 | `grid` | `connected` or `down` | Tesla `grid_status` |
 | `health` | `ok`, `degraded` or `failed` | `hw.state` |
 
-**HomeState** is the backend's view of one battery. It persists across ticks. It holds `last` (the latest accepted Reading), `last_seen` (its `ingest_ts`), `boot_id`, `last_seq`, `status`, `suspect`, `pre_tick_soc_kwh` (the reported charge when this tick's plan was made), and counters `dups`, `late` and `rejected`.
+**HomeState** is the backend's view of one battery. It persists across ticks. It holds `last` (the latest accepted Reading), `last_seen` (its `ingest_ts`), `boot_id`, `last_seq`, `suspect`, `pre_tick` (the reading held when this tick's plan was made), and counters `dups`, `late` and `rejected`. Status is not stored: it is computed by `data_status()` from data age each time it is needed.
 
-`status` is the **data status**, derived from data age: 180 s or less is `live`, over 180 s is `stale`, over 600 s is `dead`, and a failed energy check is `suspect` (sticky for the run). The data status is separate from the tape's status on the simulator `Home` (see R4).
+The **data status** is derived from data age: 180 s or less is `live`, over 180 s is `stale`, over 600 s is `dead`, and a failed energy check is `suspect` (sticky for the run). The data status is separate from the tape's status on the simulator `Home` (see R4).
 
 **ZoneRollup** is one per zone per tick (the "ADER partition"). It holds `homes` (total, live, stale, dead, suspect), `soc_mwh`, `floor_mwh`, `available_mw` (the sum of safe caps over live homes, from reported data), `delivering_mw`, `grid_down` (bool), `coverage` (share of homes live), `max_data_age_s` and `data_label`.
 
@@ -75,6 +75,7 @@ Units: kWh, kW (+ = discharging), virtual seconds. Each OTel name is shown next 
 ### P0: feed, intake, HomeState, rollups (cut line 1)
 
 **R1. Feed on the virtual clock.** Each home sends a Reading every `telemetry_every_s` (default 10) through `channel.py`, on the same `Scheduler` as the orders. The first reading is offset by a seeded amount, so homes do not all report at once. `Channel.send` requires a `command_id`, so each reading message carries `command_id = "telemetry:{home_id}:{boot_id}:{seq}"`. That id is for channel logging only; `channel.py` does not change.
+Before the first tick, every battery registers with one reading, so tick 1 plans from a report.
 - [ ] Given seed S, two runs produce identical readings, faults and rollups.
 - [ ] 100 homes produce about 3,000 readings per 300 s tick.
 
@@ -88,6 +89,8 @@ Units: kWh, kW (+ = discharging), virtual seconds. Each OTel name is shown next 
 | late or out-of-order, 10–120 s | 2% | assumed |
 | clock skew | ±2 s per home | assumed |
 | lying battery | 1 planted home, reported charge frozen | demo case |
+
+Order ignored: covered by the existing command channel faults and by offline homes ignoring orders. No separate 3% fault tonight. Late readings use `telemetry_late_extra_s` = 60 s. Test knobs: `telemetry_outages`, `telemetry_liar_ids`.
 
 The reboot fault (a new `boot_id` with `seq` restarting) is cut for tonight and moved to P2. The intake still handles a new `boot_id` correctly (R3).
 
@@ -103,7 +106,7 @@ The reboot fault (a new `boot_id` with `seq` restarting) is cut for tonight and 
 - [ ] **Data-age stale or dead revives:** a new accepted reading makes the home `live` again.
 - [ ] **Tape-dead and suspect do not revive:** a home the tape marked `dead` or `stale`, or one flagged `suspect`, stays out of planning even if readings arrive. The planning status is the worse of the tape status and the data status.
 
-**R5. Energy check (suspect), per tick.** For each home that confirmed an order this tick: expected charge = `pre_tick_soc_kwh − confirmed actual_kw × tick_minutes / 60`. The expected charge is compared with the latest reported charge at the end of the tick (300 s). A difference of more than 0.3 kWh marks the home `suspect`. Homes with no fresh reading before and after the tick are skipped, not flagged. The continuous 10-second check is P2.
+**R5. Energy check (suspect), per tick.** For each home that confirmed an order this tick: expected charge = `pre_tick_soc_kwh − confirmed actual_kw × tick_minutes / 60`. The expected charge is compared with the latest reported charge at the end of the tick (300 s). A difference of more than 0.1 kWh (setting `suspect_kwh`; 0.1 kWh over a 5-minute tick catches a lie of 1.2 kW or more, and honest simulated homes match exactly) marks the home `suspect`. Checked only when both readings were sent at least 5 s after a books close (this covers ±2 s clock skew). Homes with no fresh reading before and after the tick are skipped, not flagged. The continuous 10-second check is P2.
 - [ ] The planted lying battery is flagged at the end of its first tick with a confirmed order.
 - [ ] Across 30 seeds, no honest home is ever flagged.
 - [ ] A home that was silent all tick is not flagged.
@@ -112,6 +115,7 @@ The reboot fault (a new `boot_id` with `seq` restarting) is cut for tonight and 
   - `allocate` and the rollups use reported data only (`reported_homes`, `HomeState.last`).
   - `HomeWorker`, `discharge`, the floor clamp and the breach count use the simulator's true `Home` objects only.
   - A wrong report can therefore cause a missed target, but never a breach.
+Reassignment at the 60 s deadline (`ZoneSupervisor.pick_home`) also reads the plan's reported copies (`rt.plan_view`), never the simulator's truth.
 - [ ] No object returned by `reported_homes` is the same object as a simulator `Home` (an identity test).
 - [ ] `allocate` is never called with the simulator's own `Home` objects when the feed is on.
 - [ ] Mutating a reported copy never changes a simulator `Home`.
@@ -181,10 +185,10 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
 |---|---|---|
 | Floor breaches, feed and all faults on | 0 over 30 seeds (50 with `FUZZ_SEEDS=50`) | `tests/test_invariants.py` |
 | Stale detection | at most 190 s after the last reading | test R4 |
-| Lying battery caught | at the end of its first tick with a confirmed order | test R5 |
+| Lying battery caught | at the end of its first tick with a confirmed order of 1.2 kW or more | test R5 |
 | False suspects | 0 over 30 seeds | fuzzer |
 | Replayability | same seed, byte-identical run file | test R1 |
-| Speed | 30-seed fuzz under 30 s on a laptop | `pytest -q` timing |
+| Speed | 30-seed fuzz under 30 s on a laptop; measured 3.681 s | `pytest -q` timing |
 
 ## Open questions
 

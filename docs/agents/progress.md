@@ -315,3 +315,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Asks for Uma (approve `telemetry.py`, wire the engine, add settings) and Sunny (`grid_down` tape key, show the rollups) are listed in the spec.
 - Added a line to `docs/agents/index.md`.
 - No application code in this change. `pytest -q` was not run.
+
+## 2026-09-26: Telemetry feed, cut line 1 (Rajat's lane)
+
+- New `server/engine/telemetry.py`: readings every 10 virtual s over a lossy channel, intake (dedup, late, reject), status from data age, per-home state across ticks, tick-level energy check, zone and plant rollups, OTel view.
+- `run_cycle(..., telemetry=None)`: with a `TelemetryState`, the plan uses reported copies and the result carries `plant`, `zones`, `feed`. Without one, nothing changes.
+- Runner: `python -m server.engine.orchestration --tape tests/fixtures/tape_tiny.json --seed 1 --telemetry`.
+- `pytest -q`: 218 passed. Feed fuzz (30 seeds x 12 ticks): 0 breaches, 0 honest homes flagged, 3.681 s.
+- Details: `docs/agents/telemetry-vpp.md`.
