@@ -201,6 +201,27 @@ class TelemetryState:
         """Called by HomeWorker.run: from now on this battery reports that it is discharging."""
         self.power[home_id] += actual_kw
 
+    def check_energy(self, confirmed_kw, unsure):
+        """Flag a battery whose reported charge does not match the energy it confirmed giving.
+
+        Checked once per tick: orders move a battery's charge all at once when they execute, so a
+        per-reading check would blame honest homes. Homes we can't be sure about are skipped.
+        """
+        close = self.settings.get("cycle_close_s", 120.0) + 5.0   # 5 s covers +-2 s clock skew
+        tick_h = self.settings["tick_minutes"] / 60
+        flagged = []
+        for home_id, hs in self.homes.items():
+            pre, post = hs.pre_tick, hs.last
+            if hs.suspect or home_id in unsure or pre is None or post is None or pre is post:
+                continue
+            if pre["device_ts"] < self.base_s - self.tick_s + close or post["device_ts"] < self.base_s + close:
+                continue
+            expected = pre["soc_kwh"] - confirmed_kw.get(home_id, 0.0) * tick_h
+            if abs(post["soc_kwh"] - expected) > knob(self.settings, "suspect_kwh"):
+                hs.suspect = True
+                flagged.append(home_id)
+        return flagged
+
     def stop(self):
         """End of tick: no new reading is scheduled, and one still in flight is discarded."""
         self.stopped = True
@@ -208,6 +229,7 @@ class TelemetryState:
     def finish(self, result, homes, policy, confirmed_kw, unsure):
         """After the drain: fill the result's feed stats, then move our clock to the next tick."""
         result.feed = {**self.stats, "fault_basis": dict(FAULT_BASIS)}
+        result.feed["newly_suspect"] = self.check_energy(confirmed_kw, unsure)
         result.events = [e for e in result.events
                          if not str(e.get("command_id", "")).startswith("telemetry:")]
         for key, value in self.stats.items():

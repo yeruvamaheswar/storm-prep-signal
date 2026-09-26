@@ -374,3 +374,25 @@ def test_zone_with_every_home_silent():
     z = results[-1].zones["Houston"]
     assert z["coverage"] == 0.0 and z["available_mw"] == 0.0 and z["homes"]["live"] == 0
     assert results[-1].zones["North"]["coverage"] == 1.0
+
+
+def test_a_lying_battery_is_flagged_after_its_first_order_then_gets_no_work():
+    results, homes, state = cycle_with_feed(target_mw=1.0, ticks=2, telemetry_liar_ids=("home-100",))
+    first, second = results
+    assert first.command_states.get("home-100:1") == "confirmed"
+    assert state.homes["home-100"].suspect
+    assert [i for i, hs in state.homes.items() if hs.suspect] == ["home-100"]
+    assert "home-100" not in second.allocation.per_home_kw
+    assert second.plant["homes"]["suspect"] == 1
+
+
+def test_honest_homes_are_never_flagged_over_many_ticks():
+    results, homes, state = cycle_with_feed(target_mw=0.5, ticks=6,
+                                            telemetry_dup_rate=0.05, telemetry_late_rate=0.05)
+    assert not any(hs.suspect for hs in state.homes.values())
+
+
+def test_a_silent_home_is_skipped_not_flagged():
+    results, homes, state = cycle_with_feed(target_mw=1.0, ticks=3,
+                                            telemetry_outages={"home-050": [(0.0, 10_000.0)]})
+    assert not state.homes["home-050"].suspect
