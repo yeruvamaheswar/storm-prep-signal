@@ -5,18 +5,20 @@ It does not hold the product, the team, the deadlines, or which files a person m
 
 ## Two shelves
 
-`docs/agents/` is for coding agents. A file there can be any length. Open the one file the task needs. Do not open the folder and read every file.
+`docs/agents/` is for coding agents. A file there can be any length. Do not open the folder and read every file.
 
 `docs/humans/` is for people. Each file uses simple English. A person should finish it in 30 to 60 seconds. When a page needs more than that, move the detail to `docs/agents/` and leave a short pointer in `docs/humans/`.
 
+## Third shelf
+
+`CONSTRAINTS.md` and `DESIGN.md` at the repo root are frozen contracts. They are not old notes. Open `CONSTRAINTS.md` before changing behavior it names. Open `DESIGN.md` before changing the look of the wall. A note in `docs/agents/` does not override a frozen contract. A file marked later does not override `docs/agents/reservegate.md` or `CONSTRAINTS.md`. Narrower-wins applies only among files with the same status.
+
 ## What to open
 
-1. This file.
-2. One file in `docs/agents/` for the task.
-   - Who owns a file, what we will not cut, or what we say out loud: `docs/agents/team-manifest.md`.
-   - How to edit code: `docs/agents/working-rules.md`.
-   - Risk rule, event schema, past decisions: `docs/agents/plan.md`, `docs/agents/progress.md`, `docs/agents/research.md`.
-3. The source files you are about to change.
+1. This file. It is already loaded.
+2. `docs/agents/index.md`.
+3. The one file whose "Open it when" line matches the task.
+4. The source files you are about to change.
 
 Open a `docs/humans/` page only when you are writing one, or checking that a person can read it in about a minute.
 
@@ -24,12 +26,13 @@ If the agent file you need is missing, ask. Build the missing note with the owne
 
 ## Which source wins
 
-1. The `docs/agents/` file that covers the question.
-2. The code you are editing, for behavior that is already implemented.
-3. This file, for how context is read and written.
-4. The current chat.
+1. A frozen contract on the point it names.
+2. The `docs/agents/` file that covers the question.
+3. The code you are editing, for behavior that is already implemented.
+4. This file, for how context is read and written.
+5. The current chat.
 
-When the chat and a file disagree, re-read the file and follow it. This file wins on the strategy only. It does not win on product facts. A narrower agent file wins over a general one on the same point.
+When the chat and a file disagree, re-read the file and follow it. This file wins on the strategy only. It does not win on product facts.
 
 ## Writing new context
 
@@ -40,8 +43,10 @@ Write a note before the chat ends when a later chat will need a decision, a cont
 - Leave this file unchanged unless the strategy for reading or writing context changes.
 - In the chat, name the file you wrote. Do not paste the whole document.
 - In the pull request, record the files touched, what `pytest -q` reported, and the path of any new context file.
-
-When `docs/agents/` grows past a handful of files, add `docs/agents/index.md`. Give each file a title and one line that says when to open it. While choosing what to read, open the index and then one other file.
+- A fact has one home. Other files link to it.
+- Do not paste the owner table, the honest limits, or the tick order into a second file.
+- If a note is superseded, replace its body with a short pointer instead of leaving two copies.
+- If a path cited by a note is not in the repo, stop and ask the owner. Do not recreate that file from the chat.
 
 ## Old notes
 

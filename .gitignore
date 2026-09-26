@@ -3,4 +3,7 @@
 var/
 __pycache__/
 .pytest_cache/
+web/node_modules/
+web/dist/
+web/public/runs/
 data/events/*/raw/

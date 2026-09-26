@@ -1,0 +1,48 @@
+{
+  "tick_id": "tick_playback",
+  "ts": "2026-07-08T19:20:00-05:00",
+  "source": "playback",
+  "tape_id": "demo-stress",
+  "mode": "RESERVE",
+  "target": {
+    "mw": 0.4,
+    "source": "tape:demo-stress",
+    "as_of": "2026-07-08T19:19:40-05:00",
+    "quality": "ok"
+  },
+  "price": {
+    "usd_mwh": 185,
+    "source": "tape:demo-stress",
+    "as_of": "2026-07-08T19:19:50-05:00",
+    "quality": "ok"
+  },
+  "delivered_mw": 0,
+  "missed_mw": 0.4,
+  "reserve": {
+    "pct": 60,
+    "reason": "stress_high",
+    "sellable_mwh": 0.18,
+    "held_mwh": 0.42
+  },
+  "stress": {
+    "outage_mw": 2100,
+    "threshold_mw": 1500,
+    "margin_mw": 600,
+    "zone_id": "NP3",
+    "level": "HIGH",
+    "as_of": "2026-07-08T19:00:00-05:00",
+    "quality": "ok",
+    "calm_streak": 0
+  },
+  "fleet": {
+    "live": 70,
+    "stale": 10,
+    "dead": 18,
+    "unconfirmed": 2,
+    "breaches": 0
+  },
+  "quality": "ok",
+  "reasons": ["stress_high"],
+  "brief": "Playback of demo-stress. Outage capacity is above the line, so discharge is stopped.",
+  "attention": null
+}

@@ -1,0 +1,48 @@
+{
+  "tick_id": "tick_live_ok",
+  "ts": "2026-07-08T19:20:00-05:00",
+  "source": "live",
+  "tape_id": null,
+  "mode": "AUTO",
+  "target": {
+    "mw": 0.4,
+    "source": "ercot",
+    "as_of": "2026-07-08T19:19:40-05:00",
+    "quality": "ok"
+  },
+  "price": {
+    "usd_mwh": 85,
+    "source": "ercot",
+    "as_of": "2026-07-08T19:19:50-05:00",
+    "quality": "ok"
+  },
+  "delivered_mw": 0.32,
+  "missed_mw": 0.08,
+  "reserve": {
+    "pct": 30,
+    "reason": "normal",
+    "sellable_mwh": 0.48,
+    "held_mwh": 0.22
+  },
+  "stress": {
+    "outage_mw": 800,
+    "threshold_mw": 1500,
+    "margin_mw": -700,
+    "zone_id": "NP3",
+    "level": "LOW",
+    "as_of": "2026-07-08T19:00:00-05:00",
+    "quality": "ok",
+    "calm_streak": 2
+  },
+  "fleet": {
+    "live": 70,
+    "stale": 10,
+    "dead": 18,
+    "unconfirmed": 2,
+    "breaches": 0
+  },
+  "quality": "ok",
+  "reasons": [],
+  "brief": "Delivered 0.32 of 0.40 MW from surplus above the floor.",
+  "attention": null
+}

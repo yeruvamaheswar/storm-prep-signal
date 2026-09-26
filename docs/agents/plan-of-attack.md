@@ -33,7 +33,7 @@ Still open from earlier: ask an organizer about the pre-event commits (Slices 0�
 5. `alloc = allocate(homes, frame, policy, mode, settings)`
 6. `breaches = fleet.discharge(homes, alloc, policy, settings)`
 7. Build a `TickResult`, then `score.update(board, result)`, then `write_brief(result)`, then `log_event("tick", "ok", **asdict(result), brief=text)`.
-8. After the last frame, `screen.render(log_path)` writes `var/screen/<run_id>.html`.
+8. After the last frame, the engine writes `var/runs/<run_id>.json`. The React app in `web/` reads a copy of that file. No server. There is no `storm_prep/screen.py`.
 
 Command: `python -m storm_prep.engine --tape tapes/demo.json`. The existing `python -m storm_prep --fixture` keeps working unchanged.
 
@@ -43,7 +43,7 @@ Command: `python -m storm_prep.engine --tape tapes/demo.json`. The existing `pyt
 |---|---|
 | **Uma** (policy core, glue, and merges) | `storm_prep/contracts.py`, `CONSTRAINTS.md`, `storm_prep/policy.py`, `storm_prep/engine.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py` (frozen, left alone). Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `tests/fixtures/np3_*.json` |
 | **Rajath** (controller and stress) | `storm_prep/controller.py`, `storm_prep/fleet.py`, `storm_prep/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `storm_prep/screen.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `tests/test_screen.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `app/` (stretch) |
+| **Sunny** (story) | `storm_prep/tape.py`, `storm_prep/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/tests.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
 
 If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
 
@@ -120,7 +120,6 @@ class TickResult:
 | `new_board` / `update` | Rajath | cumulative target, delivered and missed MWh, total breaches, and lowest soc %. |
 | `load_tape` | Sunny | `(path) -> list[TapeFrame]`. Rejects a frame with no labels or with a naive `ts`. |
 | `write_brief` | Sunny | `(result: TickResult) -> str`, one or two sentences built only from the result's fields. |
-| `render` | Sunny | `(log_path) -> Path`: one static HTML file from `stage == "tick"` events. No server needed. |
 | `log_event` | Uma (exists) | the 7 fields (`ts, run_id, stage, event, ok, reason, data`) plus `decision_line` on the final event. Tick data goes inside `data`. |
 
 ### Allocation rule (Rajath implements it; Uma must be able to say it out loud)
@@ -155,7 +154,7 @@ Everyone:
 | 2 | `contracts.py` + `CONSTRAINTS.md` + sim settings in `.env.example` + copy this doc to `docs/reservegate.md` | `uma/contracts` | `python -c "import storm_prep.contracts"` runs; Rajath and Sunny can see it on main | **Fri 9:30 PM (freeze)** |
 | 3 | `policy.py` + `tests/test_policy.py` (HIGH, LOW, and None cases) | `uma/policy` | 3 tests pass | Sat 10:30 AM |
 | 4 | `engine.py` + `tests/test_engine.py`. The tracer bullet runs a 3-frame tape end to end. | `uma/engine` | `python -m storm_prep.engine --tape tapes/demo.json` prints delivered vs target for each tick, and the log has `stage: tick` events | Sat 12:30 PM |
-| 5 | Wire in `render()` and the final `decision_line`. Run the full demo tape. | `uma/engine-final` | HTML opens; breaches are 0 on every tick | Sat 5:00 PM |
+| 5 | Write `var/runs/<run_id>.json` and the final `decision_line`. Run the full demo tape. | `uma/engine-final` | `var/runs/<run_id>.json` exists; breaches are 0 on every tick | Sat 5:00 PM |
 | 6 | Merge everyone's PRs using the 6-line checklist. Record the Loom. | none | submitted by 10:30 | Sun |
 
 Uma's first Cursor prompt:
@@ -183,18 +182,18 @@ Task: on branch rajath/controller, build storm_prep/fleet.py and storm_prep/cont
 Write tests/fixtures/homes_small.json (5 homes) and tests/test_controller.py + tests/test_fleet.py covering: target under capacity, target over capacity (proportional split), HOLD, one dead + one stale home, storm floor. Every test asserts breaches == 0 and missed == target - delivered.
 Only create/edit the files named above. Run pytest -q, show the diff, commit, push, and open a PR into main titled "Controller + fleet".
 ```
-Files Rajath must not touch: `contracts.py`, `CONSTRAINTS.md`, `policy.py`, `engine.py`, `risk.py`, `signal.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py`, `requirements.txt`, `.env.example`, anything in `tapes/`, `brief.py`, `screen.py`, `tape.py`, `README.md`, and CI.
+Files Rajath must not touch: `contracts.py`, `CONSTRAINTS.md`, `policy.py`, `engine.py`, `risk.py`, `signal.py`, `events.py`, `decision.py`, `__main__.py`, `batteries.py`, `requirements.txt`, `.env.example`, anything in `tapes/`, `brief.py`, `tape.py`, `web/`, `README.md`, and CI.
 Interfaces Rajath depends on: `Home`, `TapeFrame.target_mw` and `.events`, `Policy.reserve_pct`, `Allocation`, and the settings keys `fleet_size, home_kwh, home_max_kw, home_start_soc_min_pct, home_start_soc_max_pct, tick_minutes`.
 
-### Sunny: story (tape, brief, screen, demo, CI, README, pitch)
+### Sunny: story (tape, brief, React wall, demo, CI, README, pitch)
 | # | Task | Branch | Done check | Deadline |
 |---|---|---|---|---|
 | 1 | Setup; read `CONSTRAINTS.md` | none | `pytest -q` passes | Fri 10 PM |
 | 2 | `tape.py` (`load_tape`) + `tapes/demo.json` + `brief.py` (`write_brief` template) + tests | `sunny/tape-brief` | Tape loads 12 frames; a frame with no label or a naive ts is rejected; the brief for a storm tick names the raised floor and the missed MW | **Sat 11:00 AM** |
 | 3 | `.github/workflows/tests.yml` (runs `pytest -q` on push and PR) + README draft | `sunny/ci-readme` | Green check on the PR | Sat 1:15 PM |
-| 4 | `screen.py` (`render`): one HTML page with a delivered vs target table per tick, reserve %, live/stale/dead counts, labels, and the last brief | `sunny/screen` | Opens in a browser from `var/screen/`; every number shows its label | Sat 6:00 PM |
+| 4 | `web/` operator wall: delivered vs target per tick, reserve %, live/stale/dead counts, labels, and the last brief | `sunny/web` | `npm run dev` in `web/` shows the wall from `/runs/latest.json`; every number shows its label | Sat 6:00 PM |
 | 5 | `demo.sh` (the failure reel: runs the demo tape, then prints each tick's reasons) + `docs/pitch.md` | `sunny/demo` | `bash demo.sh` runs clean on a fresh clone | Sat 9:00 PM |
-| 6 (stretch) | Hosted Streamlit app in `app/` reading the same log, with HOLD/AUTO buttons. Ask Uma to add `streamlit` to requirements. | `sunny/hosted` | Loads from a URL; the laptop HTML stays as the backup | only if 1–5 are merged by Sat 9 PM |
+| 6 (stretch) | Host the same `web/` build. Buttons stay display-only unless Uma adds a command contract. | `sunny/hosted` | The built app loads from a URL and still reads the exported JSON | only if 1–5 are merged by Sat 9 PM |
 
 The demo tape `tapes/demo.json` has 12 frames, all labeled `synthetic`, unless Sunny records real values and names the source:
 - Ticks 1–2: calm, target 0.2 MW, `risk_fixture: tests/fixtures/np3_233_cd.json` (real, LOW).
@@ -220,7 +219,7 @@ Interfaces Sunny depends on: `TapeFrame`, `TickResult` (every field), and the lo
 
 ## 4. Merge order and timeline (all CT)
 
-Merge order: `uma/1b-rule-v2`, then `uma/contracts`, then `rajath/controller` and `sunny/tape-brief` (either order, since they share no files), then `uma/policy`, then `uma/engine` (the tracer), then `rajath/score`, then `sunny/ci-readme`, then `sunny/screen`, then `uma/engine-final`, then `rajath/failures`, then `sunny/demo`.
+Merge order: `uma/1b-rule-v2`, then `uma/contracts`, then `rajath/controller` and `sunny/tape-brief` (either order, since they share no files), then `uma/policy`, then `uma/engine` (the tracer), then `rajath/score`, then `sunny/ci-readme`, then `sunny/web`, then `uma/engine-final`, then `rajath/failures`, then `sunny/demo`.
 Why this avoids conflicts: every file has one owner, the shared files are Uma's only, and each person merges main into their branch before asking for a merge. The only place the work comes together is `engine.py`, and only Uma edits it.
 
 | When | What |
@@ -238,12 +237,12 @@ Why this avoids conflicts: every file has one owner, the shared files are Uma's 
 | Sun 9:30–10:30 AM | Loom, write-up, submit (hard deadline 11:00) |
 
 **Cut list, in order (cut from the top):**
-1. The hosted app (the laptop HTML is the demo)
+1. The hosted build of `web/` (local `npm run dev` is the demo)
 2. Live outage fetch (v3 Slice 2); the fixtures already show the real rule
 3. `rajath/failures` extras beyond the all-dead case
 4. The `demo.sh` reason printout (just run the engine)
 5. `score.py` cumulative totals (the per-tick delivered vs target is enough)
-6. The HTML screen falls back to the terminal table printed by the engine
+6. The React wall falls back to the terminal table printed by the engine
 
 Never cut: rule v2 driving the floor, the reserve-floor invariant tests, the labels, or `breaches == 0`.
 
