@@ -8,9 +8,11 @@ Source: `docs/reservegate.md` section 2. The data shapes live in `server/engine/
 
 | Owner | Files |
 |---|---|
-| **Uma** (policy core, glue, and merges) | `server/engine/contracts.py`, `CONSTRAINTS.md`, `server/engine/policy.py`, `server/engine/loop.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `cli.py`, `batteries.py` (frozen, left alone). HTTP: `server/app.py`, `server/api/`. Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `test_server.py`, `tests/fixtures/np3_*.json` |
+| **Uma** (policy core, glue, and merges) | `server/engine/contracts.py`, `CONSTRAINTS.md`, `server/engine/policy.py`, `server/engine/loop.py`, and the existing `signal.py`, `risk.py`, `events.py`, `decision.py`, `cli.py`, `batteries.py` (frozen, left alone). HTTP: `server/app.py`. Shared files: `requirements.txt`, `.env.example`, `AGENTS.md`, `docs/*`, `pytest.ini`. Tests: `tests/test_risk.py`, `test_run.py`, `test_policy.py`, `test_engine.py`, `test_server.py`, `tests/fixtures/np3_*.json` |
 | **Rajat** (controller and stress) | `server/engine/controller.py`, `server/engine/fleet.py`, `server/engine/score.py`, `tests/test_controller.py`, `tests/test_fleet.py`, `tests/test_score.py`, `tests/fixtures/homes_*.json` |
-| **Sunny** (story) | `server/engine/tape.py`, `server/engine/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/ci.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md` |
+| **Sunny** (story) | `server/engine/tape.py`, `server/engine/brief.py`, `tapes/*.json`, `tests/test_tape.py`, `tests/test_brief.py`, `demo.sh`, `.github/workflows/ci.yml`, `README.md`, `docs/pitch.md`, `web/`, `DESIGN.md`, `server/api/`, `render.yaml` |
+
+Only Uma merges into main. No direct pushes.
 
 If you need something in a file you don't own, like a new dependency, a new setting, or a new contract field, ask its owner in a PR comment. Contract fields can be added, never renamed or removed.
 
@@ -54,7 +56,7 @@ How they connect:
 ```
 server/engine/contracts.py  TickResult and the other shapes (Uma)
 server/engine/loop.py       writes var/runs/<run_id>.json (Uma)
-server/api/                 /v1 HTTP routes (Uma)
+server/api/                 /v1 HTTP routes (Sunny)
 server/app.py               FastAPI entry (Uma)
 var/runs/<run_id>.json      generated, not committed
 web/                        Vite + React + TypeScript (Sunny)
