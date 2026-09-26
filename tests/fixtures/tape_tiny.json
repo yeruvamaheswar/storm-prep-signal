@@ -1,0 +1,32 @@
+[
+  {
+    "tick": 1,
+    "ts": "2026-09-25T12:00:00-05:00",
+    "target_mw": 0.2,
+    "target_label": "synthetic",
+    "price_usd_mwh": 35.0,
+    "price_label": "synthetic",
+    "risk_fixture": "tests/fixtures/np3_233_cd.json",
+    "events": {}
+  },
+  {
+    "tick": 2,
+    "ts": "2026-09-25T12:05:00-05:00",
+    "target_mw": 0.4,
+    "target_label": "synthetic",
+    "price_usd_mwh": 250.0,
+    "price_label": "synthetic",
+    "risk_fixture": "tests/fixtures/np3_spike_synthetic.json",
+    "events": {}
+  },
+  {
+    "tick": 3,
+    "ts": "2026-09-25T12:10:00-05:00",
+    "target_mw": 0.4,
+    "target_label": "synthetic",
+    "price_usd_mwh": 250.0,
+    "price_label": "synthetic",
+    "risk_fixture": "tests/fixtures/missing_posting.json",
+    "events": {}
+  }
+]
