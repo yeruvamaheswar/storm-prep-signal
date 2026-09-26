@@ -254,7 +254,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not (args.tape or args.live):
         parser.error("give --tape PATH, --live, or both")
-    run(args.tape, read_settings(), live=args.live, state_path=STATE_PATH, baseline_path=args.baseline)
+    run(args.tape, read_settings(), live=args.live, state_path=STATE_PATH if args.live else None,
+        baseline_path=args.baseline)
     return 0
 
 

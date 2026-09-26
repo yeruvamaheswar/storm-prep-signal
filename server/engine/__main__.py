@@ -1,4 +1,5 @@
-"""Tick loop entry: python -m server.engine --tape PATH | --live [--tape PATH]"""
+"""Tick loop entry: python -m server.engine --tape PATH | --live [--tape PATH] [--persist]"""
+import argparse
 import importlib.util
 import sys
 from pathlib import Path
@@ -15,12 +16,23 @@ def persist_after_run():
     module.persist_after_run()
 
 
+def split_persist(argv=None):
+    """Pull --persist out of argv; loop.main() rejects flags it does not know."""
+    # allow_abbrev=False so a prefix like --pe is left for loop.main() to reject, not read as --persist.
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    parser.add_argument("--persist", action="store_true")
+    args, rest = parser.parse_known_args(argv)
+    return args.persist, rest
+
+
 def run_then_persist(argv=None):
+    persist, argv = split_persist(argv)
     code = main(argv)
-    try:
-        persist_after_run()
-    except Exception as exc:
-        print(f"runs_skipped: {type(exc).__name__}")
+    if persist:
+        try:
+            persist_after_run()
+        except Exception as exc:
+            print(f"runs_skipped: {type(exc).__name__}")
     return code
 
 
