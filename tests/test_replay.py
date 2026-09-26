@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from storm_prep.risk import zone_mw
+from server.engine.risk import zone_mw
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = Path(__file__).parent / "fixtures" / "np3233_sample.csv"

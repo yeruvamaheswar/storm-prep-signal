@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useApiHealth } from "../../api/health"
 import { calmStreak } from "../../calmStreak"
 import type { RunFile } from "../../contracts"
 import { scenes, type SceneId } from "../../fixtures/scenes"
@@ -24,6 +25,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
   const [radar, setRadar] = useState(false)
   const [ackRound, setAckRound] = useState(0)
   const live = useLiveStamp()
+  const api = useApiHealth()
   const overlay = scenes.find((item) => item.id === scene)
   // Scenes are staged failures, so the live stamp only lands on tape ticks.
   const tick = overlay?.tick ?? stampTick(run.ticks[selected] ?? run.ticks[0], live)
@@ -42,7 +44,14 @@ export function OperatorWall({ run }: OperatorWallProps) {
 
   return (
     <main className={banner ? "wall has-banner" : "wall"}>
-      <TopStrip tick={tick} runId={run.run_id} tickCount={run.ticks.length} calm={calm} sceneLabel={overlay?.label} />
+      <TopStrip
+        tick={tick}
+        runId={run.run_id}
+        tickCount={run.ticks.length}
+        calm={calm}
+        sceneLabel={overlay?.label}
+        api={api}
+      />
       {banner ? (
         <p className="fail-banner" role="status">
           {banner}

@@ -2,8 +2,8 @@
 import json
 from pathlib import Path
 
-import storm_prep.__main__ as cli
-from storm_prep.__main__ import parse_args, read_settings, run
+import server.engine.cli as cli
+from server.engine.cli import parse_args, read_settings, run
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SETTINGS = {"margin_pct": 15, "lookahead_hours": 6}

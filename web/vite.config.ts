@@ -40,7 +40,12 @@ function ercotZones(): Plugin {
 // Extra HTML files dropped at this root (wall.html, fleet.html, history.html) are served
 // at their own URL. Do not list them: the dev server already returns a root HTML file
 // when it exists, and leaves every other path for index.html.
+// Same-origin calls to the local FastAPI server, so dev needs no CORS setup.
+const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8000"
+const apiProxy = { "/health": apiTarget, "/v1": apiTarget }
+
 export default defineConfig({
   plugins: [react(), ercotZones()],
-  server: { port: 5173 },
+  server: { port: 5173, proxy: apiProxy },
+  preview: { proxy: apiProxy },
 })

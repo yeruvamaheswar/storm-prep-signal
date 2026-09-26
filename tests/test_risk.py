@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from storm_prep.baseline import BaselineError, load_baseline
-from storm_prep.risk import ZONES, compute_risk, zone_fields
+from server.engine.baseline import BaselineError, load_baseline
+from server.engine.risk import ZONES, compute_risk, zone_fields
 
 FLAT = {"median_mw_by_lead": [1000] * 6}  # example, not real data
 

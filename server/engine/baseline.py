@@ -6,7 +6,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-BASELINE_PATH = Path(__file__).resolve().parent.parent / "data" / "baseline_by_lead.json"
+# server/engine/baseline.py → repo root is two parents up.
+BASELINE_PATH = Path(__file__).resolve().parents[2] / "data" / "baseline_by_lead.json"
 
 
 class BaselineError(ValueError):

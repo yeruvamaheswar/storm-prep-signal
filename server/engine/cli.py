@@ -1,4 +1,4 @@
-"""Command line entry point: python -m storm_prep --fixture | --file PATH | --live"""
+"""Risk CLI: python -m server.engine.cli --fixture | --file PATH | --live"""
 import argparse
 import os
 import sys
@@ -7,19 +7,19 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from storm_prep.baseline import BaselineError, baseline_span, load_baseline
-from storm_prep.batteries import apply_to_batteries, new_batteries
-from storm_prep.decision import format_decision
-from storm_prep.events import log_event, start_run
-from storm_prep.policy import reserve_policy
-from storm_prep.risk import compute_risk, decide_mode
-from storm_prep.signal import LIVE_SOURCE, SignalUnavailable, load_signal, to_signal
+from server.engine.baseline import BaselineError, baseline_span, load_baseline
+from server.engine.batteries import apply_to_batteries, new_batteries
+from server.engine.decision import format_decision
+from server.engine.events import log_event, start_run
+from server.engine.policy import reserve_policy
+from server.engine.risk import compute_risk, decide_mode
+from server.engine.signal import LIVE_SOURCE, SignalUnavailable, load_signal, to_signal
 
 LOG_DIR = Path("var") / "logs"
 
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser(prog="storm_prep", description="Rate ERCOT outage risk and set battery modes.")
+    parser = argparse.ArgumentParser(prog="server.engine.cli", description="Rate ERCOT outage risk and set battery modes.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--fixture", action="store_true", help="use the saved real ERCOT response")
     source.add_argument("--file", help="use a saved ERCOT response at this path")

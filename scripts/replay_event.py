@@ -20,14 +20,14 @@ from statistics import median
 import requests
 
 ROOT = Path(__file__).resolve().parent.parent
-# The repo root holds storm_prep; scripts/ holds make_baseline. Both are needed when a test imports this file.
+# The repo root holds server/; scripts/ holds make_baseline. Both are needed when a test imports this file.
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
 
 from make_baseline import LEAD_HOURS, posting_time, totals_by_lead  # noqa: E402
-from storm_prep.__main__ import read_settings  # noqa: E402
-from storm_prep.baseline import load_baseline  # noqa: E402
-from storm_prep.risk import CATEGORIES, ZONES, compute_risk  # noqa: E402
-from storm_prep.signal import SignalUnavailable, get_id_token  # noqa: E402
+from server.engine.baseline import load_baseline  # noqa: E402
+from server.engine.cli import read_settings  # noqa: E402
+from server.engine.risk import CATEGORIES, ZONES, compute_risk  # noqa: E402
+from server.engine.signal import SignalUnavailable, get_id_token  # noqa: E402
 
 ARCHIVE_URL = "https://api.ercot.com/api/public-reports/archive/np3-233-cd"
 EVENTS_DIR = ROOT / "data" / "events"

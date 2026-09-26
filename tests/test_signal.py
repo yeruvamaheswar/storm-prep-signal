@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 import requests
 
-import storm_prep.__main__ as cli
-from storm_prep import signal
-from storm_prep.__main__ import parse_args, run
-from storm_prep.baseline import load_baseline
-from storm_prep.signal import CENTRAL, fetch_outages, to_signal
+import server.engine.cli as cli
+from server.engine import signal
+from server.engine.baseline import load_baseline
+from server.engine.cli import parse_args, run
+from server.engine.signal import CENTRAL, fetch_outages, to_signal
 
 FIXTURE = Path(__file__).parent / "fixtures" / "np3_233_cd.json"
 # The fixture's posting time, so the rated hour is inside the fake posting.
