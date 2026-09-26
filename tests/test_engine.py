@@ -155,6 +155,50 @@ def _one_frame_tape(path, events=None, tick=1, ts="2026-09-25T12:00:00-05:00"):
     return path
 
 
+def _weather_run(tmp_path, events, risk_fixture=str(NP3)):
+    # NP3 rates LOW, so without weather every zone sits at the base floor.
+    tape = tmp_path / "weather.json"
+    tape.write_text(json.dumps({
+        "label": "weather",
+        "frames": [{
+            "tick": 1, "ts": "2026-09-25T12:00:00-05:00",
+            "target_mw": 0.2, "target_label": "synthetic",
+            "price_usd_mwh": 35.0, "price_label": "synthetic",
+            "risk_fixture": risk_fixture, "events": events,
+        }],
+    }))
+    record = run(tape, SETTINGS, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs")
+    return record["ticks"][0]
+
+
+def test_weather_houston_raises_only_houston(tmp_path):
+    tick = _weather_run(tmp_path, {"weather": ["Houston"]})
+    assert tick["zone_reserve_pct"] == {"Houston": 60, "North": 30, "South": 30, "West": 30}
+    assert tick["zone_reasons"] == {"Houston": "weather_alert", "North": "normal",
+                                    "South": "normal", "West": "normal"}
+    assert (tick["reserve_pct"], tick["policy_reason"]) == (30, "normal")
+    assert tick["breaches"] == 0
+
+
+def test_no_weather_keeps_every_zone_at_base(tmp_path):
+    tick = _weather_run(tmp_path, {})
+    assert tick["zone_reserve_pct"] == {"Houston": 30, "North": 30, "South": 30, "West": 30}
+    assert set(tick["zone_reasons"].values()) == {"normal"}
+
+
+def test_unknown_weather_zone_is_ignored_and_recorded(tmp_path):
+    tick = _weather_run(tmp_path, {"weather": ["Houston", "Atlantis"]})
+    assert tick["zone_reserve_pct"] == {"Houston": 60, "North": 30, "South": 30, "West": 30}
+    assert "Atlantis" not in tick["zone_reasons"]
+    assert "unknown_weather_zone" in tick["reasons"]
+
+
+def test_fleet_wide_reason_still_wins_over_weather(tmp_path):
+    tick = _weather_run(tmp_path, {"weather": ["Houston"]}, risk_fixture=None)
+    assert set(tick["zone_reserve_pct"].values()) == {60}
+    assert set(tick["zone_reasons"].values()) == {"signal_unavailable"}
+
+
 def test_run_hold_from_state_delivers_zero(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     tape = _one_frame_tape(tmp_path / "hold.json")
