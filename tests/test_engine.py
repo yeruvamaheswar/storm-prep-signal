@@ -79,6 +79,23 @@ def test_tiny_tape_calm_then_storm_then_missing_signal(tmp_path, monkeypatch):
     assert saved == json.loads((tmp_path / "runs" / "latest.json").read_text())
 
 
+def test_heather_replay_raises_the_floor_only_after_the_high_posting(tmp_path, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    baseline = ROOT / "data" / "fixtures" / "heather" / "baseline.json"
+    record = run(ROOT / "tapes" / "heather.json", SETTINGS, log_dir=tmp_path / "logs",
+                 runs_dir=tmp_path / "runs", baseline_path=baseline)
+    assert record["baseline"].endswith("data/fixtures/heather/baseline.json")
+    ticks = record["ticks"]
+    assert len(ticks) == 145
+    before = [t for t in ticks if t["ts"][11:16] < "13:05"]
+    storm = [t for t in ticks if "13:05" <= t["ts"][11:16] <= "14:00"]
+    after = [t for t in ticks if t["ts"][11:16] > "14:00"]
+    assert (len(before), len(storm), len(after)) == (73, 12, 60)
+    assert all(t["reserve_pct"] == 30 for t in before + after)
+    assert all((t["reserve_pct"], t["policy_reason"]) == (60, "storm_risk_high") for t in storm)
+    assert all(t["breaches"] == 0 for t in ticks)
+
+
 def test_live_with_failed_fetch_keeps_the_storm_floor_on_every_tick(tmp_path, monkeypatch):
     for name in ("ERCOT_USERNAME", "ERCOT_PASSWORD", "ERCOT_SUBSCRIPTION_KEY"):
         monkeypatch.setenv(name, "fake")

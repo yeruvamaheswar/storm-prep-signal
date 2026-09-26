@@ -85,6 +85,7 @@ class Runtime:
         # Test hook: home_id to a factor these workers multiply their reported kW by (a lie).
         self.misreport = dict(settings.get("_misreport", {}))
         self.dropped = {}          # command_id to kWh the home's charge really fell for it
+        self.ran_kw = {}           # command_id to the exact kW the home really gave for it
         self.counts = dict.fromkeys(COUNTERS, 0)
         self.workers = {}          # home_id to HomeWorker
         self.planned_kw = {}       # home_id to kW from the plan (used to find spare headroom)
@@ -154,6 +155,7 @@ class HomeWorker:
         soc_before = home.soc_kwh
         home.soc_kwh -= actual_kw * rt.settings["tick_minutes"] / 60
         rt.dropped[cmd.command_id] = soc_before - home.soc_kwh
+        rt.ran_kw[cmd.command_id] = actual_kw
         if home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
             rt.counts["breaches"] += 1   # only possible if the clamp above is removed
         rt.log("executed", command_id=cmd.command_id, home_id=home.home_id, actual_kw=actual_kw)
@@ -207,7 +209,9 @@ class ZoneSupervisor:
         rt.counts["charge_mismatch"] += 1
         rt.log("charge_mismatch", command_id=msg["command_id"], home_id=msg["home_id"],
                reported_kwh=reported_kwh, dropped_kwh=dropped_kwh)
-        return min(reported_kwh, dropped_kwh) / hours
+        # The smaller of the claim and the kW the home really gave, taken as-is: converting the
+        # kWh back to kW would drift by a rounding speck and show up as false over-delivery.
+        return min(msg["actual_kw"], rt.ran_kw[msg["command_id"]])
 
     def check_deadline(self):
         """At 60 s: every planned command still unconfirmed gets one retry and one reassignment.
