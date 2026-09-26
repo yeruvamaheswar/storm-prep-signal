@@ -1,7 +1,8 @@
-"""loop.run writes discharged fleet truth and reloads it on the next process."""
+"""A live loop.run writes discharged fleet truth and reloads it; a tape replay never touches it."""
 import json
 from pathlib import Path
 
+from server.engine import loop
 from server.engine.fleet import load_fleet, new_fleet, save_fleet
 from server.engine.loop import run
 
@@ -23,9 +24,11 @@ SETTINGS = {
 }
 
 
-def _play(tmp_path, settings=None):
+def _play(tmp_path, settings=None, live=True):
+    """live_risk/live_price stand in for the one ERCOT fetch, so a live run stays offline."""
     settings = settings or SETTINGS
-    return run(TAPE, settings, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs")
+    extra = {"live_risk": None, "live_price": None} if live else {}
+    return run(TAPE, settings, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs", live=live, **extra)
 
 
 def _homes_path(tmp_path):
@@ -82,3 +85,29 @@ def test_demo_fleet_stays_100_when_fleet_size_is_100(tmp_path, monkeypatch):
     assert len(loaded) == 100
     assert loaded[0].home_id == "home-001"
     assert loaded[-1].home_id == "home-100"
+
+
+def test_live_run_saves_homes_once_after_the_last_tick(tmp_path, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    calls = []
+    monkeypatch.setattr(loop, "persist_discharged_homes", lambda homes, path: calls.append(len(homes)))
+    record = _play(tmp_path)
+    assert len(record["ticks"]) == 3
+    assert calls == [SETTINGS["fleet_size"]]
+
+
+def test_tape_run_never_reads_or_writes_homes_json(tmp_path, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    fresh = _play(tmp_path / "fresh", live=False)
+    assert not _homes_path(tmp_path / "fresh").exists()
+
+    drained = new_fleet(SETTINGS)
+    for home in drained:
+        home.soc_kwh = 0.0
+    dest = _homes_path(tmp_path / "drained")
+    save_fleet(drained, dest)
+    before = dest.read_bytes()
+    replay = _play(tmp_path / "drained", live=False)
+
+    assert dest.read_bytes() == before
+    assert replay["totals"] == fresh["totals"]
