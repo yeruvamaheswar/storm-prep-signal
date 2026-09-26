@@ -4,7 +4,7 @@ Usage: python scripts/load_ercot_archive.py [--event beryl] [--dry-run]
 
 Each zip in data/events/<event>/raw/ is one posting and becomes one row. Rows are upserted on
 (report, posted_at), so running the script again updates rows instead of adding copies.
-Needs SUPABASE_URL and SUPABASE_SECRET_KEY in .env, except with --dry-run.
+Needs SUPABASE_URL and SUPABASE_SECRET_KEY in server/.env, except with --dry-run.
 """
 import argparse
 import os
@@ -13,15 +13,14 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
 
 from make_baseline import posting_time  # noqa: E402
 from replay_event import EVENTS_DIR, csv_in_zip, read_posting  # noqa: E402
+from server.env import ENV_PATH, load_env  # noqa: E402
 
-ENV_PATH = ROOT / ".env"
 REPORT = "NP3-233-CD"
 # One posting is about 93 KB of JSON. 100 per batch (9 MB) sometimes missed the 10 s timeout.
 BATCH_SIZE = 25
@@ -79,7 +78,7 @@ def main(argv=None):
     parser.add_argument("--dry-run", action="store_true", help="build rows and count them, send nothing")
     args = parser.parse_args(argv)
 
-    load_dotenv(ENV_PATH)
+    load_env(ENV_PATH)
     url, key = os.getenv("SUPABASE_URL", ""), os.getenv("SUPABASE_SECRET_KEY", "")
     if not args.dry_run and not (url and key):
         print("skipped: no_config")

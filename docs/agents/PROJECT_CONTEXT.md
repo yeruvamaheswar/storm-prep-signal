@@ -35,10 +35,10 @@ Team line: **"We may miss the target; we never break a reserve."**
 - Tables:
   - `ercot_postings`: one row per ERCOT posting, unique on report + posted_at. Holds NP3-233-CD (saved zips and API) plus the load forecast (NP3-565-CD) and wind and solar reports (NP4-732, 733, 737, 738-CD).
   - `ercot_prices`: NP6-905-CD load-zone prices, one row per zone per 15-minute interval, unique on settlement_point + interval_ending.
-  - `runs`: a copy of each run's result. Not written yet; no upload script exists.
-- Nothing in the repo reads these tables yet. Any reader lives outside `server/engine/` (a pre-run script that writes a local file, or `server/api/`) and falls back to local files when Supabase fails.
+  - `runs`: a copy of each run's result. `scripts/persist_run.py` upserts it after `loop.run()` writes the local file. The table can still be empty. Empty is not a run: `GET /v1/runs/latest` keeps `var/runs/latest.json` (then `layout-run.json`). Do not treat PostgREST `[]` as source of truth. Write: `docs/agents/persist-run.md`. Read gate: `docs/agents/backend.md`.
+- Demo/Synthetic reads `ercot_postings` and `ercot_prices` from `server/api/archive.py` (one posting and one interval at the tape clock). Live does not. `GET /v1/feeds` reads the latest posting per report for history chips and overlays `var/signal/` quality. `check_margin.py` still reads every posting for research. A missing Supabase config is fail-safe, not a live ERCOT pull. The engine **never** imports these tables. A tape reset must not truncate them. Detail: `docs/agents/archive-feeds.md` and `docs/agents/feeds-proxy.md`.
 - The engine **never imports or waits on** Supabase during a run. Uploads are best effort: they print `..._skipped: <reason>` and exit 0 on failure.
-- Keys live only in the local `.env` (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`). Never print, log, commit, or hardcode keys. Keep `.env.example` updated with names only.
+- Keys live in `server/.env` or the process env (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`). `server/env.py` loads that file, then leaves process env in place. Never print, log, commit, or hardcode keys. Keep `.env.example` updated with names only. Do not put them in Vite.
 
 ## Ownership
 - **Uma:** engine, policy, contracts, and all merges into `main`.
@@ -48,7 +48,7 @@ Team line: **"We may miss the target; we never break a reserve."**
 
 ## Rules for agents
 - Stay inside the files the task names. Ask before touching another owner's area.
-- Do not add dependencies without saying why. The only network call in `server/engine/` is the single ERCOT fetch in `signal.py` (`--live`). Do not add others, and the engine never calls Supabase.
+- Do not add dependencies without saying why. The only network calls in `server/engine/` are the ERCOT fetches in `signal.py` (`--live`): NP3-233-CD outages and NP6-905-CD LZ_NORTH price. Do not add others, and the engine never calls Supabase.
 - Add or update a test for every behavior change, and run the full test suite before finishing.
 - Update `docs/agents/progress.md` with what changed and why.
 - Proven findings go in the README; do not invent numbers. Example: in the Hurricane Beryl replay, statewide outages peaked at 22,389 MW, 5% under the 23,653 MW grid-wide trigger, while Houston roughly doubled. That is why the storm rule works per zone.
