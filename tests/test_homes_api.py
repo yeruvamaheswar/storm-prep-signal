@@ -6,9 +6,14 @@ from fastapi.testclient import TestClient
 from server.api.fixtures import FixtureStore
 from server.api.homes import (
     HomesUnavailable,
+    as_command,
     as_console_home,
+    as_reading,
+    history_limit,
     list_homes,
     read_home,
+    read_home_history,
+    read_last_command,
     table_rollups,
 )
 from server.app import create_app
@@ -45,11 +50,57 @@ def row(home_id, zone="South", status="live", assigned_kw=0, soc_kwh=12.0):
     }
 
 
-def fake_get(rows):
+def reading(home_id, tick, seen_at, soc_kwh=12.0, charge_state="DISCHARGING", power_kw=4.0):
+    return {
+        "home_id": home_id,
+        "tick": tick,
+        "seen_at": seen_at,
+        "soc_kwh": soc_kwh,
+        "charge_state": charge_state,
+        "power_kw": power_kw,
+    }
+
+
+def command(home_id, command_id, tick, kw, sent_at, ack="ok", actual_kw=None):
+    return {
+        "home_id": home_id,
+        "command_id": command_id,
+        "tick": tick,
+        "kw": kw,
+        "actual_kw": kw if actual_kw is None else actual_kw,
+        "ack": ack,
+        "sent_at": sent_at,
+    }
+
+
+def fake_get(rows, readings=None, commands=None):
+    readings = list(readings or [])
+    commands = list(commands or [])
+
     def http_get(url, params=None, headers=None, timeout=None):
-        assert url.endswith("/homes")
         assert "apikey" in (headers or {})
         params = params or {}
+        if url.endswith("/home_readings"):
+            out = list(readings)
+            if params.get("home_id", "").startswith("eq."):
+                want = params["home_id"][3:]
+                out = [item for item in out if item.get("home_id") == want]
+            out = sorted(out, key=lambda item: (item.get("seen_at") or "", item.get("tick") or 0))
+            if "desc" in params.get("order", ""):
+                out = list(reversed(out))
+            limit = int(params.get("limit") or len(out))
+            return Reply(out[:limit])
+        if url.endswith("/home_commands"):
+            out = list(commands)
+            if params.get("home_id", "").startswith("eq."):
+                want = params["home_id"][3:]
+                out = [item for item in out if item.get("home_id") == want]
+            out = sorted(out, key=lambda item: (item.get("sent_at") or "", item.get("tick") or 0))
+            if "desc" in params.get("order", ""):
+                out = list(reversed(out))
+            limit = int(params.get("limit") or len(out))
+            return Reply(out[:limit])
+        assert url.endswith("/homes")
         out = list(rows)
         select = params.get("select", "")
         if "count()" in select or "sum()" in select:
@@ -239,3 +290,174 @@ def test_rollups_route_uses_table(monkeypatch):
     assert body["zones"]["Houston"]["discharging"] == 1
     assert body["zones"]["Houston"]["discharging_mw"] == 0.01
     assert "home_id" not in str(body)
+
+
+def test_history_limit_defaults_and_caps():
+    assert history_limit(None) == 48
+    assert history_limit(10) == 10
+    assert history_limit(500) == 200
+    assert history_limit(0) == 1
+    assert history_limit("bad") == 48
+
+
+def test_history_shapes_match_contract():
+    assert as_reading(reading("home-001", 1, "2026-09-26T22:00:00+00:00", 12.4)) == {
+        "tick": 1,
+        "seen_at": "2026-09-26T22:00:00+00:00",
+        "soc_kwh": 12.4,
+        "charge_state": "DISCHARGING",
+        "power_kw": 4.0,
+    }
+    assert as_command(command("home-001", "home-001:1", 1, 4.0, "2026-09-26T22:00:00+00:00")) == {
+        "command_id": "home-001:1",
+        "tick": 1,
+        "kw": 4.0,
+        "actual_kw": 4.0,
+        "ack": "ok",
+        "sent_at": "2026-09-26T22:00:00+00:00",
+    }
+
+
+def test_history_returns_oldest_first():
+    readings = [
+        reading("home-001", 2, "2026-09-26T22:15:00+00:00", 11.0),
+        reading("home-001", 1, "2026-09-26T22:00:00+00:00", 12.4),
+    ]
+    commands = [
+        command("home-001", "home-001:2", 2, 0, "2026-09-26T22:15:00+00:00", ack="timeout"),
+        command("home-001", "home-001:1", 1, 4.0, "2026-09-26T22:00:00+00:00", ack="ok"),
+    ]
+    body = read_home_history(
+        "home-001", settings=SETTINGS, http_get=fake_get([], readings, commands)
+    )
+    assert body["home_id"] == "home-001"
+    assert [item["tick"] for item in body["readings"]] == [1, 2]
+    assert [item["command_id"] for item in body["commands"]] == ["home-001:1", "home-001:2"]
+    assert body["readings"][0]["charge_state"] == "DISCHARGING"
+
+
+def test_history_limit_is_capped_not_10k():
+    readings = [
+        reading("home-001", tick, f"2026-09-26T22:{tick % 60:02d}:00+00:00")
+        for tick in range(1, 301)
+    ]
+    commands = [
+        command("home-001", f"home-001:{tick}", tick, 1.0, f"2026-09-26T22:{tick % 60:02d}:00+00:00")
+        for tick in range(1, 301)
+    ]
+    body = read_home_history(
+        "home-001", limit=10_000, settings=SETTINGS, http_get=fake_get([], readings, commands)
+    )
+    assert len(body["readings"]) == 200
+    assert len(body["commands"]) == 200
+    limited = read_home_history(
+        "home-001", limit=2, settings=SETTINGS, http_get=fake_get([], readings, commands)
+    )
+    assert len(limited["readings"]) == 2
+    assert len(limited["commands"]) == 2
+
+
+def test_unknown_history_state_is_null_not_holding():
+    bad_reading = reading("home-001", 1, "2026-09-26T22:00:00+00:00", charge_state="SPINNING")
+    body = read_home_history(
+        "home-001", settings=SETTINGS, http_get=fake_get([], [bad_reading], [])
+    )
+    assert body["readings"][0]["charge_state"] is None
+    assert body["readings"][0]["charge_state"] != "HOLDING"
+    assert body["commands"] == []
+
+
+def test_read_home_fills_last_command_from_newest():
+    rows = [row("home-001")]
+    commands = [
+        command("home-001", "home-001:1", 1, 4.0, "2026-09-26T22:00:00+00:00", ack="ok"),
+        command("home-001", "home-001:2", 2, 0, "2026-09-26T22:15:00+00:00", ack="timeout"),
+    ]
+    home = read_home("home-001", settings=SETTINGS, http_get=fake_get(rows, [], commands))
+    assert home["last_command"] == {
+        "kw": 0,
+        "sent_at": "2026-09-26T22:15:00+00:00",
+        "ack": "timeout",
+    }
+    assert read_last_command("home-001", settings=SETTINGS, http_get=fake_get(rows, [], commands)) == home["last_command"]
+
+
+def test_read_home_keeps_null_without_commands():
+    home = read_home("home-001", settings=SETTINGS, http_get=fake_get([row("home-001")]))
+    assert home["last_command"] is None
+
+
+def test_list_homes_keeps_last_command_none():
+    # List paging stays as it is: no per-row command lookup.
+    rows = [row("home-001")]
+    commands = [command("home-001", "home-001:1", 1, 4.0, "2026-09-26T22:00:00+00:00")]
+    page = list_homes(settings=SETTINGS, http_get=fake_get(rows, [], commands))
+    assert page[0]["last_command"] is None
+
+
+def test_missing_history_table_returns_empty_not_500():
+    def missing_history(url, params=None, headers=None, timeout=None):
+        if url.endswith("/home_readings") or url.endswith("/home_commands"):
+            return Reply({"message": "table missing"}, ok=False, status_code=404)
+        return fake_get([row("home-001")])(url, params=params, headers=headers, timeout=timeout)
+
+    body = read_home_history("home-001", settings=SETTINGS, http_get=missing_history)
+    assert body == {"home_id": "home-001", "readings": [], "commands": []}
+    home = read_home("home-001", settings=SETTINGS, http_get=missing_history)
+    assert home["last_command"] is None
+
+
+def test_missing_config_history_returns_empty(monkeypatch):
+    monkeypatch.setattr(
+        "server.api.homes.homes_settings",
+        lambda: {"url": "", "key": "", "timeout_s": 3},
+    )
+    api = client()
+    body = api.get("/v1/homes/home-001/history").json()
+    assert body == {"home_id": "home-001", "readings": [], "commands": []}
+    # Fixture single-home payload still serves; history with no config is empty, not 500.
+    assert api.get("/v1/homes/home-001/history", params={"limit": 10_000}).status_code == 200
+
+
+def test_history_route_serves_shape_and_respects_limit(monkeypatch):
+    rows = [row("home-001")]
+    readings = [
+        reading("home-001", 1, "2026-09-26T22:00:00+00:00", 12.4),
+        reading("home-001", 2, "2026-09-26T22:15:00+00:00", 11.0),
+    ]
+    commands = [
+        command("home-001", "home-001:1", 1, 4.0, "2026-09-26T22:00:00+00:00", ack="ok"),
+        command("home-001", "home-001:2", 2, 0, "2026-09-26T22:15:00+00:00", ack="timeout"),
+    ]
+    monkeypatch.setattr("server.api.homes.homes_settings", lambda: SETTINGS)
+    monkeypatch.setattr("server.api.homes.requests.get", fake_get(rows, readings, commands))
+    api = client()
+    body = api.get("/v1/homes/home-001/history").json()
+    assert body["home_id"] == "home-001"
+    assert [item["tick"] for item in body["readings"]] == [1, 2]
+    assert [item["command_id"] for item in body["commands"]] == ["home-001:1", "home-001:2"]
+    assert api.get("/v1/homes/home-001/history", params={"limit": 1}).json()["readings"][0]["tick"] == 1
+    assert len(api.get("/v1/homes/home-001/history", params={"limit": 10_000}).json()["readings"]) == 2
+    single = api.get("/v1/homes/home-001").json()
+    assert single["last_command"] == {
+        "kw": 0,
+        "sent_at": "2026-09-26T22:15:00+00:00",
+        "ack": "timeout",
+    }
+
+
+def test_history_route_missing_table_is_empty_not_500(monkeypatch):
+    def missing_history(url, params=None, headers=None, timeout=None):
+        if url.endswith("/home_readings") or url.endswith("/home_commands"):
+            return Reply({"message": "table missing"}, ok=False, status_code=404)
+        return fake_get([row("home-001")])(url, params=params, headers=headers, timeout=timeout)
+
+    monkeypatch.setattr("server.api.homes.homes_settings", lambda: SETTINGS)
+    monkeypatch.setattr("server.api.homes.requests.get", missing_history)
+    api = client()
+    assert api.get("/v1/homes/home-001/history").json() == {
+        "home_id": "home-001",
+        "readings": [],
+        "commands": [],
+    }
+    assert api.get("/v1/homes/home-001").json()["last_command"] is None

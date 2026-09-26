@@ -156,6 +156,29 @@ export type Tape = {
   labeled: string
 }
 
+export type HomeReading = {
+  tick: number | null
+  seen_at: string
+  soc_kwh: number
+  charge_state: ChargeState | null
+  power_kw: number | null
+}
+
+export type HomeHistoryCommand = {
+  command_id: string
+  tick: number | null
+  kw: number
+  actual_kw: number | null
+  ack: Ack | null
+  sent_at: string
+}
+
+export type HomeHistory = {
+  home_id: string
+  readings: HomeReading[]
+  commands: HomeHistoryCommand[]
+}
+
 export type Playback = {
   tape_id: string
   tick_index: number

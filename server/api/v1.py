@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from server.api.archive import event_for_clock
 from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
-from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, table_rollups
+from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, read_home_history, table_rollups
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
 from server.engine.fleet import current_rollups
 from server.engine.fleet_state import write_fleet_mode
@@ -289,6 +289,16 @@ def get_home(request: Request, home_id: str):
     if home is None:
         raise ApiError(404, "unknown_home", f"No home {home_id}.")
     return home
+
+
+@router.get("/homes/{home_id}/history")
+def get_home_history(home_id: str, limit: int = 48):
+    # Per-home readings and commands, oldest first. Missing table or config
+    # returns empty arrays, never a 500 and never a synthetic HOLDING row.
+    try:
+        return read_home_history(home_id, limit=limit)
+    except HomesUnavailable:
+        return {"home_id": home_id, "readings": [], "commands": []}
 
 
 @router.get("/ticks")

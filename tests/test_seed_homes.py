@@ -54,11 +54,11 @@ def test_build_rows_keeps_zones_and_randomizes_soc(no_network):
     assert rows[-1]["home_id"] == "home-10000"
     assert [row["zone"] for row in rows] == [home.zone for home in homes]
     assert Counter(row["zone"] for row in rows) == {zone: 2500 for zone in ZONE_ORDER}
-    assert all(9.0 <= row["soc_kwh"] <= 15.0 for row in rows)
+    assert all(11.25 <= row["soc_kwh"] <= 18.75 for row in rows)
     assert [row["soc_kwh"] for row in rows] != [home.soc_kwh for home in homes]
     assert [row["soc_kwh"] for row in rows] != [row["soc_kwh"] for row in other]
     assert [row["soc_kwh"] for row in rows] == [row["soc_kwh"] for row in again]
-    assert all(row["capacity_kwh"] == 20 and row["max_kw"] == 5 for row in rows)
+    assert all(row["capacity_kwh"] == 25 and row["max_kw"] == 11.4 for row in rows)
     assert all(row["status"] == "live" and row["assigned_kw"] == 0 for row in rows)
     assert all(row["zone"] in ZONE_ORDER for row in rows)
 

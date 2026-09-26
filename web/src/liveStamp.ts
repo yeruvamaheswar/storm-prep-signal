@@ -7,6 +7,7 @@ import {
   type IntervalDraft,
   type IntervalPoint,
 } from "./intervalSeries"
+import { pushCalmSample, type CalmSample } from "./calmStreak"
 import { LOAD_ZONES, type LoadZone } from "./zonePaint"
 
 /**
@@ -53,9 +54,11 @@ export type LiveWatch = {
   /** Last snapshot TickView. Live uses this instead of the selected tape index. */
   tick?: TickView | null
   intervals?: IntervalPoint[]
+  /** Successive snapshot readings for the calm meter. Same ts replaces the last one. */
+  calmSamples?: CalmSample[]
 }
 
-export const EMPTY_WATCH: LiveWatch = { latest: null, lastOk: null, tick: null, intervals: [] }
+export const EMPTY_WATCH: LiveWatch = { latest: null, lastOk: null, tick: null, intervals: [], calmSamples: [] }
 
 export function intervalDraftFromTick(tick: TickView): IntervalDraft {
   return {
@@ -90,6 +93,26 @@ export function pushLiveInterval(
   }
 }
 
+/**
+ * A missing tick with timeout or stale is a fail-safe reading.
+ * Any other missing tick leaves the streak alone (auth does not clear it).
+ * A tick that did arrive is counted at the stamp's quality.
+ */
+function calmSampleForPull(stamp: LiveStamp, tick: TickView | null): CalmSample | null {
+  if (tick === null) {
+    if (stamp.quality === "timeout" || stamp.quality === "stale") {
+      return { ts: "", risk_level: null, policy_reason: "signal_unavailable", quality: stamp.quality }
+    }
+    return null
+  }
+  return {
+    ts: tick.ts,
+    risk_level: tick.risk_level,
+    policy_reason: tick.policy_reason,
+    quality: stamp.quality,
+  }
+}
+
 /** Keep the last good pull when a later read fails. */
 export function rememberLive(previous: LiveWatch, next: LiveStamp): LiveWatch {
   if (next.quality === "ok") return { ...previous, latest: next, lastOk: next }
@@ -98,9 +121,11 @@ export function rememberLive(previous: LiveWatch, next: LiveStamp): LiveWatch {
 
 export function rememberSnapshot(previous: LiveWatch, stamp: LiveStamp, tick: TickView | null): LiveWatch {
   const live = rememberLive(previous, stamp)
-  if (tick === null) return { ...live, tick: previous.tick ?? null, intervals: previous.intervals ?? [] }
+  const sample = calmSampleForPull(stamp, tick)
+  const calmSamples = sample === null ? (previous.calmSamples ?? []) : pushCalmSample(previous.calmSamples ?? [], sample)
+  if (tick === null) return { ...live, tick: previous.tick ?? null, intervals: previous.intervals ?? [], calmSamples }
   const pushed = pushLiveInterval(previous.intervals ?? [], previousDraft(previous), tick)
-  return { ...live, tick, intervals: pushed.intervals }
+  return { ...live, tick, intervals: pushed.intervals, calmSamples }
 }
 
 function previousDraft(watch: LiveWatch): IntervalDraft | null {

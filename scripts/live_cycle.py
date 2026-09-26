@@ -43,6 +43,8 @@ from server.engine.signal import (  # noqa: E402
 )
 
 LIVE_EVENT = "live"
+# Live allocates the full 10k fleet (same ids as new_fleet(10000)). Demo stays 100.
+LIVE_FLEET_SIZE = 10_000
 
 
 def unique_rows(rows, keys):
@@ -70,7 +72,7 @@ def live_price_rows(raw, event=LIVE_EVENT):
 
 
 def one_live_frame(now):
-    """One 0.40 MW call. loop.run scales it to this fleet."""
+    """One 0.40 MW call. loop.run scales it to the live fleet call (call_target_mw)."""
     return TapeFrame(
         tick=1, ts=now.isoformat(timespec="seconds"),
         target_mw=DEMO_PEAK_MW, target_label="synthetic",
@@ -125,13 +127,16 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
               url=None, key=None, persist=True, send=send):
     """Fetch → upsert event=live → one allocate tick → optional persist_run."""
     now = now or datetime.now(CENTRAL)
+    # Live always allocates the 10k fleet so ids match new_fleet(10000).
+    # loop.run scales the 0.40 frame to call_target_mw for this fleet.
+    live_settings = {**settings, "fleet_size": LIVE_FLEET_SIZE}
     outage, price_raw, zones_raw = fetch_live(settings, now)
     postings = live_posting_rows(outage)
     prices = live_price_rows(price_raw) if price_raw is not None else []
     if zones_raw is not None:
         prices += live_price_rows(zones_raw)
     upsert = upsert_live(postings, prices, url or "", key or "", send=send)
-    risk = rate_live(outage, settings, now)
+    risk = rate_live(outage, live_settings, now)
     priced = None
     if price_raw is not None:
         try:
@@ -145,7 +150,7 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
         except SignalUnavailable:
             zone_prices = {}
     record = run(
-        None, settings, log_dir=log_dir, runs_dir=runs_dir, live=True,
+        None, live_settings, log_dir=log_dir, runs_dir=runs_dir, live=True,
         state_path=state_path, frames=[one_live_frame(now)],
         live_risk=risk, live_price=priced, live_zone_prices=zone_prices,
     )

@@ -1,5 +1,5 @@
-import { parseAttention, parseFleet, parseHome, parsePlayback, parseTape, parseTick, parseZone } from "../domain/parse"
-import type { Attention, AttentionChoice, Fleet, Home, HomeStatus, Playback, Tape, Tick, Zone } from "../domain/types"
+import { parseAttention, parseFleet, parseHome, parseHomeHistory, parsePlayback, parseTape, parseTick, parseZone } from "../domain/parse"
+import type { Attention, AttentionChoice, Fleet, Home, HomeHistory, HomeStatus, Playback, Tape, Tick, Zone } from "../domain/types"
 
 export const HOMES_PAGE_LIMIT = 50
 export const HOMES_PAGE_MAX = 200
@@ -31,6 +31,7 @@ export type ConsoleClient = {
   live: () => Promise<Tick>
   homes: (query?: HomesQuery) => Promise<Home[]>
   home: (id: string) => Promise<Home>
+  history: (id: string, limit?: number) => Promise<HomeHistory>
   ticks: (range: { from: string; to: string }) => Promise<Tick[]>
   tick: (id: string) => Promise<Tick>
   tapes: () => Promise<Tape[]>
@@ -244,6 +245,16 @@ export function createClient(options: {
     },
     async home(id: string) {
       return parseHome(await getJson(`/homes/${encodeURIComponent(id)}`))
+    },
+    async history(id: string, limit?: number) {
+      const base = `/homes/${encodeURIComponent(id)}/history`
+      if (limit === undefined) {
+        return parseHomeHistory(await getJson(base))
+      }
+      const clamped = Number.isFinite(limit)
+        ? Math.min(200, Math.max(1, Math.floor(limit)))
+        : 48
+      return parseHomeHistory(await getJson(`${base}?limit=${clamped}`))
     },
     async ticks(range: { from: string; to: string }) {
       const suffix = `/ticks?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
