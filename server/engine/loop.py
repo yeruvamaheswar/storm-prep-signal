@@ -197,8 +197,10 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
     fetched (the live worker) may pass `frames`, `live_risk`, and `live_price`.
     baseline_path lets a past storm be rated against the month before it, not against today's baseline.
 
-    Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → save_fleet → TickResult.
-    The next run loads var/fleet/homes.json when its length matches fleet_size; otherwise it reseeds.
+    Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → TickResult.
+    Only live=True carries SOC between runs: it loads var/fleet/homes.json when its length matches
+    fleet_size (else reseeds) and saves it once after the last tick. A tape or synthetic replay
+    starts from new_fleet and never reads or writes that file, so two replays give the same totals.
     """
     settings = with_fleet_defaults(settings)
     run_id = start_run(log_dir)
@@ -214,8 +216,11 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         live_price = None
     if frames is None:
         frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
-    fleet_path = fleet_homes_path(runs_dir)
-    homes = load_or_seed_homes(settings, fleet_path)
+    if live:
+        fleet_path = fleet_homes_path(runs_dir)
+        homes = load_or_seed_homes(settings, fleet_path)
+    else:
+        homes = new_fleet(settings)
     # One feed for the whole run, so each battery's report history carries from tick to tick.
     telemetry = TelemetryState(homes, settings, int(settings.get("seed", 1))) if settings["telemetry_feed"] else None
     mode = read_operator_mode(state_path)
@@ -258,7 +263,6 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
                                  int(settings.get("seed", 1)) * 100_000 + frame.tick,
                                  telemetry=telemetry)
         alloc = cycle.allocation
-        persist_discharged_homes(homes, fleet_path)
         result = TickResult(
             tick=frame.tick, ts=frame.ts, mode=mode,
             target_mw=target_mw, target_label=frame.target_label,
@@ -303,6 +307,9 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         }
         # Each cycle, so /runs/latest.json and /v1/snapshot stay aligned during --live.
         write_run_files(runs_dir, run_id, record)
+
+    if live:
+        persist_discharged_homes(homes, fleet_path)
 
     if not ticks:
         record = {

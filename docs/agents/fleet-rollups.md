@@ -29,7 +29,8 @@ Silent is stale (this fleet has no unconfirmed). Reserved is every live home tha
 ## Persist
 
 - `new_fleet(n, persist=True)` writes `var/fleet/homes.json`.
-- After each tick's `discharge`, `loop.run` writes that same file (`<runs_dir>/../fleet/homes.json`) with current `soc_kwh`, `status`, `zone`, and `updated_at`. The next `run` loads it when `len(homes) == FLEET_SIZE`; a size mismatch reseeds. Demo stays 100 homes when `FLEET_SIZE` is 100.
+- Only a live run (`loop.run(..., live=True)`: `--live` and `scripts/live_cycle.py`) carries SOC between runs. It loads that file (`<runs_dir>/../fleet/homes.json`) when `len(homes) == FLEET_SIZE` (a size mismatch reseeds) and writes it once after the last tick with current `soc_kwh`, `status`, `zone`, and `updated_at`. Demo stays 100 homes when `FLEET_SIZE` is 100.
+- A `--tape` or synthetic run (`live=False`) starts from `new_fleet(settings)` and never reads or writes `homes.json`, so replaying the same tape twice in one folder gives the same totals (decided 2026-09-26, after PR #22 made replays start drained).
 - Each engine tick writes `var/fleet/rollups.json` next to `var/runs/` (`<runs_dir>/../fleet/rollups.json`).
 - The route prefers `rollups.json`, else computes from `homes.json`, else seeds `FLEET_SIZE` in memory.
 
