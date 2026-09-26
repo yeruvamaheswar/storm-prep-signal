@@ -178,7 +178,7 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
 | `Policy` | The floors (fleet and per zone), the reason, the risk level, the intent. |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 

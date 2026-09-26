@@ -1024,3 +1024,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `supabase/migrations/20260926_operator_settings.sql`: one-row `public.operator_settings` (`id=fleet`, `AUTO`|`HOLD`). No default insert. RLS on, no policies.
 - `POST /v1/fleet/mode` still writes `var/state.json`, then best-effort upserts the table. `scripts/live_cycle.py` hydrates the table onto the local file before `loop.run()`, so HOLD delivers 0 on the next tick. The engine never imports Supabase. Empty or failed table leaves the local file.
 - Tests: `tests/test_operator_settings.py`; `tests/test_live_cycle.py` table HOLD overrides local AUTO; `tests/test_server.py` POST upsert. `pytest -q`: 563 passed. Notes: `docs/agents/operator-settings.md`, `docs/humans/operator-settings.md`.
+
+## 2026-09-26: Battery telemetry line on the wall (Rajat)
+
+- `server/api/snapshot.py`: `_with_telemetry` bundles the engine tick's `plant` and `feed` dict as `telemetry: {plant, readings}` (unscaled) and moves the dict off `feed`, which stays the ERCOT status text. One call on the loaded tick covers Live, Archive and fail-safe.
+- Wall: `telemetryLine.ts` builds `Battery reports: 69 of 100 live · 1 suspect · 2,930 of 3,005 readings accepted (synthetic)`, shown under the Worker acks caption in `AckRail.tsx`. Hidden with no telemetry or a missing count; suspect in `--dead` only above 0. `contracts.ts`: removed the clashing `feed?: Record`, added `telemetry?: TickTelemetry`.
+- Demo: `layout-run.json` ticks 1 to 9 carry `telemetry` from an engine run of `tapes/demo.json` (feed on, 100 homes). Ticks 10 to 12 have none: the file was hand-edited off the tape there. Detail: `docs/agents/wall-snapshot.md#battery-telemetry-line`.
+- Docs: `wall-snapshot.md`, `telemetry-vpp.md` (Asks), `code-flow.md` (web diagram, snapshot step 2, limits), `system-design.md` (`TickResult` row).
+- Tests: 3 in `tests/test_snapshot_telemetry.py`, 7 in `web/tests/telemetryLine.test.ts`. `pytest -q`: 566 passed after merging main (with the 25 kWh / 11.4 kW pack from `.env.example`). Web: 257 passed; `tsc --noEmit` clean.

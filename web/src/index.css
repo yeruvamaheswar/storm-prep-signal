@@ -294,6 +294,17 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+.telemetry-line {
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-suspect.is-flagged {
+  color: var(--dead);
+  font-weight: 500;
+}
+
 .ack-zones {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

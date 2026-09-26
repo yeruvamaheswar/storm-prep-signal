@@ -179,7 +179,7 @@ A real OTLP exporter; the continuous 10-second energy check (it needs orders to 
 | — | Settings in `.env.example`: done for `TELEMETRY_FEED`, `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S`. `CHARGE_BELOW_USD_MWH` and `STORM_FILL_PCT` wait for R11. | nothing |
 | Uma | Optional: set `HOME_KWH=39.2` to match Base Core (an example setting, not a Base spec) | nothing |
 | Sunny | Tape event key `grid_down` (a list of zone names) | the demo of R9 |
-| Sunny | Show `plant`, `zone_telemetry`, `feed` and the `suspect` status on the wall and in `/v1` (they are in every run file tick now) | anything on screen |
+| — | Show `plant`, `feed` and the `suspect` count on the wall and in `/v1`: done as one line under Worker acks, from `telemetry` on `/v1/snapshot` ([wall-snapshot.md](wall-snapshot.md#battery-telemetry-line)). `zone_telemetry` and the rest of the `plant` row are still not shown. | per-zone telemetry on screen |
 
 ## Success metrics
 
