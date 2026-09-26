@@ -340,7 +340,7 @@ flowchart LR
 
 ### Orchestration runtime
 
-`python -m server.engine.orchestration --tape PATH --seed N` (`server/engine/orchestration.py`). Plays a tape through `allocate`, then fans each tick's commands out through zone supervisors and a lossy `channel.Channel` to one worker per home, on the seeded virtual clock in `scheduler.py`. Deadlines at 0, 60, and 120 s; a retry keeps the command id; a reassignment gets a new one. Writes `var/orchestration/<seed>.json`. `loop.py` does not call it; the tick loop uses the in-process `supervisor.simulate_zone_acks` rollup instead. Detail: `docs/agents/epic-3-controller.md`.
+`python -m server.engine.orchestration --tape PATH --seed N` (`server/engine/orchestration.py`). Plays a tape through `allocate`, then fans each tick's commands out through zone supervisors and a lossy `channel.Channel` to one worker per home, on the seeded virtual clock in `scheduler.py`. Deadlines at 0, 60, and 120 s; a retry keeps the command id; a reassignment gets a new one. Writes `var/orchestration/<seed>.json`. `--telemetry` adds the simulated battery feed (`telemetry.py`) and prints a `plant:` line per tick. `loop.py` does not call it; the tick loop uses the in-process `supervisor.simulate_zone_acks` rollup instead. Detail: `docs/agents/epic-3-controller.md`.
 
 ## 3. File map
 
@@ -372,6 +372,7 @@ Engine and API (`server/`):
 - `server/engine/orchestration.py`: the separate lossy-channel runtime (`orchestrate_tick`, `ZoneSupervisor`, `HomeWorker`). Writes `var/orchestration/<seed>.json`.
 - `server/engine/scheduler.py`: the seeded virtual clock and event queue used by `orchestration.py`.
 - `server/engine/channel.py`: the seeded lossy channel (drop, delay, duplicate, late) used by `orchestration.py`.
+- `server/engine/telemetry.py`: the simulated battery telemetry feed used by `orchestration.py` with `--telemetry`. Readings every 10 virtual s, intake, per-home state (stale, dead, suspect), zone and plant rollups. Not wired into `loop.py`. Detail: `docs/agents/telemetry-vpp.md`.
 - `server/engine/events.py`: `start_run` and `log_event`. The only writer of the JSONL event log.
 - `server/engine/batteries.py`: three simulated batteries, used by the CLI only.
 - `server/engine/decision.py`: `format_decision`, the CLI's one-line summary.

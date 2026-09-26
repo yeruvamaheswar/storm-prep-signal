@@ -26,6 +26,7 @@ from server.engine.controller import allocate, round_down
 from server.engine.fleet import apply_events, floor_kwh, new_fleet, safe_kw, set_status
 from server.engine.policy import reserve_policy
 from server.engine.scheduler import Scheduler
+from server.engine.telemetry import TelemetryState
 
 OUT_DIR = Path("var") / "orchestration"
 COUNTERS = ("breaches", "timed_out", "retried", "reassigned", "duplicates_ignored", "late",
@@ -63,6 +64,10 @@ class CycleResult:
     # both ran). Never credited, never hidden: confirmed + over_delivery = everything heard.
     over_delivery_mw: float = 0.0
     events: list = field(default_factory=list)
+    # Filled only when orchestrate_tick gets a TelemetryState (docs/agents/telemetry-vpp.md R7).
+    plant: dict = field(default_factory=dict)
+    zones: dict = field(default_factory=dict)
+    feed: dict = field(default_factory=dict)
 
 
 class Runtime:
@@ -92,6 +97,8 @@ class Runtime:
         self.suspect = set()       # homes that timed out: kept live, but given no new work
         self.reassigned_to = set() # homes already holding a ":r" command (keeps ids unique)
         self.closed = False
+        self.feed = None           # the TelemetryState for this tick, or None with no feed
+        self.plan_view = {}        # reported Home copies used by this tick's planner
 
     def log(self, kind, **data):
         self.sched.log(kind, **data)
@@ -110,6 +117,10 @@ class HomeWorker:
         cmd, rt = msg["command"], self.rt
         if self.home.status == "dead":
             rt.log("home_down", command_id=cmd.command_id, home_id=self.home.home_id)
+            return
+        if rt.feed is not None and rt.feed.offline_now(self.home.home_id):
+            # The battery has lost its link: the order never reaches it.
+            rt.log("home_offline", command_id=cmd.command_id, home_id=self.home.home_id)
             return
         if cmd.command_id in self.seen:
             rt.counts["duplicates_ignored"] += 1
@@ -156,6 +167,8 @@ class HomeWorker:
         home.soc_kwh -= actual_kw * rt.settings["tick_minutes"] / 60
         rt.dropped[cmd.command_id] = soc_before - home.soc_kwh
         rt.ran_kw[cmd.command_id] = actual_kw
+        if rt.feed is not None:
+            rt.feed.record_execution(home.home_id, actual_kw)
         if home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
             rt.counts["breaches"] += 1   # only possible if the clamp above is removed
         rt.log("executed", command_id=cmd.command_id, home_id=home.home_id, actual_kw=actual_kw)
@@ -252,10 +265,11 @@ class ZoneSupervisor:
         rt, best, best_spare = self.rt, None, 0.0
         for worker in rt.workers.values():
             home = worker.home
-            if (home.zone != self.zone or home.status != "live" or home.home_id == cmd.home_id
+            view = rt.plan_view.get(home.home_id, home)
+            if (home.zone != self.zone or view.status != "live" or home.home_id == cmd.home_id
                     or home.home_id in rt.suspect or home.home_id in rt.reassigned_to):
                 continue
-            safe = safe_kw(home, rt.policy, rt.settings)
+            safe = safe_kw(view, rt.policy, rt.settings)
             spare = round_down(safe - rt.planned_kw.get(home.home_id, 0.0))
             if spare > best_spare:
                 best, best_spare = home, spare
@@ -309,11 +323,32 @@ def build_jobs(homes, plan, rt, fractions):
     return supervisors
 
 
-def orchestrate_tick(homes, frame, policy, mode, settings, seed):
-    """Plan, fan out, wait for the deadlines, and close the books for one tick. Writes no files."""
+def home_books(supervisors):
+    """Per home: confirmed kW this tick, and which homes have a command we never heard back on."""
+    confirmed, unsure = {}, set()
+    for sup in supervisors.values():
+        for cmd in list(sup.shares) + list(sup.children.values()):
+            if cmd.command_id in sup.actual:
+                confirmed[cmd.home_id] = confirmed.get(cmd.home_id, 0.0) + sup.actual[cmd.command_id]
+            else:
+                unsure.add(cmd.home_id)
+    return confirmed, unsure
+
+
+def orchestrate_tick(homes, frame, policy, mode, settings, seed, telemetry=None):
+    """Plan, fan out, wait for the deadlines, and close the books for one tick. Writes no files.
+
+    With a TelemetryState, the plan uses the batteries' reports (never the truth), readings flow
+    until the tick ends at 300 s, and the result carries plant, zones and feed.
+    """
     fractions = short_fractions(frame)
-    plan = allocate(homes, frame, policy, mode, settings)
+    plan_homes = homes if telemetry is None else telemetry.reported_homes(homes)
+    plan = allocate(plan_homes, frame, policy, mode, settings)
     rt = Runtime(settings, policy, frame.tick, seed)
+    rt.plan_view = {h.home_id: h for h in plan_homes}
+    if telemetry is not None:
+        telemetry.start_tick(rt.sched, homes)
+        rt.feed = telemetry
     supervisors = build_jobs(homes, plan, rt, fractions)
     for sup in supervisors.values():
         for cmd in sup.shares:
@@ -325,9 +360,17 @@ def orchestrate_tick(homes, frame, policy, mode, settings, seed):
     rt.closed = True
     rt.log("closed")
     books = {zone: sup.close() for zone, sup in supervisors.items()}
+    if telemetry is not None:
+        # Readings keep flowing to the end of the tick, then stop so the drain below can end.
+        rt.sched.run_until(telemetry.tick_s)
+        telemetry.stop()
     # Drain what is still in flight: stragglers can only be logged as late or expired now.
     rt.sched.run_until(math.inf)
-    return build_result(frame, plan, rt, supervisors, books)
+    result = build_result(frame, plan, rt, supervisors, books)
+    if telemetry is not None:
+        confirmed_kw, unsure = home_books(supervisors)
+        telemetry.finish(result, homes, policy, confirmed_kw, unsure)
+    return result
 
 
 def build_result(frame, plan, rt, supervisors, books):
@@ -386,26 +429,38 @@ def tick_line(frame, result):
             f" | duplicates ignored {result.duplicates_ignored} | breaches {result.breaches}")
 
 
-def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR):
+def plant_line(result):
+    p, f = result.plant, result.feed
+    return (f"  plant: live {p['homes']['live']}/{p['homes']['total']} | stored {p['soc_mwh']:.3f} MWh"
+            f" | available {p['available_mw']:.3f} MW | coverage {p['coverage']:.0%}"
+            f" | feed {f['accepted']}/{f['received']} accepted, dups {f['duplicates']}, late {f['late']}"
+            f" | suspect {p['homes']['suspect']} (synthetic)")
+
+
+def run_tape(tape, seed, floor="storm", out_dir=OUT_DIR, telemetry=False):
     """Play every frame through orchestrate_tick, print one line per tick, write one JSON file."""
     settings = read_settings()
     settings["seed"] = seed
     policy = build_policy(floor, settings)
     homes = new_fleet(settings)
+    state = TelemetryState(homes, settings, seed) if telemetry else None
     mode, ticks = "AUTO", []
     for frame in load_frames(tape):
         apply_events(homes, frame.events)
         mode = frame.events.get("operator", mode)   # HOLD/AUTO stays until the tape changes it
         # A different seed per tick, so each tick sees its own faults, still fixed by --seed.
-        result = orchestrate_tick(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick)
+        result = orchestrate_tick(homes, frame, policy, mode, settings, seed * 100_000 + frame.tick,
+                                  telemetry=state)
         print(tick_line(frame, result))
+        if state is not None:
+            print(plant_line(result))
         ticks.append({"tick": frame.tick, "ts": frame.ts, "mode": mode, "target_mw": frame.target_mw,
                       "target_label": frame.target_label, **asdict(result)})
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{seed}.json"
     record = {"seed": seed, "tape": str(tape), "floor": floor, "reserve_pct": policy.reserve_pct,
-              "policy_reason": policy.reason, "ticks": ticks}
+              "policy_reason": policy.reason, "telemetry": telemetry, "ticks": ticks}
     path.write_text(json.dumps(record, indent=2))
     return path
 
@@ -417,8 +472,10 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, required=True, help="seed for every random fault")
     parser.add_argument("--floor", choices=("base", "storm"), default="storm",
                         help="reserve floor for every tick (default: storm)")
+    parser.add_argument("--telemetry", action="store_true",
+                        help="plan from a simulated battery feed instead of perfect knowledge")
     args = parser.parse_args(argv)
-    print(f"wrote {run_tape(args.tape, args.seed, args.floor)}")
+    print(f"wrote {run_tape(args.tape, args.seed, args.floor, telemetry=args.telemetry)}")
     return 0
 
 

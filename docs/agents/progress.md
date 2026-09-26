@@ -769,3 +769,19 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `tests/test_engine.py`: Houston alone goes to 60 with `weather_alert`; no weather keeps all four at 30; an unknown name is ignored and recorded; a missing signal still sets every zone to 60 `signal_unavailable`.
 - `docs/agents/code-flow.md`: weather event in both diagrams and step 6; `run_cycle` renamed to `orchestrate_tick` (Uma's two lines); `var/state.json` now read and written only by `--live` and the live worker (#11). Sunny's `supervisor.py` line 12 and `zone-acks.md` line 7 still say `orchestration.run_cycle`.
 - Not wired: `TapeFrame.weather_fixture` and live alerts; `weather_label` stays `"none"`.
+
+## 2026-09-26: Telemetry feed spec (Rajat's lane, docs only)
+
+- Wrote `docs/agents/telemetry-vpp.md`: simulated batteries and network, real VPP. Readings every 10 virtual s in the OpenTelemetry metrics shape, an intake, per-home state (stale at 180 s, dead at 600 s, suspect on an energy mismatch), and zone and plant rollups. The controller plans only from reported data.
+- Reviewed by Codex; fixes applied (tick-level energy check, feed stops at 300 s, separate true and reported battery objects).
+- Asks for Uma (approve `telemetry.py`, wire the engine, add settings) and Sunny (`grid_down` tape key, show the rollups) are listed in the spec.
+- Added a line to `docs/agents/index.md`.
+- No application code in this change. `pytest -q` was not run.
+
+## 2026-09-26: Telemetry feed, cut line 1 (Rajat's lane)
+
+- New `server/engine/telemetry.py`: readings every 10 virtual s over a lossy channel, intake (dedup, late, reject), status from data age, per-home state across ticks, tick-level energy check, zone and plant rollups, OTel view.
+- `orchestrate_tick(..., telemetry=None)` (was `run_cycle`): with a `TelemetryState`, the plan uses reported copies and the result carries `plant`, `zones`, `feed`. Without one, nothing changes.
+- Runner: `python -m server.engine.orchestration --tape tests/fixtures/tape_tiny.json --seed 1 --telemetry`.
+- `pytest -q`: 218 passed. Feed fuzz (30 seeds x 12 ticks): 0 breaches, 0 honest homes flagged, 3.14 s. The feed fuzz runs 30 seeds by default (`TELEMETRY_FUZZ_SEEDS`).
+- Details: `docs/agents/telemetry-vpp.md`.

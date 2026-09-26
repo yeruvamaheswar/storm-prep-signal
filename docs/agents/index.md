@@ -36,3 +36,4 @@ Open this index, then the one file the task needs.
 | `archive-feeds.md` | You are serving snapshot price/outage from `ercot_prices` / `ercot_postings` |
 | `live-ingest.md` | You are changing the laptop live worker, `event=live` rows, or Live snapshot ingest |
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime |
+| `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |

@@ -1,0 +1,441 @@
+"""Tests for server/engine/telemetry.py: the battery feed, the intake, and the VPP's view of each home."""
+import math
+import os
+import random
+
+import pytest
+
+from server.engine import orchestration
+from server.engine.contracts import Home, Policy, TapeFrame
+from server.engine.fleet import apply_events, floor_kwh, new_fleet
+from server.engine.orchestration import orchestrate_tick
+from server.engine.scheduler import Scheduler
+from server.engine import telemetry as tm
+
+ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
+QUIET = {"telemetry_outage_rate": 0.0, "telemetry_dup_rate": 0.0, "telemetry_late_rate": 0.0,
+         "telemetry_liar_ids": ()}
+FAST = {"channel_delay_s": (1.0, 5.0), "worker_delay_s": (1.0, 5.0)}
+
+
+def settings(**over):
+    base = {"fleet_size": 100, "home_kwh": 20.0, "home_max_kw": 5.0,
+            "home_start_soc_min_pct": 45.0, "home_start_soc_max_pct": 75.0,
+            "base_reserve_pct": 30.0, "storm_reserve_pct": 60.0, "tick_minutes": 5, "zones": ZONES}
+    base.update(over)
+    return base
+
+
+def policy(pct=30.0):
+    return Policy(pct, "normal", "LOW", zone_reserve_pct={z: pct for z in ZONES},
+                  zone_reasons={z: "normal" for z in ZONES})
+
+
+def frame(target_mw, events=None, tick=1):
+    return TapeFrame(tick, "2026-09-25T12:00:00-05:00", target_mw, "synthetic", 40.0, "synthetic",
+                     events=events or {})
+
+
+def reading(seq, soc=10.0, boot=1, home_id="home-001", ts=0.0):
+    return {"command_id": f"telemetry:{home_id}:{boot}:{seq}", "home_id": home_id, "boot_id": boot,
+            "seq": seq, "device_ts": ts, "soc_kwh": soc, "power_kw": 0.0, "charge_state": "HOLDING",
+            "grid": "connected", "health": "ok"}
+
+
+def test_accepts_a_new_reading_and_records_arrival_time():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    assert tm.ingest(hs, reading(1, soc=12.5), 42.0, stats) == "accepted"
+    assert hs.last["soc_kwh"] == 12.5 and hs.last["ingest_ts"] == 42.0 and hs.last_seen == 42.0
+    assert stats["received"] == 1 and stats["accepted"] == 1
+
+
+def test_skips_a_repeat_of_the_same_boot_and_seq():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(1), 1.0, stats)
+    assert tm.ingest(hs, reading(1, soc=3.0), 2.0, stats) == "duplicate"
+    assert hs.last["soc_kwh"] == 10.0 and hs.last_seen == 1.0
+    assert hs.dups == 1 and stats["duplicates"] == 1
+
+
+def test_an_older_reading_is_late_and_never_replaces_a_newer_one():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(5, soc=9.0), 50.0, stats)
+    assert tm.ingest(hs, reading(4, soc=11.0), 60.0, stats) == "late"
+    assert hs.last["seq"] == 5 and hs.last_seen == 50.0 and stats["late"] == 1
+
+
+def test_rejects_impossible_charge():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    assert tm.ingest(hs, reading(1, soc=-0.1), 1.0, stats) == "rejected"
+    assert tm.ingest(hs, reading(2, soc=20.1), 1.0, stats) == "rejected"
+    assert hs.last is None and stats["rejected"] == 2
+
+
+def test_a_new_boot_restarts_seq_without_being_a_duplicate():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(40, boot=1), 1.0, stats)
+    assert tm.ingest(hs, reading(1, boot=2), 2.0, stats) == "accepted"
+    assert hs.boot_id == 2 and hs.last_seq == 1
+
+
+def test_otel_view_uses_the_hardware_metric_names_and_units():
+    home = Home("home-014", 20.0, 12.0, 5.0, zone="Houston")
+    r = reading(1, soc=12.0, home_id="home-014", ts=4121.8)
+    r["power_kw"] = 2.1
+    view = tm.to_otel(r, home)
+    assert view["resource"]["hw.id"] == "home-014"
+    assert view["resource"]["ercot.load_zone"] == "Houston"
+    assert view["resource"]["data.label"] == "synthetic"
+    metrics = {m["name"]: m for m in view["metrics"]}
+    assert metrics["hw.battery.charge"]["unit"] == "1"
+    assert metrics["hw.battery.charge"]["value"] == pytest.approx(0.6)
+    assert metrics["hw.power"]["unit"] == "W" and metrics["hw.power"]["value"] == pytest.approx(2100.0)
+    assert metrics["hw.status"]["attributes"] == {"hw.state": "ok"}
+    assert metrics["hw.battery.charge"]["time_unix_nano"] == 4121800000000
+
+
+def seen_at(t):
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(1, ts=t), t, stats)
+    return hs
+
+
+def test_stale_after_180_seconds_and_dead_after_600():
+    hs, s = seen_at(0.0), settings()
+    assert tm.data_status(hs, 180.0, s) == "live"
+    assert tm.data_status(hs, 181.0, s) == "stale"
+    assert tm.data_status(hs, 600.0, s) == "stale"
+    assert tm.data_status(hs, 601.0, s) == "dead"
+
+
+def test_a_new_reading_revives_a_home_that_was_only_silent():
+    hs, s = seen_at(0.0), settings()
+    assert tm.data_status(hs, 700.0, s) == "dead"
+    tm.ingest(hs, reading(2, ts=700.0), 700.0, tm.new_stats())
+    assert tm.data_status(hs, 700.0, s) == "live"
+
+
+def test_suspect_is_sticky_even_with_fresh_readings():
+    hs, s = seen_at(0.0), settings()
+    hs.suspect = True
+    assert tm.data_status(hs, 1.0, s) == "suspect"
+
+
+def test_status_ignores_device_clock():
+    hs, stats = tm.HomeState("home-001", 20.0), tm.new_stats()
+    tm.ingest(hs, reading(1, ts=99999.0), 0.0, stats)   # battery clock far ahead of ours
+    assert tm.data_status(hs, 181.0, settings()) == "stale"
+
+
+def test_tape_dead_never_revives_and_suspect_plans_as_stale():
+    assert tm.plan_status("dead", "live") == "dead"
+    assert tm.plan_status("stale", "live") == "stale"
+    assert tm.plan_status("live", "live") == "live"
+    assert tm.plan_status("live", "dead") == "dead"
+    assert tm.plan_status("live", "suspect") == "stale"
+    assert tm.view_status("live", "suspect") == "suspect"
+    assert tm.view_status("dead", "live") == "dead"
+
+
+def fleet_and_state(seed=7, **over):
+    s = settings(**{**QUIET, **over})
+    homes = new_fleet(s)
+    return s, homes, tm.TelemetryState(homes, s, seed)
+
+
+def test_every_home_is_registered_and_live_before_the_first_tick():
+    s, homes, state = fleet_and_state()
+    assert len(state.homes) == 100
+    copies = state.reported_homes(homes)
+    assert all(c.status == "live" for c in copies)
+    assert [c.soc_kwh for c in copies] == [h.soc_kwh for h in homes]
+
+
+def test_reported_homes_are_new_objects_and_never_the_simulator():
+    s, homes, state = fleet_and_state()
+    copies = state.reported_homes(homes)
+    assert all(c is not h for c, h in zip(copies, homes))
+    copies[0].soc_kwh = 0.0
+    copies[0].status = "dead"
+    assert homes[0].soc_kwh > 0.0 and homes[0].status == "live"
+
+
+def test_reported_copy_uses_the_reported_charge_not_the_truth():
+    s, homes, state = fleet_and_state()
+    homes[0].soc_kwh -= 3.0                      # truth moved; no reading yet
+    assert state.reported_homes(homes)[0].soc_kwh == homes[0].soc_kwh + 3.0
+
+
+def test_tape_status_combines_with_data_status():
+    s, homes, state = fleet_and_state()
+    apply_events(homes, {"dead": ["home-002"]})
+    state.homes["home-003"].suspect = True
+    by_id = {c.home_id: c for c in state.reported_homes(homes)}
+    assert by_id["home-002"].status == "dead"
+    assert by_id["home-003"].status == "stale"
+    state.base_s = 700.0                         # nobody has reported for 710 s
+    copies = state.reported_homes(homes)
+    assert all(c.status == "dead" for c in copies if c.home_id != "home-003")
+    assert {c.home_id: c.status for c in copies}["home-003"] == "stale"   # suspect beats age
+
+
+def test_reported_homes_rejects_unknown_home():
+    s, homes, state = fleet_and_state()
+    stranger = Home("home-999", 20.0, 10.0, 5.0, zone="Houston")
+    with pytest.raises(ValueError, match="home-999"):
+        state.reported_homes(homes + [stranger])
+
+
+def test_the_seed_plants_one_liar_and_about_five_percent_outages():
+    s = settings()
+    homes = new_fleet(s)
+    a, b = tm.TelemetryState(homes, s, 3), tm.TelemetryState(homes, s, 3)
+    assert len(a.liar_ids) == 1 and a.liar_ids == b.liar_ids
+    assert len(a.outages) == 5 and a.outages == b.outages
+
+
+def test_explicit_outage_window():
+    s, homes, state = fleet_and_state(telemetry_outages={"home-001": [(0.0, 50.0)]})
+    assert state.offline("home-001", 10.0) and not state.offline("home-001", 50.0)
+    assert not state.offline("home-002", 10.0)
+
+
+def run_feed(state, homes, seed=1):
+    sched = Scheduler(seed)
+    state.start_tick(sched, homes)
+    sched.run_until(state.tick_s)
+    state.stop()
+    sched.run_until(math.inf)        # must end: no reading reschedules after stop
+    return sched
+
+
+def test_each_home_reports_about_every_10_seconds():
+    s, homes, state = fleet_and_state()
+    run_feed(state, homes)
+    st = state.stats
+    assert st["accepted"] + st["cut_at_tick_end"] == 3000
+    assert 2900 <= st["accepted"] <= 3000
+    assert st["duplicates"] == st["late"] == st["rejected"] == 0
+
+
+def test_no_reading_is_ingested_after_the_tick_ends():
+    s, homes, state = fleet_and_state()
+    run_feed(state, homes)
+    assert max(hs.last_seen for hs in state.homes.values()) <= state.tick_s
+
+
+def test_same_seed_same_feed():
+    runs = []
+    for _ in range(2):
+        s, homes, state = fleet_and_state(telemetry_dup_rate=0.05, telemetry_late_rate=0.05)
+        run_feed(state, homes, seed=11)
+        runs.append((dict(state.stats), {i: hs.last for i, hs in state.homes.items()}))
+    assert runs[0] == runs[1]
+
+
+def test_faults_show_up_in_the_stats():
+    s, homes, state = fleet_and_state(telemetry_dup_rate=0.05, telemetry_late_rate=0.05)
+    run_feed(state, homes)
+    assert state.stats["duplicates"] > 0 and state.stats["late"] > 0
+
+
+def test_an_offline_home_sends_nothing():
+    s, homes, state = fleet_and_state(telemetry_outages={"home-001": [(0.0, 1000.0)]})
+    before = state.homes["home-001"].last
+    run_feed(state, homes)
+    assert state.homes["home-001"].last is before
+    assert state.stats["dropped"] >= 29
+
+
+def test_a_liar_reports_a_frozen_charge():
+    s, homes, state = fleet_and_state(telemetry_liar_ids=("home-100",))
+    frozen = homes[99].soc_kwh
+    homes[99].soc_kwh -= 2.0
+    run_feed(state, homes)
+    assert state.homes["home-100"].last["soc_kwh"] == frozen
+
+
+def test_readings_report_power_after_an_execution():
+    s, homes, state = fleet_and_state()
+    sched = Scheduler(1)
+    state.start_tick(sched, homes)
+    state.record_execution("home-001", 2.5)
+    sched.run_until(state.tick_s)
+    state.stop()
+    sched.run_until(math.inf)
+    assert state.homes["home-001"].last["power_kw"] == 2.5
+    assert state.homes["home-001"].last["charge_state"] == "DISCHARGING"
+
+
+def cycle_with_feed(target_mw=0.2, ticks=1, seed=1, events=None, mode="AUTO", **over):
+    s = settings(**{**QUIET, **FAST, **over})
+    homes = new_fleet(s)
+    state = tm.TelemetryState(homes, s, seed)
+    results = []
+    for tick in range(1, ticks + 1):
+        f = frame(target_mw, events, tick=tick)
+        apply_events(homes, f.events)
+        results.append(orchestrate_tick(homes, f, policy(), mode, s, seed * 100 + tick, telemetry=state))
+    return results, homes, state
+
+
+def test_without_telemetry_the_new_fields_are_empty():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    r = orchestrate_tick(homes, frame(0.2), policy(), "AUTO", s, 1)
+    assert r.plant == {} and r.zones == {} and r.feed == {}
+
+
+def test_the_plan_never_sees_the_simulator_homes(monkeypatch):
+    seen = []
+    real = orchestration.allocate
+
+    def spy(homes, *args):
+        seen.append(list(homes))
+        return real(homes, *args)
+
+    monkeypatch.setattr(orchestration, "allocate", spy)
+    (r,), homes, state = cycle_with_feed()
+    assert seen and all(c is not h for c in seen[0] for h in homes)
+
+
+def test_a_tick_with_the_feed_delivers_and_counts_readings():
+    (r,), homes, state = cycle_with_feed()
+    assert r.credited_mw == pytest.approx(0.2)
+    assert r.breaches == 0
+    assert r.feed["accepted"] > 2900
+    assert state.base_s == state.tick_s
+
+
+def test_telemetry_events_are_kept_out_of_the_result():
+    (r,), homes, state = cycle_with_feed()
+    assert not any(str(e.get("command_id", "")).startswith("telemetry:") for e in r.events)
+    assert any(e["kind"] == "confirmed" for e in r.events)
+
+
+def test_an_offline_home_ignores_orders_then_goes_stale():
+    results, homes, state = cycle_with_feed(target_mw=1.0, ticks=2,
+                                            telemetry_outages={"home-001": [(0.0, 10_000.0)]})
+    first, second = results
+    assert first.command_states.get("home-001:1") == "unconfirmed"
+    assert not any(e["kind"] == "executed" and e.get("home_id") == "home-001" for e in first.events)
+    assert "home-001" not in second.allocation.per_home_kw     # silent 310 s: stale, no work
+
+
+def test_hold_with_feed_sends_nothing_and_flags_nobody():
+    (r,), homes, state = cycle_with_feed(mode="HOLD")
+    assert r.allocation.per_home_kw == {} and r.breaches == 0
+    assert r.feed["accepted"] > 2900
+    assert not any(hs.suspect for hs in state.homes.values())
+
+
+def test_same_seed_same_cycle_with_feed():
+    a = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
+    b = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
+    assert [(x.credited_mw, x.feed, x.plant, x.zones) for x in a] == [
+        (y.credited_mw, y.feed, y.plant, y.zones) for y in b
+    ]
+
+
+def test_reassignment_uses_reported_status_not_the_truth():
+    # home-097 is Houston's fullest battery but silent all run, so by tick 2 it is stale in the
+    # reports while its truth still looks live with the most headroom.
+    # home-093 (Houston) goes offline at 300 s, is still live in the reports at tick 2's plan,
+    # gets an order it never receives, times out, and its share must be reassigned.
+    results, homes, state = cycle_with_feed(
+        target_mw=0.2, ticks=2,
+        telemetry_outages={"home-097": [(0.0, 10_000.0)], "home-093": [(300.0, 10_000.0)]})
+    second = results[1]
+    moves = [e for e in second.events if e["kind"] == "reassigned"]
+    assert any(e["parent_command_id"] == "home-093:2" for e in moves)
+    assert all(e["home_id"] != "home-097" for e in moves)
+
+
+def test_plant_is_the_sum_of_its_zones():
+    (r,), homes, state = cycle_with_feed()
+    assert set(r.zones) == set(ZONES)
+    for key in ("soc_mwh", "floor_mwh", "available_mw", "delivering_mw"):
+        assert r.plant[key] == pytest.approx(sum(z[key] for z in r.zones.values()), abs=1e-9)
+    assert r.plant["homes"]["total"] == 100
+    assert r.plant["delivering_mw"] == pytest.approx(r.confirmed_mw)
+    assert r.plant["data_label"] == "synthetic"
+    assert r.plant["zones"] == r.zones
+    assert r.plant["zones"] is not r.zones
+
+
+def test_rollup_counts_statuses():
+    (r,), homes, state = cycle_with_feed(telemetry_outages={"home-001": [(0.0, 10_000.0)]},
+                                         telemetry_liar_ids=())
+    apply_events(homes, {"dead": ["home-002"]})
+    plant, zones = state.rollups(homes, policy(), r)
+    assert plant["homes"]["dead"] >= 1
+    assert plant["homes"]["live"] + plant["homes"]["stale"] + plant["homes"]["dead"] \
+        + plant["homes"]["suspect"] == 100
+
+
+def test_zone_with_every_home_silent():
+    houston = {f"home-{i:03d}": [(0.0, 10_000.0)] for i in range(1, 101, 4)}
+    results, homes, state = cycle_with_feed(ticks=2, telemetry_outages=houston)
+    z = results[-1].zones["Houston"]
+    assert z["coverage"] == 0.0 and z["available_mw"] == 0.0 and z["homes"]["live"] == 0
+    assert results[-1].zones["North"]["coverage"] == 1.0
+
+
+def test_a_lying_battery_is_flagged_after_its_first_order_then_gets_no_work():
+    results, homes, state = cycle_with_feed(target_mw=1.0, ticks=2, telemetry_liar_ids=("home-100",))
+    first, second = results
+    assert first.command_states.get("home-100:1") == "confirmed"
+    assert first.feed["newly_suspect"] == ["home-100"]
+    assert second.feed["newly_suspect"] == []
+    assert state.homes["home-100"].suspect
+    assert [i for i, hs in state.homes.items() if hs.suspect] == ["home-100"]
+    assert "home-100" not in second.allocation.per_home_kw
+    assert second.plant["homes"]["suspect"] == 1
+
+
+def test_honest_homes_are_not_suspect_with_four_second_clock_skew():
+    results, homes, state = cycle_with_feed(target_mw=0.5, ticks=3, telemetry_skew_s=4.0)
+    assert not any(hs.suspect for hs in state.homes.values())
+
+
+def test_honest_homes_are_never_flagged_over_many_ticks():
+    results, homes, state = cycle_with_feed(target_mw=0.5, ticks=6,
+                                            telemetry_dup_rate=0.05, telemetry_late_rate=0.05)
+    assert not any(hs.suspect for hs in state.homes.values())
+
+
+def test_a_silent_home_is_skipped_not_flagged():
+    results, homes, state = cycle_with_feed(target_mw=1.0, ticks=3,
+                                            telemetry_outages={"home-050": [(0.0, 10_000.0)]})
+    assert not state.homes["home-050"].suspect
+
+
+def test_fuzz_with_feed_never_breaches_and_never_blames_an_honest_home():
+    for seed in range(1, int(os.environ.get("TELEMETRY_FUZZ_SEEDS", "30")) + 1):
+        rng = random.Random(seed)
+        s = settings(channel_drop_rate=0.05, channel_dup_rate=0.05, channel_late_rate=0.05)
+        homes = new_fleet(s)
+        state = tm.TelemetryState(homes, s, seed)
+        for tick in range(1, 13):
+            pol = policy(rng.choice([30.0, 60.0]))
+            events = {"dead": [rng.choice(homes).home_id]} if rng.random() < 0.3 else {}
+            f = frame(rng.uniform(0.05, 0.6), events, tick=tick)
+            apply_events(homes, f.events)
+            before = {h.home_id: h.soc_kwh for h in homes}
+            r = orchestrate_tick(homes, f, pol, "AUTO", s, seed * 1000 + tick, telemetry=state)
+            assert r.breaches == 0, (seed, tick)
+            for h in homes:
+                if h.soc_kwh < before[h.home_id] - 1e-12:
+                    assert h.soc_kwh >= floor_kwh(h, pol) - 1e-9, (seed, tick, h.home_id)
+            blamed = {i for i, hs in state.homes.items() if hs.suspect}
+            assert blamed <= set(state.liar_ids), (seed, tick, blamed)
+            assert r.plant["available_mw"] == pytest.approx(
+                sum(z["available_mw"] for z in r.zones.values()), abs=1e-9)
+
+
+def test_runner_prints_a_plant_line_with_telemetry(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(orchestration.Path(__file__).resolve().parent.parent)
+    path = orchestration.run_tape("tests/fixtures/tape_tiny.json", 1, out_dir=tmp_path, telemetry=True)
+    out = capsys.readouterr().out
+    assert "plant: live" in out and path.exists()
+    assert '"telemetry": true' in path.read_text()
