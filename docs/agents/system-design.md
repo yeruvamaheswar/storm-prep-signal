@@ -279,6 +279,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 | `BASE_RESERVE_PCT`, `STORM_RESERVE_PCT` | The two floors. |
 | `CHARGE_BELOW_USD`, `DISCHARGE_ABOVE_USD` | Price bands for intent. |
 | `TICK_MINUTES` | Length of one tick. |
+| `CHANNEL_DROP_RATE`, `CHANNEL_DUP_RATE`, `CHANNEL_LATE_RATE` | Simulated bad network for every tick, 0 to 1 (default 0, clean). A tape `network` event overrides them for one tick. |
 | `ZONES` | Load zones and their anchor counties. |
 
 API-only settings (`PORT`, `CORS_ORIGINS`, `CONSOLE_SCENE`, `CONSOLE_FIXTURES_DIR`): [backend.md, Settings](backend.md#settings-environment-variables). Wall build setting: `VITE_API_BASE_URL`.

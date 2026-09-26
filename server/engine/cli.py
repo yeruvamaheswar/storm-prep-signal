@@ -54,6 +54,10 @@ def read_settings():
         "charge_threshold_usd_mwh": float(os.getenv("CHARGE_BELOW_USD", "25")),
         "discharge_threshold_usd_mwh": float(os.getenv("DISCHARGE_ABOVE_USD", "60")),
         "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
+        # Simulated bad network for every tick (0 = clean). A tape "network" event overrides per tick.
+        "channel_drop_rate": float(os.getenv("CHANNEL_DROP_RATE", "0")),
+        "channel_dup_rate": float(os.getenv("CHANNEL_DUP_RATE", "0")),
+        "channel_late_rate": float(os.getenv("CHANNEL_LATE_RATE", "0")),
         # Zone name to anchor county FIPS code; codes stay strings to keep leading zeros.
         "zones": dict(pair.split(":", 1) for pair in
                       os.getenv("ZONES", "Houston:48201,North:48113,South:48355,West:48329").split(",")),
