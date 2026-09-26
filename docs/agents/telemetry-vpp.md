@@ -4,7 +4,7 @@ Open this file when a task touches the battery telemetry feed, per-home state, t
 
 ## Decisions
 
-1. **Simulated batteries, real VPP.** Two things are simulated: the battery packs and the network. Everything else is the virtual power plant (VPP) we are building. With real Base hardware, only the simulated side is replaced.
+1. **VPP control logic (simulated batteries and network).** Two things are simulated: the battery packs and the network. Everything else is the virtual power plant (VPP) we are building. With real Base hardware, only the simulated side is replaced.
 2. **The controller sees only what batteries report.** It plans from `HomeState` (the latest trusted reading per battery), never from a battery's true charge.
 3. **Every reading uses the OpenTelemetry metrics layout** (metric names, units, resource attributes), built from plain Python dicts. No new dependency. Pitch line: "follows the OpenTelemetry metrics data model; a real OTel exporter is a transport change."
 4. **Mirror Base's published behavior** where it exists: one resource per load zone, a 5-minute dispatch interval, stale after 180 s, a reserve for home backup, and batteries kept fuller when outage risk is high.
@@ -18,7 +18,7 @@ Reviewed by Codex on 2026-09-26 (`.claude/council-cache/council-1790445304.md`).
 
 ## Problem
 
-ReserveGate has no real batteries. Today a home's charge is exact and known to the controller, and whether it is live, stale or dead is written into the tape. A real fleet reports over an unreliable network: readings arrive late, repeated or not at all, and some are wrong. The Orchestration track is judged on how the system holds up when pieces fail. Without a feed, we cannot show the controller coping with the thing that fails most in a real VPP, the data itself. Australia's VPP trials lost 5–8% of fleet telemetry at any moment, and 1.4–7.7% of batteries ignored a given order in a PG&E pilot.
+ReserveGate has no real batteries. Today a home's charge is exact and known to the controller, and whether it is live, stale or dead is written into the tape. A real fleet reports over an unreliable network: readings arrive late, repeated or not at all, and some are wrong. The Orchestration track is judged on how the system holds up when pieces fail. Without a feed, we cannot show the controller coping with the thing that fails most in a real VPP, the data itself. Australia's VPP trials lost 5–8% of fleet telemetry at any moment [assumed (unsourced)], and 1.4–7.7% of batteries ignored a given order in a PG&E pilot [assumed (unsourced)].
 
 ## Goals
 
@@ -84,8 +84,8 @@ Before the first tick, every battery registers with one reading, so tick 1 plans
 
 | Fault | Default | Basis |
 |---|---|---|
-| outage (home silent for a window) | 5% of homes | sourced: AEMO 5–8% |
-| order ignored | 3% of orders | sourced: PG&E 1.4–7.7% |
+| outage (home silent for a window) | 5% of homes | assumed (unsourced): AEMO 5–8% |
+| order ignored | 3% of orders | assumed (unsourced): PG&E 1.4–7.7% |
 | duplicate | 1% | assumed |
 | late or out-of-order, 10–120 s | 2% | assumed |
 | clock skew | ±2 s per home | assumed |

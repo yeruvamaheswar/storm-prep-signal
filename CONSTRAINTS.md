@@ -167,7 +167,7 @@ Shape:
 ```
 
 - Each item in `ticks` holds every `TickResult` field from `server/engine/contracts.py`, plus `brief` (a string).
-- `totals` stays `{}` until `score.py` fills it in.
+- `totals` holds the `score.py` board: `ticks`, `delivered_mwh`, `target_mwh`, `breaches`, `delivery_pct`, `hold_ticks`. Fields may be added, never renamed.
 - `source` is `"live"` when the engine ran with `--live` (one ERCOT fetch, its risk used on every tick; a failed fetch means risk None on every tick) and `"scenario"` when each frame's `risk_fixture` was rated.
 - `--live` with no tape plays 12 frames at a flat 0.2 MW target labeled `synthetic`, and `tape` is `"synthetic"`.
 

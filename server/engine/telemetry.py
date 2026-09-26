@@ -22,7 +22,7 @@ DEFAULTS = {
     "stale_after_s": 180.0,           # Base says telemetry older than 180 s is stale
     "dead_after_s": 600.0,            # our assumption
     "suspect_kwh": 0.1,               # energy-check tolerance per tick (catches a lie of 1.2 kW+)
-    "telemetry_outage_rate": 0.05,    # sourced: AEMO VPP trials, 5-8% of fleet data missing
+    "telemetry_outage_rate": 0.05,    # assumed (unsourced): AEMO VPP trials, 5-8% of fleet data missing
     "telemetry_dup_rate": 0.01,       # assumed
     "telemetry_late_rate": 0.02,      # assumed
     "telemetry_late_extra_s": 60.0,   # assumed

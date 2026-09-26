@@ -8,10 +8,10 @@ from server.engine.contracts import Home, TickResult
 from server.engine.score import new_board, update
 
 
-def tick(n, target, delivered, price=50.0, label="synthetic", breaches=0, zones=None):
+def tick(n, target, delivered, price=50.0, label="synthetic", breaches=0, zones=None, mode="AUTO"):
     # A TickResult with only the fields the scoreboard reads set to interesting values.
     return TickResult(
-        tick=n, ts=f"2026-02-01T00:{n * 5:02d}:00-06:00", mode="AUTO",
+        tick=n, ts=f"2026-02-01T00:{n * 5:02d}:00-06:00", mode=mode,
         target_mw=target, target_label="synthetic",
         delivered_mw=delivered, missed_mw=max(0.0, target - delivered),
         price_usd_mwh=price, price_label=label,
@@ -30,6 +30,7 @@ def test_new_board_starts_empty():
     # No price seen yet, so no dollar figure yet (never a made-up $0).
     assert board["dollars"] is None and board["dollars_label"] == "none"
     assert board["lowest_soc_pct"] is None and board["by_zone"] == {}
+    assert board["delivery_pct"] is None and board["hold_ticks"] == 0
     assert board["tick_minutes"] == 5
 
 
@@ -53,6 +54,22 @@ def test_three_tick_example_adds_up_by_hand():
     assert board["dollars"] == pytest.approx(9.0)
     assert board["dollars_label"] == "synthetic"
     assert board["breaches"] == 0
+
+
+def test_delivery_pct_is_cumulative_delivered_over_target():
+    board = update(new_board(), tick(1, target=0.0, delivered=0.0))
+    assert board["delivery_pct"] is None
+    board = update(board, tick(2, target=0.6, delivered=0.6))
+    board = update(board, tick(3, target=0.6, delivered=0.0))
+    assert board["delivery_pct"] == pytest.approx(50.0)
+
+
+def test_hold_ticks_count_operator_hold():
+    board = new_board()
+    board = update(board, tick(1, 0.4, 0.4))
+    board = update(board, tick(2, 0.4, 0.0, mode="HOLD"))
+    board = update(board, tick(3, 0.4, 0.0, mode="HOLD"))
+    assert board["hold_ticks"] == 2
 
 
 def test_breaches_add_up():

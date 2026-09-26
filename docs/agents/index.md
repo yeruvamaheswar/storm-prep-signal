@@ -8,6 +8,7 @@ Open this index, then the one file the task needs.
 | `gap-work.md` | You need how work is chosen, or you are about to name the next gap |
 | `team-manifest.md` | You need what we will not cut, or what we say out loud |
 | `working-rules.md` | You are about to edit code |
+| `system-design.md` | You are new to the repo, you need the parts, stores, failure handling, or deploy picture, or you added a part, setting, dependency, or contract shape |
 | `code-flow.md` | You need to know how a run flows through the code, or you changed which module calls which |
 | `plan.md` | You need the risk rule, the event schema, or a past decision |
 | `progress.md` | You need what is already built |
