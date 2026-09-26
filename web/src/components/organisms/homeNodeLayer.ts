@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react"
 import L from "leaflet"
-import type { TickView } from "../../contracts"
+import type { FleetRollups, TickView } from "../../contracts"
+import { visibleHomeNodes, zoneAggregates } from "../../fleetAggregate"
 import { clusterCaption } from "../../format"
 import { isLoadZone, zonePaint } from "../../zonePaint"
 import { clusterCounts, clusterGroups } from "../../zoneLabels"
-import { homeNodePaint, homeNodes, parseZonePolygons, type HomeNode, type ZonePolygon } from "./homeNodes"
+import { homeNodePaint, parseZonePolygons, type HomeNode, type ZonePolygon } from "./homeNodes"
 
 const GEO_URL = "/geo/ercot-load-zones.json"
 const groups = new WeakMap<L.Map, L.LayerGroup>()
@@ -47,7 +48,7 @@ async function loadPolygons(): Promise<ZonePolygon[]> {
 }
 
 /** Circle markers for the mock fleet. Positions stay put when the tick changes. */
-export function useHomeNodes(mapRef: RefObject<L.Map | null>, tick: TickView): void {
+export function useHomeNodes(mapRef: RefObject<L.Map | null>, tick: TickView, rollups: FleetRollups | null = null): void {
   const groupRef = useRef<L.LayerGroup | null>(null)
   const [polygons, setPolygons] = useState<ZonePolygon[] | null>(null)
 
@@ -94,17 +95,29 @@ export function useHomeNodes(mapRef: RefObject<L.Map | null>, tick: TickView): v
         }
       }
     })
-    const nodes = homeNodes(tick, polygons)
+    const nodes = visibleHomeNodes(tick, polygons, rollups)
     const mw = new Map(zonePaint(tick).zones.map((zone) => [zone.zone, zone.mw]))
+    const byZone = new Map(zoneAggregates(tick, rollups).map((row) => [row.zone, row]))
     const tips = new Map(
       clusterGroups(nodes).map((cluster) => {
         const zoneName = cluster[0]?.zone ?? ""
         const posted = isLoadZone(zoneName) ? (mw.get(zoneName) ?? null) : null
-        return [cluster, clusterCaption(clusterCounts(cluster, posted))] as const
+        const row = rollups == null || !isLoadZone(zoneName) ? undefined : byZone.get(zoneName)
+        const counts =
+          row === undefined
+            ? clusterCounts(cluster, posted)
+            : {
+                homes: row.homes,
+                reserved: row.reserved,
+                discharging: row.discharging,
+                supplyingMw: row.supplyingMw,
+                zoneMw: posted,
+              }
+        return [cluster, clusterCaption(counts)] as const
       }),
     )
     syncHomeMarkers(group, nodes, tips)
-  }, [mapRef, tick, polygons])
+  }, [mapRef, tick, polygons, rollups])
 }
 
 /** 3px so a metro cluster stays a field of dots instead of a blot. */

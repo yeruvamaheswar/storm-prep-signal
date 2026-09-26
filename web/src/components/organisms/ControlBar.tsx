@@ -1,4 +1,4 @@
-import type { Mode, TickView } from "../../contracts"
+import type { FleetRollups, Mode, TickView } from "../../contracts"
 import type { IntervalPoint } from "../../intervalSeries"
 import type { RuntimeMode } from "../../runtimeMode"
 import type { SceneId } from "../../fixtures/scenes"
@@ -22,6 +22,7 @@ type ControlBarProps = {
   onRadar: () => void
   zone?: LoadZone | null
   zoneTick?: TickView
+  rollups?: FleetRollups | null
   runtime?: RuntimeMode
   intervals?: readonly IntervalPoint[]
   liveSelectable?: boolean
@@ -42,6 +43,7 @@ export function ControlBar({
   onRadar,
   zone = null,
   zoneTick,
+  rollups = null,
   runtime = "demo",
   intervals = [],
   liveSelectable = false,
@@ -153,6 +155,7 @@ export function ControlBar({
           onSelect={onSelect}
           zone={zone}
           zoneTick={zoneTick}
+          rollups={rollups}
         />
       ) : (
         <IntervalStrip intervals={intervals} />

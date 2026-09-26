@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { createClient } from "../../api/client"
 import { apiBaseUrl, useApiHealth } from "../../api/health"
+import { useFleetRollups } from "../../api/rollups"
 import { calmStreak } from "../../calmStreak"
 import type { Mode, RunFile, WallMeta } from "../../contracts"
 import { feedChip, formatTs } from "../../format"
@@ -68,6 +69,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
   const [now, setNow] = useState(() => Date.now())
   const [catalog, setCatalog] = useState<FeedProduct[]>([])
   const api = useApiHealth()
+  const fetchedRollups = useFleetRollups()
   const preferred = requestedMode()
   const demoChosen = (choice ?? preferred) === "demo"
   const selectedEvent = resolveWallEvent(
@@ -77,6 +79,8 @@ export function OperatorWall({ run }: OperatorWallProps) {
   )
   const archiveOn = isArchiveEvent(selectedEvent)
   const tapeChosen = demoChosen && !archiveOn
+  // Demo tape keeps the tick's index % 4 split. Live/archive paint persisted LZ rollups.
+  const rollups = tapeChosen ? null : fetchedRollups
   const pollLive = !tapeChosen
   const metaMode = meta?.source === "archive" || archiveOn ? "live" : (meta?.mode ?? null)
   const selectZone = useCallback((next: LoadZone) => {
@@ -169,7 +173,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
     fallbackQuality,
     zone,
   })
-  const lens = zone === null ? null : zoneFacts(tick, zone)
+  const lens = zone === null ? null : zoneFacts(tick, zone, rollups)
   const brief = lens === null ? snapshot.brief : zoneBrief(lens)
   const stamp =
     runtime === "live"
@@ -235,6 +239,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
         feeds={feeds}
         api={api}
         origin={origin}
+        zone={zone}
       />
       <p className={intentClass(intent.action)} role="status">
         {intent.line}
@@ -245,11 +250,12 @@ export function OperatorWall({ run }: OperatorWallProps) {
             tick={tick}
             radar={radar}
             zone={zone}
+            rollups={rollups}
             callout={lens === null ? null : zoneCallout(lens)}
             calloutTitle={lens === null ? undefined : `${lens.priceCaption}. ${lens.floorCaption}.`}
             onSelectZone={selectZone}
           />
-          <AckRail key={ackRound} tick={tick} zone={zone} onSelectZone={selectZone} onClearZone={clearZone} />
+          <AckRail key={ackRound} tick={tick} zone={zone} rollups={rollups} onSelectZone={selectZone} onClearZone={clearZone} />
         </div>
         <SideRail
           brief={brief}
@@ -280,6 +286,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
         }}
         zone={zone}
         zoneTick={tick}
+        rollups={rollups}
         runtime={runtime}
         intervals={origin.showScrubber ? [] : (watch.intervals ?? [])}
         liveSelectable={canLive}

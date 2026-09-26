@@ -4,10 +4,12 @@ import type {
   AttentionChoice,
   AttentionInput,
   CalmStreak,
+  ChargeState,
   Fleet,
   Home,
   HomeCommand,
   HomeStatus,
+  HomeZone,
   Mode,
   Playback,
   Price,
@@ -23,6 +25,7 @@ import type {
   TickSource,
   Zone,
 } from "./types"
+import { CHARGE_STATES, HOME_ZONES } from "./types"
 
 const QUALITIES = [
   "ok",
@@ -292,11 +295,30 @@ function readSkipReason(value: unknown): SkipReason | null {
   return readEnum(value, SKIP_REASONS, "skip_reason")
 }
 
+function readZone(value: unknown): HomeZone | null {
+  if (value === undefined || value === null) return null
+  return readEnum(value, HOME_ZONES, "zone")
+}
+
+function readChargeState(value: unknown): ChargeState | null {
+  if (value === undefined || value === null || value === "") return null
+  return readEnum(value, CHARGE_STATES, "charge_state")
+}
+
+function readOptionalNumber(value: unknown, label: string): number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`missing ${label}`)
+  }
+  return value
+}
+
 export function parseHome(value: unknown): Home {
   const row = readRecord(value, "home")
   return {
     home_id: readString(row, "home_id"),
     status: readEnum(row.status, HOME_STATUSES, "status"),
+    zone: readZone(row.zone),
     capacity_kwh: readNumber(row, "capacity_kwh"),
     soc_kwh: readNumber(row, "soc_kwh"),
     floor_kwh: readNumber(row, "floor_kwh"),
@@ -304,8 +326,10 @@ export function parseHome(value: unknown): Home {
     assigned_kw: readNumber(row, "assigned_kw"),
     eligible: readBoolean(row, "eligible"),
     skip_reason: readSkipReason(row.skip_reason),
-    last_seen: readString(row, "last_seen"),
+    last_seen: row.last_seen === null || row.last_seen === undefined ? "" : readString(row, "last_seen"),
     last_command: readCommand(row.last_command),
+    charge_state: readChargeState(row.charge_state),
+    power_kw: readOptionalNumber(row.power_kw, "power_kw"),
   }
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react"
-import type { TickView } from "../../contracts"
+import type { FleetRollups, TickView } from "../../contracts"
 import { zoneCallout, zoneFacts, zoneOutageSeries } from "../../zoneLens"
 import type { LoadZone } from "../../zonePaint"
 import { Button } from "../atoms/Button"
@@ -28,6 +28,7 @@ type TapeScrubberProps = {
   onSelect: (index: number) => void
   zone?: LoadZone | null
   zoneTick?: TickView
+  rollups?: FleetRollups | null
 }
 
 export function TapeScrubber({
@@ -37,12 +38,13 @@ export function TapeScrubber({
   onSelect,
   zone = null,
   zoneTick,
+  rollups = null,
 }: TapeScrubberProps) {
   const columns = tapeColumns(ticks)
   const max = seriesMax(columns)
   const targetLine = polyline(columns, "target", max)
   const deliveredLine = polyline(columns, "delivered", max)
-  const lens = zone === null || zoneTick === undefined ? null : zoneFacts(zoneTick, zone)
+  const lens = zone === null || zoneTick === undefined ? null : zoneFacts(zoneTick, zone, rollups)
   const outageValues = zone === null ? null : zoneOutageSeries(ticks, zone)
   const outageMax = outageValues === null ? 0 : outageValues.reduce((peak, value) => Math.max(peak, value), 0)
   const outageLine = outageValues === null ? "" : valuesPolyline(outageValues, outageMax)
