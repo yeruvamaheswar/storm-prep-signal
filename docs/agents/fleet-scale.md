@@ -54,7 +54,7 @@ Not measurable in Node, and likely the real freeze:
 
 Feeder and hex aggregates are left out. There is no feeder field, and home points are mock, so a hex grid would claim geography we do not have.
 
-## Needs other owners (not in these slices)
+## Not in these slices
 
-- Per-zone fleet counts on the tick, so zones stop being `index % 4`. The engine now fills `TickResult.zone_delivered_mw` and `GET /v1/fleet/rollups` (`docs/agents/fleet-rollups.md`). Live/archive tape targets scale with `FLEET_SIZE` against that cap; the Demo tape stays 100 / 0.40. The map and ack rail still paint `index % 4` until Sunny reads those rollups.
-- `GET /v1/homes` paging, `q`, and an exceptions filter, plus a server zone aggregate, so the browser never holds 10k rows: Rajath for the fleet, Uma for the contract.
+- Per-zone fleet counts on the tick, so zones stop being `index % 4`. The engine now fills `TickResult.zone_delivered_mw` and `GET /v1/fleet/rollups` (`docs/agents/fleet-rollups.md`). Live/archive tape targets scale with `FLEET_SIZE` against that cap; the Demo tape stays 100 / 0.40. The map and ack rail still paint `index % 4` until a later gap reads those rollups.
+- `GET /v1/homes` paging, `q`, and an exceptions filter, plus a server zone aggregate, so the browser never holds 10k rows.
