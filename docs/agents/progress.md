@@ -184,3 +184,19 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   A baseline with bad JSON inside is still treated as signal unavailable in live mode.
 - 3 new tests in `tests/test_signal.py` (120 min old gives None and 60%; 40 min old is rated;
   live run with no baseline raises). `pytest -q`: 25 passed. Disabling either fix makes its test fail.
+
+## 2026-09-25: Engine live mode
+
+- A baseline file with broken JSON now raises `BaselineError` (stops the run in every mode), like
+  a missing file. This replaces the previous entry's "bad JSON is still signal unavailable".
+- `python -m storm_prep.engine --live [--tape PATH]`: fetches ERCOT once through `load_signal`
+  (so `FETCH_TIMEOUT_S` and the stale check apply), rates once, and uses that risk on every tick;
+  frame `risk_fixture`s are ignored. No tape gives 12 frames at a flat 0.2 MW `synthetic` target,
+  no price. Any failure logs `compute_risk`/`failed` with the reason, prints `live: risk unknown
+  | <reason>`, and every tick gets 60% `signal_unavailable`.
+- Engine output adds `"source": "live" | "scenario"` (`CONSTRAINTS.md` Engine output, add only);
+  `tape` is `"synthetic"` when no tape was given.
+- Tests: broken-JSON baseline (`tests/test_risk.py`); faked login timeout gives one fetch, 12 ticks
+  at 60% `signal_unavailable`, one failed event (`tests/test_engine.py`). `pytest -q`: 27 passed.
+- One real run, 22:58 CT: `live: risk LOW`, 12 ticks at 30% `normal`. Delivered is 0 because
+  `allocate` is still the TEMP stub. No `.env` secret in the log.

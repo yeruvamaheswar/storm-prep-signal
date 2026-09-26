@@ -101,6 +101,7 @@ Shape:
 {
   "run_id": "str",
   "tape": "str (path to the tape file)",
+  "source": "str (\"live\" or \"scenario\")",
   "settings": {
     "fleet_size": 0,
     "home_kwh": 0.0,
@@ -127,6 +128,8 @@ Shape:
 
 - Each item in `ticks` holds every `TickResult` field from `storm_prep/contracts.py`, plus `brief` (a string).
 - `totals` stays `{}` until `score.py` fills it in.
+- `source` is `"live"` when the engine ran with `--live` (one ERCOT fetch, its risk used on every tick; a failed fetch means risk None on every tick) and `"scenario"` when each frame's `risk_fixture` was rated.
+- `--live` with no tape plays 12 frames at a flat 0.2 MW target labeled `synthetic`, and `tape` is `"synthetic"`.
 
 Rules:
 

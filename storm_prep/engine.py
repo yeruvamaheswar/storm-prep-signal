@@ -1,8 +1,9 @@
-"""Tick loop: python -m storm_prep.engine --tape PATH"""
+"""Tick loop: python -m storm_prep.engine --tape PATH | --live [--tape PATH]"""
 import argparse
 import json
 import sys
 from dataclasses import asdict
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from storm_prep.__main__ import read_settings
@@ -11,11 +12,14 @@ from storm_prep.contracts import Allocation, Home, TapeFrame, TickResult
 from storm_prep.events import log_event, start_run
 from storm_prep.policy import reserve_policy
 from storm_prep.risk import compute_risk
-from storm_prep.signal import load_signal, to_signal
+from storm_prep.signal import CENTRAL, LIVE_SOURCE, SignalUnavailable, load_signal, to_signal
 
 LOG_DIR = Path("var") / "logs"
 RUNS_DIR = Path("var") / "runs"
 SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "storm_reserve_pct", "tick_minutes")
+# --live with no tape plays this many ticks at a flat synthetic target (not a real grid request).
+SYNTHETIC_TICKS = 12
+SYNTHETIC_TARGET_MW = 0.2
 
 
 # TEMP until rajat/controller and sunny/tape-brief merge
@@ -46,32 +50,72 @@ def write_brief(result):
 # end TEMP
 
 
+def rate(path, baseline, settings):
+    """Load one ERCOT posting and rate it: the saved file at `path`, or a live fetch when path is None.
+
+    Live loading applies FETCH_TIMEOUT_S and the stale check (see signal.load_signal).
+    """
+    loaded = load_signal(argparse.Namespace(fixture=False, file=path), settings)
+    signal = to_signal(loaded["raw"], loaded["now"])
+    return compute_risk(signal, baseline, margin_pct=settings["margin_pct"],
+                        lookahead_hours=settings["lookahead_hours"])
+
+
 def read_risk(path, baseline, settings):
-    """Rate one ERCOT posting. Any failure returns None, which the policy treats as fail safe."""
+    """Rate one saved posting. Any failure returns None, which the policy treats as fail safe."""
     try:
-        loaded = load_signal(argparse.Namespace(fixture=False, file=path))
-        signal = to_signal(loaded["raw"], loaded["now"])
-        return compute_risk(signal, baseline, margin_pct=settings["margin_pct"],
-                            lookahead_hours=settings["lookahead_hours"])
+        return rate(path, baseline, settings)
     except Exception as exc:
         log_event("compute_risk", "failed", ok=False, reason=f"{type(exc).__name__}: {exc}", path=path)
         return None
+
+
+def read_live_risk(baseline, settings):
+    """Fetch ERCOT once and rate it. Any failure returns None, logged and printed, never hidden."""
+    try:
+        risk = rate(None, baseline, settings)
+    except Exception as exc:
+        reason = str(exc) if isinstance(exc, SignalUnavailable) else f"{type(exc).__name__}: {exc}"
+        log_event("compute_risk", "failed", ok=False, reason=reason, source=LIVE_SOURCE)
+        print(f"live: risk unknown | {reason} | source: {LIVE_SOURCE}")
+        return None
+    log_event("compute_risk", "ok", source=LIVE_SOURCE, **asdict(risk))
+    print(f"live: risk {risk.level} | source: {LIVE_SOURCE}")
+    return risk
+
+
+def synthetic_frames(settings, start):
+    """The frames used by --live with no tape: a flat target, labeled synthetic, no price."""
+    step = timedelta(minutes=settings["tick_minutes"])
+    return [TapeFrame(tick=i, ts=(start + (i - 1) * step).isoformat(timespec="seconds"),
+                      target_mw=SYNTHETIC_TARGET_MW, target_label="synthetic",
+                      price_usd_mwh=None, price_label="none")
+            for i in range(1, SYNTHETIC_TICKS + 1)]
 
 
 def count(homes, status):
     return sum(home.status == status for home in homes)
 
 
-def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR):
-    """Play every frame of the tape through the fleet. Returns the run record written to disk."""
+def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False):
+    """Play every frame of the tape through the fleet. Returns the run record written to disk.
+
+    live=True fetches ERCOT once and uses that risk on every tick, ignoring the frames' risk
+    fixtures. With no tape it plays SYNTHETIC_TICKS synthetic frames.
+    """
     run_id = start_run(log_dir)
     baseline = load_baseline(lookahead_hours=settings["lookahead_hours"])
+    live_risk = read_live_risk(baseline, settings) if live else None
+    frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
     homes = new_fleet(settings)
     mode = "AUTO"
     ticks = []
-    for frame in load_tape(tape_path):
+    for frame in frames:
         apply_events(homes, frame.events)
-        risk = read_risk(frame.risk_fixture, baseline, settings) if frame.risk_fixture else None
+        if live:
+            risk = live_risk
+        else:
+            risk = read_risk(frame.risk_fixture, baseline, settings) if frame.risk_fixture else None
         policy = reserve_policy(risk, settings)
         mode = frame.events.get("operator", mode)
         alloc = allocate(homes, frame, policy, mode, settings)
@@ -93,7 +137,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR):
 
     record = {
         "run_id": run_id,
-        "tape": str(tape_path),
+        "tape": str(tape_path) if tape_path else "synthetic",
+        "source": "live" if live else "scenario",
         "settings": {key: settings[key] for key in SETTINGS_KEYS},
         "ticks": ticks,
         "totals": {},
@@ -108,9 +153,12 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="storm_prep.engine", description="Run a tape through the fleet.")
-    parser.add_argument("--tape", required=True, help="path to a tape JSON file")
+    parser.add_argument("--tape", help="path to a tape JSON file (optional with --live)")
+    parser.add_argument("--live", action="store_true", help="fetch ERCOT once and use that risk on every tick")
     args = parser.parse_args(argv)
-    run(args.tape, read_settings())
+    if not (args.tape or args.live):
+        parser.error("give --tape PATH, --live, or both")
+    run(args.tape, read_settings(), live=args.live)
     return 0
 
 
