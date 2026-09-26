@@ -1,35 +1,47 @@
-# Storm Prep Signal: rules for the coding agent
+# Context strategy
 
-Project: Python 3.13 CLI. Reads the ERCOT NP3-233-CD outage capacity report, rates risk HIGH/LOW,
-sets 3 simulated batteries to RESERVE/NORMAL. Every uncertain path goes to fail_safe(reason):
-all batteries RESERVE, reason logged, human prompt Approve/Retry/Skip (A/R/S), one bounded retry.
-Returning to NORMAL needs two calm readings in a row.
+This file is loaded every chat. It stays a strategy for what to read and what to write down.
+It does not hold the product, the team, the deadlines, or which files a person may edit. That is in `docs/agents/team-manifest.md`.
 
-Names to use exactly: load_signal, fetch_outages, validate,
-compute_risk(signal, margin_pct=20, lookahead_hours=6), decide_mode, apply_to_batteries,
-format_decision, fail_safe(reason).
-HIGH/LOW is the risk level; RESERVE/NORMAL is the battery mode.
-Flags: --fixture, --file, --simulate timeout, --simulate poison, --hang-battery, --fail-battery.
-Optional command: view <logfile> (replay viewer, slice V).
-Every stage logs through log_event(...) in storm_prep/events.py. The event schema is in
-docs/plan.md; fields are only ever added, never renamed.
+## Two shelves
 
-Rules:
-- The owner is a beginner. Plain Python, short functions, clear names, comments that explain why.
-  Dependencies: requests, python-dotenv, pytest only, unless I approve more.
-- Build tracer bullets: one thin end-to-end slice at a time. Do not build ahead of the current slice.
-- Work in three phases and stop between them: RESEARCH (read only, write docs/research.md),
-  PLAN (write docs/plan.md, wait for approval), IMPLEMENT (only the approved plan, then append
-  a short entry to docs/progress.md).
-- Start every new chat by reading docs/progress.md; it is the compacted memory of the project.
-- Keep diffs under ~250 lines per slice.
-- No scattered try/except. Network errors are caught in one place in fetch_outages and turned
-  into data that validate() names. All failures route to fail_safe(reason).
-- compute_risk and decide_mode stay pure: no I/O, no clock, no network.
-- compute_risk uses a relative trigger (baseline from the report + RISK_MARGIN_PCT). Never add
-  an absolute MW threshold.
-- Every network call has a timeout. In live mode, never fall back to fixture data.
-- Secrets only from .env. Never print or log them. Never commit .env or var/.
-  log_event never records headers, tokens, or credentials.
-- Run `pytest -q` after implementing. Do not edit or weaken tests to make them pass.
-- Stop and ask instead of guessing when the plan is ambiguous.
+`docs/agents/` is for coding agents. A file there can be any length. Open the one file the task needs. Do not open the folder and read every file.
+
+`docs/humans/` is for people. Each file uses simple English. A person should finish it in 30 to 60 seconds. When a page needs more than that, move the detail to `docs/agents/` and leave a short pointer in `docs/humans/`.
+
+## What to open
+
+1. This file.
+2. One file in `docs/agents/` for the task.
+   - Who owns a file, what we will not cut, or what we say out loud: `docs/agents/team-manifest.md`.
+   - How to edit code: `docs/agents/working-rules.md`.
+3. The source files you are about to change.
+
+Open a `docs/humans/` page only when you are writing one, or checking that a person can read it in about a minute.
+
+If the agent file you need is missing, ask. Build the missing note with the owner. Do not fill the gap from the chat alone, and do not revive any doc that sits outside `docs/agents/` and `docs/humans/`.
+
+## Which source wins
+
+1. The `docs/agents/` file that covers the question.
+2. The code you are editing, for behavior that is already implemented.
+3. This file, for how context is read and written.
+4. The current chat.
+
+When the chat and a file disagree, re-read the file and follow it. This file wins on the strategy only. It does not win on product facts. A narrower agent file wins over a general one on the same point.
+
+## Writing new context
+
+Write a note before the chat ends when a later chat will need a decision, a contract, or a fact from this one.
+
+- Add or update a file in `docs/agents/`. Name it for the topic. Put the decision first, then the detail. Any length is fine.
+- When a person on the team must read it, also add `docs/humans/<topic>.md`. One topic, simple English, readable in 30 to 60 seconds. Point at the agent file for the rest.
+- Leave this file unchanged unless the strategy for reading or writing context changes.
+- In the chat, name the file you wrote. Do not paste the whole document.
+- In the pull request, record the files touched, what `pytest -q` reported, and the path of any new context file.
+
+When `docs/agents/` grows past a handful of files, add `docs/agents/index.md`. Give each file a title and one line that says when to open it. While choosing what to read, open the index and then one other file.
+
+## Old notes
+
+If you find a document that describes the retired one-run, three-battery CLI, leave it closed. Do not append to it. Current notes go in `docs/agents/` or `docs/humans/` only.
