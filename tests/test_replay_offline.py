@@ -1,11 +1,12 @@
 """Replaying a saved tape needs no network and gives the same floors and delivery every run."""
+import json
 import socket
 from pathlib import Path
 
 import pytest
 
 from server.engine.baseline import BASELINE_PATH
-from server.engine.loop import run
+from server.engine.loop import run, summary_line
 
 ROOT = Path(__file__).parent.parent
 DEMO = ROOT / "tapes" / "demo.json"
@@ -41,14 +42,31 @@ def _replay(tape, baseline, out):
 @pytest.mark.parametrize("tape,baseline", [(DEMO, BASELINE_PATH), (HEATHER, HEATHER_BASELINE)],
                          ids=["demo", "heather"])
 def test_offline_replay_is_identical_across_two_runs(tmp_path, connects, tape, baseline):
-    first = _replay(tape, baseline, tmp_path / "first")["ticks"]
-    second = _replay(tape, baseline, tmp_path / "second")["ticks"]
+    first_run = _replay(tape, baseline, tmp_path / "first")
+    second_run = _replay(tape, baseline, tmp_path / "second")
+    first, second = first_run["ticks"], second_run["ticks"]
 
     assert connects == []
+    assert first_run["totals"] == second_run["totals"]
     assert [t["tick"] for t in first] == [t["tick"] for t in second]
     for a, b in zip(first, second):
         assert {k: a[k] for k in COMPARED} == {k: b[k] for k in COMPARED}, f"tick {a['tick']}"
     assert all(t["breaches"] == 0 for t in first + second)
+
+
+def test_demo_run_writes_scoreboard_totals(tmp_path, connects):
+    record = _replay(DEMO, BASELINE_PATH, tmp_path)
+    totals = record["totals"]
+
+    assert totals
+    assert totals["ticks"] == len(record["ticks"])
+    assert totals["breaches"] == 0
+    assert totals["delivered_mwh"] <= totals["target_mwh"] + 1e-9
+    # The demo tape holds for one tick (operator HOLD on one frame).
+    assert totals["hold_ticks"] == sum(t["mode"] == "HOLD" for t in record["ticks"]) >= 1
+    # The file on disk carries the same board the run returned.
+    assert json.loads((tmp_path / "runs" / "latest.json").read_text())["totals"] == totals
+    assert summary_line(totals).startswith("run total: delivered ")
 
 
 def test_demo_weather_raises_houston_then_missing_signal_raises_every_zone(tmp_path, connects):

@@ -24,6 +24,7 @@ from server.engine.fleet import (
 from server.engine.fleet_state import STATE_PATH, load_fleet_mode, write_fleet_mode
 from server.engine.policy import reserve_policy
 from server.engine.risk import compute_risk
+from server.engine.score import new_board, update
 from server.engine.supervisor import simulate_zone_acks
 from server.engine.signal import (
     CENTRAL,
@@ -191,6 +192,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
     homes = new_fleet(settings)
     mode = read_operator_mode(state_path)
     ticks = []
+    board = new_board(settings)
     for frame in frames:
         apply_events(homes, frame.events)
         if live:
@@ -238,6 +240,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             intent=policy.intent,
             intent_reason=policy.intent_reason,
         )
+        board = update(board, result, homes)
         brief = write_brief(result)
         log_event("tick", "ok", **asdict(result), brief=brief)
         print(f"tick {result.tick}: delivered {result.delivered_mw:.3f} of {result.target_mw:.3f} MW"
@@ -252,7 +255,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             "baseline": str(baseline_path),
             "settings": {key: settings[key] for key in SETTINGS_KEYS},
             "ticks": list(ticks),
-            "totals": {},
+            "totals": board,
         }
         # Each cycle, so /runs/latest.json and /v1/snapshot stay aligned during --live.
         write_run_files(runs_dir, run_id, record)
@@ -265,10 +268,18 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             "baseline": str(baseline_path),
             "settings": {key: settings[key] for key in SETTINGS_KEYS},
             "ticks": [],
-            "totals": {},
+            "totals": board,
         }
         write_run_files(runs_dir, run_id, record)
     return record
+
+
+def summary_line(totals):
+    """One line from the scoreboard. The board sums MW over ticks, so the totals are MWh."""
+    pct = totals["delivery_pct"]
+    share = "no target" if pct is None else f"{pct:.1f}%"
+    return (f"run total: delivered {totals['delivered_mwh']:.3f} of {totals['target_mwh']:.3f} MWh"
+            f" ({share}) | floor breaches {totals['breaches']} | hold ticks {totals['hold_ticks']}")
 
 
 def main(argv=None):
@@ -280,8 +291,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not (args.tape or args.live):
         parser.error("give --tape PATH, --live, or both")
-    run(args.tape, read_settings(), live=args.live, state_path=STATE_PATH if args.live else None,
-        baseline_path=args.baseline)
+    record = run(args.tape, read_settings(), live=args.live, state_path=STATE_PATH if args.live else None,
+                 baseline_path=args.baseline)
+    print(summary_line(record["totals"]))
     return 0
 
 

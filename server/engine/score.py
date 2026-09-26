@@ -16,6 +16,9 @@ def new_board(settings=None):
         "target_mwh": 0.0,
         "delivered_mwh": 0.0,
         "missed_mwh": 0.0,
+        # None until some target is asked for; 0% of nothing is not a score.
+        "delivery_pct": None,
+        "hold_ticks": 0,
         # None, not 0.0: until a priced tick arrives we do not know the dollars.
         "dollars": None,
         "dollars_label": "none",
@@ -39,6 +42,9 @@ def update(board, result, homes=None):
     board["target_mwh"] += result.target_mw * hours
     board["delivered_mwh"] += delivered_mwh
     board["missed_mwh"] += result.missed_mw * hours
+    if board["target_mwh"] > 0:
+        board["delivery_pct"] = 100 * board["delivered_mwh"] / board["target_mwh"]
+    board["hold_ticks"] += result.mode == "HOLD"
     board["breaches"] += result.breaches
     add_dollars(board, delivered_mwh, result.price_usd_mwh, result.price_label)
     add_zones(board, result.zone_delivered_mw, hours)
