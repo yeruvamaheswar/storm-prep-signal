@@ -20,7 +20,7 @@ SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "s
 
 # TEMP until rajat/controller and sunny/tape-brief merge
 def load_tape(path):
-    return [TapeFrame(**frame) for frame in json.loads(Path(path).read_text())]
+    return [TapeFrame(**frame) for frame in json.loads(Path(path).read_text())["frames"]]
 
 
 def new_fleet(settings):

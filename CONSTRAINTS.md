@@ -45,6 +45,29 @@ If you need something in a file you don't own, like a new dependency, a new sett
 - Nothing reads the brief. It's written after the decision.
 - Every target and price shown on screen shows its label. No unlabeled $/MWh or MW anywhere.
 
+## Tape file format (read by `load_tape`)
+
+A tape is one JSON object with a `label` and a list of `frames`. Each frame holds the `TapeFrame` fields from `storm_prep/contracts.py`.
+
+```json
+{
+  "label": "str",
+  "frames": [
+    {
+      "tick": 0, "ts": "2026-09-25T12:00:00-05:00",
+      "target_mw": 0.0, "target_label": "synthetic",
+      "price_usd_mwh": null, "price_label": "none",
+      "risk_fixture": null,
+      "events": {}
+    }
+  ]
+}
+```
+
+- `risk_fixture` and `events` are optional in a frame; every other `TapeFrame` field is required.
+- `load_tape` still returns `list[TapeFrame]` (the frames only).
+- Fields may be added, never renamed.
+
 ## Engine output (read by web/)
 
 The engine writes one file per run to `var/runs/<run_id>.json`, plus `var/runs/latest.json`, which is a copy of the most recent run.
