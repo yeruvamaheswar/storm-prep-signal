@@ -20,8 +20,9 @@ def allocate(homes, frame, policy, mode, settings):
     """Plan how many kW each home gives this tick. See PRD K2 and the reason-code precedence.
 
     The price bands in `reserve_policy` set `Policy.intent`. HOLD mode wins over everything.
-    Otherwise the intent decides the sign: hold writes no kW, discharge keeps the positive
-    split of `target_mw`, charge writes negative kW only (room to capacity, never past it).
+    Charge absorbs (negative kW). Discharge and hold both serve `target_mw` from
+    headroom: hold is a label for the wall, not a dispatch stop (CONSTRAINTS
+    allocation rule; contracts.py says allocate still only discharges).
     `delivered_mw` counts discharge only, so a charge tick delivers 0 and misses the call.
     """
     target_mw = frame.target_mw
@@ -38,11 +39,9 @@ def allocate(homes, frame, policy, mode, settings):
         return allocate_zoned(homes, frame, policy, settings, zone_intent)
 
     intent = getattr(policy, "intent", "hold")
-    if intent == "hold":
-        return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
     if intent == "charge":
         return allocate_charge(homes, frame, policy, settings)
-    if intent == "discharge":
+    if intent in ("discharge", "hold"):
         return allocate_discharge(homes, frame, policy, settings)
     # Unknown intent holds rather than selling on a tick we do not understand.
     return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))

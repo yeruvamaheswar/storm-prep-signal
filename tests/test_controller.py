@@ -298,26 +298,30 @@ def test_storm_60_floor_misses_040_mw_without_breaches():
             assert h.soc_kwh == start[h.home_id]
 
 
-# --- intent: hold writes nothing, discharge sells, charge absorbs ----------------
+# --- intent: hold still serves the call, discharge sells, charge absorbs ---------
 
-def test_hold_intent_writes_nothing_and_holds_spare_energy():
-    # A mid-band price holds: no kW, missed is the call, reason names the hold.
+def test_hold_intent_still_serves_the_call_from_headroom():
+    # Hold is a wall label, not a dispatch stop: the grid's call is served from
+    # headroom (CONSTRAINTS allocation rule). Caps bind first: 4 kWh x12 = 48 kW each.
     homes = [home("a", 10.0), home("b", 10.0)]
     alloc = allocate(homes, frame(0.2), policy(intent="hold"), "AUTO", settings())
-    assert alloc.per_home_kw == {}
-    assert alloc.delivered_mw == 0.0
-    assert alloc.missed_mw == pytest.approx(0.2)
-    assert alloc.reasons == ["holding_spare_energy"]
+    assert alloc.per_home_kw == {"a": 48.0, "b": 48.0}
+    assert alloc.delivered_mw == pytest.approx(0.096)
+    assert alloc.missed_mw == pytest.approx(0.104)
+    assert alloc.reasons == ["fleet_headroom_short"]
     assert_real_reasons(alloc)
+    check_books(alloc, 0.2)
 
 
 def test_hold_intent_still_counts_dead_and_stale():
     homes = [home("a", 10.0), home("b", 10.0, status="dead"), home("c", 10.0, status="stale")]
     alloc = allocate(homes, frame(0.2), policy(intent="hold"), "AUTO", settings())
-    assert alloc.per_home_kw == {}
-    assert alloc.delivered_mw == 0.0 and alloc.missed_mw == pytest.approx(0.2)
-    assert alloc.reasons == ["holding_spare_energy", "homes_dead:1", "homes_stale:1"]
+    assert alloc.per_home_kw == {"a": 48.0}
+    assert alloc.delivered_mw == pytest.approx(0.048)
+    assert alloc.missed_mw == pytest.approx(0.152)
+    assert alloc.reasons == ["fleet_headroom_short", "homes_dead:1", "homes_stale:1"]
     assert_real_reasons(alloc)
+    check_books(alloc, 0.2)
 
 
 def test_discharge_intent_keeps_the_positive_split():

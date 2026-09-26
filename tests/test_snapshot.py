@@ -160,7 +160,7 @@ def test_meta_reads_engine_source_and_fleet(tmp_path, monkeypatch):
     assert meta["source"] == "live"
     assert meta["event"] is None
     assert meta["clock"] in (None, "wall")
-    assert meta["fleet_cap_mw"] == 50.0
+    assert meta["fleet_cap_mw"] == 114.0
     assert meta["call_target_mw"] == 40.0
 
 

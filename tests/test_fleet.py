@@ -245,9 +245,9 @@ def test_new_fleet_n_uses_wall_zone_order_and_soc_spread():
         "South", "North", "West", "Houston", "South", "North", "West", "Houston",
     ]
     assert all(h.status == "live" for h in homes)
-    assert homes[0].soc_kwh == pytest.approx(0.45 * 20)
-    assert homes[-1].soc_kwh == pytest.approx(0.75 * 20)
-    assert all(h.capacity_kwh == 20 and h.max_kw == 5 for h in homes)
+    assert homes[0].soc_kwh == pytest.approx(0.45 * 25)
+    assert homes[-1].soc_kwh == pytest.approx(0.75 * 25)
+    assert all(h.capacity_kwh == 25 and h.max_kw == 11.4 for h in homes)
 
 
 def test_ten_thousand_homes_split_evenly_and_stay_off_the_rollup():
