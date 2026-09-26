@@ -41,6 +41,7 @@ The homes are simulated. Why we build it, and the non-negotiable principles: [PR
 | AUTO / HOLD | Operator mode. HOLD sends 0 kW to every home. |
 | Intent | `charge`, `hold`, or `discharge`, picked from price and risk. A label on the tick; the allocator still only discharges. |
 | Breach | A home discharged below its floor. Must always be 0. |
+| Confirmed MW | Power from orders a home answered before the tick's books close at 120 simulated seconds. Only confirmed MW counts as delivered. |
 | Run file | `var/runs/<run_id>.json`. The engine's output and the source of truth. |
 | Brief | One or two sentences explaining a tick, written after the decision. Nothing reads it to decide. |
 | Wall | The operator screen, a React app in `web/`. |
@@ -124,7 +125,7 @@ Each decision links to its home. The principles themselves are in [PROJECT_CONTE
 3. **The run file is the source of truth.** The engine writes `var/runs/<run_id>.json` and `var/runs/latest.json` after every tick. Supabase and the wall are copies or views. Why: the demo must work with no network, and one file is easy to inspect.
 4. **Online helps, but is never required.** Supabase writes are best effort and print `..._skipped: <reason>`. The engine never imports Supabase. Why: a demo on venue Wi-Fi cannot depend on it.
 5. **Pure core, thin edges.** `compute_risk` and `allocate` read no files, clock, or network. I/O sits in `signal.py`, `loop.py`, `events.py`, and the API. Why: the core is testable in milliseconds and cannot fail on the network.
-6. **Two guards on the floor.** `allocate` plans only from headroom, and `fleet.discharge` clamps every order again. Both use `fleet.safe_kw`. Why: a bug in one layer still cannot breach a floor.
+6. **Two guards on the floor.** `allocate` plans only from headroom, and each home's worker in `orchestration.py` clamps its order again before it drains the battery. Both use `fleet.safe_kw`. Why: a bug in one layer still cannot breach a floor.
 7. **Lead-matched baseline, not a fixed MW line.** ERCOT's report always looks calmer further ahead, because forced outages are not known days in advance. We compare hour +2 with what +2 usually looks like. Why: a fixed line fired on 88% of postings; this rule fires rarely. Numbers: [team-manifest.md](team-manifest.md).
 8. **Zones react to weather only.** ERCOT HIGH or no signal raises every zone. A tape weather event raises only the warned zones. There is no per-zone ERCOT threshold. Contract: [CONSTRAINTS.md, Zones](../../CONSTRAINTS.md#zones).
 9. **Contracts only grow.** Shared shapes live in `server/engine/contracts.py`. Fields may be added, never renamed or removed, so the engine, API, and wall never break each other. Rule: [CONSTRAINTS.md](../../CONSTRAINTS.md).
@@ -212,6 +213,7 @@ How the mode is chosen and what each shows: [runtime-mode.md](runtime-mode.md).
 | Baseline file missing or too short | The run stops with `BaselineError`. A setup error, not "no signal". | `baseline.py` |
 | A home goes dead or stale | It gets 0 kW. Reasons `homes_dead:n`, `homes_stale:n`. The rest keep working. | `controller.py` |
 | Not enough headroom | Target missed, reason `fleet_headroom_short` or `storm_reserve`. Never a breach. | `controller.py` |
+| An order or a home's answer is lost on the simulated network | Retry at 60 s with the same id, reassign the work to another home, close at 120 s. An order never answered is `unconfirmed` and not counted as delivered; reasons such as `timed_out:n`. | `orchestration.py`, `channel.py` |
 | Operator presses HOLD | 0 kW to every home, reason `operator_hold` | `controller.py`, `fleet_state.py` |
 | Weather warning names an unknown zone | Ignored, reason `unknown_weather_zone`, logged | `loop.py` |
 | Supabase down or unset | Engine unaffected. Writes print `..._skipped`. Live falls back to ERCOT; archive Demo fails safe. | `persist_run.py`, `archive.py` |

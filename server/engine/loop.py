@@ -10,22 +10,19 @@ from server.engine.baseline import BASELINE_PATH, load_baseline
 from server.engine.brief import write_brief
 from server.engine.cli import read_settings
 from server.engine.contracts import TapeFrame, TickResult
-from server.engine.controller import allocate
 from server.engine.events import log_event, start_run
 from server.engine.fleet import (
     apply_events,
-    discharge,
     fleet_rollups,
     new_fleet,
     save_rollups,
     scale_target_mw,
-    zone_delivered,
 )
 from server.engine.fleet_state import STATE_PATH, load_fleet_mode, write_fleet_mode
+from server.engine.orchestration import orchestrate_tick, zone_acks
 from server.engine.policy import reserve_policy
 from server.engine.risk import compute_risk
 from server.engine.score import new_board, update
-from server.engine.supervisor import simulate_zone_acks
 from server.engine.signal import (
     CENTRAL,
     LIVE_SOURCE,
@@ -173,7 +170,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
     fetched (the live worker) may pass `frames`, `live_risk`, and `live_price`.
     baseline_path lets a past storm be rated against the month before it, not against today's baseline.
 
-    Each tick is apply_events → compute_risk → reserve_policy → allocate → simulate_zone_acks → discharge → TickResult.
+    Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → TickResult.
     """
     settings = with_fleet_defaults(settings)
     run_id = start_run(log_dir)
@@ -219,10 +216,12 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
         target_mw = scale_target_mw(frame.target_mw, settings)
         frame = replace(frame, target_mw=target_mw)
-        alloc = allocate(homes, frame, policy, mode, settings)
-        # In-process zone acks. There is no per-home device command API yet.
-        zone_acks = simulate_zone_acks(homes, alloc, frame.tick, settings)
-        breaches = discharge(homes, alloc, policy, settings)
+        # Plan, send each order over a lossy simulated channel, retry at 60 s, close at 120 s.
+        # The workers drain the batteries, so there is no separate discharge call.
+        # Delivered is confirmed MW only. A seed per tick replays the same faults.
+        cycle = orchestrate_tick(homes, frame, policy, mode, settings,
+                                 int(settings.get("seed", 1)) * 100_000 + frame.tick)
+        alloc = cycle.allocation
         result = TickResult(
             tick=frame.tick, ts=frame.ts, mode=mode,
             target_mw=target_mw, target_label=frame.target_label,
@@ -230,13 +229,13 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
             reserve_pct=policy.reserve_pct, policy_reason=policy.reason, risk_level=policy.risk_level,
             live_homes=count(homes, "live"), stale_homes=count(homes, "stale"), dead_homes=count(homes, "dead"),
-            breaches=breaches,
+            breaches=cycle.breaches,
             reasons=list(alloc.reasons) + (["unknown_weather_zone"] if unknown_weather else []),
             zone_reserve_pct=dict(policy.zone_reserve_pct),
             zone_reasons=dict(policy.zone_reasons),
-            zone_delivered_mw=zone_delivered(homes, alloc),
+            zone_delivered_mw=dict(cycle.zone_delivered_mw),
             price_as_of=priced["price_as_of"],
-            zone_acks=zone_acks,
+            zone_acks=zone_acks(homes, cycle),
             intent=policy.intent,
             intent_reason=policy.intent_reason,
         )

@@ -801,3 +801,18 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Keep-current: `.cursor/rules/system-design.mdc`, and `tests/test_system_design.py` fails when a `.env.example` setting, a Python or web runtime dependency, a `contracts.py` dataclass, or a Render service is missing from the doc, or a diagram is deleted. Checked that an undocumented setting fails the test.
 - All 4 new Mermaid blocks rendered with `@mermaid-js/mermaid-cli`. `pytest -q`: 398 passed. No application code changed.
 - Seen, not fixed: on demo tick 4 (Houston at 60%) the brief still says "Floor 30%"; `write_brief` reports the fleet floor only.
+
+## 2026-09-26: Orchestrator on the wall (Rajat's lane; `loop.py` edit OK'd in person by Uma)
+
+- `server/engine/orchestration.py`: `ACK_KEYS` and `zone_acks(homes, cycle)`, the wall's per-zone `{acked, held, silent, dead, unconfirmed}` from a `CycleResult`.
+- `server/engine/loop.py`: each tick calls `orchestrate_tick` (seed `settings["seed"]` × 100 000 + tick) instead of `allocate` → `simulate_zone_acks` → `discharge`. No separate `discharge` (the workers drain). `delivered_mw` and `zone_delivered_mw` are now confirmed MW; the Reasons list gains `timed_out:n`, `duplicates_ignored:n`, `charge_mismatch:n`, `over_delivery:n` when they happen.
+- Evidence: `tapes/demo.json` with no faults gives the same MW on all 12 ticks as before. tape_tiny calm tick with `channel_drop_rate=0.5` went from 0.200 of 0.200 (with 32 homes unconfirmed) to 0.106, reason `timed_out:80`. One 10,000-home tick: 0.27 s.
+- `tests/test_tracer.py` wraps `orchestrate_tick`; 2 new tracer tests, 5 new `zone_acks` tests. `supervisor.py` is no longer called by the engine (Sunny may delete it).
+- Docs: `docs/agents/code-flow.md` (tick diagrams and steps), `docs/agents/zone-acks.md` (decision rewritten).
+- `pytest -q`: 400 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Merge main (#18 orchestrator) into `feat/score-totals` (Uma)
+
+- `server/engine/loop.py`: every tick runs `orchestrate_tick`, and the scoreboard (`new_board`, `update`, `totals` in both run-file writes, `run total:` line) is kept. The unused `supervisor` import is gone.
+- Docs: `docs/agents/code-flow.md` diagrams and steps now show `orchestrate_tick` then `score.update`; the "New here?" steps 4 to 6 describe the orchestrator. `docs/agents/system-design.md`: the second floor guard is the orchestration worker's `safe_kw` clamp, a failure row for lost orders, a "Confirmed MW" glossary line.
+- Demo tape: all 12 tick lines and `run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1` are byte-identical to the pre-merge branch. `pytest -q`: 405 passed. `policy.py`, `controller.py`, and `fleet.py` untouched.
