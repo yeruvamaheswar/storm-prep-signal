@@ -200,3 +200,23 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   at 60% `signal_unavailable`, one failed event (`tests/test_engine.py`). `pytest -q`: 27 passed.
 - One real run, 22:58 CT: `live: risk LOW`, 12 ticks at 30% `normal`. Delivered is 0 because
   `allocate` is still the TEMP stub. No `.env` secret in the log.
+
+## 2026-09-26: Jev shadow recording
+
+- New `scripts/jev_shadow.py` (standalone; no engine or policy change). Shadow only: nothing reads
+  its output, so no LLM makes a dispatch decision.
+- Input: `tests/fixtures/nws_alert_harris.json` if present (top-level or NWS `properties` with
+  `headline`, `description`, `county`/`areaDesc`), else a built-in Harris sample labeled `sample`.
+- One `POST https://api.typesafe.ai/v1/systemone` (TypeSafe API reference: `model`, `state`,
+  `questions`), model `jev-latest`, one `noul` question: "Does this alert threaten power delivery
+  to homes in this county in the next 6 hours?" `requests` timeout 5 s (per connect and per read,
+  so not a hard total), no retries.
+- Key: `JEV_API_KEY` from `.env`, sent only in the `Authorization: Bearer` header.
+- Writes `data/fixtures/jev_harris.json`: `question`, `answer`, `probability`, `model`, `called_at`
+  (UTC), `latency_ms`, `input_label`, `recorded: true`. `answer` is our reading ("yes" at P ≥ 0.5);
+  Jev only returns the probability.
+- Every failure goes through `fail(reason)`: one short line on stderr, exit 1, no secret, no
+  file written.
+- One real run, 09:58 CT: `jev-1.13.0`, sample input, yes, P(yes)=0.67, 292 ms. Key not in the
+  output file (checked without printing it). A blank `JEV_API_KEY` exits 1 with
+  "JEV_API_KEY is not set in .env". `pytest -q`: 30 passed. Not committed.
