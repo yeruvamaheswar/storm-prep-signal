@@ -28,9 +28,9 @@ def traced(tmp_path, monkeypatch, tape=TAPE, **over):
         seen["homes"] = fleet.new_fleet(settings)
         return seen["homes"]
 
-    def orchestrate_tick(homes, frame, policy, mode, settings, seed):
+    def orchestrate_tick(homes, frame, policy, mode, settings, seed, **feed):
         before = {h.home_id: h.soc_kwh for h in homes}
-        result = orchestration.orchestrate_tick(homes, frame, policy, mode, settings, seed)
+        result = orchestration.orchestrate_tick(homes, frame, policy, mode, settings, seed, **feed)
         # Homes start at 45-75% charge, so at a 60% floor some are already under it before
         # any discharge. The rule is: never push a home below its floor. So a home that lost
         # charge this tick must end at or above the floor of the policy in force this tick.
@@ -113,6 +113,18 @@ def test_lost_orders_are_unconfirmed_and_never_counted_as_delivered(tmp_path, mo
     assert sum(calm["zone_delivered_mw"].values()) == pytest.approx(calm["delivered_mw"])
     assert [t["breaches"] for t in record["ticks"]] == [0, 0, 0]
     assert seen["floor_ok"] == [True, True, True]
+
+
+def test_the_saved_rollup_counts_confirmed_work_not_the_plan(tmp_path, monkeypatch):
+    record, _, _ = traced(tmp_path, monkeypatch, channel_drop_rate=0.5)
+    last = record["ticks"][-1]
+    rollup = json.loads((tmp_path / "fleet" / "rollups.json").read_text())
+    rows = rollup["zones"]
+    unconfirmed = sum(row["unconfirmed"] for row in last["zone_acks"].values())
+    assert unconfirmed > 0
+    assert sum(row["silent"] - row["stale"] for row in rows.values()) == unconfirmed
+    assert sum(row["discharging_mw"] for row in rows.values()) == pytest.approx(
+        sum(last["zone_delivered_mw"].values()))
 
 
 ZONE_PRICES = {"Houston": 900.0, "North": 40.0, "South": 55.0, "West": 20.0}

@@ -75,7 +75,7 @@ flowchart TB
   end
 
   subgraph core["Decision core, server/engine/"]
-    ENGINE["Tick loop<br/>python -m server.engine"]
+    ENGINE["Tick loop<br/>python -m server.engine<br/>plans from the battery feed each tick"]
     WORKER["Live worker<br/>scripts/live_cycle.py"]
     STREAM["Telemetry stream<br/>scripts/stream_telemetry.py"]
   end
@@ -101,6 +101,7 @@ flowchart TB
   STREAM --> SB
   STREAM --> FILES
   ENGINE -->|"run file, every tick"| FILES
+  ENGINE <-->|"var/fleet/homes.json, live runs only, save once after the last tick"| FILES
   ENGINE -.->|"--persist"| SB
   FILES --> API
   SB --> API
@@ -134,6 +135,7 @@ Each decision links to its home. The principles themselves are in [PROJECT_CONTE
 8. **Zones react to weather only.** ERCOT HIGH or no signal raises every zone. A tape weather event raises only the warned zones. There is no per-zone ERCOT threshold. Contract: [CONSTRAINTS.md, Zones](../../CONSTRAINTS.md#zones).
 9. **Contracts only grow.** Shared shapes live in `server/engine/contracts.py`. Fields may be added, never renamed or removed, so the engine, API, and wall never break each other. Rule: [CONSTRAINTS.md](../../CONSTRAINTS.md).
 10. **Operators act on the fleet, not one home.** HOLD and AUTO are fleet-wide. Why: per-home clicking does not scale and invites mistakes.
+11. **A replay starts fresh; only Live carries charge over.** A `--tape` or synthetic run starts from a new fleet and never reads or writes `var/fleet/homes.json`. A live run (`--live`, `scripts/live_cycle.py`) loads that file and saves it once after its last tick. Why: the same tape must give the same totals every time, while Live batteries must remember what they already gave. Detail: [fleet-rollups.md, Persist](fleet-rollups.md#persist).
 
 ## 5. How the decisions are made
 
@@ -163,7 +165,7 @@ The rule is in [CONSTRAINTS.md, Allocation rule](../../CONSTRAINTS.md#allocation
 
 ### One tick end to end
 
-The order of calls in one tick, and how the API rebuilds a tick for the wall, are in [code-flow.md, Full flow](code-flow.md#1-full-flow). Not repeated here.
+The order of calls in one tick, and how the API rebuilds a tick for the wall, are in [code-flow.md, Full flow](code-flow.md#1-full-flow). Not repeated here. Two points from it: with `TELEMETRY_FEED` on, every tick splits the target from what the simulated batteries reported, not from their true charge; and only a live run reads or writes `var/fleet/homes.json` (decision 11).
 
 ## 6. Data
 
@@ -175,7 +177,7 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
 | `Policy` | The floors (fleet and per zone), the reason, the risk level, the intent. |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -189,10 +191,12 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
 | `var/state.json` | Operator mode, `AUTO` or `HOLD`, shared by the API and the live engine. | Local, gitignored |
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
-| `var/fleet/rollups.json` | Zone counts and MW for large fleets. | Local, gitignored |
+| `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
+| `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
 | Supabase `ercot_postings` | One row per ERCOT posting (archive weeks and `event=live`). | Remote, optional |
 | Supabase `ercot_prices` | Zone prices, one row per zone per 15 minutes. | Remote, optional |
 | Supabase `runs` | Copies of run files. | Remote, optional |
+| Supabase `homes` | One current-state row per home (10k). Row level security on, no policies: only the service role key reaches it. | Remote, optional |
 
 Who reads and writes each file, step by step: [code-flow.md, Data files per step](code-flow.md#4-data-files-per-step). Supabase rules: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
 
@@ -280,6 +284,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 | `CHARGE_BELOW_USD`, `DISCHARGE_ABOVE_USD` | Price bands for intent. |
 | `TICK_MINUTES` | Length of one tick. |
 | `CHANNEL_DROP_RATE`, `CHANNEL_DUP_RATE`, `CHANNEL_LATE_RATE` | Simulated bad network for every tick, 0 to 1 (default 0, clean). A tape `network` event overrides them for one tick. |
+| `TELEMETRY_FEED`, `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S` | Simulated battery feed: on unless `0`; one reading per home every 10 s; a home is stale after 180 s and dead after 600 s without a reading. Example values. Detail: [telemetry-vpp.md](telemetry-vpp.md). |
 | `ZONES` | Load zones and their anchor counties. |
 
 API-only settings (`PORT`, `CORS_ORIGINS`, `CONSOLE_SCENE`, `CONSOLE_FIXTURES_DIR`): [backend.md, Settings](backend.md#settings-environment-variables). Wall build setting: `VITE_API_BASE_URL`.
@@ -292,6 +297,7 @@ Python: `requests`, `python-dotenv`, `pytest`, `fastapi`, `uvicorn`, `httpx2` (t
 
 - ERCOT and Supabase keys stay on the server (`server/.env` or the process env). The browser never sees them and never calls ERCOT.
 - Keys are never printed, logged, or committed. `.env.example` holds names only.
+- Supabase `homes` has row level security on with no policies, so the public (anon) key reads nothing. The server uses the service role key, which bypasses it.
 - Every `POST` needs an `X-Operator-Id` header. A refused write returns `{ "error", "brief" }`.
 - No write can return the fleet to `AUTO` over a bad reading.
 - CORS allows only origins in `CORS_ORIGINS`.

@@ -952,7 +952,40 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 ## 2026-09-26: A tape run writes nothing under the repo's var/
 
 - `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked, each run with cwd set to its own fresh folder under `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.164 of 0.317 MWh, 0 breaches, 1 hold tick.
-- Each run gets its own folder because a run reloads the last run's `var/fleet/homes.json` (the fleet-persist decision in `docs/agents/fleet-rollups.md`). Two runs in one folder: the second starts drained and delivers 0.128 MWh. That is intended, so the test checks a fresh start, not carry-over.
+- Superseded: see "Tape replays start fresh; only live runs carry fleet SOC" below. Both runs now share one folder.
 - The tape's `risk_fixture` paths are relative to cwd. Without copies, every tick fails safe and the demo delivers 0.076 MWh. The test copies the fixture files that exist into each folder.
 - Settings the demo reads, including the `CHANNEL_*` rates, are pinned in the test, because `read_settings()` loads the repo `.env` whatever the cwd.
 - No `server/` change. `pytest -q`: 486 passed after merging main.
+
+## 2026-09-26: Tape replays start fresh; only live runs carry fleet SOC
+
+- Superseded the carry-over note above. PR #22 made every run load and save `var/fleet/homes.json`, so a second `--tape tapes/demo.json` in one folder started drained (51.9%, then 40.4%).
+- `loop.run`: with `live=True`, `load_or_seed_homes` at the start and `persist_discharged_homes` once after the tick loop (was every tick). With `live=False` (tape or synthetic), `new_fleet(settings)` and no read or write of `homes.json`. `rollups.json` still written every tick; only the API reads it.
+- `tests/test_fleet_persist.py`: reload tests pass `live=True` (with `live_risk=None, live_price=None`, so no fetch). New: a live run saves once; a tape run leaves an existing drained `homes.json` byte-identical and matches a fresh run's totals.
+- `tests/test_replay_offline.py`: the CLI test now runs the demo tape twice in the same `tmp_path`, no cleanup, and asserts 0.164 of 0.317 MWh, 51.9%, 0 breaches, 1 hold tick both times, and no `var/fleet/homes.json`. It fails on the PR #22 `loop.py`.
+- `supabase/migrations/20260926_homes.sql`: `ENABLE ROW LEVEL SECURITY` on `public.homes`, no policies. `server/api/homes.py` and the scripts use `SUPABASE_SECRET_KEY`, which bypasses RLS; the web app never calls Supabase. `tests/test_seed_homes.py` now requires RLS on and no `CREATE POLICY`.
+- Docs: `docs/agents/fleet-rollups.md` (Persist), `docs/agents/code-flow.md` (text, three diagrams, file map, data table), `docs/agents/system-design.md` (decision 11, data table, security), `docs/humans/fleet-rollups.md`.
+- `pytest -q`: 488 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root both print `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`.
+
+## 2026-09-26: Battery telemetry feed runs in the tick loop
+
+- `loop.run` builds one `TelemetryState` per run when `settings["telemetry_feed"]` is on and passes it to every `orchestrate_tick`, so `allocate` plans from what the batteries reported (stale, dead and suspect homes get no work). Each `TickResult` gains `plant`, `feed`, `zone_telemetry` (added fields, empty when off). The console prints a `plant:` line per tick.
+- `read_settings()` turns it on (`TELEMETRY_FEED=1`, plus `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S` in `.env.example`). Bare settings dicts, as most tests pass, leave it off.
+- Demo tape with the feed on: delivered 0.164 of 0.317 MWh (51.9%), identical to feed off; 0 breaches; the planted lying battery is `suspect` from tick 1; live homes drop to 69/100 in the storm frames. All numbers synthetic.
+- `tests/test_tracer.py`: its stand-in `orchestrate_tick` now passes extra arguments through (no assertion changed); the tracer checks now run with the feed on.
+- Limit: the live worker calls `loop.run` once per cycle, so report history resets each live cycle. `/v1` and the wall do not show the new fields yet.
+- Tests: 7 in `tests/test_loop_telemetry.py`. `pytest -q`: 493 passed after merging main.
+
+## 2026-09-26: Merged the telemetry feed with fresh-fleet tape replays
+
+- `loop.run` keeps both: `live=True` loads or seeds `homes.json` at the start and saves it once after the last tick; tape and synthetic runs use `new_fleet(settings)`. The one `TelemetryState` per run is built from whichever fleet that gives. The feed reads and writes no file, so tape runs still never touch `homes.json`.
+- Docs: `code-flow.md` step 7 (feed plus "nothing saved per tick"); `system-design.md` parts diagram (feed label, live-only `homes.json` edge) and the one-tick paragraph.
+- `pytest -q`: 495 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root, feed on (`plant:` line every tick), both print `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`; no `var/fleet/homes.json` created.
+
+## 2026-09-26: Rollups count confirmed work, not the plan (Rajat's lane)
+
+- `fleet_rollups` takes optional `confirmed_kw` and `unconfirmed`. With them, `discharging` / `discharging_mw` are the homes and kW booked this tick, and a live home sent work but never heard back from is `silent` (not `live`), which the wall already reads as unconfirmed. Without them it still counts the plan (`current_rollups`, tests).
+- `orchestration.py`: `CycleResult.home_confirmed_kw` (home_id to booked kW; sums to `confirmed_mw`; a share goes to the original first, then its reassignment). New `cycle_rollups(homes, cycle, policy)`; `asked_and_heard` shared with `zone_acks`, so rollup unconfirmed equals ack unconfirmed.
+- `loop.py` (Uma's file, one line): writes `var/fleet/rollups.json` with `cycle_rollups`. Before, a 50%-loss tick showed every planned home as discharging.
+- Docs: `docs/agents/fleet-rollups.md`, `docs/agents/code-flow.md`.
+- Tests: 1 in `tests/test_fleet.py`, 4 in `tests/test_orchestration.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 501 passed after merging main. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

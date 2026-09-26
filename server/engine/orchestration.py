@@ -23,7 +23,7 @@ from server.engine.cli import read_settings
 from server.engine.channel import Channel
 from server.engine.contracts import Allocation, Policy, TapeFrame
 from server.engine.controller import allocate, round_down
-from server.engine.fleet import apply_events, floor_kwh, new_fleet, safe_kw, set_status
+from server.engine.fleet import apply_events, fleet_rollups, floor_kwh, new_fleet, safe_kw, set_status
 from server.engine.policy import reserve_policy
 from server.engine.scheduler import Scheduler
 from server.engine.telemetry import TelemetryState
@@ -66,6 +66,8 @@ class CycleResult:
     # both ran). Never credited, never hidden: confirmed + over_delivery = everything heard.
     over_delivery_mw: float = 0.0
     events: list = field(default_factory=list)
+    # home_id to the kW booked for it (only homes with some). Sums to confirmed_mw.
+    home_confirmed_kw: dict = field(default_factory=dict)
     # Filled only when orchestrate_tick gets a TelemetryState (docs/agents/telemetry-vpp.md R7).
     plant: dict = field(default_factory=dict)
     zones: dict = field(default_factory=dict)
@@ -191,6 +193,7 @@ class ZoneSupervisor:
         self.children = {}     # parent command_id to its reassignment Command
         self.actual = {}       # command_id to actual_kw from its first report before the close
         self.states = {}       # command_id to "sent", "timed_out", "confirmed", "unconfirmed"
+        self.booked = {}       # home_id to the kW booked for it at the close
 
     def send(self, cmd):
         msg = {"command_id": cmd.command_id, "command": cmd}
@@ -298,6 +301,13 @@ class ZoneSupervisor:
                 self.rt.counts["over_delivery"] += 1
                 self.rt.log("over_delivery", command_id=cmd.command_id, planned_kw=cmd.kw, actual_kw=got)
             confirmed += min(cmd.kw, got)
+            # The share goes to the original first, then its reassignment, up to what was planned.
+            left = cmd.kw
+            for c in family:
+                take = min(self.actual.get(c.command_id, 0.0), left)
+                if take > 0:
+                    self.booked[c.home_id] = self.booked.get(c.home_id, 0.0) + take
+                    left -= take
         return planned, confirmed, unconfirmed, over
 
 
@@ -435,9 +445,10 @@ def build_result(frame, plan, rt, supervisors, books):
     for code in ("timed_out", "duplicates_ignored", "short_delivery", "over_delivery", "charge_mismatch"):
         if c[code]:
             reasons.append(f"{code}:{c[code]}")
-    states = {}
+    states, booked = {}, {}
     for sup in supervisors.values():
         states.update(sup.states)
+        booked.update(sup.booked)
     return CycleResult(
         allocation=Allocation(dict(plan.per_home_kw), credited_mw, missed_mw, reasons),
         breaches=c["breaches"], command_states=states,
@@ -446,8 +457,30 @@ def build_result(frame, plan, rt, supervisors, books):
         unconfirmed_mw=sum(zone_unconfirmed.values()), missed_mw=missed_mw,
         timed_out=c["timed_out"], retried=c["retried"], reassigned=c["reassigned"],
         duplicates_ignored=c["duplicates_ignored"], late=c["late"],
-        over_delivery_mw=over_delivery_mw, events=rt.sched.events,
+        over_delivery_mw=over_delivery_mw, events=rt.sched.events, home_confirmed_kw=booked,
     )
+
+
+def asked_and_heard(result):
+    """Homes we sent any command to, and homes with at least one confirmed command."""
+    asked, heard = set(), set()
+    for command_id, state in result.command_states.items():
+        home_id = command_id.split(":")[0]   # "home_id:tick" or "home_id:tick:r"
+        asked.add(home_id)
+        if state == "confirmed":
+            heard.add(home_id)
+    return asked, heard
+
+
+def cycle_rollups(homes, result, policy):
+    """The wall's per-zone rollup after this tick, from the confirmed books, not the plan.
+
+    Discharging counts and MW are what was booked; a home we never heard back from is
+    unconfirmed (the same homes zone_acks calls unconfirmed).
+    """
+    asked, heard = asked_and_heard(result)
+    return fleet_rollups(homes, result.allocation, policy,
+                         confirmed_kw=result.home_confirmed_kw, unconfirmed=asked - heard)
 
 
 def zone_acks(homes, result):
@@ -457,12 +490,7 @@ def zone_acks(homes, result):
     A home with any confirmed command (its own or a reassignment) is acked; one we sent work
     to but never heard back from is unconfirmed; a live home given no work is held.
     """
-    asked, heard = set(), set()
-    for command_id, state in result.command_states.items():
-        home_id = command_id.split(":")[0]   # "home_id:tick" or "home_id:tick:r"
-        asked.add(home_id)
-        if state == "confirmed":
-            heard.add(home_id)
+    asked, heard = asked_and_heard(result)
     acks = {}
     for home in homes:
         row = acks.setdefault(home.zone or "unassigned", {key: 0 for key in ACK_KEYS})

@@ -58,6 +58,12 @@ def read_settings():
         "channel_drop_rate": float(os.getenv("CHANNEL_DROP_RATE", "0")),
         "channel_dup_rate": float(os.getenv("CHANNEL_DUP_RATE", "0")),
         "channel_late_rate": float(os.getenv("CHANNEL_LATE_RATE", "0")),
+        # Simulated battery feed (docs/agents/telemetry-vpp.md). On unless TELEMETRY_FEED=0:
+        # a real VPP never plans without battery reports. Example values, not Base specs.
+        "telemetry_feed": os.getenv("TELEMETRY_FEED", "1") != "0",
+        "telemetry_every_s": float(os.getenv("TELEMETRY_EVERY_S", "10")),
+        "stale_after_s": float(os.getenv("TELEMETRY_STALE_AFTER_S", "180")),
+        "dead_after_s": float(os.getenv("TELEMETRY_DEAD_AFTER_S", "600")),
         # Zone name to anchor county FIPS code; codes stay strings to keep leading zeros.
         "zones": dict(pair.split(":", 1) for pair in
                       os.getenv("ZONES", "Houston:48201,North:48113,South:48355,West:48329").split(",")),

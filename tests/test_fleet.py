@@ -293,6 +293,26 @@ def test_high_tick_marks_idle_live_homes_reserved():
     assert west["discharging_mw"] == pytest.approx(0.002)
 
 
+def test_rollups_count_only_confirmed_homes_as_discharging():
+    # Three homes got orders. One confirmed, one confirmed less than planned, one never answered.
+    homes = new_fleet(settings(fleet_size=4))
+    ids = [h.home_id for h in homes]
+    alloc = Allocation({ids[0]: 2.0, ids[1]: 3.0, ids[2]: 4.0}, 0.004, 0.005)
+    storm = Policy(60.0, "storm_risk_high", "HIGH", zone_reserve_pct={z: 60.0 for z in ZONES})
+    body = fleet_rollups(homes, alloc, storm, confirmed_kw={ids[0]: 2.0, ids[1]: 1.5},
+                         unconfirmed={ids[2]})
+    rows = body["zones"]
+    assert sum(r["discharging"] for r in rows.values()) == 2
+    assert sum(r["discharging_mw"] for r in rows.values()) == pytest.approx(0.0035)
+    # The unanswered home is silent (the wall reads silent minus stale as unconfirmed), not live,
+    # not reserved and not discharging, so each home is still counted exactly once.
+    unheard = rows[homes[2].zone]
+    assert unheard["silent"] == 1 and unheard["stale"] == 0
+    assert unheard["live"] == unheard["reserved"] == unheard["discharging"] == 0
+    assert rows[homes[3].zone]["reserved"] == 1
+    assert sum(r["live"] + r["silent"] + r["dead"] for r in rows.values()) == len(homes)
+
+
 def test_current_rollups_never_includes_homes(tmp_path):
     save_rollups(fleet_rollups(new_fleet(12)), tmp_path / "rollups.json")
     body = current_rollups(tmp_path, n=12)

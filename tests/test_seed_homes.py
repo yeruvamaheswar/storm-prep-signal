@@ -39,7 +39,8 @@ def test_migration_is_an_upsert_ready_homes_table():
     assert "replica identity full" in folded
     assert "on public.homes (zone)" in folded
     assert "on public.homes (zone, status)" in folded
-    assert "enable row level security" not in folded
+    assert "alter table public.homes enable row level security" in folded
+    assert "create policy" not in folded
 
 
 def test_build_rows_keeps_zones_and_randomizes_soc(no_network):

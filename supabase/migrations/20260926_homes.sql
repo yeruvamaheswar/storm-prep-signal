@@ -1,6 +1,7 @@
 -- Current-state fleet: exactly one row per home. Telemetry and ticks upsert
 -- these rows; they are not a reading history. Realtime needs the old row
--- (REPLICA IDENTITY FULL). Service role upserts; RLS stays off so it is not blocked.
+-- (REPLICA IDENTITY FULL). RLS is on with no policies: anon and authenticated
+-- get nothing; the service role bypasses RLS and does every read and upsert.
 
 CREATE TABLE public.homes (
   home_id text PRIMARY KEY,
@@ -27,5 +28,7 @@ CREATE INDEX homes_zone_status_idx ON public.homes (zone, status);
 CREATE INDEX homes_updated_at_idx ON public.homes (updated_at);
 
 ALTER TABLE public.homes REPLICA IDENTITY FULL;
+
+ALTER TABLE public.homes ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public.homes TO service_role;

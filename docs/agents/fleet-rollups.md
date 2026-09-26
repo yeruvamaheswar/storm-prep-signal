@@ -24,12 +24,13 @@ The main stub seeded `FLEET_SIZE=100` at a flat 0.6 SOC with `Home.zone=""`. The
 }
 ```
 
-Silent is stale (this fleet has no unconfirmed). Reserved is every live home that is not discharging when `risk_level` is HIGH, same as the wall. `clusters` are the metro box centers from `homeNodes.ts`. `GET /v1/homes` stays on the small console fixtures. Do not point it at `var/fleet/homes.json`.
+The engine writes the rollup with `orchestration.cycle_rollups(homes, cycle, policy)`, from the confirmed books, not the plan. `discharging` counts homes with confirmed kW booked this tick, and `discharging_mw` is that booked kW, so it adds up to `zone_delivered_mw`. A live home that was sent work but never heard back from goes in `silent`, not `live`. The wall reads `silent - stale` as unconfirmed, and these are the same homes `zone_acks` calls unconfirmed. So silent is stale plus unconfirmed. `fleet_rollups(homes, alloc, policy)` without `confirmed_kw` still counts the plan (used by `current_rollups` and tests). Reserved is every live home that is not discharging when `risk_level` is HIGH, same as the wall. `clusters` are the metro box centers from `homeNodes.ts`. `GET /v1/homes` stays on the small console fixtures. Do not point it at `var/fleet/homes.json`.
 
 ## Persist
 
 - `new_fleet(n, persist=True)` writes `var/fleet/homes.json`.
-- After each tick's `discharge`, `loop.run` writes that same file (`<runs_dir>/../fleet/homes.json`) with current `soc_kwh`, `status`, `zone`, and `updated_at`. The next `run` loads it when `len(homes) == FLEET_SIZE`; a size mismatch reseeds. Demo stays 100 homes when `FLEET_SIZE` is 100.
+- Only a live run (`loop.run(..., live=True)`: `--live` and `scripts/live_cycle.py`) carries SOC between runs. It loads that file (`<runs_dir>/../fleet/homes.json`) when `len(homes) == FLEET_SIZE` (a size mismatch reseeds) and writes it once after the last tick with current `soc_kwh`, `status`, `zone`, and `updated_at`. Demo stays 100 homes when `FLEET_SIZE` is 100.
+- A `--tape` or synthetic run (`live=False`) starts from `new_fleet(settings)` and never reads or writes `homes.json`, so replaying the same tape twice in one folder gives the same totals (decided 2026-09-26, after PR #22 made replays start drained).
 - Each engine tick writes `var/fleet/rollups.json` next to `var/runs/` (`<runs_dir>/../fleet/rollups.json`).
 - The route prefers `rollups.json`, else computes from `homes.json`, else seeds `FLEET_SIZE` in memory.
 
