@@ -1,0 +1,17 @@
+{
+  "report": {
+    "reportName": "spp_node_zone_hub",
+    "reportEMIL": "NP6-905-CD"
+  },
+  "fields": [
+    {"name": "deliveryDate", "label": "Delivery Date", "dataType": "DATE"},
+    {"name": "deliveryHour", "label": "Delivery Hour", "dataType": "INTEGER"},
+    {"name": "deliveryInterval", "label": "Delivery Interval", "dataType": "INTEGER"},
+    {"name": "settlementPoint", "label": "Settlement Point", "dataType": "STRING"},
+    {"name": "settlementPointPrice", "label": "Settlement Point Price", "dataType": "FLOAT"}
+  ],
+  "data": [
+    ["2026-09-25", 12, 3, "LZ_NORTH", 31.5],
+    ["2026-09-25", 12, 4, "LZ_NORTH", 42.25]
+  ]
+}

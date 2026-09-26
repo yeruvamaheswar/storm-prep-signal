@@ -18,7 +18,7 @@ class TapeFrame:
     target_mw: float
     target_label: str         # "synthetic" or "recorded:<source>"
     price_usd_mwh: Optional[float]
-    price_label: str          # "synthetic", "recorded:<source>", or "none"
+    price_label: str          # "synthetic", "recorded:<source>", "ercot", or "none"
     risk_fixture: Optional[str] = None   # path to an ERCOT outage posting
     events: dict = field(default_factory=dict)
     # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO")
@@ -64,3 +64,6 @@ class TickResult:
     zone_reasons: dict = field(default_factory=dict)       # zone name to reason code
     zone_delivered_mw: dict = field(default_factory=dict)  # zone name to MW delivered
     weather_label: str = "none"  # source of the weather alerts, or "none"
+    price_as_of: Optional[str] = None  # Central interval end when price_label is ercot
+    # Zone name to {acked, held, silent, dead, unconfirmed}. In-process rollup until devices exist.
+    zone_acks: dict = field(default_factory=dict)
