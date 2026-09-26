@@ -46,13 +46,30 @@ def _join_clauses(lines):
     return "; ".join(parts)
 
 
+def zone_floor_notes(result):
+    """Zones whose floor differs from the fleet floor, as "Houston 60%: weather_alert"."""
+    notes = []
+    for zone, pct in result.zone_reserve_pct.items():
+        if pct == result.reserve_pct:
+            continue
+        reason = result.zone_reasons.get(zone)
+        notes.append(f"{zone} {pct:g}%: {reason}" if reason else f"{zone} {pct:g}%")
+    return notes
+
+
 def write_brief(result):
-    """One or two sentences from delivered MW, the floor, and the reason codes."""
+    """One or two sentences from delivered MW, the floor, and the reason codes.
+
+    The floor is named when there are no codes, or when a zone's floor differs from the fleet's.
+    """
     delivered = f"Delivered {result.delivered_mw:.2f} of {result.target_mw:.2f} MW"
-    codes = brief_codes(result)
-    if not codes:
+    lines = [reason_line(code) for code in brief_codes(result)]
+    notes = zone_floor_notes(result)
+    if notes:
+        lines = [f"Floor {result.reserve_pct:g}% ({', '.join(notes)})", *lines]
+    if not lines:
         return f"{delivered}. Floor {result.reserve_pct:g}%."
-    return f"{delivered}. {_join_clauses([reason_line(code) for code in codes])}."
+    return f"{delivered}. {_join_clauses(lines)}."
 
 
 def write_brief_from_tick(tick):
@@ -64,6 +81,8 @@ def write_brief_from_tick(tick):
             reserve_pct=float(tick.get("reserve_pct") or 0),
             reasons=list(tick.get("reasons") or []),
             policy_reason=str(tick.get("policy_reason") or ""),
+            zone_reserve_pct=dict(tick.get("zone_reserve_pct") or {}),
+            zone_reasons=dict(tick.get("zone_reasons") or {}),
         )
     )
 

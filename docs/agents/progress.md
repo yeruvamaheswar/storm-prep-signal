@@ -817,6 +817,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/code-flow.md` diagrams and steps now show `orchestrate_tick` then `score.update`; the "New here?" steps 4 to 6 describe the orchestrator. `docs/agents/system-design.md`: the second floor guard is the orchestration worker's `safe_kw` clamp, a failure row for lost orders, a "Confirmed MW" glossary line.
 - Demo tape: all 12 tick lines and `run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1` are byte-identical to the pre-merge branch. `pytest -q`: 405 passed. `policy.py`, `controller.py`, and `fleet.py` untouched.
 
+## 2026-09-26: Brief names a zone floor that differs from the fleet floor
+
+- `server/engine/brief.py`: `zone_floor_notes(result)`; `write_brief` puts `Floor 30% (Houston 60%: weather_alert)` first among the reason clauses when any zone's floor differs from `reserve_pct`. When all zones match, the text is unchanged. `write_brief_from_tick` now passes `zone_reserve_pct` and `zone_reasons`, so the snapshot's Live brief names the zone too. Text only; no policy, floor, or dispatch change.
+- Demo tape: tick 4 now reads `Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert); timed out 1; duplicates ignored 1; over delivery 1.` The other 11 lines are byte-identical.
+- Not done: the wall's TypeScript twin `tickBrief` in `web/src/format.ts` (Live rail) does not name the zone yet.
+- Tests: 2 in `tests/test_brief.py`, 1 demo-tape test in `tests/test_replay_offline.py`. `pytest -q`: 408 passed.
+
 ## 2026-09-26: Per-zone dollars at each zone's recorded market price (Rajat's lane; OK'd in person)
 
 - `contracts.py` (add-only): `TapeFrame.zone_prices` / `zone_price_label` and the same two on `TickResult`. Same name and meaning as the snapshot's `zone_prices`.
@@ -825,4 +832,4 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `scripts/build_tape.py` records LZ_HOUSTON, LZ_NORTH, LZ_SOUTH, LZ_WEST per frame (zone names from `server/api/prices.LOAD_ZONE_POINTS`). `tapes/heather.json` rebuilt: 145 frames, all four zones priced; the Houston zone price equals the old single price on every frame. Widest spread 2024-01-15 18:15 CT: South $291.18, West $6.34. West dips to -$1.99 once (a real negative price).
 - Heather replay: zones add to $126.50; the fleet `dollars` (every MWh at the LZ_HOUSTON price, as before) is $87.00. Unchanged here; see the PR.
 - Docs: `docs/agents/price-live.md`, `docs/agents/code-flow.md` (totals shape).
-- `pytest -q`: 414 passed.
+- `pytest -q`: 417 passed after merging main.
