@@ -84,6 +84,15 @@ describe("quality status", () => {
       label: "Degraded",
     })
     expect(qualityStatus("timeout", "LIVE", false, "live").label).toBe("Degraded")
+    expect(qualityStatus("signal_unavailable", "SYNTHETIC", true, "live")).toMatchObject({
+      status: "degraded",
+      label: "Degraded",
+      reason: "signal could not be read",
+    })
+    expect(qualityStatus("stale", "SYNTHETIC", true, "live")).toMatchObject({
+      status: "stale",
+      label: "Stale",
+    })
     for (const code of ["ok", "auth", "stale", "timeout", "unchecked", "malformed"]) {
       const status = qualityStatus(code, "SYNTHETIC", true, "live")
       expect(status.label).toMatch(/^(Live|Stale|Auth error|Degraded)$/)

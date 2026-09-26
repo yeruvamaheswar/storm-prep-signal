@@ -1,4 +1,7 @@
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
+import { AckRail } from "../src/components/organisms/AckRail"
 import zonesFile from "../../geo/ercot-load-zones.json"
 import layoutRun from "../src/fixtures/layout-run.json"
 import type { RunFile } from "../src/contracts"
@@ -14,7 +17,10 @@ import {
   ackSummary,
   ackTicks,
   ackZones,
+  barSegments,
   tickFailSafe,
+  totalsToMarks,
+  zoneAckTotals,
   zoneAcked,
 } from "../src/components/organisms/ackTicks"
 import { homeNodes, parseZonePolygons, ZONE_ORDER } from "../src/components/organisms/homeNodes"
@@ -82,6 +88,7 @@ describe("ack marks", () => {
       acked: 50,
       held: 50,
       silent: 0,
+      unconfirmed: 0,
       dead: 0,
       failsafe: 0,
     })
@@ -99,6 +106,7 @@ describe("ack marks", () => {
       acked: 40,
       held: 40,
       silent: 0,
+      unconfirmed: 0,
       dead: 20,
       failsafe: 0,
     })
@@ -138,5 +146,47 @@ describe("ackCaption", () => {
     expect(ackCaption({ pending: 3, acked: 97, unconfirmed: 0, dead: 0 }, 0.4)).toBe(
       "3 pending · 0 silent · 97 acked · call 0.40 MW",
     )
+  })
+})
+
+describe("zone ack totals", () => {
+  it("binds snapshot zone_acks instead of splitting 100 homes by index", () => {
+    const stamped = {
+      ...tapeTick(5),
+      zone_acks: {
+        South: { acked: 20, held: 5, silent: 0, dead: 0, unconfirmed: 0 },
+        North: { acked: 1, held: 0, silent: 2, dead: 3, unconfirmed: 4 },
+        West: { acked: 0, held: 25, silent: 0, dead: 0, unconfirmed: 0 },
+        Houston: { acked: 0, held: 0, silent: 0, dead: 0, unconfirmed: 0 },
+      },
+    }
+    const rows = zoneAckTotals(stamped)
+    expect(rows.map((row) => [row.zone, row.acked, row.held, row.unconfirmed])).toEqual([
+      ["South", 20, 5, 0],
+      ["North", 1, 0, 4],
+      ["West", 0, 25, 0],
+      ["Houston", 0, 0, 0],
+    ])
+    expect(totalsToMarks(rows)).toMatchObject({ acked: 21, held: 30, silent: 2, dead: 3, unconfirmed: 4 })
+    expect(ackSummary(totalsToMarks(rows), stamped.delivered_mw)).toBe(
+      "5 silent · 21 acked · 30 held · 4 unconfirmed · call still 0.31 MW",
+    )
+  })
+
+  it("falls back to zone aggregates on a tape with no zone_acks, still as four bars", () => {
+    const rows = zoneAckTotals(tapeTick(5))
+    expect(rows.map((row) => [row.zone, row.acked, row.homes])).toEqual([
+      ["South", 12, 25],
+      ["North", 12, 25],
+      ["West", 13, 25],
+      ["Houston", 13, 25],
+    ])
+    expect(barSegments(rows[0]!).map((seg) => seg.mark)).not.toContain("pending")
+    const html = renderToStaticMarkup(
+      createElement(AckRail, { tick: tapeTick(5), zone: "North", onSelectZone: () => undefined, onClearZone: () => undefined }),
+    )
+    expect(html).toContain('class="ack-bar"')
+    expect(html).not.toContain("ack-tick")
+    expect(html.match(/ack-seg/g)?.length).toBeLessThan(20)
   })
 })

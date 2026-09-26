@@ -13,7 +13,12 @@ from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from server.api.archive import event_for_clock
+from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
+from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
+from server.engine.fleet import current_rollups
+from server.engine.fleet_state import write_fleet_mode
 
 router = APIRouter(prefix="/v1")
 
@@ -84,6 +89,91 @@ def current_tick(store: FixtureStore, state: ConsoleState) -> dict:
     return tick
 
 
+@router.get("/meta")
+def get_meta(event: Optional[str] = None, clock: Optional[str] = None):
+    # Live, archive, or the layout fixture. clock is wall, fixture, or archive.
+    return build_meta(event=event, clock=clock)
+
+
+def _run_or_none():
+    try:
+        return load_latest_run()
+    except FileNotFoundError:
+        return None
+
+
+def _archive_clock(run):
+    ticks = run.get("ticks") if isinstance(run, dict) else None
+    if not ticks:
+        return None
+    return tick_clock(ticks[-1])
+
+
+def _feed_kwargs(run):
+    """Demo/Synthetic reads the archive at the tape clock. Live keeps signal.py."""
+    if run is None or build_meta(run)["source"] == "live":
+        return {}
+    clock = _archive_clock(run)
+    meta = build_meta(run)
+    return {
+        "source": "archive",
+        "event": meta.get("event") or (event_for_clock(clock) if clock else None),
+        "clock": clock,
+    }
+
+
+def current_snapshot(run, event: Optional[str] = None, clock: Optional[str] = None, zone: Optional[str] = None):
+    """Live rates the ERCOT body. Archive pins the saved posting clock."""
+    meta = build_meta(run, event=event, clock=clock)
+    if meta["source"] == "archive":
+        return build_snapshot(event=meta["event"], clock=clock, zone=zone)
+    if meta["mode"] == "live":
+        return build_snapshot(zone=zone)
+    pinned = _archive_clock(run)
+    if pinned is None:
+        return build_snapshot(zone=zone)
+    named = event or event_for_clock(pinned)
+    if not named:
+        return build_snapshot(zone=zone)
+    return build_snapshot(now=pinned, event=named, clock=clock, zone=zone)
+
+
+@router.get("/snapshot")
+def get_snapshot(event: Optional[str] = None, clock: Optional[str] = None, zone: Optional[str] = None):
+    # Demo + event pins the archive clock. Live pulls ERCOT.
+    # zone picks that LZ's archive/live row for price_usd_mwh when a row exists.
+    try:
+        return current_snapshot(load_latest_run(), event=event, clock=clock, zone=zone)
+    except FileNotFoundError:
+        raise ApiError(404, "no_run", "No run file is available.")
+
+
+@router.get("/runs/latest")
+def get_latest_run():
+    try:
+        return load_latest_run()
+    except FileNotFoundError:
+        raise ApiError(404, "no_run", "No run file is available.")
+
+
+@router.get("/feeds")
+def get_feeds(event: Optional[str] = None):
+    chosen = event or _feed_kwargs(_run_or_none()).get("event") or "beryl"
+    if chosen not in FEED_EVENTS:
+        raise ApiError(422, "bad_event", "event must be beryl, heather, or tuning-2026.")
+    return list_feeds(chosen)
+
+
+@router.get("/feeds/outage")
+def get_outage_feed():
+    return serve_outage(**_feed_kwargs(_run_or_none()))
+
+
+@router.get("/feeds/price")
+def get_price_feed():
+    return serve_price(**_feed_kwargs(_run_or_none()))
+
+
 @router.get("/zone")
 def get_zone(request: Request):
     return _store(request).load("zone")
@@ -94,19 +184,72 @@ def get_live(request: Request):
     return current_tick(_store(request), _state(request))
 
 
+def _sse(event: str, data: object) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def home_rollup(tick: dict) -> dict:
+    """Fleet counts only. The stream never sends one row per home."""
+    fleet = tick.get("fleet")
+    if isinstance(fleet, dict) and "live" in fleet:
+        return {
+            "live": fleet.get("live", 0),
+            "stale": fleet.get("stale", 0),
+            "dead": fleet.get("dead", 0),
+            "unconfirmed": fleet.get("unconfirmed", 0),
+            "breaches": fleet.get("breaches", 0),
+        }
+    return {
+        "live": tick.get("live_homes", 0),
+        "stale": tick.get("stale_homes", 0),
+        "dead": tick.get("dead_homes", 0),
+        "unconfirmed": tick.get("unconfirmed_homes", 0),
+        "breaches": tick.get("breaches", 0),
+    }
+
+
+def feeds_event(tick: dict) -> dict:
+    rows = tick.get("feeds")
+    return {
+        "quality": tick.get("quality") or tick.get("stress_quality") or "ok",
+        "as_of": tick.get("as_of") or tick.get("stress_as_of"),
+        "feed": tick.get("feed"),
+        "rows": rows if isinstance(rows, list) else [],
+    }
+
+
 @router.get("/live/stream")
 def get_live_stream(request: Request):
+    # Scaffold names: tick | attention | home. Live also sends feeds.
+    # home is a fleet rollup, never 10k home rows. The wall polls /v1/snapshot
+    # every 20 s; this burst is the same facts for createClient.
     tick = current_tick(_store(request), _state(request))
+    try:
+        snapshot = build_snapshot()
+    except FileNotFoundError:
+        snapshot = None
+    rollup_src = snapshot if snapshot is not None else tick
 
-    # Scaffold: one tick frame, then the stream closes. The client falls back to GET /v1/live.
     def frames():
-        yield f"event: tick\ndata: {json.dumps(tick)}\n\n"
+        yield _sse("tick", tick)
+        yield _sse("feeds", feeds_event(rollup_src))
+        attention = tick.get("attention")
+        if attention:
+            yield _sse("attention", attention)
+        yield _sse("home", home_rollup(rollup_src))
 
     return StreamingResponse(frames(), media_type="text/event-stream")
 
 
+@router.get("/fleet/rollups")
+def get_fleet_rollups():
+    # Zone counts and MW only. Never the seeded homes list.
+    return current_rollups()
+
+
 @router.get("/homes")
 def get_homes(request: Request, status: Optional[str] = None):
+    # Fixture rows for the console list. Do not load var/fleet homes.json here.
     homes = _store(request).load("homes")
     if status is None:
         return homes
@@ -153,7 +296,8 @@ def post_mode(request: Request, body: ModeBody, x_operator_id: Optional[str] = H
     state = _state(request)
     if state.playback:
         raise ApiError(409, "playback_running", "Mode cannot change during playback.")
-    # Recorded only. The engine will apply it on the next tick; fixtures do not change.
+    # Persist so the next allocate() and GET /v1/snapshot share this mode.
+    write_fleet_mode(body.mode)
     state.mode_requested = body.mode
     return {"mode_requested": body.mode}
 

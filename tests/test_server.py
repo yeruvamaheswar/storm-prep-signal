@@ -1,5 +1,7 @@
 """The /v1 scaffold follows docs/agents/plans/operator-console.md."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -48,10 +50,36 @@ def test_ticks_by_range_and_id(client):
     assert client.get("/v1/ticks/tick_bad_feed").json()["mode"] == "RESERVE"
 
 
-def test_stream_sends_one_tick_frame(client):
+def test_stream_sends_tick_feeds_and_home_rollup(client, monkeypatch):
+    monkeypatch.setattr(
+        "server.api.v1.build_snapshot",
+        lambda: {
+            "live_homes": 100,
+            "stale_homes": 0,
+            "dead_homes": 0,
+            "breaches": 0,
+            "quality": "ok",
+            "as_of": "23:00 CT",
+            "feed": "LIVE",
+        },
+    )
     body = client.get("/v1/live/stream").text
-    assert body.startswith("event: tick\ndata: {")
+    assert "event: tick\ndata: {" in body
+    assert "event: feeds\ndata: {" in body
+    assert "event: home\ndata: {" in body
+    home = body.split("event: home")[-1]
+    assert "home_id" not in home
+    assert '"live": 100' in home
+    assert '"stale": 0' in home
+    assert '"dead": 0' in home
     assert body.endswith("\n\n")
+
+
+def test_stream_sends_attention_when_open(monkeypatch):
+    monkeypatch.setattr("server.api.v1.build_snapshot", lambda: (_ for _ in ()).throw(FileNotFoundError()))
+    client = scene_client(monkeypatch, "bad-feed")
+    body = client.get("/v1/live/stream").text
+    assert "event: attention\ndata: {" in body
 
 
 def test_writes_need_an_operator(client):
@@ -66,6 +94,15 @@ def test_mode_is_recorded_and_refused_during_playback(client):
     res = client.post("/v1/fleet/mode", json={"mode": "AUTO"}, headers=OPERATOR)
     assert res.status_code == 409
     assert res.json()["error"] == "playback_running"
+
+
+def test_mode_write_persists_to_state(tmp_path, monkeypatch):
+    state = tmp_path / "state.json"
+    monkeypatch.setattr("server.engine.fleet_state.STATE_PATH", state)
+    client = TestClient(create_app(FixtureStore()))
+    res = client.post("/v1/fleet/mode", json={"mode": "HOLD"}, headers=OPERATOR)
+    assert res.status_code == 202
+    assert json.loads(state.read_text(encoding="utf-8")) == {"mode": "HOLD"}
 
 
 def test_playback_start_stop(client):

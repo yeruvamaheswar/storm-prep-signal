@@ -24,7 +24,8 @@
       "dead_homes": 0,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). Floor held at 30% because storm risk is LOW."
+      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). Floor held at 30% because storm risk is LOW.",
+      "trigger_mw": 22348
     },
     {
       "tick": 2,
@@ -48,7 +49,8 @@
       "dead_homes": 0,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). Floor held at 30% because storm risk is LOW."
+      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). Floor held at 30% because storm risk is LOW.",
+      "trigger_mw": 22348
     },
     {
       "tick": 3,
@@ -72,7 +74,8 @@
       "dead_homes": 0,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Price is 185 $/MWh (synthetic). Floor held at 30%."
+      "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Price is 185 $/MWh (synthetic). Floor held at 30%.",
+      "trigger_mw": 22348
     },
     {
       "tick": 4,
@@ -96,7 +99,8 @@
       "dead_homes": 0,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Price is 185 $/MWh (synthetic). Floor held at 30%."
+      "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Price is 185 $/MWh (synthetic). Floor held at 30%.",
+      "trigger_mw": 22348
     },
     {
       "tick": 5,
@@ -119,8 +123,12 @@
       "stale_homes": 0,
       "dead_homes": 0,
       "breaches": 0,
-      "reasons": ["storm_reserve", "fleet_headroom_short"],
-      "brief": "Delivered 0.31 of 0.40 MW (synthetic target). Floor raised to 60% because storm risk is HIGH; 0.09 MW missed on purpose."
+      "reasons": [
+        "storm_reserve",
+        "fleet_headroom_short"
+      ],
+      "brief": "Delivered 0.31 of 0.40 MW (synthetic target). Floor raised to 60% because storm risk is HIGH; 0.09 MW missed on purpose.",
+      "trigger_mw": 22348
     },
     {
       "tick": 6,
@@ -143,8 +151,13 @@
       "stale_homes": 0,
       "dead_homes": 20,
       "breaches": 0,
-      "reasons": ["storm_reserve", "homes_dead:20", "fleet_headroom_short"],
-      "brief": "Delivered 0.24 of 0.40 MW (synthetic target). 20 homes are dead and got no work. Floor is 60%."
+      "reasons": [
+        "storm_reserve",
+        "homes_dead:20",
+        "fleet_headroom_short"
+      ],
+      "brief": "Delivered 0.24 of 0.40 MW (synthetic target). 20 homes are dead and got no work. Floor is 60%.",
+      "trigger_mw": 22348
     },
     {
       "tick": 7,
@@ -167,8 +180,14 @@
       "stale_homes": 10,
       "dead_homes": 20,
       "breaches": 0,
-      "reasons": ["storm_reserve", "homes_dead:20", "homes_stale:10", "fleet_headroom_short"],
-      "brief": "Delivered 0.22 of 0.40 MW (synthetic target). 20 homes are dead and 10 are stale. Floor is 60%."
+      "reasons": [
+        "storm_reserve",
+        "homes_dead:20",
+        "homes_stale:10",
+        "fleet_headroom_short"
+      ],
+      "brief": "Delivered 0.22 of 0.40 MW (synthetic target). 20 homes are dead and 10 are stale. Floor is 60%.",
+      "trigger_mw": 22348
     },
     {
       "tick": 8,
@@ -191,8 +210,11 @@
       "stale_homes": 10,
       "dead_homes": 20,
       "breaches": 0,
-      "reasons": ["operator_hold"],
-      "brief": "Delivered 0.00 of 0.40 MW (synthetic target). Operator HOLD. 0.40 MW missed."
+      "reasons": [
+        "operator_hold"
+      ],
+      "brief": "Delivered 0.00 of 0.40 MW (synthetic target). Operator HOLD. 0.40 MW missed.",
+      "trigger_mw": 22348
     },
     {
       "tick": 9,
@@ -215,8 +237,14 @@
       "stale_homes": 10,
       "dead_homes": 20,
       "breaches": 0,
-      "reasons": ["storm_reserve", "homes_dead:20", "homes_stale:10", "fleet_headroom_short"],
-      "brief": "Delivered 0.22 of 0.40 MW (synthetic target). Mode is AUTO. Floor is 60%."
+      "reasons": [
+        "storm_reserve",
+        "homes_dead:20",
+        "homes_stale:10",
+        "fleet_headroom_short"
+      ],
+      "brief": "Delivered 0.22 of 0.40 MW (synthetic target). Mode is AUTO. Floor is 60%.",
+      "trigger_mw": 22348
     },
     {
       "tick": 10,
@@ -240,7 +268,8 @@
       "dead_homes": 5,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Floor returned to 30% because storm risk is LOW."
+      "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Floor returned to 30% because storm risk is LOW.",
+      "trigger_mw": 22348
     },
     {
       "tick": 11,
@@ -264,7 +293,8 @@
       "dead_homes": 0,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). All 100 homes are live. Floor is 30%."
+      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). All 100 homes are live. Floor is 30%.",
+      "trigger_mw": 22348
     },
     {
       "tick": 12,
@@ -288,7 +318,8 @@
       "dead_homes": 0,
       "breaches": 0,
       "reasons": [],
-      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). All 100 homes are live. Floor is 30%."
+      "brief": "Delivered 0.20 of 0.20 MW (synthetic target). All 100 homes are live. Floor is 30%.",
+      "trigger_mw": 22348
     }
   ]
 }

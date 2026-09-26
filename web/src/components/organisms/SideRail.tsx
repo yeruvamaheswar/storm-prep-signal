@@ -8,7 +8,7 @@ import { ReportsDrawer } from "./ReportsDrawer"
 type SideRailProps = {
   brief: string
   reasons: string[]
-  decisionLine: string | null
+  decisionLine?: string | null
   tick: number
   tickCount: number
   feeds: ReportFeeds
@@ -16,7 +16,7 @@ type SideRailProps = {
   stamp?: string
 }
 
-export function SideRail({ brief, reasons, decisionLine, tick, tickCount, feeds, quality = "ok", stamp }: SideRailProps) {
+export function SideRail({ brief, reasons, decisionLine = null, tick, tickCount, feeds, quality = "ok", stamp }: SideRailProps) {
   const decision = briefDecision(decisionLine)
   const shown = feedReasons(reasons, feeds.holdingSpare)
   return (

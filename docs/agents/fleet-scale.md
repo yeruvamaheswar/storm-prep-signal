@@ -47,7 +47,7 @@ Not measurable in Node, and likely the real freeze:
 ## Proposed slices (each near 250 lines, web only, Sunny's files)
 
 1. **Done. Aggregates, no visual change.** `fleetCounts(tick)` in `fleetCells.ts` holds the per-state math; `fleetCells` now expands it in `FLEET_RUNS` order. `web/src/fleetAggregate.ts` `zoneAggregates(tick)` returns per zone `homes, reserved, discharging, ok, stale, dead, unconfirmed, supplyingMw` from the closed form of `index % 4` over each run, O(zones). `zoneLens`, `FleetLegend` (now takes `counts`), and the call caption read it. `zoneOutageSeries` reads `zonePaint` directly. `web/tests/fleetAggregate.test.ts` checks it against the per-home walk for every tape tick, both scenes, 10,000 and 10,003 homes. The cluster hover moved to slice 3: South has two metro clusters, so zone totals do not map onto it.
-2. **Ack rail as bars.** One stacked bar per zone: acked, held, silent, dead, fail-safe, pending. Counts are exact and closed form: `ackAtMs(i)` depends on `i % 100` and zone on `i % 4`, so bucketing by `i % 100` gives the same answer as the per-home loop. Timer and `ackSummary` stay. No per-home DOM.
+2. **Done. Ack rail as bars.** One stacked bar per zone: acked, held, silent, unconfirmed, dead, fail-safe. Live counts come from `TickResult.zone_acks` (`docs/agents/zone-acks.md`). A tape without that field still uses `zoneAggregates`, not 100 spans. `ackSummary` stays. No per-home DOM.
 3. **Map clusters with a cap.** Canvas renderer. Cache coordinates by index once per polygon set. One badge per metro cluster with exact counts. At most `MAX_VISIBLE_POINTS` (proposed 500) sampled dots, split by zone and state with largest remainder. Legend says `1 dot ≈ N homes` when sampled. Labels avoid the visible dots and badges only. Dead is no longer drawn larger.
 4. **Exceptions on the wall.** Per-zone counts: silent (stale + unconfirmed), dead, nack. The tape has no ack field, so nack reads "not on tape". The console `WallPage` squares become the same counts plus the first 20 exception rows and a link to `/fleet`.
 5. **`/fleet` search and exceptions.** Fixed-height windowed table (no new dependency), `home_id` search, status filter, an Exceptions filter (dead, then `rejected`/`timeout` ack, then silent; oldest `last_seen` first). A 10k preview generator.
@@ -56,5 +56,5 @@ Feeder and hex aggregates are left out. There is no feeder field, and home point
 
 ## Needs other owners (not in these slices)
 
-- Per-zone fleet counts on the tick, so zones stop being `index % 4`. `storm_prep/contracts.py` and `web/src/contracts.ts` mirror it: Uma.
+- Per-zone fleet counts on the tick, so zones stop being `index % 4`. The engine now fills `TickResult.zone_delivered_mw` and `GET /v1/fleet/rollups` (`docs/agents/fleet-rollups.md`). Live/archive tape targets scale with `FLEET_SIZE` against that cap; the Demo tape stays 100 / 0.40. The map and ack rail still paint `index % 4` until Sunny reads those rollups.
 - `GET /v1/homes` paging, `q`, and an exceptions filter, plus a server zone aggregate, so the browser never holds 10k rows: Rajath for the fleet, Uma for the contract.

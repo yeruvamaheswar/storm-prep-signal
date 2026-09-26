@@ -7,7 +7,7 @@ rates every posting at each margin with the engine's compute_risk, and writes da
 Storm weeks (beryl, heather) use the 30 days before the week as the baseline, like replay_event.py.
 The calm month (tuning-2026) has no earlier data loaded, so its baseline is the same month and
 in_sample is true: its count shows how often normal swings cross the margin, not a forecast.
-Needs SUPABASE_URL and SUPABASE_SECRET_KEY in .env.
+Needs SUPABASE_URL and SUPABASE_SECRET_KEY in server/.env.
 """
 import argparse
 import json
@@ -18,7 +18,6 @@ from pathlib import Path
 from statistics import median
 
 import requests
-from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
@@ -26,11 +25,11 @@ sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
 from load_ercot_reports import WINDOWS  # noqa: E402
 from make_baseline import LEAD_HOURS  # noqa: E402
 from replay_event import BASELINE_DAYS, EVENTS, rate_posting  # noqa: E402
+from server.env import ENV_PATH, load_env  # noqa: E402
 from server.engine.cli import read_settings  # noqa: E402
 from server.engine.risk import hour_total  # noqa: E402
 from server.engine.signal import CENTRAL  # noqa: E402
 
-ENV_PATH = ROOT / ".env"
 OUT_PATH = ROOT / "data" / "margin_check.json"
 REPORT = "NP3-233-CD"
 CALM = "tuning-2026"
@@ -142,13 +141,13 @@ def main(argv=None):
                         help="margins to try, in percent (default: 10, the rule's margin, 20)")
     args = parser.parse_args(argv)
 
-    load_dotenv(ENV_PATH)
+    load_env(ENV_PATH)
     url, key = os.getenv("SUPABASE_URL", ""), os.getenv("SUPABASE_SECRET_KEY", "")
     if not (url and key):
         print("skipped: no_config")
         return 0
 
-    # read_settings() loads the working directory's .env, so it runs after the config check.
+    # read_settings() still reads process env; this loader already filled server/.env.
     settings = read_settings()
     margins = sorted(set(args.margins or [10, settings["margin_pct"], 20]))
     results = {}

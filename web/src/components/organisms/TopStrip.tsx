@@ -7,10 +7,11 @@ import type { ReportFeeds } from "../../reportFeeds"
 import { runtimeLabel, type RuntimeMode } from "../../runtimeMode"
 import { outageLine, deliverableFloorCaption } from "../../wallLines"
 import { wallSnapshot, type SnapshotAsOf, type WallSnapshot } from "../../wallSnapshot"
+import type { WallOrigin } from "../../wallOrigin"
 import { Metric } from "../atoms/Metric"
 import { CalmMeter } from "../molecules/CalmMeter"
 import { StripItem } from "../molecules/StripItem"
-import { FeedsList } from "./ReportsDrawer"
+import { FeedChips, FeedsList } from "./ReportsDrawer"
 
 type TopStripProps = {
   tick: TickView
@@ -25,6 +26,7 @@ type TopStripProps = {
   clockLabel?: string
   feeds?: ReportFeeds
   api: ApiHealth
+  origin?: WallOrigin
 }
 
 function apiTone(api: ApiHealth): string {
@@ -55,6 +57,7 @@ export function TopStrip({
   clockLabel,
   feeds,
   api,
+  origin,
 }: TopStripProps) {
   const row = snapshot ?? wallSnapshot({ runtime, tick, calm })
   const line = outageLine({
@@ -69,11 +72,21 @@ export function TopStrip({
     quality: row.quality,
   })
   const missed = row.missedMw > 0
-  const feed = runtime === "live" ? "LIVE" : feedChip(tick.target_label, tick.price_label)
+  const feed =
+    origin?.kind === "archive" ? "ARCHIVE" : origin?.kind === "live" || runtime === "live" ? "LIVE" : feedChip(tick.target_label, tick.price_label)
   const identity = headerIdentity(runId, decisionLine)
-  const when = runtime === "live" ? (clockLabel ?? formatTs(tick.ts)) : formatTs(tick.ts)
+  const when =
+    origin?.clock === "archive" || origin?.kind === "archive"
+      ? formatTs(isoClock(origin?.clockAt) ?? tick.ts)
+      : runtime === "live" && origin?.kind !== "fixture"
+        ? (clockLabel ?? formatTs(tick.ts))
+        : formatTs(tick.ts)
   const place =
-    runtime === "live" ? `${runtimeLabel(runtime)} · ${intervalLabel ?? "—"}` : (sceneLabel ?? tickPlace(tick.tick, tickCount))
+    origin !== undefined && origin.kind !== "fixture"
+      ? origin.place
+      : runtime === "live"
+        ? `${runtimeLabel(runtime)} · ${intervalLabel ?? "—"}`
+        : (sceneLabel ?? tickPlace(tick.tick, tickCount))
   const floor = headerReason(tick.policy_reason)
   const risk = headerReason(riskCaption(tick, row.calm))
   const floorTone = tick.policy_reason === "normal" ? "ink" : "reserved"
@@ -99,7 +112,7 @@ export function TopStrip({
               <span className="run-id">{identity.runId}</span>
             </>
           ) : null}
-          {runtime === "demo" && identity.demoTitle !== null ? (
+          {(origin?.kind ?? "fixture") === "fixture" && runtime === "demo" && identity.demoTitle !== null ? (
             <>
               <span className="mast-gap" />
               <span className="demo-badge" title={identity.demoTitle}>
@@ -220,6 +233,7 @@ function StressStrip({
             </summary>
             <div className="feeds-panel">
               {feeds.purpose !== null ? <p className="reports-purpose">{feeds.purpose}</p> : null}
+              <FeedChips products={feeds.chips} />
               <FeedsList rows={feeds.rows} />
             </div>
           </details>
@@ -269,6 +283,11 @@ function zoneCaption(zoneMw: number | null): string {
 
 function tickPlace(tick: number, tickCount: number): string {
   return `tick ${String(tick).padStart(2, "0")} / ${String(tickCount).padStart(2, "0")}`
+}
+
+function isoClock(value: string | null | undefined): string | null {
+  if (typeof value !== "string" || !value.includes("T")) return null
+  return value
 }
 
 function ageCaption(asOf: SnapshotAsOf, runtime: RuntimeMode): string {

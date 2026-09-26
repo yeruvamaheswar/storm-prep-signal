@@ -4,9 +4,17 @@ import { formatGridMw, formatPrice } from "./format"
 import { zonePaint, type LoadZone } from "./zonePaint"
 
 /**
- * A zone drill-in reads the tick. It does not invent a per-zone price or floor.
- * Outage MW is the zone column. Live price is LZ_NORTH only. The floor is the fleet floor.
+ * A zone drill-in reads the tick. Outage MW is the zone column.
+ * Price is that zone's LZ row when `zone_prices` (or a live North-only stamp) has one.
+ * The floor is the fleet floor.
  */
+
+const ZONE_SETTLEMENT: Record<LoadZone, string> = {
+  Houston: "LZ_HOUSTON",
+  North: "LZ_NORTH",
+  South: "LZ_SOUTH",
+  West: "LZ_WEST",
+}
 
 export type ZoneFacts = {
   zone: LoadZone
@@ -21,13 +29,25 @@ export type ZoneFacts = {
 
 const FLEET_FLOOR = "fleet floor, not a zone floor"
 
+function finitePrice(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
 function priceFact(tick: TickView, zone: LoadZone): { usd: number | null; caption: string } {
+  const bound = tick.zone_prices
+  if (bound !== undefined) {
+    const usd = finitePrice(bound[zone])
+    if (usd !== null) {
+      return { usd, caption: `${ZONE_SETTLEMENT[zone]} settlement` }
+    }
+    return { usd: null, caption: "no LZ price for this interval" }
+  }
   const label = tick.price_label.trim().toLowerCase()
   if (label === "ercot") {
     if (zone === "North") {
       return { usd: tick.price_usd_mwh, caption: "LZ_NORTH settlement" }
     }
-    return { usd: null, caption: "no LZ price; this wall reads LZ_NORTH" }
+    return { usd: null, caption: "no LZ price for this interval" }
   }
   if (tick.price_usd_mwh === null) {
     return { usd: null, caption: "price missing" }

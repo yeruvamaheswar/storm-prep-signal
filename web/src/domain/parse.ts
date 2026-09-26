@@ -175,7 +175,7 @@ function readStress(value: unknown): Stress {
   }
 }
 
-function readFleet(value: unknown): Fleet {
+export function parseFleet(value: unknown): Fleet {
   const row = readRecord(value, "fleet")
   if (!Object.prototype.hasOwnProperty.call(row, "breaches")) {
     throw new Error("missing breaches")
@@ -187,6 +187,10 @@ function readFleet(value: unknown): Fleet {
     unconfirmed: readNumber(row, "unconfirmed"),
     breaches: readNumber(row, "breaches"),
   }
+}
+
+function readFleet(value: unknown): Fleet {
+  return parseFleet(value)
 }
 
 function readReasons(value: unknown): string[] {

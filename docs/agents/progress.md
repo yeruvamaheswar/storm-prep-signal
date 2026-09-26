@@ -455,6 +455,192 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - The 15% margin is unchanged. Changing it is an engine decision (Uma).
 - Tests: `tests/test_check_margin.py`, no network. `pytest -q`: 55 passed.
 
+## 2026-09-26: FastAPI live snapshot for the wall
+
+- Snapshot now rates the posting. See "Floor and risk from the v2 trigger" below.
+- `GET /v1/runs/latest` serves `var/runs/latest.json`, or `layout-run.json` when that file is missing.
+- The wall's `useLiveStamp()` polls `/v1/snapshot`. Vite ERCOT keys are unused.
+
+## 2026-09-26: Floor and risk from the v2 trigger
+
+- Live risk is `compute_risk` (6-hour lookahead, peak vs lead-matched baseline × 1.15). `reserve_policy` turns HIGH into 60% `storm_risk_high`. The wall no longer invents `THRESHOLD_MW = 22348` or tick-5 zone sums for a live posting.
+- `GET /v1/snapshot` sends `trigger_mw`, `peak_mw`, `outage_mw` (the peak hour), the twelve NP3 zone columns, and `margin_mw = outage − trigger`. A stale or missing report is risk None, 60%, `signal_unavailable`. QUALITY and the banner show that in Live. They do not become Demo data.
+- Demo tape ticks carry `trigger_mw` so the 12-tick story still has a threshold. Live never borrows that number.
+- Noted in `docs/agents/stress-strip.md` and `docs/agents/wall-snapshot.md`. People page: `docs/humans/floor-and-risk.md`.
+- `pytest -q`: 169 passed. `npx vitest run`: 198 passed. `tsc --noEmit` clean.
+
+## 2026-09-26: Allocator and fleet off the stub
+
+- Copied `allocate`, `home_caps`, `split_target` (`server/engine/controller.py`) and `new_fleet`, `assign_zone`, `apply_events`, `discharge` (`server/engine/fleet.py`) from `origin/controller-rajat-dev`. They sit under `server/engine/`, not `storm_prep/`: this branch already dropped that package.
+- Left Rajat's `loop.py` TEMP block behind (it was the same 0 kW stub). Also left `score.py`, `scheduler.py`, `channel.py`, and `orchestration.py`. No charge controller.
+- `server/engine/loop.py` now imports those functions. Each tick is still apply_events → compute_risk → reserve_policy → allocate → discharge → TickResult. `load_tape` and `write_brief` stay TEMP.
+- Tiny tape now delivers: tick 1 0.200 of 0.200 MW, tick 2 0.219 of 0.400 (`storm_reserve`), tick 3 0.185 of 0.400 (`storm_reserve`). `breaches == 0`. HOLD is still 0 kW.
+- Tests: `tests/test_controller.py`, `tests/test_fleet.py`. Noted in `docs/agents/fleet-intent.md`.
+- `pytest -q`: 105 passed.
+
+## 2026-09-26: Zone supervisor acks as a rollup
+
+- There is no per-home device command API. After `allocate`, `simulate_zone_acks` rolls `{acked, held, silent, dead, unconfirmed}` per zone. `command_id` is `{home_id}:{tick}`. Optional `channel_drop_rate` can drop the send and the one 60 s retry; books close at 120 s (virtual). `HomeWorker.seen` ignores a repeat. Hardware is not faked.
+- `TickResult.zone_acks` is add-only. `GET /v1/snapshot` passes it through. AckRail binds those counts as four stacked bars. A tape without the field still uses zone aggregates, not 100 spans.
+- `server/engine/supervisor.py`. Notes: `docs/agents/zone-acks.md`, `docs/humans/zone-acks.md`.
+
+## 2026-09-26: 10k seed with zones, rollups only
+
+- `new_fleet` still takes the settings dict. `new_fleet(n)` seeds n homes at 20 kWh / 5 kW, 45–75% SOC, status live, zones South/North/West/Houston. Persist is opt-in under `var/fleet/`.
+- `GET /v1/fleet/rollups` returns per-zone live/reserved/discharging/stale/dead/silent counts, reserved vs discharging MW, and metro centroids. No home list. `GET /v1/homes` stays on the small fixtures.
+- Each tick fills `TickResult.zone_delivered_mw` and writes `var/fleet/rollups.json`.
+- Noted in `docs/agents/fleet-rollups.md` and `docs/humans/fleet-rollups.md`.
+- `FLEET_SIZE` stays 100 for the demo tape.
+- `pytest -q` (ignoring two tests that import missing `fleet_state` / `supervisor` modules): 144 passed. Four remaining failures are those same missing-module writes (`state_path`, `fleet_state`), not this slice.
+
+## 2026-09-26: ERCOT auth and fetches behind a Python proxy
+
+- `GET /v1/feeds/outage` and `GET /v1/feeds/price` reuse `fetch_outages()` plus a new NP6-905-CD fetch. Username, password, subscription key, and the B2C token stay on the server. Last good bodies go to `var/signal/`.
+- 401/403 → quality `auth`. 429/5xx or timeout → last good body if it is still inside 90 min (outage) or 30 min (price); else `unavailable` or `stale`.
+- `GET /v1/snapshot` now reads those feeds instead of calling ERCOT itself. The wall has no `VITE_ERCOT_*` keys.
+- Notes: `docs/agents/feeds-proxy.md`, `docs/humans/feeds-proxy.md`.
+- `.venv/bin/python -m pytest -q tests/test_feeds.py tests/test_snapshot.py`: 13 passed. `npx vitest run tests/liveStamp.test.ts tests/runtimeMode.test.ts`: 12 passed. Full `pytest -q` also collected unfinished tests for `fleet_state` / `supervisor` from other branches.
+
+## 2026-09-26: Live interval stream, no browser ERCOT poll
+
+- Live polls `GET /v1/snapshot` every 20 s. The browser no longer calls `api.ercot.com` or `/v1/feeds`.
+- `GET /v1/live/stream` sends `tick`, `feeds`, `attention`, and `home` (fleet rollup, not 10k rows). The wall uses the snapshot poll; `createClient().liveStream` reads the named events.
+- Live follows the snapshot tick, not the selected Demo tape index. Interval-strip points accumulate from those polls.
+- `engine.run(live=True)` writes `var/runs/latest.json` after each tick so `/v1/snapshot` stays aligned (`write_run_files` in `server/engine/loop.py`; Uma owns that file).
+- Notes: `docs/agents/backend.md`, `runtime-mode.md`, `interval-strip.md`, `wall-snapshot.md`, `docs/humans/backend.md`.
+- `.venv/bin/python -m pytest -q`: 162 passed, 4 failed in `test_feeds.py` / `test_snapshot_brief.py` (http_status extra field and brief wording; not this slice). New stream tests passed.
+- `npx vitest run`: 196 passed, 1 failed in `reportFeeds.test.ts` (`readSuppliedFeeds` shape; not this slice). `npx tsc --noEmit` clean.
+
+## 2026-09-26: Live NP6-905-CD price in Python, stamped on the tick
+
+- `fetch_price()` sits next to `fetch_outages()` and uses `get_id_token`. Query is `settlementPoint=LZ_NORTH` only. DAM NP4-190 and other LZs are out.
+- `read_price()` is the one parser (`rows_by_name`, newest `settlementPointPrice` + deliveryDate/Hour/Interval, 30 min stale). `stamp_price()` sets `price_usd_mwh`, `price_label="ercot"`, `price_as_of` on success. On failure the live tick is none, never tape 185.
+- `--live` fetches price once after a good outage login and stamps every tick. `/v1/feeds/price` and `/v1/snapshot` call the same reader.
+- `TickResult.price_as_of` added (optional). Notes: `docs/agents/price-live.md`, `docs/humans/price-live.md`.
+- Tests: `tests/test_price.py`, live cases in `tests/test_engine.py`.
+
+## 2026-09-26: Hold/Auto write engine mode, not tape ticks 08/09
+
+- `var/state.json` stores `AUTO` or `HOLD`. `POST /v1/fleet/mode` writes it. `engine.run()` seeds mode from that file; tape `events.operator` still sticks. `allocate()` delivers 0 on HOLD.
+- `GET /v1/snapshot` overlays `mode` from the same file. Live Hold/Auto call the API. Demo may still jump to the tape ticks that already carry that mode.
+- Notes: `docs/agents/backend.md`, `fleet-intent.md`, `runtime-mode.md`, `docs/humans/backend.md`.
+- Tests: `tests/test_fleet_state.py`, `tests/test_snapshot_mode.py`, engine hold/sticky cases, `web/tests/wallMode.test.ts`.
+- `pytest -q`: 165 passed, 1 failed in `tests/test_snapshot_brief.py` (brief copy, not this slice). `npx vitest run tests/wallMode.test.ts tests/controlBar.test.ts`: 12 passed. `tsc --noEmit` clean.
+
+## 2026-09-26: Live and Demo no longer share tape numbers
+
+- `GET /v1/meta` returns `{ mode, fleet_size, source }`. The wall honors `?mode=`, then `VITE_DEFAULT_MODE`, then that meta.
+- Demo is `layout-run.json` only. `loadRun()` does not fetch `/v1/runs/latest`. Scenes and the 12-tick scrubber stay. No ERCOT overlay.
+- Live polls `GET /v1/snapshot` only. `useLiveStamp` is off in Demo. Price shows only when the label is `ercot` (no tape 185). The outage line uses `trigger_mw` only when it arrived (no tape 22348).
+- A failed first live pull falls back to Demo and Quality names the failed pull (`fallbackQuality`).
+- Notes: `docs/agents/runtime-mode.md`, `wall-snapshot.md`, `docs/humans/runtime-mode.md`.
+- `.venv/bin/python -m pytest -q`: 169 passed. `npx vitest run`: 198 passed. `npx tsc --noEmit` clean.
+
+## 2026-09-26: Snapshot feeds[] for the Quality drawer
+
+- `GET /v1/snapshot` always returns `feeds[]` for NP3-233-CD and NP6-905-CD: `{ product, path, as_of, age_min, quality, hold_on_fail, http_status }`.
+- An outage `LiveFailure` (`auth|timeout|stale|malformed|unavailable`) sets `hold_on_fail` true and `policy_reason` `signal_unavailable`. A price fail is named and does not hold.
+- `/v1/feeds/*` now includes last HTTP status with no secrets. The wall maps that list in `readSuppliedFeeds`.
+- Notes: `docs/agents/backend.md`, `wall-snapshot.md`, `reports-drawer.md`, `feeds-proxy.md`, `docs/humans/backend.md`.
+- `.venv/bin/python -m pytest -q`: 166 passed. `npx vitest run tests/reportFeeds.test.ts tests/liveStamp.test.ts`: 21 passed.
+
+## 2026-09-26: Brief and reasons from TickResult codes
+
+- `write_brief` lived as a TEMP stub that returned `""`. The wall brief was layout-run fixture prose, so Live could still say "missed on purpose" or "tape tick 5/12".
+- `server/engine/brief.py` builds one or two sentences from delivered MW and the codes already in `reasonText` / `reason_codes`: `storm_reserve`, `fleet_headroom_short`, `homes_dead:n`, `homes_stale:n`, `signal_unavailable`. `loop.py` imports that function (Uma owns the file; this replaced the TEMP stub).
+- `GET /v1/snapshot` applies `apply_tick_brief`. `GET /v1/runs/latest` keeps layout-run.json text for the Demo tape.
+- `WallSnapshot.brief` is the tape sentence in Demo and `tickBrief` in Live. The rail stamp in Live still uses `liveRailStamp`.
+- Notes: `docs/agents/wall-snapshot.md`, `runtime-mode.md`, `backend.md`, `docs/humans/backend.md`.
+- Tests: `tests/test_brief.py`, `tests/test_snapshot_brief.py`, `web/tests/format.test.ts`, `runtimeMode.test.ts`, `wallSnapshot.test.ts`.
+
+## 2026-09-26: Feeds panel rows from postings plus live health
+
+- `GET /v1/feeds?event=` lists the latest `ercot_postings` row per report for beryl, heather, or tuning-2026 (posted_at, row_count, event, file_name zip vs API) and overlays `var/signal/` quality on NP3-233-CD and NP6-905-CD. It does not call ERCOT.
+- History chips on the Feeds panel: NP3-233-CD plus loaded NP3-565-CD and NP4-732/733/737/738-CD. Only NP3-233-CD and NP6-905-CD still drive floor and price on `/v1/snapshot`.
+- Notes: `docs/agents/feeds-proxy.md`, `docs/agents/reports-drawer.md`, `docs/humans/feeds-proxy.md`.
+
+## 2026-09-26: Mast names LIVE, ARCHIVE, or Demo fixture
+
+- The wall still polls `GET /v1/snapshot` every 20 s. No `@supabase/supabase-js` and no anon key.
+- `GET /v1/meta` and the snapshot tick carry `source`, `event`, and `clock`. The mast chip is LIVE, ARCHIVE plus the event, or the existing Demo fixture badge.
+- The 01–12 scrubber stays on `layout-fixture` only. Live and archive-clocked show the interval strip. Demo does not default to Beryl; `?event=beryl` is the archive path.
+- `web/src/wallOrigin.ts` is the one home for that chrome. `useLiveStamp()`, `feedChip()`, and `headerIdentity()` stay as they were for poll, target/price labels, and the Demo title.
+- Notes: `docs/agents/runtime-mode.md`, `wall-snapshot.md`, `docs/humans/runtime-mode.md`.
+
+## 2026-09-26: Live/archive tape targets follow FLEET_SIZE
+
+- 10k × 5 kW = 50 MW fleet cap. Layout 0.40 MW is only the Demo tape (100 homes).
+- Live/archive `scale_target_mw` maps the 100-home tape onto `min(call_target, fleet_cap)`. Unset `CALL_TARGET_MW` scales 0.40 × FLEET_SIZE/100 (40 MW at 10k).
+- `GET /v1/meta` adds `fleet_cap_mw` and `call_target_mw`. Snapshot home counts and MW follow `FLEET_SIZE`. Rollups ignore a saved `n` that does not match.
+- No `homes` table. `new_fleet(n)` stays in memory unless persist is asked.
+- Notes: `docs/agents/fleet-rollups.md`, `docs/humans/fleet-rollups.md`.
+- Tests: `tests/test_fleet_scale.py`.
+
+## 2026-09-26: Missing decision_line no longer crashes the wall
+
+- Engine `var/runs/latest.json` has `run_id` and ticks, not `decision_line`. `briefDecision` only guarded `null`, so `undefined` threw on `.trim()` and the SideRail took the wall down.
+- `briefDecision` now treats missing or blank the same way `headerIdentity` already did: no footer. SideRail defaults the prop to `null`, matching TopStrip.
+- `npx vitest run tests/format.test.ts`: 11 passed.
+
+## 2026-09-26: One env loader for server/.env then process env
+
+- Scripts hardcoded repo-root `.env` (`ENV_PATH = ROOT / ".env"`), so they printed `skipped: no_config` while `SUPABASE_URL` and `SUPABASE_SECRET_KEY` lived in `server/.env`. FastAPI only called bare `load_dotenv()` on feed routes. Render listed no Supabase names.
+- `server/env.py` `load_env()` reads `server/.env`, then leaves process env in place. `create_app()`, `feeds.fetch_settings()`, `scripts/load_ercot_archive.py`, `scripts/load_ercot_reports.py`, and `scripts/check_margin.py` share it. Tests still patch each script's `ENV_PATH`.
+- `.env.example` lists the two Supabase names only. `render.yaml` adds them as `sync: false`. Not in Vite.
+- Notes: `docs/agents/backend.md`, `PROJECT_CONTEXT.md`, `docs/humans/backend.md`.
+- Tests: `tests/test_env.py`, existing `no_config` cases. `pytest -q`: 176 passed.
+
+## 2026-09-26: Archive price and outage for Demo/Synthetic
+
+- `GET /v1/snapshot` and `serve_price()` / `serve_outage()` read `ercot_postings` and `ercot_prices` when the last run is not Live. Given `event` + clock, the reader takes the newest NP3-233-CD `payload` and NP6-905-CD `LZ_NORTH` rows with `posted_at` / `interval_ending` ≤ clock. Live still uses `signal.py` and `var/signal/`.
+- Upsert keys stay `(report, posted_at)` and `(settlement_point, interval_ending)`. `payload` does not repeat `postedDatetime`. Those two tables are never truncated on a tape reset.
+- Notes: `docs/agents/archive-feeds.md`, `docs/humans/archive-feeds.md`.
+- Tests: `tests/test_archive.py`.
+
+## 2026-09-26: Persist each engine run into public.runs
+
+- `public.runs` existed with 0 rows. After `loop.run()` writes `var/runs/<id>.json`, `scripts/persist_run.py` upserts the same payload on `run_id`. `source` is `live|scenario|fixture`. `result` is the ticks JSON (OpenAPI requires it). `summary` is last-tick header metrics. `ercot_posting_ids` are `ercot_postings.id` for the NP3 postings the run used.
+- The engine does not import Supabase during a tick. `python -m server.engine` calls persist after `main()` returns. Missing keys or a failed POST print `runs_skipped: <reason>` and exit 0. The wall still reads FastAPI / `latest.json`.
+- Notes: `docs/agents/persist-run.md`, `docs/humans/persist-run.md`.
+- Tests: `tests/test_persist_run.py`.
+
+## 2026-09-26: Empty public.runs is not source of truth
+
+- `public.runs` can still be 0 rows. A GET to PostgREST `/runs` that returns `[]` is not a run and must not blank the wall.
+- `GET /v1/runs/latest` keeps `var/runs/latest.json` first. `run_from_table_rows` / `runFromTableRows` only accept a row that already holds a run file. Empty rows, `result: []`, or a path pointer fall back to that snapshot file, then `layout-run.json`. Vite does not call PostgREST.
+- Notes: `docs/agents/PROJECT_CONTEXT.md`, `docs/agents/backend.md`, `docs/agents/persist-run.md`, `docs/humans/backend.md`.
+- Tests: `tests/test_runs_table.py` 8 passed. `npx vitest run tests/loadRun.test.ts` 7 passed. Full `pytest -q` still collects unfinished parallel files (`test_snapshot_prices.py`, `_iso_clock` in `snapshot.py`).
+
+## 2026-09-26: Archive risk uses compute_risk, not tape 22348
+
+- `source=archive` snapshot now GETs `ercot_postings` (same payload `check_margin.py` already reads), wraps it as an NP3 body, and rates it with `compute_risk` → `reserve_policy`.
+- The tick gets `trigger_mw`, `peak_mw`, zone hour totals, and `policy_reason` from that v2 rating. It does not copy tape `22348`.
+- Stale windows stay in Python: 90 minutes for the posting vs the archive clock, 30 minutes for price. A missing posting is `signal_unavailable` and floor 60%.
+- Notes: `docs/agents/archive-feeds.md`, `docs/agents/wall-snapshot.md`, `docs/humans/floor-and-risk.md`.
+
+## 2026-09-26: Bind zone prices from ercot_prices, not LZ_NORTH only
+
+- Snapshot and zone drill-in use the selected zone's `price_usd_mwh` when an archive or live row exists for that interval. PK is `(settlement_point, interval_ending)`.
+- The four load zones are `LZ_HOUSTON`, `LZ_NORTH`, `LZ_SOUTH`, `LZ_WEST`. `LZ_AEN|CPS|LCRA|RAYBN` are ignored. `price_label` is `ercot` only when the number came from a row.
+- Live `fetch_price()` stays LZ_NORTH. Archive `read_prices()` now loads the other three LZs at the same interval. The tick carries `zone_prices`.
+- Notes: `docs/agents/price-live.md`, `docs/agents/zone-lens.md`, `docs/agents/archive-feeds.md`, `docs/humans/price-live.md`.
+- Tests: `tests/test_snapshot_prices.py`, `web/tests/zoneLens.test.ts`, `web/tests/wallSnapshot.test.ts`.
+- `pytest -q`: 227 passed.
+
+## 2026-09-26: Runtime event clock for weekend replay
+
+- Live outages may be quiet. `GET /v1/meta` and `GET /v1/snapshot` now carry `source=live|archive|fixture`, `event=beryl|heather|tuning-2026|null`, and `clock=wall|archive|fixture`.
+- Demo with an event (`?event=beryl`, or Demo click defaulting to beryl) pins the posting clock. Risk, floor, and price come from `data/events/<event>/replay.csv` (or Supabase archive) instead of the 12-tick layout numbers. `?event=none` keeps the tape. Archive ingest uses that pinned posting time so a 2024 week is not treated as stale.
+- Discovery uses that replay.csv. `web/src/fixtures/layout-run.json` is the copy/fallback path when no archive is present.
+- Notes: `docs/agents/runtime-mode.md`, `docs/agents/backend.md`, `docs/humans/runtime-mode.md`.
+- Tests: `tests/test_runtime_clock.py`, `web/tests/loadRun.test.ts`, `web/tests/wallOrigin.test.ts`.
+
+## 2026-09-26: Archive inject does not need Supabase env
+
+- CI has no `server/.env`. `test_serve_archive_skips_live_fetch` injects `archive_get` but `fetch_rows` still required `SUPABASE_URL` / `SUPABASE_SECRET_KEY`, so quality was `unavailable` on GitHub and `ok` on a laptop with keys.
+- An injected getter is the I/O. Missing keys still fail when `http_get` is unset (`test_missing_config_is_unavailable`).
+- `pytest -q`: 228 passed.
+
 ## 2026-09-26: Controller lane (Rajat): fleet, allocator, scoreboard, orchestration runtime
 
 - New under `server/engine/`: `fleet.py` (`new_fleet` with round-robin zones, `apply_events`,

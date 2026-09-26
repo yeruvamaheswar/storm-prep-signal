@@ -163,4 +163,51 @@ describe("live run", () => {
     expect(html).toContain(">01<")
     expect(html).toContain("Fail-safe")
   })
+
+  it("hides 01–12 when the source is archive-clocked, even if runtime is Demo", () => {
+    const html = renderToStaticMarkup(
+      createElement(ControlBar, {
+        mode: "AUTO",
+        ticks: run.ticks,
+        selected: 4,
+        scene: null,
+        radar: false,
+        onSelect: () => undefined,
+        onScene: () => undefined,
+        onMode: () => undefined,
+        onRadar: () => undefined,
+        runtime: "demo",
+        showTapeChrome: false,
+        intervals: [],
+      }),
+    )
+    expect(html).not.toContain('aria-label="Ticks"')
+    expect(html).not.toContain(">01<")
+    expect(html).not.toContain(">12<")
+    expect(html).not.toContain("Fail-safe")
+    expect(html).toContain("Waiting for intervals")
+    expect(html).toContain('aria-pressed="true" aria-label="Demo. Play the 12-tick tape."')
+    expect(html).toContain('aria-pressed="false" aria-label="Live. Follow the ERCOT clock."')
+  })
+
+  it("leaves Hold and Auto enabled so Live can call the engine", () => {
+    const html = renderToStaticMarkup(
+      createElement(ControlBar, {
+        mode: "AUTO",
+        ticks: run.ticks,
+        selected: 4,
+        scene: null,
+        radar: false,
+        onSelect: () => undefined,
+        onScene: () => undefined,
+        onMode: () => undefined,
+        onRadar: () => undefined,
+        runtime: "live",
+        liveSelectable: true,
+        onRuntime: () => undefined,
+      }),
+    )
+    expect(html).not.toMatch(/aria-label="Hold[^"]+" disabled/)
+    expect(html).not.toMatch(/aria-label="Auto[^"]+" disabled/)
+  })
 })

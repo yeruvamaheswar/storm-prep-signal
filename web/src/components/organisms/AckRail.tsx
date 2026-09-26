@@ -1,18 +1,8 @@
-import { useEffect, useState } from "react"
 import type { TickView } from "../../contracts"
 import { isLoadZone, type LoadZone } from "../../zonePaint"
 import { Button } from "../atoms/Button"
 import { Key } from "../atoms/Key"
-import {
-  DEAD_AFTER_MS,
-  ackMark,
-  ackMarkCounts,
-  ackSummary,
-  ackTicks,
-  ackZones,
-  tickFailSafe,
-  zoneAcked,
-} from "./ackTicks"
+import { ackSummary, barSegments, totalsToMarks, zoneAckTotals } from "./ackTicks"
 
 type AckRailProps = {
   tick: TickView
@@ -21,42 +11,10 @@ type AckRailProps = {
   onClearZone?: () => void
 }
 
-const STEP_MS = 100
-
-function reducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
-}
-
-/** Clock for one command round. Stops once every silent worker has been written off. */
-function useAckClock(tick: TickView): number {
-  const [elapsed, setElapsed] = useState(() => (reducedMotion() ? DEAD_AFTER_MS : 0))
-
-  useEffect(() => {
-    if (reducedMotion()) {
-      setElapsed(DEAD_AFTER_MS)
-      return
-    }
-    const start = performance.now()
-    setElapsed(0)
-    const timer = window.setInterval(() => {
-      const now = performance.now() - start
-      setElapsed(Math.min(now, DEAD_AFTER_MS))
-      if (now >= DEAD_AFTER_MS) {
-        window.clearInterval(timer)
-      }
-    }, STEP_MS)
-    return () => window.clearInterval(timer)
-  }, [tick])
-
-  return elapsed
-}
-
-/** One tick per home. Color follows the home: discharging ack, held, silent, or dead / fail-safe. */
+/** Stacked bars from snapshot zone_acks. One bar per zone, never one span per home. */
 export function AckRail({ tick, zone = null, onSelectZone, onClearZone }: AckRailProps) {
-  const elapsed = useAckClock(tick)
-  const ticks = ackTicks(tick)
-  const failSafe = tickFailSafe(tick)
-  const marks = ackMarkCounts(ticks, elapsed, failSafe)
+  const rows = zoneAckTotals(tick)
+  const marks = totalsToMarks(rows)
 
   return (
     <section className="ack-rail" aria-label="Worker acks">
@@ -70,34 +28,35 @@ export function AckRail({ tick, zone = null, onSelectZone, onClearZone }: AckRai
         </p>
       </div>
       <div className="ack-zones">
-        {ackZones(ticks).map(({ zone: name, ticks: zoneTicks }) => {
-          const acked = zoneAcked(zoneTicks, elapsed, failSafe)
-          const selected = zone === name
+        {rows.map((row) => {
+          const selected = zone === row.zone
+          const segments = barSegments(row)
+          const label = `${row.zone} ${row.acked}/${row.homes}`
           return (
             <button
-              key={name}
+              key={row.zone}
               type="button"
               className={selected ? "ack-zone is-selected" : "ack-zone"}
               aria-pressed={selected}
               onClick={() => {
-                if (isLoadZone(name)) onSelectZone?.(name)
+                if (isLoadZone(row.zone)) onSelectZone?.(row.zone)
               }}
             >
-              <span className="label">
-                {name} {acked}/{zoneTicks.length}
-              </span>
-              <div className="ack-ticks">
-                {zoneTicks.map((item) => {
-                  const mark = ackMark(item, elapsed, failSafe)
-                  return (
-                    <span
-                      key={item.index}
-                      className={`ack-tick ack-${mark}`}
-                      data-state={mark}
-                      title={`${name} · ${mark} · ${item.home}`}
-                    />
-                  )
-                })}
+              <span className="label">{label}</span>
+              <div
+                className="ack-bar"
+                role="img"
+                aria-label={`${row.zone} ${row.acked} acked, ${row.held} held, ${row.silent} silent, ${row.unconfirmed} unconfirmed, ${row.dead} dead`}
+              >
+                {segments.map(({ mark, count }) => (
+                  <span
+                    key={mark}
+                    className={`ack-seg ack-${mark}`}
+                    style={{ flexGrow: count }}
+                    data-state={mark}
+                    title={`${row.zone} · ${mark} · ${count}`}
+                  />
+                ))}
               </div>
             </button>
           )

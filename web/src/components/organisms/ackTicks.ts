@@ -1,4 +1,5 @@
-import type { TickView } from "../../contracts"
+import type { TickView, ZoneAckCounts } from "../../contracts"
+import { zoneAggregates } from "../../fleetAggregate"
 import { formatMw } from "../../format"
 import { fleetCells, type HomeState } from "./fleetCells"
 import { ZONE_ORDER } from "./homeNodes"
@@ -63,7 +64,7 @@ export function ackState(tick: AckTick, elapsedMs: number): AckState {
  * What the rail paints. The timer still calls a stale home "acked" so it is not written off
  * as dead. The mark says it got no work, same as a reserved home and a fail-safe tick.
  */
-export const ACK_MARKS = ["pending", "acked", "held", "silent", "dead", "failsafe"] as const
+export const ACK_MARKS = ["pending", "acked", "held", "silent", "unconfirmed", "dead", "failsafe"] as const
 
 export type AckMark = (typeof ACK_MARKS)[number]
 
@@ -98,7 +99,7 @@ export function ackMark(item: AckTick, elapsedMs: number, failSafe: boolean): Ac
 export type AckMarkCounts = Record<AckMark, number>
 
 export function ackMarkCounts(ticks: readonly AckTick[], elapsedMs: number, failSafe: boolean): AckMarkCounts {
-  const counts: AckMarkCounts = { pending: 0, acked: 0, held: 0, silent: 0, dead: 0, failsafe: 0 }
+  const counts: AckMarkCounts = { pending: 0, acked: 0, held: 0, silent: 0, unconfirmed: 0, dead: 0, failsafe: 0 }
   for (const item of ticks) {
     counts[ackMark(item, elapsedMs, failSafe)] += 1
   }
@@ -117,11 +118,14 @@ export function zoneAcked(ticks: readonly AckTick[], elapsedMs: number, failSafe
  */
 export function ackSummary(marks: AckMarkCounts, deliveredMw: number): string {
   const silent = marks.silent + marks.dead
-  const quiet = silent + marks.failsafe > 0
+  const quiet = silent + marks.unconfirmed + marks.failsafe > 0
   const parts = marks.pending > 0 ? [`${marks.pending} pending`] : []
   parts.push(`${silent} silent`, `${marks.acked} acked`)
   if (marks.held > 0) {
     parts.push(`${marks.held} held`)
+  }
+  if (marks.unconfirmed > 0) {
+    parts.push(`${marks.unconfirmed} unconfirmed`)
   }
   if (marks.failsafe > 0) {
     parts.push(`${marks.failsafe} fail-safe`)
@@ -138,4 +142,89 @@ export function ackCounts(ticks: readonly AckTick[], elapsedMs: number): AckCoun
     counts[ackState(tick, elapsedMs)] += 1
   }
   return counts
+}
+
+const ACK_TOTAL_KEYS = ["acked", "held", "silent", "dead", "unconfirmed"] as const
+
+export function emptyZoneAcks(): ZoneAckCounts {
+  return { acked: 0, held: 0, silent: 0, dead: 0, unconfirmed: 0 }
+}
+
+function isZoneAckCounts(value: unknown): value is ZoneAckCounts {
+  if (typeof value !== "object" || value === null) return false
+  const row = value as Record<string, unknown>
+  return ACK_TOTAL_KEYS.every((key) => typeof row[key] === "number")
+}
+
+/** Snapshot totals when the engine wrote them. Missing or partial rows are empty, not invented. */
+export function readZoneAcks(tick: TickView): Record<string, ZoneAckCounts> | null {
+  const raw = tick.zone_acks
+  if (raw === undefined) return null
+  const next: Record<string, ZoneAckCounts> = {}
+  for (const [zone, row] of Object.entries(raw)) {
+    if (isZoneAckCounts(row)) next[zone] = row
+  }
+  return Object.keys(next).length > 0 ? next : null
+}
+
+export type ZoneAckTotals = ZoneAckCounts & {
+  zone: string
+  failsafe: number
+  pending: number
+  homes: number
+}
+
+function paintZone(zone: string, counts: ZoneAckCounts, failSafe: boolean): ZoneAckTotals {
+  const acked = failSafe ? 0 : counts.acked
+  const failsafe = failSafe ? counts.acked : 0
+  const homes = counts.acked + counts.held + counts.silent + counts.dead + counts.unconfirmed
+  return { zone, ...counts, acked, failsafe, pending: 0, homes }
+}
+
+/**
+ * One stacked bar per zone. Prefer engine zone_acks. A tape without that field
+ * still paints from zoneAggregates so Demo does not grow 100 spans.
+ */
+export function zoneAckTotals(tick: TickView): ZoneAckTotals[] {
+  const failSafe = tickFailSafe(tick)
+  const written = readZoneAcks(tick)
+  if (written !== null) {
+    return ZONE_ORDER.map((zone) => paintZone(zone, written[zone] ?? emptyZoneAcks(), failSafe))
+  }
+  return zoneAggregates(tick).map((row) =>
+    paintZone(
+      row.zone,
+      {
+        acked: row.discharging + row.ok,
+        held: row.reserved,
+        silent: row.stale,
+        dead: row.dead,
+        unconfirmed: row.unconfirmed,
+      },
+      failSafe,
+    ),
+  )
+}
+
+export function totalsToMarks(rows: readonly ZoneAckTotals[]): AckMarkCounts {
+  const marks: AckMarkCounts = { pending: 0, acked: 0, held: 0, silent: 0, unconfirmed: 0, dead: 0, failsafe: 0 }
+  for (const row of rows) {
+    marks.acked += row.acked
+    marks.held += row.held
+    marks.silent += row.silent
+    marks.unconfirmed += row.unconfirmed
+    marks.dead += row.dead
+    marks.failsafe += row.failsafe
+    marks.pending += row.pending
+  }
+  return marks
+}
+
+export const ACK_BAR_MARKS = ["acked", "held", "silent", "unconfirmed", "dead", "failsafe"] as const
+
+export function barSegments(row: ZoneAckTotals): { mark: (typeof ACK_BAR_MARKS)[number]; count: number }[] {
+  return ACK_BAR_MARKS.flatMap((mark) => {
+    const count = row[mark]
+    return count > 0 ? [{ mark, count }] : []
+  })
 }

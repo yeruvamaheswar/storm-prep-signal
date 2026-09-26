@@ -6,7 +6,7 @@ Usage: python scripts/load_ercot_reports.py [--window beryl] [--report NP4-732-C
 Posted reports go to public.ercot_postings, one row per ERCOT posting, upserted on (report, posted_at).
 NP6-905-CD prices have no posting time, so they go to public.ercot_prices, one row per load zone
 per 15-minute interval, upserted on (settlement_point, interval_ending). Running again updates rows.
-Needs ERCOT_USERNAME, ERCOT_PASSWORD, ERCOT_SUBSCRIPTION_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY in .env.
+Needs ERCOT_USERNAME, ERCOT_PASSWORD, ERCOT_SUBSCRIPTION_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY in server/.env.
 """
 import argparse
 import os
@@ -16,15 +16,14 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
-from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
 
 from load_ercot_archive import BatchFailed, send  # noqa: E402
+from server.env import ENV_PATH, load_env  # noqa: E402
 from server.engine.signal import CENTRAL, SignalUnavailable, get_id_token, parse_central, rows_by_name  # noqa: E402
 
-ENV_PATH = ROOT / ".env"
 API_URL = "https://api.ercot.com/api/public-reports"
 WINDOWS = {"beryl": ("2024-07-05", "2024-07-11"), "tuning-2026": ("2026-08-25", "2026-09-25")}
 # report -> (API path, extra query filters). Every one of these has a postedDatetime per row.
@@ -154,7 +153,7 @@ def main(argv=None):
     parser.add_argument("--end", type=date.fromisoformat, help="last day, overrides the window's")
     args = parser.parse_args(argv)
 
-    load_dotenv(ENV_PATH)
+    load_env(ENV_PATH)
     url, key = os.getenv("SUPABASE_URL", ""), os.getenv("SUPABASE_SECRET_KEY", "")
     if not (url and key):
         print("skipped: no_config")
