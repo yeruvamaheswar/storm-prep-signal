@@ -200,3 +200,17 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   at 60% `signal_unavailable`, one failed event (`tests/test_engine.py`). `pytest -q`: 27 passed.
 - One real run, 22:58 CT: `live: risk LOW`, 12 ticks at 30% `normal`. Delivered is 0 because
   `allocate` is still the TEMP stub. No `.env` secret in the log.
+
+## 2026-09-25: Worker ack rail on the wall (web only)
+
+- New organism `web/src/components/organisms/AckRail.tsx` under the map, with pure logic in
+  `ackTicks.ts`. There are 100 ticks, 25 per zone. A tick's zone uses the same `index % 4` rule
+  as `homeNodes`, so the rail and the map dots agree. `homeNodes.ts` is unchanged.
+- This is staged, not real device acks: the tape has no per-home ack. Dead homes (from
+  `fleetCells`) never answer. They go pending, then unconfirmed at 2 s (`ACK_TIMEOUT_MS`), then
+  dead at 3.5 s. Every other home, stale included, acks before 1.2 s.
+- Caption `ackCaption` in `format.ts`. The settled "15% dead" scene reads
+  `15 silent · 85 acked · call still 0.34 MW`. Each scene click replays the round, and reduced
+  motion jumps straight to the settled state.
+- `web/tests/ackTicks.test.ts` (6 tests). `npx vitest run`: 59 passed. `tsc --noEmit` clean.
+  No Python changed, so `pytest -q` was not run.

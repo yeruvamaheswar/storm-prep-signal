@@ -1,0 +1,87 @@
+.zone-map {
+  flex: 1;
+  min-height: 0;
+  background: var(--field);
+  border: 1px solid var(--line);
+}
+
+.zone-map .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: var(--field);
+  font-family: var(--font);
+}
+
+.zone-map .leaflet-bar {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+
+.zone-map .leaflet-bar a {
+  background: var(--field);
+  color: var(--ink);
+  border-bottom-color: var(--line);
+}
+
+.zone-map .leaflet-control-attribution {
+  background: var(--field);
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+.zone-map .leaflet-control-attribution a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+}
+
+.zone-map .leaflet-control-attribution a:hover {
+  color: var(--ink);
+}
+
+.leaflet-tooltip.zone-name {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.leaflet-tooltip.zone-name::before {
+  display: none;
+}
+
+.leaflet-tooltip.home-node-tip {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--field);
+  box-shadow: none;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.leaflet-tooltip.home-node-tip::before {
+  display: none;
+}
+
+.zone-map-names {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

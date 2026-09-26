@@ -1,0 +1,55 @@
+{
+  "tick_id": "tick_bad_feed",
+  "ts": "2026-07-08T19:20:00-05:00",
+  "source": "live",
+  "tape_id": null,
+  "mode": "RESERVE",
+  "target": {
+    "mw": 0.4,
+    "source": "ercot",
+    "as_of": "2026-07-08T19:19:40-05:00",
+    "quality": "ok"
+  },
+  "price": {
+    "usd_mwh": 185,
+    "source": "ercot",
+    "as_of": "2026-07-08T19:19:50-05:00",
+    "quality": "ok"
+  },
+  "delivered_mw": 0,
+  "missed_mw": 0.4,
+  "reserve": {
+    "pct": 60,
+    "reason": "signal_untrusted",
+    "sellable_mwh": 0,
+    "held_mwh": 0.6
+  },
+  "stress": {
+    "outage_mw": 0,
+    "threshold_mw": 1500,
+    "margin_mw": -1500,
+    "zone_id": "NP3",
+    "level": null,
+    "as_of": "2026-07-08T19:00:00-05:00",
+    "quality": "timeout",
+    "calm_streak": 0
+  },
+  "fleet": {
+    "live": 70,
+    "stale": 10,
+    "dead": 18,
+    "unconfirmed": 2,
+    "breaches": 0
+  },
+  "quality": "timeout",
+  "reasons": ["signal_untrusted"],
+  "brief": "Outage report timed out. Discharge is stopped.",
+  "attention": {
+    "attention_id": "att_bad_feed",
+    "reason": "timeout",
+    "input": "stress",
+    "prompt": "Outage report timed out. Discharge is stopped.",
+    "choices": ["approve", "retry", "skip"],
+    "retry_spent": false
+  }
+}

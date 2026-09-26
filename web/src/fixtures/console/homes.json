@@ -1,0 +1,49 @@
+[
+  {
+    "home_id": "home-001",
+    "status": "live",
+    "capacity_kwh": 20,
+    "soc_kwh": 16.4,
+    "floor_kwh": 6,
+    "max_kw": 5,
+    "assigned_kw": 3.2,
+    "eligible": true,
+    "skip_reason": null,
+    "last_seen": "2026-07-08T19:19:30-05:00",
+    "last_command": {
+      "kw": 3.2,
+      "sent_at": "2026-07-08T19:20:01-05:00",
+      "ack": "ok"
+    }
+  },
+  {
+    "home_id": "home-014",
+    "status": "unconfirmed",
+    "capacity_kwh": 20,
+    "soc_kwh": 11.2,
+    "floor_kwh": 12,
+    "max_kw": 5,
+    "assigned_kw": 0,
+    "eligible": false,
+    "skip_reason": "unconfirmed",
+    "last_seen": "2026-07-08T19:11:00-05:00",
+    "last_command": {
+      "kw": 0,
+      "sent_at": "2026-07-08T19:20:01-05:00",
+      "ack": "timeout"
+    }
+  },
+  {
+    "home_id": "home-003",
+    "status": "dead",
+    "capacity_kwh": 13.5,
+    "soc_kwh": 4.2,
+    "floor_kwh": 6,
+    "max_kw": 5,
+    "assigned_kw": 0,
+    "eligible": false,
+    "skip_reason": "dead",
+    "last_seen": "2026-07-08T12:00:00-05:00",
+    "last_command": null
+  }
+]

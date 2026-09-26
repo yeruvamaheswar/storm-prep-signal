@@ -1,0 +1,8 @@
+[
+  {
+    "tape_id": "demo-stress",
+    "title": "Outage report goes bad, then two calm readings",
+    "ticks": 12,
+    "labeled": "synthetic"
+  }
+]
