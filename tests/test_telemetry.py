@@ -331,3 +331,17 @@ def test_same_seed_same_cycle_with_feed():
     a = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
     b = cycle_with_feed(ticks=2, telemetry_dup_rate=0.05, telemetry_late_rate=0.05)[0]
     assert [(x.credited_mw, x.feed) for x in a] == [(y.credited_mw, y.feed) for y in b]
+
+
+def test_reassignment_uses_reported_status_not_the_truth():
+    # home-097 is Houston's fullest battery but silent all run, so by tick 2 it is stale in the
+    # reports while its truth still looks live with the most headroom.
+    # home-093 (Houston) goes offline at 300 s, is still live in the reports at tick 2's plan,
+    # gets an order it never receives, times out, and its share must be reassigned.
+    results, homes, state = cycle_with_feed(
+        target_mw=0.2, ticks=2,
+        telemetry_outages={"home-097": [(0.0, 10_000.0)], "home-093": [(300.0, 10_000.0)]})
+    second = results[1]
+    moves = [e for e in second.events if e["kind"] == "reassigned"]
+    assert any(e["parent_command_id"] == "home-093:2" for e in moves)
+    assert all(e["home_id"] != "home-097" for e in moves)

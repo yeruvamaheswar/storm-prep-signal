@@ -91,6 +91,7 @@ class Runtime:
         self.reassigned_to = set() # homes already holding a ":r" command (keeps ids unique)
         self.closed = False
         self.feed = None           # the TelemetryState for this tick, or None with no feed
+        self.plan_view = {}        # reported Home copies used by this tick's planner
 
     def log(self, kind, **data):
         self.sched.log(kind, **data)
@@ -236,10 +237,11 @@ class ZoneSupervisor:
         rt, best, best_spare = self.rt, None, 0.0
         for worker in rt.workers.values():
             home = worker.home
-            if (home.zone != self.zone or home.status != "live" or home.home_id == cmd.home_id
+            view = rt.plan_view.get(home.home_id, home)
+            if (home.zone != self.zone or view.status != "live" or home.home_id == cmd.home_id
                     or home.home_id in rt.suspect or home.home_id in rt.reassigned_to):
                 continue
-            safe = safe_kw(home, rt.policy, rt.settings)
+            safe = safe_kw(view, rt.policy, rt.settings)
             spare = round_down(safe - rt.planned_kw.get(home.home_id, 0.0))
             if spare > best_spare:
                 best, best_spare = home, spare
@@ -315,6 +317,7 @@ def run_cycle(homes, frame, policy, mode, settings, seed, telemetry=None):
     plan_homes = homes if telemetry is None else telemetry.reported_homes(homes)
     plan = allocate(plan_homes, frame, policy, mode, settings)
     rt = Runtime(settings, policy, frame.tick, seed)
+    rt.plan_view = {h.home_id: h for h in plan_homes}
     if telemetry is not None:
         telemetry.start_tick(rt.sched, homes)
         rt.feed = telemetry
