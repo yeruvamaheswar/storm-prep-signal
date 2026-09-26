@@ -785,3 +785,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Runner: `python -m server.engine.orchestration --tape tests/fixtures/tape_tiny.json --seed 1 --telemetry`.
 - `pytest -q`: 218 passed. Feed fuzz (30 seeds x 12 ticks): 0 breaches, 0 honest homes flagged, 3.14 s. The feed fuzz runs 30 seeds by default (`TELEMETRY_FUZZ_SEEDS`).
 - Details: `docs/agents/telemetry-vpp.md`.
+
+## 2026-09-26: Orchestrator on the wall (Rajat's lane; `loop.py` edit OK'd in person by Uma)
+
+- `server/engine/orchestration.py`: `ACK_KEYS` and `zone_acks(homes, cycle)`, the wall's per-zone `{acked, held, silent, dead, unconfirmed}` from a `CycleResult`.
+- `server/engine/loop.py`: each tick calls `orchestrate_tick` (seed `settings["seed"]` × 100 000 + tick) instead of `allocate` → `simulate_zone_acks` → `discharge`. No separate `discharge` (the workers drain). `delivered_mw` and `zone_delivered_mw` are now confirmed MW; the Reasons list gains `timed_out:n`, `duplicates_ignored:n`, `charge_mismatch:n`, `over_delivery:n` when they happen.
+- Evidence: `tapes/demo.json` with no faults gives the same MW on all 12 ticks as before. tape_tiny calm tick with `channel_drop_rate=0.5` went from 0.200 of 0.200 (with 32 homes unconfirmed) to 0.106, reason `timed_out:80`. One 10,000-home tick: 0.27 s.
+- `tests/test_tracer.py` wraps `orchestrate_tick`; 2 new tracer tests, 5 new `zone_acks` tests. `supervisor.py` is no longer called by the engine (Sunny may delete it).
+- Docs: `docs/agents/code-flow.md` (tick diagrams and steps), `docs/agents/zone-acks.md` (decision rewritten).
+- `pytest -q`: 400 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

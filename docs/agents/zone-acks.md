@@ -1,29 +1,28 @@
-# Zone supervisor acks (rollup until devices exist)
+# Zone supervisor acks
 
-**Decision (2026-09-26).** There is no per-home device command API on this branch. After `allocate`, `simulate_zone_acks` rolls command outcomes in-process and writes `TickResult.zone_acks`. The snapshot passes that field through. The wall AckRail binds those counts as one stacked bar per zone. It does not paint `index % 4` over 100 spans.
+**Decision (2026-09-26, updated).** The tick loop runs every tick through `orchestration.orchestrate_tick`: orders go through a lossy simulated `Channel` to a `HomeWorker` per home, retry at 60 s, and the books close at 120 s. `orchestration.zone_acks(homes, cycle)` writes `TickResult.zone_acks`. The snapshot passes that field through. The wall AckRail binds those counts as one stacked bar per zone. It does not paint `index % 4` over 100 spans. There is still no per-home device command API; the channel and workers are a simulation, not hardware.
 
-## What this is not
-
-The other branch's `orchestration.run_cycle` fans `Command` objects through a lossy `Channel` to a `HomeWorker` per home, retries at 60 s, and closes at 120 s. That path is not hardware either, and we did not copy it. `discharge` still applies the allocation. Unconfirmed homes are a rollup status; they do not rewrite `delivered_mw`.
+Delivered MW is confirmed MW. An order we never heard back on is unconfirmed and is not counted in `delivered_mw` or `zone_delivered_mw`.
 
 ## Contract
 
-`zone_acks` is add-only on `TickResult`. Each zone maps to `{acked, held, silent, dead, unconfirmed}`.
+`zone_acks` is add-only on `TickResult`. Each zone maps to `{acked, held, silent, dead, unconfirmed}`. Status is read at the end of the tick.
 
-- **acked:** live home, `kw > 0`, send or the one retry arrived
+- **acked:** live home with a confirmed command (its own, or work reassigned to it)
 - **held:** live home, no command (0 kW / HOLD)
-- **silent:** stale (never commanded)
-- **dead:** dead (never commanded)
-- **unconfirmed:** live home commanded, both the 0 s send and the 60 s retry dropped
+- **silent:** stale
+- **dead:** dead, including a home whose worker crashed during the tick
+- **unconfirmed:** live home we sent a command to and never heard back from by 120 s
 
-`command_id` is `{home_id}:{tick}`. A retry reuses that id. `HomeWorker.seen` ignores a repeat.
+`command_id` is `{home_id}:{tick}`; a retry reuses it; a reassignment is `{home_id}:{tick}:r`. A worker ignores a repeat id.
 
-Optional `settings["channel_drop_rate"]` (default 0) drops a send. Seed is `settings["seed"]` (default 1). Virtual deadlines stay `CYCLE_CONFIRM_S = 60` and `CYCLE_CLOSE_S = 120`.
+Channel faults come from settings (`channel_drop_rate`, `channel_dup_rate`, `channel_late_rate`; default 0). The seed per tick is `settings["seed"]` (default 1) × 100 000 + tick, so a run replays exactly.
 
 ## Code
 
-- `server/engine/supervisor.py`: `Command`, `HomeWorker`, `ZoneSupervisor`, `simulate_zone_acks`
-- `server/engine/loop.py` calls it after `allocate`
+- `server/engine/orchestration.py`: `orchestrate_tick`, `zone_acks`, `ACK_KEYS`. Detail: `docs/agents/epic-3-controller.md`
+- `server/engine/loop.py` calls both each tick
+- `server/engine/supervisor.py`: the earlier in-process rollup (`simulate_zone_acks`). No longer called by the engine
 - `GET /v1/snapshot` copies `zone_acks` with the tick
 - `web/src/components/organisms/ackTicks.ts` `zoneAckTotals` prefers `tick.zone_acks`, else `zoneAggregates` so Demo still has four bars
 - `AckRail` draws stacked bars

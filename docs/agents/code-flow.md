@@ -4,7 +4,7 @@
 
 **Summary.**
 
-- One entry point makes a run: `python -m server.engine` (`server/engine/__main__.py` calls `loop.main`, then `scripts/persist_run.py` only with `--persist`). It plays a tape, rates risk for each frame, picks the reserve floor, splits the target across homes, simulates zone acks, discharges, and writes `var/runs/<run_id>.json` plus `var/runs/latest.json` after every tick. That run file is the source of truth.
+- One entry point makes a run: `python -m server.engine` (`server/engine/__main__.py` calls `loop.main`, then `scripts/persist_run.py` only with `--persist`). It plays a tape, rates risk for each frame, picks the reserve floor, splits the target across homes, sends each order through the orchestrator (lossy channel, retry, deadline; only confirmed MW counts), rolls up zone acks, and writes `var/runs/<run_id>.json` plus `var/runs/latest.json` after every tick. That run file is the source of truth.
 - Upstream, `scripts/` load ERCOT history into Supabase and build local files: tapes, posting fixtures, baselines, and evidence JSON. `data/fixtures/heather/` and `tapes/heather.json` are built by `scripts/build_tape.py`.
 - For Live, `scripts/live_cycle.py` is the laptop worker: each cycle it fetches ERCOT, upserts the posting and price into Supabase as `event=live`, and calls `loop.run()` for one tick with that same posting.
 - The API (`uvicorn server.app:app`) reads the run file and Supabase (through `server/api/archive.py`: the newest `event=live` row in Live, the pinned posting for Demo with an archive event). In Live it falls back to ERCOT directly (through `server/api/feeds.py`) when no worker row is usable. It rates the posting again with the engine's `compute_risk` and `reserve_policy`; it never writes a second rule. See [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
@@ -54,7 +54,7 @@ flowchart LR
     LOOP["loop.py<br/>one pass per tape frame"]
     RISK["signal → risk.compute_risk"]
     POL["policy.reserve_policy<br/>30% or 60% floor"]
-    ALLOC["controller.allocate<br/>supervisor.simulate_zone_acks<br/>fleet.discharge"]
+    ALLOC["orchestration.orchestrate_tick<br/>allocate, send, confirm, drain<br/>orchestration.zone_acks"]
     LOOP --> RISK --> POL --> ALLOC
   end
 
@@ -109,8 +109,7 @@ sequenceDiagram
   participant Signal as signal.py
   participant Risk as risk.py
   participant Policy as policy.py
-  participant Ctrl as controller.py
-  participant Sup as supervisor.py
+  participant Orch as orchestration.py
   participant Out as var/runs, var/logs, var/fleet
 
   Tape->>Fleet: apply_events(homes, frame.events)
@@ -120,10 +119,10 @@ sequenceDiagram
   Risk->>Policy: RiskResult, or None on failure or no risk_fixture
   Tape->>Policy: events["weather"] zones, as alerted
   Note over Policy: HIGH or None gives 60% everywhere. LOW gives 30%, and 60% in a warned zone (defaults)
-  Policy->>Ctrl: allocate(homes, frame, policy, mode)
-  Ctrl->>Sup: simulate_zone_acks(homes, alloc, tick)
-  Sup->>Fleet: discharge(homes, alloc, policy)
-  Fleet->>Out: TickResult + brief, one log line, rollups.json, run_id.json and latest.json
+  Policy->>Orch: orchestrate_tick(homes, frame, policy, mode, settings, seed)
+  Note over Orch: controller.allocate plans; orders go over a lossy channel; retry at 60 s, close at 120 s; workers drain batteries
+  Orch->>Fleet: home soc drops only for commands that ran
+  Orch->>Out: zone_acks(homes, cycle), TickResult + brief, one log line, rollups.json, run_id.json and latest.json
 ```
 
 ## 1. Full flow
@@ -176,9 +175,8 @@ flowchart TD
     SIG["signal.load_signal, then signal.to_signal"]
     RISK["risk.compute_risk"]
     POL["policy.reserve_policy"]
-    ALLOC["controller.allocate"]
-    ACKS["supervisor.simulate_zone_acks"]
-    DIS["fleet.discharge"]
+    ALLOC["orchestration.orchestrate_tick<br/>controller.allocate, channel, workers drain"]
+    ACKS["orchestration.zone_acks"]
     TR["contracts.TickResult"]
     BRIEF["brief.write_brief"]
     LOG["events.log_event"]
@@ -205,13 +203,12 @@ flowchart TD
   MODE --> ALLOC
   POL --> ALLOC
   ALLOC --> ACKS
-  ACKS --> DIS
-  DIS --> TR
+  ACKS --> TR
   TR --> BRIEF
   BRIEF --> LOG
   LOG --> JSONL["var/logs/{run_id}.jsonl"]
   TR --> RUN["var/runs/{run_id}.json and var/runs/latest.json, written every tick"]
-  DIS --> ROLLS
+  ALLOC --> ROLLS
   ROLLS --> ROLLFILE["var/fleet/rollups.json"]
   MAIN -.->|"--persist only: scripts/persist_run.py, runs_skipped on failure"| SB
 
@@ -299,7 +296,7 @@ How one engine tick runs, in order (`run()` in `server/engine/loop.py`):
 4. Frames come from `load_tape(--tape)`, or from `synthetic_frames` when `--live` has no tape (12 frames at 0.2 MW, labeled `synthetic`). `new_fleet(settings)` seeds the homes. A `--tape` run starts in `AUTO` and never reads or writes `var/state.json`. Only `--live` (and `scripts/live_cycle.py`, which passes `state_path` itself) starts from `var/state.json` (`AUTO` when the file is missing).
 5. For each frame: `apply_events`. Then risk: the live risk, or `read_risk(frame.risk_fixture)`, which calls `signal.load_signal`, then `signal.to_signal`, then `risk.compute_risk`. Any failure is logged and gives `None`. A frame with no `risk_fixture` also gives `None`.
 6. `weather_zones(frame, settings)` reads the frame's `events["weather"]`, a list of load-zone names under a warning, for example `["Houston"]`. Names in the `ZONES` setting become `alerted`; the list counts for this frame only and does not carry to the next. Once the mode and price are known (step 7), `reserve_policy(risk, settings, alerted, mode=..., price_usd_mwh=..., price_label=...)` sets the floors. `None` means the storm floor with reason `signal_unavailable`. A fleet-wide reason (`signal_unavailable` or `storm_risk_high`) sets every zone and wins over a warning. Otherwise a warned zone gets `storm_reserve_pct` with zone reason `weather_alert`, and the rest stay at `base_reserve_pct`. A name not in `ZONES` is ignored, adds `unknown_weather_zone` to the tick's `reasons`, and logs `stage=weather` with the names.
-7. The mode comes from `frame.events["operator"]`, else the current mode. With `--live` or the live worker it is written back to `var/state.json`; a `--tape` run writes nothing. `scale_target_mw` scales the target to the fleet. Then `allocate`, `simulate_zone_acks`, and `discharge` (which returns the breach count).
+7. The mode comes from `frame.events["operator"]`, else the current mode. With `--live` or the live worker it is written back to `var/state.json`; a `--tape` run writes nothing. `scale_target_mw` scales the target to the fleet. Then `orchestration.orchestrate_tick` (it calls `allocate`, fans the orders out, and its workers drain the batteries; there is no separate `discharge` call) and `orchestration.zone_acks`. Delivered MW and `zone_delivered_mw` are confirmed MW. The seed per tick is `settings["seed"]` (default 1) × 100 000 + tick.
 8. Build a `TickResult` (with zone floors, zone delivered MW, zone acks, and price), call `write_brief`, then `log_event("tick", ...)` and print one line.
 9. Write `var/fleet/rollups.json`, then the run record (`run_id`, `tape`, `source`, `baseline`, `settings`, `ticks`, `totals: {}`) to `var/runs/<run_id>.json` and `var/runs/latest.json`. This happens every tick, so `/v1/snapshot` can read a live run mid-way.
 10. `__main__.py` strips `--persist` from argv (`parse_known_args`) before `loop.main`. Only with `--persist`, after `loop.main` returns, it calls `scripts/persist_run.py` to upsert the run into Supabase `runs`. Any failure prints `runs_skipped: <reason>` and the exit code is unchanged. Without the flag, `--tape` makes no network calls.
@@ -340,7 +337,7 @@ flowchart LR
 
 ### Orchestration runtime
 
-`python -m server.engine.orchestration --tape PATH --seed N` (`server/engine/orchestration.py`). Plays a tape through `allocate`, then fans each tick's commands out through zone supervisors and a lossy `channel.Channel` to one worker per home, on the seeded virtual clock in `scheduler.py`. Deadlines at 0, 60, and 120 s; a retry keeps the command id; a reassignment gets a new one. Writes `var/orchestration/<seed>.json`. `--telemetry` adds the simulated battery feed (`telemetry.py`) and prints a `plant:` line per tick. `loop.py` does not call it; the tick loop uses the in-process `supervisor.simulate_zone_acks` rollup instead. Detail: `docs/agents/epic-3-controller.md`.
+`python -m server.engine.orchestration --tape PATH --seed N` (`server/engine/orchestration.py`). Plays a tape through `allocate`, then fans each tick's commands out through zone supervisors and a lossy `channel.Channel` to one worker per home, on the seeded virtual clock in `scheduler.py`. Deadlines at 0, 60, and 120 s; a retry keeps the command id; a reassignment gets a new one. Writes `var/orchestration/<seed>.json`. `--telemetry` adds the simulated battery feed (`telemetry.py`) and prints a `plant:` line per tick. `loop.py` calls the same `orchestrate_tick` every tick (without telemetry). Detail: `docs/agents/epic-3-controller.md`.
 
 ## 3. File map
 
@@ -365,7 +362,7 @@ Engine and API (`server/`):
 - `server/engine/contracts.py`: the shared dataclasses `Home`, `TapeFrame`, `Policy`, `Allocation`, and `TickResult`.
 - `server/engine/fleet.py`: `new_fleet`, `apply_events`, `discharge`, the floor math (`floor_kwh`, `safe_kw`), target scaling, and the zone rollups (`fleet_rollups`, `save_rollups`, `current_rollups`).
 - `server/engine/controller.py`: `allocate` (pure). Splits the target using only energy above each home's floor.
-- `server/engine/supervisor.py`: `simulate_zone_acks`. Rolls acked, held, silent, dead, and unconfirmed per zone after `allocate`. No device API.
+- `server/engine/supervisor.py`: `simulate_zone_acks`. The earlier in-process ack rollup. The tick loop no longer calls it (it uses `orchestration.zone_acks`); kept with its tests.
 - `server/engine/fleet_state.py`: reads and writes `var/state.json` so the wall's `AUTO`/`HOLD` and the next `allocate` share one mode.
 - `server/engine/brief.py`: `write_brief` and `apply_tick_brief`. One or two sentences from `TickResult` fields. No LLM.
 - `server/engine/score.py`: `new_board` and `update`, the running scoreboard. Only tests import it; `loop.py` still writes `totals: {}`.
@@ -426,7 +423,7 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 
 - **`load_tape` is still TEMP in `server/engine/loop.py`.** A plain JSON read that does not check labels, offsets, or a naive `ts`. It waits on Sunny's `server/engine/tape.py`, which does not exist. The promised signature is in [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
 - **`totals` stays `{}`.** `score.py` exists, but `loop.py` does not call `new_board` or `update` yet.
-- **Two ack models.** The tick loop uses `supervisor.simulate_zone_acks` (in-process rollup). `orchestration.py` is the full lossy-channel runtime and is not wired into `loop.py`.
+- **One ack model.** The tick loop runs `orchestration.orchestrate_tick` (lossy channel, retry, deadline) and reads acks from `orchestration.zone_acks`. `supervisor.simulate_zone_acks` is unused by the engine.
 - **Some `/v1` routes still read fixtures.** `/live`, `/zone`, `/homes`, `/ticks`, `/tapes`, and the `/live/stream` tick event come from `web/src/fixtures/console/*.json`. Only `/fleet/mode` reaches the engine (through `var/state.json`); attention and playback writes stay in memory.
 - **The `features/` console pages render preview data.** They do not call `/v1` or read a run file.
 - **Weather comes only from the tape.** A frame's `events["weather"]` list reaches `reserve_policy` as `alerted`. `loop.py` still never reads `TapeFrame.weather_fixture` or a live alert feed, so `weather_label` stays `"none"`.
