@@ -998,3 +998,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Real ERCOT check (read-only, 2026-09-26 17:45 CT interval): Houston 34.17, North 31.56, South 36.95, West 59.21 $/MWh; North equals the headline `fetch_price`.
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Battery telemetry line on the wall (Rajat)
+
+- `server/api/snapshot.py`: `_with_telemetry` bundles the engine tick's `plant` and `feed` dict as `telemetry: {plant, readings}` (unscaled) and moves the dict off `feed`, which stays the ERCOT status text. One call on the loaded tick covers Live, Archive and fail-safe.
+- Wall: `telemetryLine.ts` builds `Battery reports: 69 of 100 live · 1 suspect · 2,930 of 3,005 readings accepted (synthetic)`, shown under the Worker acks caption in `AckRail.tsx`. Hidden with no telemetry or a missing count; suspect in `--dead` only above 0. `contracts.ts`: removed the clashing `feed?: Record`, added `telemetry?: TickTelemetry`.
+- Demo: `layout-run.json` ticks 1 to 9 carry `telemetry` from an engine run of `tapes/demo.json` (feed on, 100 homes). Ticks 10 to 12 have none: the file was hand-edited off the tape there. Detail: `docs/agents/wall-snapshot.md#battery-telemetry-line`.
+- Docs: `wall-snapshot.md`, `telemetry-vpp.md` (Asks), `code-flow.md` (web diagram, snapshot step 2, limits), `system-design.md` (`TickResult` row).
+- Tests: 3 in `tests/test_snapshot_telemetry.py`, 7 in `web/tests/telemetryLine.test.ts`. `pytest -q`: 514 passed. Web: 240 passed; `tsc --noEmit` clean.

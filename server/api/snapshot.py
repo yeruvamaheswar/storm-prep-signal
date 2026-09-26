@@ -223,6 +223,17 @@ def _feeds(quality, as_of=None, age_min=None, http_status=None, hold_outage=Fals
     ]
 
 
+def _with_telemetry(tick: dict) -> dict:
+    """Bundle the engine's battery feed as `telemetry`. The engine `feed` dict would clash with
+    the snapshot's ERCOT `feed` text, so it leaves the tick. Counts stay as the engine reported
+    them (not scaled to FLEET_SIZE): they are real readings from the simulated fleet."""
+    readings = tick.pop("feed", None) if isinstance(tick.get("feed"), dict) else None
+    plant = tick.get("plant")
+    if plant and readings:
+        tick["telemetry"] = {"plant": plant, "readings": readings}
+    return tick
+
+
 def _finish(tick: dict) -> dict:
     return apply_tick_brief(apply_mode(tick))
 
@@ -556,7 +567,7 @@ def build_snapshot(
     zone: Optional[str] = None,
 ) -> dict:
     run = load_latest_run()
-    tick = scale_tick_to_fleet(dict(run["ticks"][-1]), read_settings())
+    tick = _with_telemetry(scale_tick_to_fleet(dict(run["ticks"][-1]), read_settings()))
     named = event if isinstance(event, str) else (run.get("event") if isinstance(run.get("event"), str) else None)
     replay = discover_runtime(event=named, clock=_iso_clock(clock))
     origin = _origin_fields(replay, run, named)

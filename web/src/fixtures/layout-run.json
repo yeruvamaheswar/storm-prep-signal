@@ -25,7 +25,22 @@
       "breaches": 0,
       "reasons": [],
       "brief": "Delivered 0.20 of 0.20 MW (synthetic target). Floor held at 30% because storm risk is LOW.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 99,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 3005,
+          "accepted": 2930,
+          "duplicates": 26,
+          "late": 49
+        }
+      }
     },
     {
       "tick": 2,
@@ -50,7 +65,22 @@
       "breaches": 0,
       "reasons": [],
       "brief": "Delivered 0.20 of 0.20 MW (synthetic target). Floor held at 30% because storm risk is LOW.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 99,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 3005,
+          "accepted": 2928,
+          "duplicates": 36,
+          "late": 41
+        }
+      }
     },
     {
       "tick": 3,
@@ -75,7 +105,22 @@
       "breaches": 0,
       "reasons": [],
       "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Price is 185 $/MWh (synthetic). Floor held at 30%.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 98,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2987,
+          "accepted": 2912,
+          "duplicates": 25,
+          "late": 50
+        }
+      }
     },
     {
       "tick": 4,
@@ -100,7 +145,22 @@
       "breaches": 0,
       "reasons": [],
       "brief": "Delivered 0.40 of 0.40 MW (synthetic target). Price is 185 $/MWh (synthetic). Floor held at 30%.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 98,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2979,
+          "accepted": 2905,
+          "duplicates": 32,
+          "late": 42
+        }
+      }
     },
     {
       "tick": 5,
@@ -128,7 +188,22 @@
         "fleet_headroom_short"
       ],
       "brief": "Delivered 0.31 of 0.40 MW (synthetic target). Floor raised to 60% because storm risk is HIGH; 0.09 MW missed on purpose.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 98,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2963,
+          "accepted": 2874,
+          "duplicates": 29,
+          "late": 60
+        }
+      }
     },
     {
       "tick": 6,
@@ -157,7 +232,22 @@
         "fleet_headroom_short"
       ],
       "brief": "Delivered 0.24 of 0.40 MW (synthetic target). 20 homes are dead and got no work. Floor is 60%.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 79,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2981,
+          "accepted": 2912,
+          "duplicates": 24,
+          "late": 45
+        }
+      }
     },
     {
       "tick": 7,
@@ -187,7 +277,22 @@
         "fleet_headroom_short"
       ],
       "brief": "Delivered 0.22 of 0.40 MW (synthetic target). 20 homes are dead and 10 are stale. Floor is 60%.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 69,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2998,
+          "accepted": 2933,
+          "duplicates": 24,
+          "late": 41
+        }
+      }
     },
     {
       "tick": 8,
@@ -214,7 +319,22 @@
         "operator_hold"
       ],
       "brief": "Delivered 0.00 of 0.40 MW (synthetic target). Operator HOLD. 0.40 MW missed.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 69,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2997,
+          "accepted": 2926,
+          "duplicates": 23,
+          "late": 48
+        }
+      }
     },
     {
       "tick": 9,
@@ -244,7 +364,22 @@
         "fleet_headroom_short"
       ],
       "brief": "Delivered 0.22 of 0.40 MW (synthetic target). Mode is AUTO. Floor is 60%.",
-      "trigger_mw": 22348
+      "trigger_mw": 22348,
+      "telemetry": {
+        "plant": {
+          "homes": {
+            "total": 100,
+            "live": 69,
+            "suspect": 1
+          }
+        },
+        "readings": {
+          "received": 2979,
+          "accepted": 2910,
+          "duplicates": 32,
+          "late": 37
+        }
+      }
     },
     {
       "tick": 10,
