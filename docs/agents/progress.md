@@ -965,3 +965,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `tests/test_tracer.py`: its stand-in `orchestrate_tick` now passes extra arguments through (no assertion changed); the tracer checks now run with the feed on.
 - Limit: the live worker calls `loop.run` once per cycle, so report history resets each live cycle. `/v1` and the wall do not show the new fields yet.
 - Tests: 7 in `tests/test_loop_telemetry.py`. `pytest -q`: 493 passed after merging main.
+
+## 2026-09-26: Rollups count confirmed work, not the plan (Rajat's lane)
+
+- `fleet_rollups` takes optional `confirmed_kw` and `unconfirmed`. With them, `discharging` / `discharging_mw` are the homes and kW booked this tick, and a live home sent work but never heard back from is `silent` (not `live`), which the wall already reads as unconfirmed. Without them it still counts the plan (`current_rollups`, tests).
+- `orchestration.py`: `CycleResult.home_confirmed_kw` (home_id to booked kW; sums to `confirmed_mw`; a share goes to the original first, then its reassignment). New `cycle_rollups(homes, cycle, policy)`; `asked_and_heard` shared with `zone_acks`, so rollup unconfirmed equals ack unconfirmed.
+- `loop.py` (Uma's file, one line): writes `var/fleet/rollups.json` with `cycle_rollups`. Before, a 50%-loss tick showed every planned home as discharging.
+- Docs: `docs/agents/fleet-rollups.md`, `docs/agents/code-flow.md`.
+- Tests: 1 in `tests/test_fleet.py`, 4 in `tests/test_orchestration.py`, 1 in `tests/test_tracer.py`. `pytest -q`: 499 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

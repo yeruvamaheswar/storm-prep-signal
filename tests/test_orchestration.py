@@ -4,8 +4,8 @@ from dataclasses import asdict
 import pytest
 
 from server.engine.contracts import Policy, TapeFrame
-from server.engine.fleet import apply_events, floor_kwh, new_fleet
-from server.engine.orchestration import ACK_KEYS, orchestrate_tick, zone_acks
+from server.engine.fleet import apply_events, fleet_rollups, floor_kwh, new_fleet
+from server.engine.orchestration import ACK_KEYS, cycle_rollups, orchestrate_tick, zone_acks
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
 
@@ -427,6 +427,42 @@ def test_zone_acks_on_hold_counts_every_live_home_as_held():
     acks = zone_acks(homes, result)
     check_acks(acks, homes)
     assert sum(row["held"] for row in acks.values()) == len(homes)
+
+
+@pytest.mark.parametrize("seed, over", [
+    (3, {"channel_drop_rate": 0.5}),
+    (5, {"channel_delay_s": (1.0, 100.0), "worker_delay_s": (1.0, 5.0)}),  # has over-delivery
+])
+def test_per_home_booked_kw_adds_up_to_the_confirmed_books(seed, over):
+    result, homes, f = cycle(0.2 if seed == 3 else 0.05, seed=seed, **over)
+    assert result.home_confirmed_kw
+    assert all(kw > 0 for kw in result.home_confirmed_kw.values())
+    assert sum(result.home_confirmed_kw.values()) / 1000 == pytest.approx(result.confirmed_mw)
+    zone_of = {h.home_id: h.zone for h in homes}
+    for zone, mw in result.zone_delivered_mw.items():
+        in_zone = sum(kw for h, kw in result.home_confirmed_kw.items() if zone_of[h] == zone)
+        assert in_zone / 1000 == pytest.approx(mw)
+    check_books(result, f.target_mw)
+
+
+def test_rollups_after_lost_orders_match_the_confirmed_books_and_the_acks():
+    result, homes, _ = cycle(0.2, seed=3, channel_drop_rate=0.5)
+    body = cycle_rollups(homes, result, policy())
+    rows = body["zones"]
+    acks = zone_acks(homes, result)
+    assert sum(r["discharging_mw"] for r in rows.values()) == pytest.approx(result.confirmed_mw)
+    assert sum(r["discharging"] for r in rows.values()) == len(result.home_confirmed_kw)
+    for zone, row in rows.items():
+        assert row["silent"] - row["stale"] == acks[zone]["unconfirmed"]
+        assert row["live"] + row["silent"] + row["dead"] == sum(1 for h in homes if h.zone == zone)
+    assert sum(r["discharging"] for r in rows.values()) < sum(
+        1 for kw in result.allocation.per_home_kw.values() if kw > 0), "some orders were lost"
+
+
+def test_rollups_with_no_faults_match_the_plan():
+    result, homes, _ = cycle(0.2, **FAST)
+    body = cycle_rollups(homes, result, policy())
+    assert body == fleet_rollups(homes, result.allocation, policy())
 
 
 def test_zone_acks_puts_a_home_with_no_zone_under_unassigned():

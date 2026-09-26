@@ -200,16 +200,22 @@ def _empty_zone_row():
     }
 
 
-def fleet_rollups(homes, alloc=None, policy=None):
-    """Per-zone counts and MW. No home ids. Silent is stale (no unconfirmed on this fleet).
+def fleet_rollups(homes, alloc=None, policy=None, confirmed_kw=None, unconfirmed=frozenset()):
+    """Per-zone counts and MW. No home ids. Silent is stale plus unconfirmed.
 
     Reserved matches the wall: on HIGH, every live home that is not discharging.
+    With confirmed_kw (home_id to booked kW, from the orchestrator), only confirmed homes are
+    discharging; a live home in `unconfirmed` (sent work, never heard back) is silent, not live,
+    since the wall reads silent minus stale as unconfirmed. Without it, the plan is used.
     """
-    per_home_kw = alloc.per_home_kw if alloc is not None else {}
+    per_home_kw = confirmed_kw if confirmed_kw is not None else (alloc.per_home_kw if alloc is not None else {})
     zones = {}
     for home in homes:
         zone = home.zone or "unassigned"
         row = zones.setdefault(zone, _empty_zone_row())
+        if home.status == "live" and home.home_id in unconfirmed:
+            row["silent"] += 1
+            continue
         if home.status == "live":
             row["live"] += 1
         elif home.status == "stale":

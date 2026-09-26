@@ -13,7 +13,6 @@ from server.engine.contracts import TapeFrame, TickResult
 from server.engine.events import log_event, start_run
 from server.engine.fleet import (
     apply_events,
-    fleet_rollups,
     load_fleet,
     new_fleet,
     save_fleet,
@@ -21,7 +20,7 @@ from server.engine.fleet import (
     scale_target_mw,
 )
 from server.engine.fleet_state import STATE_PATH, load_fleet_mode, write_fleet_mode
-from server.engine.orchestration import orchestrate_tick, plant_line, zone_acks
+from server.engine.orchestration import cycle_rollups, orchestrate_tick, plant_line, zone_acks
 from server.engine.policy import reserve_policy
 from server.engine.risk import compute_risk
 from server.engine.score import new_board, update
@@ -291,7 +290,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
             print(plant_line(cycle))
         ticks.append({**asdict(result), "brief": brief})
         # Aggregates only. The wall reads this file, never the 10k-home seed.
-        save_rollups(fleet_rollups(homes, alloc, policy), Path(runs_dir) / ".." / "fleet" / "rollups.json")
+        # Discharging is what the homes confirmed, not what was planned.
+        save_rollups(cycle_rollups(homes, cycle, policy), Path(runs_dir) / ".." / "fleet" / "rollups.json")
         record = {
             "run_id": run_id,
             "tape": str(tape_path) if tape_path else "synthetic",

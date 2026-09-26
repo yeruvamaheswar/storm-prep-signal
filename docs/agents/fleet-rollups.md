@@ -24,7 +24,7 @@ The main stub seeded `FLEET_SIZE=100` at a flat 0.6 SOC with `Home.zone=""`. The
 }
 ```
 
-Silent is stale (this fleet has no unconfirmed). Reserved is every live home that is not discharging when `risk_level` is HIGH, same as the wall. `clusters` are the metro box centers from `homeNodes.ts`. `GET /v1/homes` stays on the small console fixtures. Do not point it at `var/fleet/homes.json`.
+The engine writes the rollup with `orchestration.cycle_rollups(homes, cycle, policy)`, from the confirmed books, not the plan. `discharging` counts homes with confirmed kW booked this tick, and `discharging_mw` is that booked kW, so it adds up to `zone_delivered_mw`. A live home that was sent work but never heard back from goes in `silent`, not `live`. The wall reads `silent - stale` as unconfirmed, and these are the same homes `zone_acks` calls unconfirmed. So silent is stale plus unconfirmed. `fleet_rollups(homes, alloc, policy)` without `confirmed_kw` still counts the plan (used by `current_rollups` and tests). Reserved is every live home that is not discharging when `risk_level` is HIGH, same as the wall. `clusters` are the metro box centers from `homeNodes.ts`. `GET /v1/homes` stays on the small console fixtures. Do not point it at `var/fleet/homes.json`.
 
 ## Persist
 
