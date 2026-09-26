@@ -283,3 +283,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Removed the compatibility package. Commands are `python -m server.engine.cli` and `python -m server.engine`.
 - Details: `docs/agents/backend.md`.
 - `pytest -q`: 43 passed.
+
+## 2026-09-26: Telemetry feed spec (Rajat's lane, docs only)
+
+- Wrote `docs/agents/telemetry-vpp.md`: simulated batteries and network, real VPP. Readings every 10 virtual s in the OpenTelemetry metrics shape, an intake, per-home state (stale at 180 s, dead at 600 s, suspect on an energy mismatch), and zone and plant rollups. The controller plans only from reported data.
+- Reviewed by Codex; fixes applied (tick-level energy check, feed stops at 300 s, separate true and reported battery objects).
+- Asks for Uma (approve `telemetry.py`, wire the engine, add settings) and Sunny (`grid_down` tape key, show the rollups) are listed in the spec.
+- Added a line to `docs/agents/index.md`.
+- No application code in this change. `pytest -q` was not run.
