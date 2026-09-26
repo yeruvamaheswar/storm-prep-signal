@@ -1017,3 +1017,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Real ERCOT check (read-only, 2026-09-26 17:45 CT interval): Houston 34.17, North 31.56, South 36.95, West 59.21 $/MWh; North equals the headline `fetch_price`.
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Persist operator HOLD / AUTO for the live worker
+
+- Named gap: Hold/Auto lived only in `var/state.json`. The wall on Render and the laptop `live_cycle` worker do not share that file, so a wall HOLD never reached `allocate()`.
+- `supabase/migrations/20260926_operator_settings.sql`: one-row `public.operator_settings` (`id=fleet`, `AUTO`|`HOLD`). No default insert. RLS on, no policies.
+- `POST /v1/fleet/mode` still writes `var/state.json`, then best-effort upserts the table. `scripts/live_cycle.py` hydrates the table onto the local file before `loop.run()`, so HOLD delivers 0 on the next tick. The engine never imports Supabase. Empty or failed table leaves the local file.
+- Tests: `tests/test_operator_settings.py`; `tests/test_live_cycle.py` table HOLD overrides local AUTO; `tests/test_server.py` POST upsert. `pytest -q`: 563 passed. Notes: `docs/agents/operator-settings.md`, `docs/humans/operator-settings.md`.
