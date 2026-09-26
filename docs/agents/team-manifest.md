@@ -4,12 +4,7 @@
 
 **How Storm Prep fits.** Storm Prep reads ERCOT's public outage postings. When its rule reads HIGH, or when the signal can't be read, ReserveGate raises every home's reserve floor (from 30% to 60% in our example settings). Missing the target is then allowed, and the brief explains why. The data shows the new rule fired on 1.7% of out-of-sample postings, where the old rule fired on 88%.
 
-**Who owns what**
-- **Uma:** policy, the engine that connects everything, shared files, and merges. Also records the Loom.
-- **Rajat:** the controller and fleet, meaning how work is split across homes, what happens when homes fail, and scoring.
-- **Sunny:** the story, meaning the demo tape, the brief, the React wall in `web/`, `demo.sh`, CI, the README, and the pitch.
-
-**The one no-conflict rule.** Every file has one owner, and nobody else edits it. Only Uma edits `engine.py`. Merge `main` into your branch right before asking Uma to merge.
+**How we work.** File ownership is retired. We write the desired end state. An agent names one gap between that state and the repo. We fill that gap. Any file the gap needs may change. Detail: `docs/agents/gap-work.md`. The end-state picture is `docs/agents/reservegate-summarized.md`.
 
 **Timeline (CT)**
 - Fri 9:30 PM: contracts frozen on `main`.
