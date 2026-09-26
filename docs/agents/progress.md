@@ -284,6 +284,30 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Details: `docs/agents/backend.md`.
 - `pytest -q`: 43 passed.
 
+## 2026-09-26: Controller lane (Rajat): fleet, allocator, scoreboard, orchestration runtime
+
+- New under `server/engine/`: `fleet.py` (`new_fleet` with round-robin zones, `apply_events`,
+  `discharge`, the shared floor math `floor_kwh`/`safe_kw`), `controller.py` (pure `allocate`),
+  `score.py` (`new_board`, `update`), `scheduler.py` (seeded virtual clock), `channel.py` (lossy
+  channel: drop, duplicate, delay, late), `orchestration.py` (`run_cycle -> CycleResult`: zone
+  supervisors, one worker per home, 0/60/120 s deadlines, retry same id, reassignment new id).
+- Runner: `python -m server.engine.orchestration --tape tests/fixtures/tape_tiny.json --seed 1`
+  writes `var/orchestration/<seed>.json` and prints one line per tick.
+- `loop.py` is untouched: it still holds the TEMP stand-ins. `tests/test_tracer.py` patches ours in
+  and proves the tape delivers more than 0 MW on every tick, with delivered + missed = target and
+  0 breaches (the stand-ins delivered 0). Next: Uma imports
+  `new_fleet, apply_events, discharge` from `fleet`, `allocate` from `controller`, `new_board,
+  update` from `score`, and deletes the stand-ins.
+- Review fixes folded in: `safe_kw` caps at `max_kw` and gives 0 to a home whose zone has no floor
+  in the policy; `discharge` leaves dead and stale homes alone; the 60 s deadline marks every late
+  home suspect before any share is reassigned; a slow original and its reassignment both delivering
+  is booked once and the rest reported as `over_delivery_mw` (never hidden, never credited).
+- Tests: `tests/test_{fleet,controller,score,scheduler,channel,orchestration,failures,invariants,tracer}.py`.
+  `pytest -q`: 177 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches. Same seed twice
+  gives an identical run.
+- Not in the ownership table yet: `orchestration.py`, `scheduler.py`, `channel.py` and their tests
+  (ask for Uma). Details: `docs/agents/epic-3-controller.md`.
+
 ## 2026-09-26: Telemetry feed spec (Rajat's lane, docs only)
 
 - Wrote `docs/agents/telemetry-vpp.md`: simulated batteries and network, real VPP. Readings every 10 virtual s in the OpenTelemetry metrics shape, an intake, per-home state (stale at 180 s, dead at 600 s, suspect on an energy mismatch), and zone and plant rollups. The controller plans only from reported data.
