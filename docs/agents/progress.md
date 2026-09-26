@@ -911,3 +911,9 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 - Named gap: `/fleet` stretched the table to the viewport and capped the pane at 320px, so columns sat far apart and a short list left a dead band.
 - `.fleet-page` is a column flex at `100vh`; `.fleet-scroll` fills leftover height. The table is `width: 100%` with `table-layout: fixed` so columns share the pane without a dead band on the right. Wall and home detail unchanged.
+
+## 2026-09-26: Stream synthetic last telemetry onto public.homes
+
+- Named gap: persist and `/fleet` last-reading columns existed, but nothing wrote `var/fleet/telemetry.json`, so Charge state / Power / Last seen stayed empty.
+- Added `scripts/stream_telemetry.py`: builds a realistic 10k last-reading snapshot (HOLDING-heavy, 5–8% silent, live/stale/dead ages, power sign locked to `charge_state`), writes the JSON, and persist-upserts each pulse. `--loop` repeats every 15 s. The engine does not import it.
+- Tests: `tests/test_stream_telemetry.py`. Notes: `docs/agents/persist-telemetry.md`, `docs/agents/code-flow.md`, `docs/humans/fleet-telemetry.md`.

@@ -12,13 +12,16 @@ Keyed by `home_id`. Each value is the last accepted reading: `last_seen` (ISO), 
 
 ## Writers
 
-- `scripts/persist_telemetry.py` `write_snapshot` writes the JSON. `orchestration.py` `--telemetry` does not call it yet.
-- The CLI reads that file and POSTs `home_id` plus telemetry columns only (`last_seen`, `charge_state`, `power_kw`, `boot_id`, `last_seq`, `soc_kwh` if present). Merge-duplicates leaves zone, capacity, status, and assigned_kw alone. `/fleet` reads `charge_state` and `power_kw` through `GET /v1/homes` (`docs/agents/fleet-telemetry.md`).
+- `scripts/stream_telemetry.py` is the laptop writer for the 10k console fleet. It builds a synthetic last-reading snapshot (same `home_id`s as `seed_homes.py`), writes `var/fleet/telemetry.json`, and persist-upserts each pulse. The upsert stamps `zone` / `capacity_kwh` / `max_kw` / `status` from `new_fleet` so Postgres `NOT NULL` on the insert side of `ON CONFLICT` does not reject the row; `assigned_kw` is omitted. `--loop` repeats every 15 s. The mix is HOLDING-heavy, 5–8% silent, most live, some stale or dead; power sign is locked to `charge_state`. `orchestration.py` `--telemetry` still does not write this file.
+- `scripts/persist_telemetry.py` `write_snapshot` is the other writer (from `HomeState`). The CLI reads the JSON and POSTs `home_id` plus telemetry columns only (`last_seen`, `charge_state`, `power_kw`, `boot_id`, `last_seq`, `soc_kwh` if present). Merge-duplicates leaves zone, capacity, status, and assigned_kw alone. `/fleet` reads `charge_state` and `power_kw` through `GET /v1/homes` (`docs/agents/fleet-telemetry.md`).
 - Upsert: `POST /rest/v1/homes?on_conflict=home_id` with `Prefer: resolution=merge-duplicates`, same `send()` as `scripts/load_ercot_archive.py`. Batches are 400 rows.
 
 ## Commands
 
 ```bash
+python scripts/stream_telemetry.py                            # one 10k pulse
+python scripts/stream_telemetry.py --loop                     # every 15 s
+python scripts/stream_telemetry.py --dry-run                  # count only
 python scripts/persist_telemetry.py                           # var/fleet/telemetry.json
 python scripts/persist_telemetry.py var/fleet/telemetry.json
 python scripts/persist_telemetry.py --dry-run                 # build only

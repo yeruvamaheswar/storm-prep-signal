@@ -109,6 +109,9 @@ flowchart LR
   HOMES -.->|"persist_homes.py, best effort"| SB
   TELEM["var/fleet/telemetry.json"]
   TELEM -.->|"persist_telemetry.py, best effort"| SB
+  STREAM["scripts/stream_telemetry.py<br/>laptop worker, --loop"]
+  STREAM --> TELEM
+  STREAM -.->|"persist each pulse"| SB
 
   LIVEW["scripts/live_cycle.py<br/>laptop worker, --loop"]
   ERCOTW["ERCOT public API"]
@@ -267,6 +270,8 @@ flowchart TD
   HOMESFILE -->|"next run, if length matches FLEET_SIZE"| FLEET
   HOMESFILE -.->|"scripts/persist_homes.py, homes_skipped on failure"| SB
   TELEMFILE["var/fleet/telemetry.json"]
+  STREAMW["scripts/stream_telemetry.py [--loop]"]
+  STREAMW --> TELEMFILE
   TELEMFILE -.->|"scripts/persist_telemetry.py, telemetry_skipped on failure"| SB
   MAIN -.->|"--persist only: scripts/persist_run.py, runs_skipped on failure"| SB
 
@@ -446,10 +451,11 @@ Scripts (`scripts/`):
 
 - `scripts/replay_event.py`: downloads NP3-233-CD archive zips for a storm week plus 30 days before it, builds that event's baseline, and rates each posting. Writes `data/events/<event>/raw/*.zip`, `baseline.json`, and `replay.csv`.
 - `scripts/make_baseline.py`: turns a folder of MIS CSVs into `data/baseline_by_lead.json`. Its helpers are shared by `replay_event.py`, `load_ercot_archive.py`, and `check_margin.py`.
-- `scripts/load_ercot_archive.py`: upserts the saved zips from `data/events/<event>/raw/` into Supabase `ercot_postings`. It makes no ERCOT API call. Its `send` helper is reused by `persist_run.py`, `seed_homes.py`, `persist_homes.py`, and `persist_telemetry.py`.
+- `scripts/load_ercot_archive.py`: upserts the saved zips from `data/events/<event>/raw/` into Supabase `ercot_postings`. It makes no ERCOT API call. Its `send` helper is reused by `persist_run.py`, `seed_homes.py`, `persist_homes.py`, `persist_telemetry.py`, and `stream_telemetry.py`.
 - `scripts/seed_homes.py`: upserts 10k current-state rows into Supabase `homes` using the same `new_fleet` zones and a random SOC in the 45–75% band. `--dry-run` builds the rows and sends nothing. Missing keys print `homes_skipped: no_config` and exit 0. The engine never imports it.
 - `scripts/persist_homes.py`: batch-upserts `var/fleet/homes.json` into Supabase `homes` on `home_id` (200–500 rows per POST). `--dry-run` builds rows and sends nothing. Missing keys or a failed POST print `homes_skipped: <reason>` and exit 0. The engine never imports it.
 - `scripts/persist_telemetry.py`: merge-upserts last readings from `var/fleet/telemetry.json` onto the same `homes` rows (`last_seen`, `charge_state`, `power_kw`, `boot_id`, `last_seq`, and `soc_kwh` when reported). No history table. Missing keys or a failed POST print `telemetry_skipped: <reason>` and exit 0. The engine never imports it.
+- `scripts/stream_telemetry.py`: laptop writer for the 10k console fleet. Builds a synthetic last-reading snapshot (HOLDING-heavy, 5–8% silent, live/stale/dead ages, power sign locked to `charge_state`), writes `var/fleet/telemetry.json`, and persist-upserts each pulse. `--loop` repeats every 15 s. `--dry-run` prints the count and writes nothing. The engine never imports it.
 - `scripts/load_ercot_reports.py`: pulls ERCOT reports from the public API into Supabase. Postings go to `ercot_postings`, NP6-905-CD prices go to `ercot_prices`. It skips Beryl and Heather NP3-233-CD, which came from the archive.
 - `scripts/check_margin.py`: reads `ercot_postings`, rates every posting at several margins with `compute_risk`, and writes `data/margin_check.json`.
 - `scripts/build_tape.py`: reads Heather's postings and prices from Supabase. Writes `tapes/heather.json`, `data/fixtures/heather/np3_233_cd_<posted>.json`, and `data/fixtures/heather/baseline.json`. It reuses `check_margin`'s fetch and baseline code.
@@ -483,6 +489,7 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 | `scripts/seed_homes.py` | `server.engine.fleet.new_fleet` | Supabase `homes` |
 | `scripts/persist_homes.py` | `var/fleet/homes.json` | Supabase `homes` |
 | `scripts/persist_telemetry.py` | `var/fleet/telemetry.json` | Supabase `homes` (telemetry columns only) |
+| `scripts/stream_telemetry.py` | `server.engine.fleet.new_fleet` (same 10k ids as seed) | `var/fleet/telemetry.json`; Supabase `homes` (telemetry columns only) |
 | `scripts/live_cycle.py` | `.env`, ERCOT API, `data/baseline_by_lead.json`, `var/state.json`, `var/fleet/homes.json` | Supabase `ercot_postings`, `ercot_prices` (`event=live`), `runs`; `var/logs/<run_id>.jsonl`, `var/runs/<run_id>.json`, `var/runs/latest.json`, `var/fleet/homes.json`, `var/fleet/rollups.json`, `var/signal/latest_np3.json`, `latest_np6.json` |
 | `scripts/jev_shadow.py` | `tests/fixtures/nws_alert_harris.json` if present, the Jev API | `data/fixtures/jev_harris.json` |
 | `python -m server.engine` | `.env`, `--tape` file, each frame's `risk_fixture`, `--baseline` file (default `data/baseline_by_lead.json`), `var/fleet/homes.json` when its length matches `FLEET_SIZE`; `--live`: ERCOT API, `var/state.json` | `var/logs/<run_id>.jsonl`, `var/runs/<run_id>.json`, `var/runs/latest.json`, `var/fleet/homes.json`, `var/fleet/rollups.json`; `--live`: `var/state.json`, `var/signal/latest_np3.json`, `latest_np6.json`; `--persist`: Supabase `runs` |
@@ -509,4 +516,4 @@ Each box above belongs to the owner of its file, listed in [CONSTRAINTS.md, File
 
 ## 7. Supabase
 
-Scripts write `ercot_postings` and `ercot_prices` (`load_ercot_archive.py`, `load_ercot_reports.py`) and read them (`check_margin.py`, `build_tape.py`). `scripts/seed_homes.py` writes `homes` (10k current-state rows). `scripts/persist_homes.py` merge-upserts the same table from `var/fleet/homes.json` after a discharge snapshot. `scripts/persist_telemetry.py` merge-upserts last readings from `var/fleet/telemetry.json` onto those rows. At run time, `scripts/live_cycle.py` upserts `event=live` postings and prices, `server/api/archive.py` reads the newest `event=live` row for Live and the pinned posting for Demo with an archive event, `server/api/feeds.py` reads the latest posting per report for the Feeds panel, and `scripts/persist_run.py` writes `runs` after an engine run started with `--persist` and after each live cycle. The engine's tick loop never imports Supabase, and a failure never blocks a run or the wall. Rules and keys: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
+Scripts write `ercot_postings` and `ercot_prices` (`load_ercot_archive.py`, `load_ercot_reports.py`) and read them (`check_margin.py`, `build_tape.py`). `scripts/seed_homes.py` writes `homes` (10k current-state rows). `scripts/persist_homes.py` merge-upserts the same table from `var/fleet/homes.json` after a discharge snapshot. `scripts/stream_telemetry.py` writes `var/fleet/telemetry.json` and `scripts/persist_telemetry.py` merge-upserts last readings onto those rows. At run time, `scripts/live_cycle.py` upserts `event=live` postings and prices, `server/api/archive.py` reads the newest `event=live` row for Live and the pinned posting for Demo with an archive event, `server/api/feeds.py` reads the latest posting per report for the Feeds panel, and `scripts/persist_run.py` writes `runs` after an engine run started with `--persist` and after each live cycle. The engine's tick loop never imports Supabase, and a failure never blocks a run or the wall. Rules and keys: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
