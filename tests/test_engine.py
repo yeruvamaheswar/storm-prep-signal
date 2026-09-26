@@ -1,16 +1,67 @@
 """End-to-end runs of the tick loop: a 3-frame tape, and --live with a faked failed fetch."""
 import json
+from datetime import datetime
 from pathlib import Path
 
 import requests
 
+from server.engine import signal
 from server.engine.loop import run
+from server.engine.signal import CENTRAL
 
 ROOT = Path(__file__).parent.parent
 TAPE = ROOT / "tests" / "fixtures" / "tape_tiny.json"
+NP3 = ROOT / "tests" / "fixtures" / "np3_233_cd.json"
+NP6 = ROOT / "tests" / "fixtures" / "np6_905_cd.json"
 # Example simulation settings, not Base specs.
 SETTINGS = {"margin_pct": 15, "lookahead_hours": 6, "fleet_size": 100, "home_kwh": 20,
             "home_max_kw": 5, "base_reserve_pct": 30, "storm_reserve_pct": 60, "tick_minutes": 5}
+LIVE_SETTINGS = {**SETTINGS, "fetch_timeout_s": 3, "stale_after_min": 90}
+NOW = datetime(2026, 9, 25, 12, 0, 47, tzinfo=CENTRAL)
+TAPE_185 = {
+    "label": "live price overlay",
+    "frames": [{
+        "tick": 1, "ts": "2026-09-25T12:00:00-05:00",
+        "target_mw": 0.2, "target_label": "synthetic",
+        "price_usd_mwh": 185, "price_label": "synthetic", "events": {},
+    }],
+}
+
+
+class FakeResponse:
+    def __init__(self, status_code, text):
+        self.status_code = status_code
+        self.text = text
+
+
+class PinnedClock(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return NOW
+
+
+def _write_tape(path):
+    path.write_text(json.dumps(TAPE_185))
+    return path
+
+
+def _fake_live(monkeypatch, tmp_path, price_status=200):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(signal, "datetime", PinnedClock)
+    for name in ("ERCOT_USERNAME", "ERCOT_PASSWORD", "ERCOT_SUBSCRIPTION_KEY"):
+        monkeypatch.setenv(name, "fake")
+
+    def post(url, **kwargs):
+        return FakeResponse(200, json.dumps({"id_token": "token"}))
+
+    def get(url, **kwargs):
+        if "np6-905-cd" in url:
+            return FakeResponse(price_status, NP6.read_text() if price_status == 200 else "{}")
+        return FakeResponse(200, NP3.read_text())
+
+    monkeypatch.setattr(requests, "post", post)
+    monkeypatch.setattr(requests, "get", get)
+    return tmp_path / "tape_185.json"
 
 
 def test_tiny_tape_calm_then_storm_then_missing_signal(tmp_path, monkeypatch):
@@ -52,3 +103,83 @@ def test_live_with_failed_fetch_keeps_the_storm_floor_on_every_tick(tmp_path, mo
     [failed] = [e for e in events if e["stage"] == "compute_risk"]
     assert (failed["event"], failed["ok"]) == ("failed", False)
     assert failed["reason"] == "ERCOT did not answer within 3 s"
+
+
+def test_live_run_stamps_ercot_price_not_tape_185(tmp_path, monkeypatch):
+    tape = _write_tape(_fake_live(monkeypatch, tmp_path))
+    record = run(tape, LIVE_SETTINGS, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs", live=True)
+    ticks = record["ticks"]
+    assert [t["price_usd_mwh"] for t in ticks] == [42.25]
+    assert [t["price_label"] for t in ticks] == ["ercot"]
+    assert all(t["price_as_of"].startswith("2026-09-25T12:00:00") for t in ticks)
+    assert 185 not in [t["price_usd_mwh"] for t in ticks]
+
+
+def test_live_price_failure_does_not_paint_185(tmp_path, monkeypatch):
+    tape = _write_tape(_fake_live(monkeypatch, tmp_path, price_status=500))
+    record = run(tape, LIVE_SETTINGS, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs", live=True)
+    ticks = record["ticks"]
+    assert [t["price_usd_mwh"] for t in ticks] == [None]
+    assert [t["price_label"] for t in ticks] == ["none"]
+    assert all(t["price_as_of"] is None for t in ticks)
+    assert 185 not in [t["price_usd_mwh"] for t in ticks]
+
+
+def _one_frame_tape(path, events=None, tick=1, ts="2026-09-25T12:00:00-05:00"):
+    path.write_text(json.dumps({
+        "label": "mode persist",
+        "frames": [{
+            "tick": tick, "ts": ts,
+            "target_mw": 0.2, "target_label": "synthetic",
+            "price_usd_mwh": 35.0, "price_label": "synthetic",
+            "events": events or {},
+        }],
+    }))
+    return path
+
+
+def test_run_hold_from_state_delivers_zero(tmp_path, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    tape = _one_frame_tape(tmp_path / "hold.json")
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"mode": "HOLD"}))
+    record = run(tape, SETTINGS, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs", state_path=state)
+    tick = record["ticks"][0]
+    assert tick["mode"] == "HOLD"
+    assert tick["delivered_mw"] == 0.0
+    assert tick["reasons"] == ["operator_hold"]
+
+
+def test_run_operator_event_sticks_and_persists(tmp_path, monkeypatch):
+    monkeypatch.chdir(ROOT)
+    tape = tmp_path / "sticky.json"
+    tape.write_text(json.dumps({
+        "label": "operator sticky",
+        "frames": [
+            {
+                "tick": 1, "ts": "2026-09-25T12:00:00-05:00",
+                "target_mw": 0.2, "target_label": "synthetic",
+                "price_usd_mwh": 35.0, "price_label": "synthetic",
+                "events": {"operator": "HOLD"},
+            },
+            {
+                "tick": 2, "ts": "2026-09-25T12:05:00-05:00",
+                "target_mw": 0.2, "target_label": "synthetic",
+                "price_usd_mwh": 35.0, "price_label": "synthetic",
+                "events": {},
+            },
+            {
+                "tick": 3, "ts": "2026-09-25T12:10:00-05:00",
+                "target_mw": 0.2, "target_label": "synthetic",
+                "price_usd_mwh": 35.0, "price_label": "synthetic",
+                "events": {"operator": "AUTO"},
+            },
+        ],
+    }))
+    state = tmp_path / "state.json"
+    record = run(tape, SETTINGS, log_dir=tmp_path / "logs", runs_dir=tmp_path / "runs", state_path=state)
+    assert [t["mode"] for t in record["ticks"]] == ["HOLD", "HOLD", "AUTO"]
+    assert record["ticks"][0]["delivered_mw"] == 0.0
+    assert record["ticks"][1]["delivered_mw"] == 0.0
+    assert record["ticks"][1]["reasons"] == ["operator_hold"]
+    assert json.loads(state.read_text())["mode"] == "AUTO"
