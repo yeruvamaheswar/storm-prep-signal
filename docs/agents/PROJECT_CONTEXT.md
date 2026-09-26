@@ -26,7 +26,7 @@ Team line: **"We may miss the target; we never break a reserve."**
 ## Layout
 - `server/engine/`: the core engine. `loop.py` (tick loop), `policy.py` (floor rules), `risk.py` (storm risk from NP3-233-CD), `signal.py`, `contracts.py` (data shapes), `cli.py`, `__main__.py`. Run with `python3 -m server.engine`.
 - `server/api/`: FastAPI routes for the web UI. Sample data must be labeled "sample."
-- `scripts/`: one-off tools, e.g. `replay_event.py` (Beryl/Heather replays), `load_ercot_archive.py` (loads the saved NP3-233-CD zips into Supabase), `load_ercot_reports.py` (pulls ERCOT reports from the public API into Supabase).
+- `scripts/`: one-off tools, e.g. `replay_event.py` (Beryl/Heather replays), `load_ercot_archive.py` (loads the saved NP3-233-CD zips into Supabase), `load_ercot_reports.py` (pulls ERCOT reports from the public API into Supabase), `build_tape.py` (exports a storm replay tape from Supabase). How they connect: `docs/agents/code-flow.md`.
 - `data/events/<event>/`: downloaded ERCOT archives (raw zips are gitignored).
 - `tapes/`: tapes the engine replays (e.g. `demo.json`).
 - `tests/`: pytest. Run with `python3 -m pytest -q`. All tests must stay green.
@@ -37,6 +37,7 @@ Team line: **"We may miss the target; we never break a reserve."**
   - `ercot_prices`: NP6-905-CD load-zone prices, one row per zone per 15-minute interval, unique on settlement_point + interval_ending.
   - `runs`: a copy of each run's result. `scripts/persist_run.py` upserts it after `loop.run()` writes the local file. The table can still be empty. Empty is not a run: `GET /v1/runs/latest` keeps `var/runs/latest.json` (then `layout-run.json`). Do not treat PostgREST `[]` as source of truth. Write: `docs/agents/persist-run.md`. Read gate: `docs/agents/backend.md`.
 - Demo/Synthetic reads `ercot_postings` and `ercot_prices` from `server/api/archive.py` (one posting and one interval at the tape clock). Live reads the newest `event=live` row after `scripts/live_cycle.py` upserts it; direct ERCOT is the fallback. `GET /v1/feeds` reads the latest posting per report for history chips and overlays `var/signal/` quality. `check_margin.py` still reads every posting for research. A missing Supabase config is fail-safe, not a live ERCOT pull. The engine **never** imports these tables. A tape reset must not truncate them. Detail: `docs/agents/live-ingest.md`, `docs/agents/archive-feeds.md` and `docs/agents/feeds-proxy.md`.
+- `scripts/build_tape.py` reads NP3-233-CD postings and NP6-905-CD prices to write `tapes/heather.json`, `data/fixtures/heather/`, and the pre-storm baseline.
 - The engine **never imports or waits on** Supabase during a run. Uploads are best effort: they print `..._skipped: <reason>` and exit 0 on failure.
 - Keys live in `server/.env` or the process env (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`). `server/env.py` loads that file, then leaves process env in place. Never print, log, commit, or hardcode keys. Keep `.env.example` updated with names only. Do not put them in Vite.
 

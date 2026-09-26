@@ -699,3 +699,20 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
   a mismatch books `min(reported kW, ran kW)` with no conversion. Detection is unchanged.
 - Test: `test_a_caught_overstatement_is_booked_exactly_and_is_never_over_delivery`.
   `pytest -q`: 317 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Heather replay tape; code flow doc
+
+- A "Supabase is build-time only" decision was drafted here and dropped on rebase onto main: main already reads Supabase from `server/api/archive.py` and writes `runs` via `scripts/persist_run.py`. `docs/agents/PROJECT_CONTEXT.md` keeps main's Supabase section.
+- `scripts/load_ercot_reports.py`: `heather` window (2024-01-12 to 01-17), NP6-905-CD only. Loaded 4,608 price rows.
+- New `scripts/build_tape.py`: writes `tapes/heather.json` (145 frames, Jan 15 07:00-19:00 CT, 5-minute ticks, price `recorded:ERCOT NP6-905-CD LZ_HOUSTON`, target 0.2 MW `synthetic`), 13 posting fixtures in `data/fixtures/heather/`, and `data/fixtures/heather/baseline.json` (720 postings, Dec 13 to Jan 11). Supabase failure prints `build_tape_skipped: <reason>` and exits 0.
+- `server/engine/loop.py`: `run(..., baseline_path=)` and `--baseline PATH` (default `data/baseline_by_lead.json`); the run record adds `"baseline"`. A past storm must be rated against the month before it: without `--baseline`, Heather stays at 30% all day.
+- Replay: `python -m server.engine --tape tapes/heather.json --baseline data/fixtures/heather/baseline.json`. 133 ticks at 30% `normal`, 12 at 60% `storm_risk_high` from 13:05 to 14:00 CT (the 13:03:35 posting, 21,809 MW vs 21,779.8 MW trigger), breaches 0.
+- Code flow: `docs/agents/code-flow.md` (single home, traced from code, includes stubs and gaps), `docs/humans/code-flow.md`, a row in `docs/agents/index.md`, a line in `docs/agents/working-rules.md`, and `.cursor/rules/code-flow.mdc` (globs `server/**, scripts/**, web/src/**, tapes/**`). `tests/test_code_flow.py` fails naming any `server/**/*.py`, `scripts/*.py`, or `web/src/` folder missing from the doc; checked with a temporary `scripts/tmp_x.py`.
+- Tests: `tests/test_build_tape.py` (5, no network), `test_heather_replay_raises_the_floor_only_after_the_high_posting` in `tests/test_engine.py`, `tests/test_code_flow.py`. `pytest -q`: 62 passed. Not committed.
+- Diagrams are mandatory: `docs/agents/code-flow.md` has an "At a glance" section (overview flowchart and one-tick sequence). `.cursor/rules/code-flow.mdc` and `working-rules.md` say a flow change updates the Mermaid diagrams in the same PR, never prose instead. `tests/test_code_flow.py` fails if the agents doc has fewer than 3 Mermaid blocks or the humans doc fewer than 1. All 5 blocks rendered with `@mermaid-js/mermaid-cli`. `pytest -q`: 63 passed.
+- Rebased onto main after PR #7 and PR #9: `docs/agents/code-flow.md` re-traced (real allocate, zone acks, discharge, rollups, `var/state.json`, per-tick run writes, `persist_run.py`, the `scripts/live_cycle.py` worker and its `event=live` rows, the `/v1/snapshot` path through `archive.py`, `feeds.py`, `runtime.py`, `prices.py`, and the separate `orchestration.py` runner). `run()` keeps both PR #9's `frames`/`live_risk`/`live_price` and `baseline_path`. `docs/humans/code-flow.md` diagram updated. All 5 Mermaid blocks rendered. After PR #8, `pytest -q`: 336 passed.
+- Open for owners:
+  - Sunny owns `tapes/*.json`: OK `tapes/heather.json` or commit it. The whole `tapes/` folder (including `demo.json`) is untracked in git.
+  - `docs/agents/improvements.md` and `docs/humans/improvements.md` are cited above but are not in the repo. Not recreated.
+  - `docs/agents/team-manifest.md` says 1.7% out-of-sample; `data/margin_check.json` says 22 of 765 in-sample (about 2.9%) at +15%. Different measurements; Uma to confirm which one is said out loud.
+  - `docs/agents/code-flow.md` "Stubs and gaps" lists code that differs from `CONSTRAINTS.md`: no `decision_line` in the run record, `load_tape` does not check labels or offsets, weather alerts are not wired into the loop.

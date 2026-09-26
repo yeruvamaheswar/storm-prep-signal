@@ -1,0 +1,15 @@
+---
+description: Keep docs/agents/code-flow.md and its Mermaid diagrams current when modules, entry points, data files, or calls between modules change
+globs: server/**, scripts/**, web/src/**, tapes/**
+alwaysApply: false
+---
+
+# Code flow stays current
+
+- If your change adds, removes, or renames a module, entry point, data file, or call between modules, update `docs/agents/code-flow.md` in the same PR.
+- The Mermaid diagrams are mandatory. Update the diagrams in "At a glance" and "Full flow", not only the file map and text.
+- Update the `docs/humans/code-flow.md` diagram only if the one-glance picture changed.
+- Never replace a diagram with prose.
+- `tests/test_code_flow.py` fails when a `server/**/*.py` or `scripts/*.py` path, or a top-level `web/src/` folder, is missing from `docs/agents/code-flow.md`, or when a Mermaid diagram is deleted.
+
+The flow itself lives in `docs/agents/code-flow.md`. Read it there; do not copy it here.

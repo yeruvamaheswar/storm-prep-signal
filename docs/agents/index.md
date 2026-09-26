@@ -7,6 +7,7 @@ Open this index, then the one file the task needs.
 | `PROJECT_CONTEXT.md` | You need why we build this, the design principles, or how Supabase fits |
 | `team-manifest.md` | You need owners, what we will not cut, or what we say out loud |
 | `working-rules.md` | You are about to edit code |
+| `code-flow.md` | You need to know how a run flows through the code, or you changed which module calls which |
 | `plan.md` | You need the risk rule, the event schema, or a past decision |
 | `progress.md` | You need what is already built |
 | `research.md` | You need the ERCOT source notes |
