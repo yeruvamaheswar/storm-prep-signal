@@ -677,3 +677,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests: new cases in `tests/test_orchestration.py` and `tests/test_failures.py`; the fuzzer mixes
   in misreporting workers and checks no home is booked above its charge drop.
   `pytest -q`: 316 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Fix false over-delivery after a caught overstatement (Rajat)
+
+- A caught overstatement was booked as kWh converted back to kW, which drifted by a rounding speck
+  (e.g. 1.999999999999993 for 2.0). Drifting up made `close` log a false `over_delivery` and add
+  reason `over_delivery:1`, though nothing ran twice. Energy totals were right; the label was wrong.
+- Fix in `server/engine/orchestration.py`: each worker keeps the exact kW it gave (`rt.ran_kw`), and
+  a mismatch books `min(reported kW, ran kW)` with no conversion. Detection is unchanged.
+- Test: `test_a_caught_overstatement_is_booked_exactly_and_is_never_over_delivery`.
+  `pytest -q`: 317 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
