@@ -333,14 +333,17 @@ describe("feedLines kW honesty and plurals", () => {
   })
 })
 
-// Real post-#41 ticks (engine in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25; main-impact-audit.md S3).
+// Real ticks, re-run on c19119c (origin/main 162bd0a, post-#50/#52 DAM look-ahead, merged into Task 15): Session
+// in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25, no alert sent. heather 74 and operator-hold 4 are unchanged
+// from the post-#41 run (main-impact-audit.md S3); beryl 1 now waits for its cheaper DAM hour, so it only refills.
 const heather74 = {
   tick: 74, mode: "AUTO", target_mw: 0.2, delivered_mw: 0, missed_mw: 0.2, unconfirmed_mw: 0, charging_mw: 1.1286,
   intent: "charge", intent_reason: "reserve_refill", reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0,
 } satisfies ReplayPromiseResult
 const beryl1 = {
-  tick: 1, mode: "AUTO", target_mw: 0.02, delivered_mw: 0.02, missed_mw: 0, unconfirmed_mw: 0, charging_mw: 0.9102599990000001,
-  intent: "charge", intent_reason: "grid_call_served", reasons: ["charging", "reserve_refill"], breaches: 0,
+  tick: 1, mode: "AUTO", target_mw: 0.02, delivered_mw: 0.019999999971958088, missed_mw: 2.8041912542020597e-11, unconfirmed_mw: 0,
+  charging_mw: 0.246587997, intent: "charge", intent_reason: "grid_call_served",
+  reasons: ["reserve_refill", "timed_out:2", "duplicates_ignored:1", "over_delivery:1"], breaches: 0,
 } satisfies ReplayPromiseResult
 const hold4 = {
   tick: 4, mode: "HOLD", target_mw: 0.5477, delivered_mw: 0, missed_mw: 0.5477, unconfirmed_mw: 0, charging_mw: 0,
@@ -361,8 +364,8 @@ describe("promiseBreakdown on post-#41 ticks (B1, B3)", () => {
 
   test("beryl tick 1: a served call still names the energy bought", () => {
     const rows = promiseBreakdown(beryl1)
-    expect(rows).toContainEqual({ key: "sold_confirmed", label: "Sold and confirmed", mw: 0.02 })
-    expect(rows).toContainEqual({ key: "charged", label: "Charged from the grid", mw: 0.9102599990000001 })
+    expect(rows).toContainEqual({ key: "sold_confirmed", label: "Sold and confirmed", mw: 0.019999999971958088 })
+    expect(rows).toContainEqual({ key: "charged", label: "Charged from the grid", mw: 0.246587997 })
     // Asked still splits into sold + not counted + not sold; charged is outside that sum.
     const mwOf = (key: string) => {
       const row = rows.find((r) => r.key === key)

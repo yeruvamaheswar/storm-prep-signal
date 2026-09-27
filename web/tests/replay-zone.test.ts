@@ -9,7 +9,7 @@ import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { ZonePanel } from "../src/features/replay/ZonePanel"
 import { OrderPaths } from "../src/features/replay/OrderPaths"
-import { berylHoustonHomes22, berylHoustonOrders22 } from "./fixtures/beryl22"
+import { berylHoustonHomes22, berylHoustonHomes60, berylHoustonOrders22, berylHoustonOrders60 } from "./fixtures/beryl22"
 import {
   askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, notAskedLabel, notAskedReason, orderPath, refillLine, storyHomes,
   trustMarks, zoneLots, zonePaths, zoneSummary,
@@ -568,8 +568,11 @@ describe("a home says why its floor is what it is (Task 12 / #47: W3)", () => {
   })
 
   it("says what raised a reserved home's floor", () => {
-    expect(notAskedReason(home("home-021"), "AUTO")).toBe("Its floor was raised (NWS weather alert), so it keeps its energy for backup.")
-    const { floor_reason: _r, ...old } = home("home-021")
+    // beryl tick 60: home-021 (Harris) is reserved. At tick 22 it sells toward its floor (post-#50 engine).
+    const reserved = berylHoustonHomes60.find((h) => h.id === "home-021") as FlowHome
+    expect(reserved.state).toBe("reserved")
+    expect(notAskedReason(reserved, "AUTO")).toBe("Its floor was raised (NWS weather alert), so it keeps its energy for backup.")
+    const { floor_reason: _r, ...old } = reserved
     expect(notAskedReason(old, "AUTO")).toBe("Its floor was raised, so it keeps its energy for backup.")
   })
 })
@@ -590,8 +593,8 @@ describe("the home panel shows the home's display name and county (Task 12 / #47
 })
 
 describe("a reserved home well above its floor is kept for backup, not at its floor (Task 12 / #47: W4)", () => {
-  // beryl tick 22: home-021 (Harris) is full at 100% on a 60% floor and got no order.
-  const home021 = berylHoustonHomes22.find((h) => h.id === "home-021") as FlowHome
+  // beryl tick 60: home-021 (Harris) is full at 100% on a 60% floor and got no order.
+  const home021 = berylHoustonHomes60.find((h) => h.id === "home-021") as FlowHome
 
   it("labels the lot kept for backup", () => {
     expect(notAskedLabel(home021)).toBe("Not asked, kept for backup")
@@ -599,12 +602,13 @@ describe("a reserved home well above its floor is kept for backup, not at its fl
   })
 
   it("counts reserved homes in their own zone panel row", () => {
-    const s = zoneSummary("Houston", berylHoustonHomes22, berylHoustonOrders22, 120, 5)
+    // beryl tick 60, Houston: 4 reserved, 0 at floor, 10 full homes holding; 1 sells and 10 charge.
+    const s = zoneSummary("Houston", berylHoustonHomes60, berylHoustonOrders60, 120, 5)
     expect(s.notAskedReserved).toBe(4)
     expect(s.notAskedAtFloor).toBe(0)
-    expect(s.notAskedOther).toBe(16)
+    expect(s.notAskedOther).toBe(10)
     const html = renderToStaticMarkup(createElement(ZonePanel, {
-      zone: "Houston", homes: berylHoustonHomes22, orders: berylHoustonOrders22, tick: { mode: "AUTO", breaches: 0 } as never, tSeconds: 120,
+      zone: "Houston", homes: berylHoustonHomes60, orders: berylHoustonOrders60, tick: { mode: "AUTO", breaches: 0 } as never, tSeconds: 120,
     }))
     expect(html).toContain("<span>Not asked, kept for backup (floor raised)</span><b>4 homes</b>")
     expect(html).toContain("<span>Not asked, at their floor</span><b>0 homes</b>")

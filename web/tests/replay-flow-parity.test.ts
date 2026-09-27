@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { FlowRequest } from "../src/features/flow/api"
 import type {
-  ActiveAlert, FlowCounty, FlowTick, Provenance, ScenarioList, SessionState, StartSummary,
+  ActiveAlert, ArchiveRows, FlowCounty, FlowTick, Provenance, ScenarioList, SessionState, StartSummary,
 } from "../src/features/flow/types"
 import { DataPanel } from "../src/features/flow/DataPanel"
 import { AboutDataDrawer } from "../src/features/replay/AboutDataDrawer"
@@ -16,16 +16,17 @@ import { ZoneShares } from "../src/features/replay/ZoneShares"
 
 /*
  * Real engine data. Ticks, alerts and the county roster below were copied from an in-process run of
- * server.engine.scenario.Session (HOME_MAX_KW=11.4, HOME_KWH=25, seed 42):
- * - berylTick22: beryl-landfall, Beryl alert sent after tick 1, tick 22, at the post-#47 head. The alert names
- *   Harris only: Harris 60%, the other four Houston counties 30%. Harris's county reason is written as the engine
- *   sends it since 2026-09-27 (`weather_alert`); the floors are the same under that rule.
- * - heatherTick2: heather, both freeze alerts sent after tick 1, tick 2, at the 2026-09-27 named-county rule
- *   (every named county keeps the 60% storm reserve).
+ * server.engine.scenario.Session (HOME_MAX_KW=11.4, HOME_KWH=25, seed 42). The five ticks were re-run on c19119c
+ * (origin/main 162bd0a, post-#50/#52 DAM look-ahead, merged into Task 15): every tick played with Session.step(),
+ * an alert "sent after tick 1" sent with send_alert() once tick 1 had played (sent_at_tick 2), state() saved per tick.
+ * - berylTick22: beryl-landfall, Beryl alert sent after tick 1, tick 22. The alert names Harris only: Harris 60%,
+ *   the other four Houston counties 30%.
+ * - heatherTick2: heather, both freeze alerts sent after tick 1, tick 2 (every named county keeps the 60% storm
+ *   reserve). heather has no saved DAM day, so dam_label is "none" and it runs on the price bands.
  * - Each alert's `named_counties` is what the engine sends since 2026-09-27.
  * - holdTick: operator-hold tick 4. dischargeTick: storm-rule-high tick 4.
  * - expiredTick: storm-rule-night, Midland alert sent after tick 1, tick 20 (first tick after expiry).
- * Only the FlowTick fields are kept.
+ * Only these FlowTick fields are kept (dam_hours is left out).
  */
 
 const counties: FlowCounty[] = [
@@ -135,8 +136,8 @@ const berylTick22: FlowTick = {
   mode: "AUTO",
   target_mw: 0.02,
   target_label: "synthetic:price-shaped",
-  delivered_mw: 0.02,
-  missed_mw: 0.0,
+  delivered_mw: 0.019999999999999993,
+  missed_mw: 6.938893903907228e-18,
   price_usd_mwh: 13.9,
   price_label: "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
   reserve_pct: 30.0,
@@ -144,18 +145,27 @@ const berylTick22: FlowTick = {
   risk_level: "LOW",
   intent: "charge",
   intent_reason: "grid_call_served",
-  reasons: ["charging", "homes_stale:1"],
+  reasons: ["charging", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
   breaches: 0,
   zone_reserve_pct: { Houston: 60.0, North: 30.0, South: 30.0, West: 30.0 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
   county_reserve_pct: { "48201": 60.0, "48157": 30.0, "48039": 30.0, "48167": 30.0, "48339": 30.0 },
-  county_reasons: {
-    "48201": "weather_alert", "48157": "not_in_alert", "48039": "not_in_alert", "48167": "not_in_alert", "48339": "not_in_alert",
-  },
-  brief: "Delivered 0.02 of 0.02 MW. Floor 30% (Houston 60%: weather_alert); charging on cheap power; 1 home is stale.",
-  charging_mw: 0.24676088100000002,
+  county_reasons: { "48201": "weather_alert", "48157": "not_in_alert", "48039": "not_in_alert", "48167": "not_in_alert", "48339": "not_in_alert" },
+  brief: "Delivered 0.02 of 0.02 MW. Floor 30% (Houston 30–60% by county: Harris raised, NWS weather alert); charging on price: day-ahead plan or charge band; timed out 1; duplicates ignored 1; over delivery 1.",
+  charging_mw: 0.20458485,
   grid_down_zones: [],
+  dam_label: "recorded:ERCOT NP4-190-CD",
+  dam_as_of: "2024-07-07,2024-07-08",
+  zone_hours_needed: { Houston: 1, North: 1, South: 1, West: 2 },
+  zone_charge_hours: { Houston: ["2024-07-08T08:00-05:00"], North: ["2024-07-08T08:00-05:00"], South: ["2024-07-08T08:00-05:00"], West: ["2024-07-08T08:00-05:00", "2024-07-08T09:00-05:00"] },
+  zone_charge_why: { Houston: "cheaper_hour_later", North: "cheaper_hour_later", South: "rt_dip", West: "cheaper_hour_later" },
 }
+
+/** provenance.archive_rows.dam on beryl-landfall tick 22 (same run). */
+const berylDamRows: NonNullable<ArchiveRows["dam"]> = [
+  { report: "NP4-190-CD", delivery_date: "2024-07-07", file: "data/fixtures/dam/np4_190_cd_20240707.json" },
+  { report: "NP4-190-CD", delivery_date: "2024-07-08", file: "data/fixtures/dam/np4_190_cd_20240708.json" },
+]
 
 const heatherTick2: FlowTick = {
   tick: 2,
@@ -176,16 +186,16 @@ const heatherTick2: FlowTick = {
   breaches: 0,
   zone_reserve_pct: { Houston: 60.0, North: 60.0, South: 30.0, West: 30.0 },
   zone_reasons: { Houston: "weather_alert", North: "weather_alert", South: "normal", West: "normal" },
-  county_reserve_pct: {
-    "48201": 60.0, "48157": 60.0, "48039": 60.0, "48167": 60.0, "48339": 60.0, "48113": 60.0, "48439": 60.0, "48085": 60.0, "48121": 60.0,
-  },
-  county_reasons: {
-    "48201": "weather_alert", "48157": "weather_alert", "48039": "weather_alert", "48167": "weather_alert", "48339": "weather_alert",
-    "48113": "weather_alert", "48439": "weather_alert", "48085": "weather_alert", "48121": "weather_alert",
-  },
+  county_reserve_pct: { "48201": 60.0, "48157": 60.0, "48039": 60.0, "48167": 60.0, "48339": 60.0, "48113": 60.0, "48439": 60.0, "48085": 60.0, "48121": 60.0 },
+  county_reasons: { "48201": "weather_alert", "48157": "weather_alert", "48039": "weather_alert", "48167": "weather_alert", "48339": "weather_alert", "48113": "weather_alert", "48439": "weather_alert", "48085": "weather_alert", "48121": "weather_alert" },
   brief: "Delivered 0.20 of 0.20 MW. Floor 30% (Houston 60%: weather_alert, North 60%: weather_alert); refilling batteries under their reserve floor; 2 homes are stale.",
   charging_mw: 0.4044061380000001,
   grid_down_zones: [],
+  dam_label: "none",
+  dam_as_of: null,
+  zone_hours_needed: {},
+  zone_charge_hours: {},
+  zone_charge_why: {},
 }
 
 const holdTick: FlowTick = {
@@ -212,6 +222,11 @@ const holdTick: FlowTick = {
   brief: "Delivered 0.00 of 0.55 MW. Operator hold.",
   charging_mw: 0.0,
   grid_down_zones: [],
+  dam_label: "recorded:ERCOT NP4-190-CD",
+  dam_as_of: "2026-09-17,2026-09-18",
+  zone_hours_needed: { Houston: 1, North: 2, South: 2, West: 2 },
+  zone_charge_hours: {},
+  zone_charge_why: {},
 }
 
 const dischargeTick: FlowTick = {
@@ -238,6 +253,11 @@ const dischargeTick: FlowTick = {
   brief: "Delivered 0.16 of 0.16 MW. Refilling batteries under their reserve floor; 1 home is stale; timed out 1; duplicates ignored 1; over delivery 1.",
   charging_mw: 0.104435993,
   grid_down_zones: [],
+  dam_label: "recorded:ERCOT NP4-190-CD",
+  dam_as_of: "2026-09-16",
+  zone_hours_needed: { Houston: 1, North: 2, South: 2, West: 2 },
+  zone_charge_hours: { Houston: ["2026-09-16T09:00-05:00"], North: ["2026-09-16T09:00-05:00", "2026-09-16T10:00-05:00"], South: ["2026-09-16T08:00-05:00", "2026-09-16T09:00-05:00"], West: ["2026-09-16T11:00-05:00", "2026-09-16T16:00-05:00"] },
+  zone_charge_why: { Houston: "cheaper_hour_later", North: "cheaper_hour_later", South: "cheaper_hour_later", West: "cheaper_hour_later" },
 }
 
 const expiredTick: FlowTick = {
@@ -246,25 +266,31 @@ const expiredTick: FlowTick = {
   mode: "AUTO",
   target_mw: 0.2088,
   target_label: "synthetic:price-shaped",
-  delivered_mw: 0.20879999999999999,
-  missed_mw: 2.7755575615628914e-17,
+  delivered_mw: 0.2088,
+  missed_mw: 0.0,
   price_usd_mwh: 64.85,
   price_label: "recorded:ERCOT NP6-905-CD LZ_NORTH",
   reserve_pct: 30.0,
   policy_reason: "normal",
   risk_level: "LOW",
-  intent: "discharge",
-  intent_reason: "",
-  reasons: ["homes_stale:1", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
+  intent: "charge",
+  intent_reason: "grid_call_served",
+  reasons: ["charging", "homes_stale:1"],
   breaches: 0,
   zone_reserve_pct: { Houston: 30.0, North: 30.0, South: 30.0, West: 30.0 },
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   county_reserve_pct: {},
   county_reasons: {},
-  brief: "Delivered 0.21 of 0.21 MW. 1 home is stale; timed out 1; duplicates ignored 1; over delivery 1.",
-  charging_mw: 0.0,
+  brief: "Delivered 0.21 of 0.21 MW. Charging on price: day-ahead plan or charge band; 1 home is stale.",
+  charging_mw: 0.28500000000000003,
   grid_down_zones: [],
+  dam_label: "recorded:ERCOT NP4-190-CD",
+  dam_as_of: "2026-09-22,2026-09-23",
+  zone_hours_needed: { Houston: 1, North: 1, South: 2, West: 1 },
+  zone_charge_hours: { Houston: ["2026-09-22T17:00-05:00"], North: ["2026-09-22T17:00-05:00"], South: ["2026-09-22T17:00-05:00"], West: ["2026-09-22T17:00-05:00"] },
+  zone_charge_why: { Houston: "before_spike", North: "sell_band", South: "sell_band", West: "sell_band" },
 }
+
 
 /** The seed-42 fleet the worker reported (25 kWh / 11.4 kW packs, base floor 30%). */
 const realStart: StartSummary = {
@@ -572,6 +598,22 @@ describe("About this data: provenance rows (gap 13)", () => {
     expect(html).not.toContain("no price")
     expect(html).toMatch(/West price<\/dt><dd>\$20\.00\/MWh/)
   })
+
+  it("lists the day-ahead (DAM) source and the saved DAM files the tick read (beryl t22)", () => {
+    const html = drawer(session({ provenance: { ...provenance, archive_rows: { ...provenance.archive_rows, dam: berylDamRows } } }))
+    const rows = dataRows(html)
+    expect(rows).toContain("Day-ahead (DAM): recorded:ERCOT NP4-190-CD · 2024-07-07,2024-07-08")
+    expect(rows).toContain(
+      "DAM files: NP4-190-CD 2024-07-07 · data/fixtures/dam/np4_190_cd_20240707.jsonNP4-190-CD 2024-07-08 · data/fixtures/dam/np4_190_cd_20240708.json",
+    )
+  })
+
+  it("says the price bands ran when the scenario has no saved DAM day (heather), and not reported for an older worker", () => {
+    expect(dataRows(drawer(session({ tick: heatherTick2 })))).toContain("Day-ahead (DAM): None: price bands")
+    const { dam_label: _label, dam_as_of: _asOf, ...older } = berylTick22
+    expect(dataRows(drawer(session({ tick: older })))).toContain("Day-ahead (DAM): Not reported")
+    expect(drawer(session())).not.toContain("DAM files")
+  })
 })
 
 describe("Starting charge (gap 15)", () => {
@@ -644,9 +686,9 @@ describe("About this data: engine decision (gap 17)", () => {
     expect(html).toMatch(/Fleet did<\/dt><dd>Charge, sold toward the call, then charged/)
     expect(html).not.toContain("grid_call_served")
     expect(html).toContain("Automatic: the engine decides")
-    expect(html).toContain("Charging, Homes stale:1")
+    expect(html).toContain("Charging, Timed out:1, Duplicates ignored:1, Over delivery:1")
     expect(html).toMatch(/Breaches<\/dt><dd>0/)
-    expect(html).toContain("Delivered 0.02 of 0.02 MW. Floor 30% (Houston 60%: weather_alert)")
+    expect(html).toContain("Delivered 0.02 of 0.02 MW. Floor 30% (Houston 30–60% by county: Harris raised, NWS weather alert)")
   })
 
   it("lists each county floor under its zone (Beryl tick 22: Harris 60%, the other four Houston counties 30%)", () => {
@@ -676,6 +718,21 @@ describe("About this data: engine decision (gap 17)", () => {
     ])
     const houston = rows.indexOf("Houston floor: 60% · NWS weather alert")
     expect(rows.slice(houston + 1, houston + 6).every((row) => row.endsWith(": 60% · NWS weather alert"))).toBe(true)
+  })
+
+  it("names each zone's day-ahead charge decision in words (beryl t22, storm-rule-night t20)", () => {
+    const rows = dataRows(drawer(session()))
+    expect(rows).toContain("Houston charge: waiting for a cheaper day-ahead hour")
+    expect(rows).toContain("South charge: charging on a real-time dip below the day-ahead plan")
+    expect(rows).toContain("West charge: waiting for a cheaper day-ahead hour")
+    const night = dataRows(drawer(session({ tick: expiredTick, alerts: [] })))
+    expect(night).toContain("Houston charge: charging in its cheapest day-ahead hours before the next sell-band hour")
+    expect(night).toContain("North charge: real-time price is in the sell band")
+  })
+
+  it("shows no zone charge rows on a tick with no DAM day (heather t2 runs on the price bands)", () => {
+    const rows = dataRows(drawer(session({ scenario: heatherScenario, tick: heatherTick2, alerts: [] })))
+    expect(rows.filter((row) => row.includes(" charge: "))).toEqual([])
   })
 
   it("names a real operator hold truthfully: the fleet stopped, no selling and no charging", () => {
