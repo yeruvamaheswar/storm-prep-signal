@@ -50,6 +50,8 @@ def assign_zone(index, zones):
 
     Kept as one tiny function so the team can swap in contiguous blocks with one edit.
     """
+    if not zones:
+        raise ValueError("no zones configured: set ZONES before building a fleet")
     return zones[(index - 1) % len(zones)]
 
 
@@ -191,6 +193,8 @@ def new_fleet(settings, persist=False, path=None):
     kwh = settings["home_kwh"]
     lo, hi = settings["home_start_soc_min_pct"], settings["home_start_soc_max_pct"]
     zones = list(settings["zones"])
+    if n > 0 and not zones:
+        raise ValueError("no zones configured: set ZONES before building a fleet")
     homes = []
     for i in range(1, n + 1):
         pct = lo if n == 1 else lo + (hi - lo) * (i - 1) / (n - 1)
