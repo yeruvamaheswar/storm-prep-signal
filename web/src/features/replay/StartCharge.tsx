@@ -2,23 +2,32 @@ import { FLOW_ZONES, type StartSummary } from "../flow/types"
 import { chargeSpeedCaption } from "../flow/flowMath"
 import { DataRow } from "./DataRow"
 
-/** Bars of starting charge; a bin whose low edge is under the base floor is marked. */
+type Bin = { low: number; high: number; count: number; under: boolean }
+
+/** Each bin's range and count. A bin is "under" only when its whole range sits under the base floor,
+ * so a bin that straddles the floor is not marked. */
+function bins(start: StartSummary): Bin[] {
+  const width = 100 / start.histogram.length
+  return start.histogram.map((count, index) => {
+    const low = index * width
+    const high = low + width
+    return { low, high, count, under: high <= start.base_floor_pct }
+  })
+}
+
+/** Bars of starting charge. The accessible name carries every bin's count, since the bars are visual only. */
 function Histogram({ start }: { start: StartSummary }) {
+  const all = bins(start)
   const peak = Math.max(1, ...start.histogram)
-  const bins = start.histogram.length
+  const label = `Starting charge of ${start.homes} batteries: ${all.map((bin) => `${bin.low} to ${bin.high}%: ${bin.count}`).join(", ")}`
   return (
-    <div className="replay-hist" aria-label="Starting charge histogram">
-      {start.histogram.map((count, index) => {
-        const low = (index * 100) / bins
-        const high = low + 100 / bins
-        const under = low < start.base_floor_pct
-        return (
-          <div key={low} className="replay-hist-bin" title={`${low} to ${high}%: ${count} batteries`}>
-            <span className={under ? "replay-hist-bar is-under" : "replay-hist-bar"} style={{ height: `${(count / peak) * 100}%` }} />
-            <span className="replay-hist-label">{low}</span>
-          </div>
-        )
-      })}
+    <div className="replay-hist" role="img" aria-label={label}>
+      {all.map((bin) => (
+        <div key={bin.low} className="replay-hist-bin" title={`${bin.low} to ${bin.high}%: ${bin.count} batteries`}>
+          <span className={bin.under ? "replay-hist-bar is-under" : "replay-hist-bar"} style={{ height: `${(bin.count / peak) * 100}%` }} />
+          <span className="replay-hist-label">{bin.low}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -38,7 +47,7 @@ export function StartCharge({ start }: { start: StartSummary }) {
         <DataRow k="Pack" v={`${start.pack.kwh} kWh · ${start.pack.kw} kW (example, not Base specs)`} />
       </dl>
       <Histogram start={start} />
-      <p className="replay-note">Bins are starting charge in %. Amber bins start under the {start.base_floor_pct}% base floor.</p>
+      <p className="replay-note">Bins are starting charge in %. Amber bins lie wholly under the {start.base_floor_pct}% base floor.</p>
       {caption ? <p className="replay-note">{caption}</p> : null}
     </>
   )
