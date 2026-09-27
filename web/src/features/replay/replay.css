@@ -1304,3 +1304,97 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* Phone portrait only. Desktop dual-rail HUD above stays unchanged. */
+@media (max-width: 720px) {
+  .replay-scene {
+    min-height: 0;
+    height: calc(100dvh - 64px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .replay-crumb {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    width: auto;
+    max-width: none;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+  }
+
+  .replay-left,
+  .replay-right {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    top: auto;
+    bottom: auto;
+    max-height: min(38dvh, 340px);
+  }
+
+  .replay-left {
+    top: 64px;
+    z-index: 4;
+  }
+
+  .replay-right {
+    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+    z-index: 4;
+  }
+
+  .replay-bottom {
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .replay-scene.has-home .replay-bottom {
+    right: 12px;
+  }
+
+  .replay-playback {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 96px;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+
+  .replay-track {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+  }
+
+  .replay-speed-wrap {
+    flex: 1 1 140px;
+  }
+
+  .replay-drawer {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .replay-worker-empty {
+    left: 50%;
+    top: 48%;
+    width: calc(100% - 24px);
+    min-width: 0;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .replay-chip {
+    min-width: 0;
+    max-width: min(160px, 42vw);
+    font-size: 12px;
+  }
+}

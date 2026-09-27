@@ -493,3 +493,19 @@
   color: var(--rg-charging-text-strong);
   font-weight: 700;
 }
+
+/* Phone portrait only. Desktop fixed 412px home panel stays above. */
+@media (max-width: 720px) {
+  .zone-home {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    padding: 14px 16px;
+  }
+
+  .zone-home-head h2 {
+    font-size: 18px;
+  }
+}

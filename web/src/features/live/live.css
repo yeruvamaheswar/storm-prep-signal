@@ -110,3 +110,22 @@
   background: var(--rg-ink);
   color: var(--rg-panel-map);
 }
+
+/* Phone portrait only. Live reuses Replay's dual-rail layout; desktop stays unchanged. */
+@media (max-width: 720px) {
+  .live-playback {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 96px;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+
+  .live-replay {
+    min-height: 44px;
+  }
+
+  .live-row b {
+    font-size: 16px;
+  }
+}

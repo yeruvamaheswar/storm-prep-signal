@@ -51,3 +51,4 @@ Open this index, then the one file the task needs.
 | `grid-flow.md` | You are changing the `/flow` page, the scenario session worker, scenario tapes, archived NWS alerts and the named-county floor, or grid down |
 | `mode-stale-hold.md` | You are changing snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path |
 | `operator-settings.md` | You are changing the operator settings table, the mode POST persist, or how the live worker reads HOLD / AUTO |
+| `mobile-layout.md` | You are changing phone-portrait layout, safe-area padding, Replay rails on small screens, or the fleet table card stack |

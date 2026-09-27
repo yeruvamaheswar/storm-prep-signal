@@ -633,6 +633,41 @@ body:has(.flow-page),
   }
 }
 
+/* Phone portrait only. Desktop two-column body above stays unchanged. */
+@media (max-width: 720px) {
+  .flow-page {
+    padding: var(--space-4);
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .flow-mast {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .flow-nav {
+    margin-left: 0;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .flow-controls,
+  .flow-weather-steps {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flow-weather-steps [role="radiogroup"] {
+    flex-wrap: wrap;
+  }
+
+  .flow-page button,
+  .flow-page .flow-button {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .flow-line {
     animation: none;

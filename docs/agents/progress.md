@@ -2,6 +2,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Mobile portrait parity + judge README
+
+- Named gap: all routed pages usable in phone portrait with desktop feature parity; desktop layout unchanged; README judge-ready.
+- Phone CSS only under `max-width: 720px` (and fleet-grid 640px extensions): shell TopBar, Replay/Live rails and drawers, wall stress/feeds, fleet table stacked cards, fleetgrid tiles, flow controls. MapStage enables touch pan/zoom only when the phone media query matches.
+- Docs: `docs/agents/mobile-layout.md`, `docs/humans/mobile.md`, index row; root `README.md` rewritten for judges.
+- Verification: `cd web && npm test && npm run build`, `pytest -q`.
+
 ## 2026-09-27: Render starts the live worker for `/live`
 
 - Found from production: `/v1/snapshot` reached ERCOT with `quality: ok`, so ERCOT keys and routing were not the blocker. `/v1/runs/latest` returned the stale Supabase probe row `persist-probe-20260926`, with no `settings`, so the Live page correctly said the run could not be checked against the demo fleet.

@@ -394,3 +394,76 @@ body:has(.fleet-page),
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Phone portrait only: stacked home cards. Desktop 10-column table stays above. */
+@media (max-width: 720px) {
+  .fleet-page {
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .fleet-strip,
+  .fleet-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fleet-filters {
+    flex-wrap: wrap;
+  }
+
+  .fleet-button {
+    min-height: 44px;
+  }
+
+  .fleet-table {
+    table-layout: auto;
+  }
+
+  .fleet-table thead {
+    display: none;
+  }
+
+  .fleet-table tbody,
+  .fleet-table tr,
+  .fleet-table th,
+  .fleet-table td {
+    display: block;
+    width: auto;
+  }
+
+  .fleet-table tr.fleet-row {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .fleet-table th,
+  .fleet-table td {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: baseline;
+    padding: var(--space-1) 0;
+    border-bottom: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .fleet-table th::before,
+  .fleet-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .fleet-table td.fleet-empty {
+    display: block;
+  }
+
+  .fleet-table td.fleet-empty::before {
+    content: none;
+  }
+}
