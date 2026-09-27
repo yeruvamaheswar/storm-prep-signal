@@ -1046,3 +1046,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Named gap: the fleet table showed SOC 0.5–1.4 kWh against a 6.0 kWh floor with charge state DISCHARGING, while `TickResult.breaches` stayed 0.
 - A live run still loads `var/fleet/homes.json` when its length matches `FLEET_SIZE`. `home_caps` and `discharge` skip headroom at or under 0, and a discharge order is not sent to a real battery that cannot fill it. `tick_emit` and `GET /v1/homes` write those rows as HOLDING with assigned 0 and power 0. Charge is unchanged. A live run writes `homes.json` after every tick so the drain is what the next load reads. Tape replays still do not touch that file.
 - `pytest -q` was not run.
+
+## 2026-09-26: One end-to-end test per tick path (Rajat's lane)
+
+- `tests/test_tick_paths.py`: 20 tests, each one real `loop.run` tick (storm rule, price intent, `allocate`, `orchestrate_tick`, scoreboard, run file); a spy only keeps each tick's fleet copy and `CycleResult`. Settings pinned in the test (100 homes, 25 kWh / 11.4 kW, feed on), so a local `.env` cannot change the answer. `-s` prints one line per path.
+- Paths: hold / discharge / charge / no price on a calm day; storm, storm + cheap, missing signal, one-zone weather alert; operator HOLD, zero target, call too big; dead and stale homes, a whole zone dead; lost, duplicated and late messages, crashing homes, lying homes, short delivery; charge then discharge across two ticks.
+- Every tick also checks: 0 breaches, delivered + missed = target, no home past full, no home that gave charge ends under its floor, non-live homes never move, every home once in `zone_acks`, run file = returned record.
+- Seen: a charge tick draws the fleet's full 1.14 MW while the call asks 0.2 MW, storm or not (rules hold; a product question). With every report late, the fleet gives 0.2 MW and 0 is credited (honest books by design). The feed's planted liar (`home-042`, seed 1) is caught on a charge tick; no honest charging battery is flagged.
+- Not reachable end to end: per-zone `zone_intent` (no `Policy` field, `loop.py` never sets it); `TickResult` has no `charged_mw`.
+- `pytest -q`: 593 passed, 2 failed locally (the fleet-cap meta tests read a local `.env` pinned to the old pack). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
