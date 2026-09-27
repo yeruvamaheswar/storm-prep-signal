@@ -135,3 +135,23 @@ describe("Replay promise tick merge", () => {
     expect(html).not.toContain("Sent, not counted")
   })
 })
+
+describe("Replay promise panel on a mixed charging tick (Task 12: S3, deferred minor)", () => {
+  it("heather tick 1: served the call, then charged; nothing blames missing spare energy", () => {
+    // Real merged-engine tick (seed 42, HOME_MAX_KW=11.4, HOME_KWH=25). unconfirmed_mw from its history point.
+    const html = renderToStaticMarkup(createElement(PromisePanel, {
+      tick: {
+        tick: 1, mode: "AUTO", target_mw: 0.2, delivered_mw: 0.19999999971958105, missed_mw: 2.804189658256462e-10, unconfirmed_mw: 0,
+        charging_mw: 0.246587997, intent: "charge", intent_reason: "grid_call_served",
+        reasons: ["reserve_refill", "timed_out:2", "duplicates_ignored:1", "over_delivery:1"], breaches: 0,
+      },
+      onOpenLedger: () => {},
+      onOpenData: () => {},
+    }))
+    expect(html).toContain("Fleet did: Charge — served the call, then charged")
+    expect(html).toMatch(/<span class="is-charge">Charged from the grid<\/span><b class="is-charge">0\.247 MW<\/b>/)
+    expect(html).toMatch(/<span>Not sold<\/span><b>0\.000 MW<\/b>/)
+    expect(html).not.toContain("Not sent")
+    expect(html).not.toContain("no spare energy")
+  })
+})

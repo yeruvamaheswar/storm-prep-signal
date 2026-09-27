@@ -115,6 +115,21 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
     expect(ledgerRow(history[0]).intent).toBeUndefined()
   })
 
+  it("heather tick 1, a mixed tick (merged engine, HOME_KWH=25): served, then charged; no cause for a 0.000 MW gap", () => {
+    const heather1: HistoryPoint = {
+      tick: 1, ts: "2024-01-15T07:00:00-06:00", target_mw: 0.2, delivered_mw: 0.19999999971958105, charging_mw: 0.246587997,
+      missed_mw: 2.804189658256462e-10, unconfirmed_mw: 0, reserve_pct: 30, risk_level: "LOW",
+      reasons: ["reserve_refill", "timed_out:2", "duplicates_ignored:1", "over_delivery:1"], breaches: 0,
+      intent: "charge", intent_reason: "grid_call_served",
+    }
+    const row = ledgerRow(heather1)
+    expect(row.intent).toBe("Fleet did: Charge — served the call, then charged")
+    expect(row.charged).toBe(0.246587997)
+    expect(row.why).not.toContain("Not sent")
+    expect(row.why).not.toContain("Not sold")
+    expect(row.why).toContain("Refilling batteries under their reserve floor")
+  })
+
   it("leaves charged unreported when charging_mw is not a finite number", () => {
     expect(ledgerRow({ ...heather74, charging_mw: Number.NaN }).charged).toBeUndefined()
   })

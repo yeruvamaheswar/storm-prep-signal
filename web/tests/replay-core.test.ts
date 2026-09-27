@@ -402,3 +402,26 @@ describe("intentLine (B1, B2 shared copy)", () => {
     expect(intentLine("", "")).toBeNull()
   })
 })
+
+// Real heather tick 1 on the merged engine (seed 42, HOME_MAX_KW=11.4, HOME_KWH=25): a mixed tick. North sold and
+// charged in the same tick, the call was served to within float residue, and the fleet then charged.
+// unconfirmed_mw comes from the history point, as ReplayPage.promiseTick merges it.
+const heather1 = {
+  tick: 1, mode: "AUTO", target_mw: 0.2, delivered_mw: 0.19999999971958105, missed_mw: 2.804189658256462e-10, unconfirmed_mw: 0,
+  charging_mw: 0.246587997, intent: "charge", intent_reason: "grid_call_served",
+  reasons: ["reserve_refill", "timed_out:2", "duplicates_ignored:1", "over_delivery:1"], breaches: 0,
+} satisfies ReplayPromiseResult
+
+describe("promiseBreakdown closes the old 'no spare energy on a charging tick' minor (Task 12)", () => {
+  test("a served call whose unsold part rounds to 0.000 MW names no cause for it", () => {
+    for (const tick of [heather1, beryl1]) {
+      const notSold = promiseBreakdown(tick).find((row) => row.key === "not_sold")
+      expect(notSold).toEqual({ key: "not_sold", label: "Not sold", mw: tick.missed_mw })
+    }
+  })
+
+  test("a real unsold amount still names its cause", () => {
+    expect(promiseBreakdown(heather74)).toContainEqual({ key: "not_sold", label: "Kept for backup, floor raised", mw: 0.2 })
+    expect(promiseBreakdown(hold4)).toContainEqual({ key: "not_sold", label: "Not sent, operator hold", mw: 0.5477 })
+  })
+})

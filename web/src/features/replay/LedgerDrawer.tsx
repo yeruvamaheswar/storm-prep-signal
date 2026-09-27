@@ -2,7 +2,7 @@ import type { HistoryPoint } from "../flow/types"
 import { reasonText } from "../../format"
 import { count, mw, sum } from "./format"
 import { intentLine } from "./intentCopy"
-import { promiseBreakdown } from "./promise"
+import { SHOWN_MW, promiseBreakdown } from "./promise"
 import { useDrawerFocus } from "./useDrawer"
 
 type Props = {
@@ -45,7 +45,7 @@ export function ledgerRow(point: HistoryPoint): LedgerRow {
   const reasons = point.reasons?.length ? point.reasons.map(tickReason).join(", ") : ""
   const parts: string[] = []
   // Only name the not-sold reason when the amount shows as more than 0.000 MW in the table.
-  if (notSoldRow && notSold !== undefined && notSold >= 0.0005) parts.push(notSoldRow.label)
+  if (notSoldRow && notSold !== undefined && notSold >= SHOWN_MW) parts.push(notSoldRow.label)
   if (reasons) parts.push(reasons)
   return {
     tick: point.tick,

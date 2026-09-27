@@ -23,7 +23,12 @@ function operatorHold(result: ReplayPromiseResult): boolean {
   return result.mode === "HOLD" || (result.reasons ?? []).includes("operator_hold")
 }
 
-function notSoldLabel(result: ReplayPromiseResult): string {
+/** The smallest MW that shows as more than 0.000 MW (mw() prints 3 decimals). */
+export const SHOWN_MW = 0.0005
+
+function notSoldLabel(result: ReplayPromiseResult, notSold: number): string {
+  // A call served to within float residue left nothing unsold on screen: name no cause for a 0.000 MW row.
+  if (notSold < SHOWN_MW) return "Not sold"
   if (operatorHold(result)) return "Not sent, operator hold"
   return floorRaised(result) ? "Kept for backup, floor raised" : "Not sent, no spare energy above floors"
 }
@@ -37,7 +42,7 @@ export function promiseBreakdown(result: ReplayPromiseResult): PromiseRow[] {
   // and credited_mw only counts confirmed energy). Subtract it back out so this single row never double-counts.
   if (hasNumber(result.missed_mw) && hasNumber(result.unconfirmed_mw)) {
     const notSold = Math.max(0, result.missed_mw - result.unconfirmed_mw)
-    rows.push({ key: "not_sold", label: notSoldLabel(result), mw: notSold })
+    rows.push({ key: "not_sold", label: notSoldLabel(result, notSold), mw: notSold })
   }
   // Energy bought from the grid this tick. Not a sale: never part of asked, sold or not sold.
   if (hasNumber(result.charging_mw)) rows.push({ key: "charged", label: "Charged from the grid", mw: result.charging_mw })
