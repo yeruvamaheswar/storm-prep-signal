@@ -1725,7 +1725,8 @@
 
 /* Phone dock / sheets: hidden on desktop so dual-rail HUD stays the only chrome. */
 .replay-phone-chrome,
-.replay-phone-scrim {
+.replay-phone-scrim,
+.replay-phone-sheet-head {
   display: none;
 }
 
@@ -1777,10 +1778,10 @@
     display: none;
     left: 12px;
     right: 12px;
-    top: auto;
-    bottom: calc(168px + env(safe-area-inset-bottom, 0px));
+    top: 12px;
+    bottom: calc(var(--replay-mobile-bottom-h, 96px) + 132px + env(safe-area-inset-bottom, 0px));
     width: auto;
-    max-height: min(52dvh, 380px);
+    max-height: none;
     z-index: 7;
     gap: 10px;
     pointer-events: auto;
@@ -1797,6 +1798,44 @@
   /* Lens is in the phone dock; hide the duplicate rail block. */
   .replay-left .replay-lens {
     display: none;
+  }
+
+  /* One scroll surface for the sheet. The desktop rail scrolls only its list,
+   * which leaves that list too short once seed and weather controls stack on a phone. */
+  .replay-left .replay-scenarios,
+  .replay-left .replay-scenario-list {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .replay-phone-sheet-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px 8px 14px;
+  }
+
+  .replay-phone-sheet-head strong {
+    font-size: 15px;
+  }
+
+  .replay-phone-sheet-head button {
+    min-width: 64px;
+    min-height: 44px;
+    border: 1px solid var(--rg-line);
+    border-radius: 10px;
+    background: #ffffff;
+    color: var(--rg-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   /* Feed stays available but below the fold of the sheet; promise is the first read. */
@@ -1832,7 +1871,7 @@
     position: absolute;
     left: 12px;
     right: 12px;
-    bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--replay-mobile-bottom-h, 96px) + 20px + env(safe-area-inset-bottom, 0px));
     z-index: 5;
     pointer-events: none;
   }
@@ -1900,6 +1939,94 @@
     min-height: 88px;
     gap: 10px 12px;
     padding: 12px 14px;
+  }
+
+  /* Day view stays complete on phone, but uses the available width instead of
+   * growing into a tall desktop-style card that covers the sheet openers. */
+  .replay-playback.is-day {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 12px;
+    padding: 10px 12px;
+  }
+
+  .replay-playback.is-day > .replay-buttons {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .replay-playback.is-day > .replay-day {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .replay-playback.is-day > .replay-day-end {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .replay-playback.is-day .replay-day {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .replay-playback.is-day .replay-day-main {
+    gap: 2px;
+  }
+
+  .replay-playback.is-day .replay-day-now {
+    white-space: normal;
+    line-height: 1.25;
+  }
+
+  .replay-playback.is-day .replay-day-track {
+    height: 50px;
+  }
+
+  .replay-playback.is-day .replay-day-legend {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .replay-playback.is-day .replay-day-legend::-webkit-scrollbar {
+    display: none;
+  }
+
+  .replay-playback.is-day .replay-day-side,
+  .replay-playback.is-day .replay-day-presets {
+    width: 100%;
+  }
+
+  .replay-playback.is-day .replay-day-presets {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .replay-playback.is-day .replay-day-presets button {
+    flex: 1 1 0;
+    min-height: 44px;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .replay-playback.is-day .replay-day-end {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .replay-playback.is-day .replay-day-end .replay-keys {
+    display: none;
+  }
+
+  .replay-playback.is-day .replay-view button {
+    min-height: 44px;
   }
 
   .replay-play,

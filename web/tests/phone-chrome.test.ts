@@ -63,8 +63,11 @@ describe("Replay and Live mount the phone dock", () => {
       scenarios: null, state: null, nowMs: 0,
     }))
     expect(html).toContain("replay-phone-chrome")
+    expect(html).toContain("--replay-mobile-bottom-h:96px")
     expect(html).toContain("Scenario")
     expect(html).toContain("This tick")
+    expect(html).toContain("Close Scenarios panel")
+    expect(html).toContain("Close This tick panel")
     expect(html).toContain("Pick a scenario to replay")
   })
 

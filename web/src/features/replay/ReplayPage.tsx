@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import type { FlowRequest } from "../flow/api"
 import { isWorkerDown, type ScenarioList, type SessionState, type StartSummary, type StateReply } from "../flow/types"
 import { replayTickSeconds } from "./tickClock"
@@ -135,12 +135,20 @@ export function ReplayPage({
     setDrawer(next)
   }
 
+  function sendFromSetup(request: FlowRequest) {
+    // A phone scenario choice should reveal the map immediately, including when
+    // the operator restarts the active scenario and its id does not change.
+    if (request.kind === "start") setPhoneSheet(null)
+    onSend(request)
+  }
+
   const sheetClass = phoneSheet === "setup" ? " phone-sheet-setup" : phoneSheet === "fleet" ? " phone-sheet-fleet" : ""
+  const mobileBottom = { "--replay-mobile-bottom-h": `${bottomH ?? 96}px` } as CSSProperties
 
   return (
     <>
     <LineLegend lens={lens} view={zoneView ? "zone" : "map"} />
-    <main className={`replay-scene${zoneView && openHome ? " has-home" : ""}${paused ? " is-paused" : ""}${sheetClass}`}>
+    <main className={`replay-scene${zoneView && openHome ? " has-home" : ""}${paused ? " is-paused" : ""}${sheetClass}`} style={mobileBottom}>
       {zoneView ? (
         <ZoneBoard
           zone={zoneView}
@@ -179,7 +187,11 @@ export function ReplayPage({
         </div>
       ) : null}
       <div className="replay-left">
-        <ScenarioRail scenarios={scenarios} scenariosFailed={scenariosFailed} state={session} lens={lens} onLens={setLens} onSend={onSend} />
+        <div className="replay-panel replay-phone-sheet-head">
+          <strong>Scenarios</strong>
+          <button type="button" aria-label="Close Scenarios panel" onClick={() => setPhoneSheet(null)}>Close</button>
+        </div>
+        <ScenarioRail scenarios={scenarios} scenariosFailed={scenariosFailed} state={session} lens={lens} onLens={setLens} onSend={sendFromSetup} />
       </div>
       {zoneView && openHome ? (
         <HomePanel
@@ -196,6 +208,10 @@ export function ReplayPage({
         />
       ) : (
         <div className="replay-right">
+          <div className="replay-panel replay-phone-sheet-head">
+            <strong>This tick</strong>
+            <button type="button" aria-label="Close This tick panel" onClick={() => setPhoneSheet(null)}>Close</button>
+          </div>
           {zoneView ? (
             <ZonePanel zone={zoneView} homes={session?.homes ?? []} orders={session?.orders} tick={session?.tick ?? null} tSeconds={tSeconds} />
           ) : (

@@ -4,6 +4,8 @@
 
 **Decision (2026-09-27).** Replay and Live on phone are map-first. The dual floating rails are off until opened as bottom sheets (`PhoneChrome`: Scenario/Inputs + This tick). Send/Keep/Trust sits in a compact dock above playback. Phone UI clock and scenario poll use 1 s (`phoneMedia.ts`) so the map is not re-rendered four times a second. Starting a scenario closes the setup sheet. TopBar drops the "Scenario" label on phone and ellipsizes the name; zone chips sit below their anchors so they do not cover the crumb. The sticky `LineLegend` shows only the active group (Map or Zone board) in one horizontal scroll row.
 
+**Decision (2026-09-27, tap fix).** The phone dock and both sheets sit above the playback panel's measured height, not a fixed pixel guess. Day view compacts into phone rows, while keeping play, seek, pace, view, and mark information reachable. Each sheet has a visible Close control; choosing a scenario closes its sheet immediately. Desktop geometry is unchanged.
+
 ## Open it when
 
 You are changing phone layout, safe-area padding, Replay rails on small screens, phone sheets/dock, or the fleet table card stack.
