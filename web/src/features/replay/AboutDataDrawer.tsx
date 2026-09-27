@@ -1,6 +1,9 @@
 import { Fragment } from "react"
 import { VerifyArchive } from "../flow/VerifyArchive"
-import { FLOW_ZONES, type FlowCounty, type FlowTick, type Provenance, type SessionState, type StartSummary } from "../flow/types"
+import {
+  FLOW_ZONES, type ArchiveRows, type ArchiveRowsDam, type FlowCounty, type FlowTick, type FlowTickDam, type Provenance,
+  type SessionState, type StartSummary,
+} from "../flow/types"
 import { fmtScenarioTime, fmtUsd, reasonLabel } from "../flow/flowMath"
 import { AlertDetail } from "./AlertDetail"
 import { DataRow as Row } from "./DataRow"
@@ -51,7 +54,7 @@ function zonePrice(price: number | undefined): string {
 
 /** The tick's day-ahead source: "recorded:ERCOT NP4-190-CD · 2024-07-07,2024-07-08", or the price bands when the
  * scenario has no saved DAM day (dam_label "none"). Not reported by an older worker. */
-function damSource(tick: FlowTick | null): string {
+function damSource(tick: (FlowTick & FlowTickDam) | null): string {
   const label = tick?.dam_label
   if (!label) return NOT_REPORTED
   if (label === "none") return "None: price bands"
@@ -73,9 +76,9 @@ function chargeWhy(code: string): string {
   return CHARGE_WHY_WORDS[code] ?? code.replace(/_/g, " ")
 }
 
-function ProvenanceRows({ provenance, tick }: { provenance: Provenance; tick: FlowTick | null }) {
+function ProvenanceRows({ provenance, tick }: { provenance: Provenance; tick: (FlowTick & FlowTickDam) | null }) {
   const posting = provenance.posting
-  const archive = provenance.archive_rows
+  const archive: (ArchiveRows & ArchiveRowsDam) | null = provenance.archive_rows
   return (
     <dl>
       <Row k="Tick clock" v={`Tick ${provenance.tick} · ${fmtScenarioTime(provenance.ts)}`} />
@@ -133,8 +136,9 @@ function fleetDid(tick: FlowTick): string {
   return intentLine(tick.intent, tick.intent_reason)?.replace(/^Fleet did: /, "") ?? NOT_REPORTED
 }
 
-function EngineDecision({ tick, counties }: { tick: FlowTick; counties: FlowCounty[] }) {
+function EngineDecision({ tick, counties }: { tick: FlowTick & FlowTickDam; counties: FlowCounty[] }) {
   const reasons = tick.county_reasons ?? {}
+  const whys = tick.zone_charge_why ?? {}
   const countyRow = (county: CountyFloor) => (
     <Row key={county.fips} sub k={county.label} v={`${county.pct}% · ${reasonLabel(reasons[county.fips])}`} />
   )
@@ -149,8 +153,8 @@ function EngineDecision({ tick, counties }: { tick: FlowTick; counties: FlowCoun
           </Fragment>
         ))}
         {unplacedCountyFloors(tick, counties).map(countyRow)}
-        {FLOW_ZONES.filter((zone) => tick.zone_charge_why?.[zone]).map((zone) => (
-          <Row key={`${zone}-charge`} k={`${zone} charge`} v={chargeWhy(tick.zone_charge_why?.[zone] ?? "")} />
+        {FLOW_ZONES.filter((zone) => whys[zone]).map((zone) => (
+          <Row key={`${zone}-charge`} k={`${zone} charge`} v={chargeWhy(whys[zone] ?? "")} />
         ))}
         <Row k="Fleet did" v={fleetDid(tick)} />
         <Row k="Mode" v={MODE_WORDS[tick.mode] ?? tick.mode} />

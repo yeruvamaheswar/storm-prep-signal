@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { FlowRequest } from "../src/features/flow/api"
 import type {
-  ActiveAlert, ArchiveRows, FlowCounty, FlowTick, Provenance, ScenarioList, SessionState, StartSummary,
+  ActiveAlert, ArchiveRows, ArchiveRowsDam, FlowCounty, FlowTick, FlowTickDam, Provenance, ScenarioList, SessionState,
+  StartSummary,
 } from "../src/features/flow/types"
 import { DataPanel } from "../src/features/flow/DataPanel"
 import { AboutDataDrawer } from "../src/features/replay/AboutDataDrawer"
@@ -130,7 +131,9 @@ const midlandFlood: ActiveAlert = {
   ],
 }
 
-const berylTick22: FlowTick = {
+type DamTick = FlowTick & FlowTickDam
+
+const berylTick22: DamTick = {
   tick: 22,
   ts: "2024-07-07T23:45:00-05:00",
   mode: "AUTO",
@@ -162,12 +165,12 @@ const berylTick22: FlowTick = {
 }
 
 /** provenance.archive_rows.dam on beryl-landfall tick 22 (same run). */
-const berylDamRows: NonNullable<ArchiveRows["dam"]> = [
+const berylDamRows: NonNullable<ArchiveRowsDam["dam"]> = [
   { report: "NP4-190-CD", delivery_date: "2024-07-07", file: "data/fixtures/dam/np4_190_cd_20240707.json" },
   { report: "NP4-190-CD", delivery_date: "2024-07-08", file: "data/fixtures/dam/np4_190_cd_20240708.json" },
 ]
 
-const heatherTick2: FlowTick = {
+const heatherTick2: DamTick = {
   tick: 2,
   ts: "2024-01-15T07:05:00-06:00",
   mode: "AUTO",
@@ -198,7 +201,7 @@ const heatherTick2: FlowTick = {
   zone_charge_why: {},
 }
 
-const holdTick: FlowTick = {
+const holdTick: DamTick = {
   tick: 4,
   ts: "2026-09-17T16:45:00-05:00",
   mode: "HOLD",
@@ -229,7 +232,7 @@ const holdTick: FlowTick = {
   zone_charge_why: {},
 }
 
-const dischargeTick: FlowTick = {
+const dischargeTick: DamTick = {
   tick: 4,
   ts: "2026-09-16T02:15:00-05:00",
   mode: "AUTO",
@@ -260,7 +263,7 @@ const dischargeTick: FlowTick = {
   zone_charge_why: { Houston: "cheaper_hour_later", North: "cheaper_hour_later", South: "cheaper_hour_later", West: "cheaper_hour_later" },
 }
 
-const expiredTick: FlowTick = {
+const expiredTick: DamTick = {
   tick: 20,
   ts: "2026-09-22T17:35:00-05:00",
   mode: "AUTO",
@@ -600,7 +603,8 @@ describe("About this data: provenance rows (gap 13)", () => {
   })
 
   it("lists the day-ahead (DAM) source and the saved DAM files the tick read (beryl t22)", () => {
-    const html = drawer(session({ provenance: { ...provenance, archive_rows: { ...provenance.archive_rows, dam: berylDamRows } } }))
+    const archive: ArchiveRows & ArchiveRowsDam = { ...provenance.archive_rows, dam: berylDamRows }
+    const html = drawer(session({ provenance: { ...provenance, archive_rows: archive } }))
     const rows = dataRows(html)
     expect(rows).toContain("Day-ahead (DAM): recorded:ERCOT NP4-190-CD · 2024-07-07,2024-07-08")
     expect(rows).toContain(

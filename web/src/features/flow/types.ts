@@ -1,5 +1,4 @@
 /** Shapes from GET /v1/scenarios and GET /v1/scenario/state (server/engine/scenario.py). */
-import type { DamHour } from "../../contracts"
 
 export const FLOW_ZONES = ["West", "North", "South", "Houston"] as const
 export type FlowZone = (typeof FLOW_ZONES)[number]
@@ -119,17 +118,6 @@ export type FlowTick = {
   brief: string
   charging_mw?: number
   grid_down_zones?: string[]
-  /** Day-ahead (DAM) look-ahead (policy.dam_charge). Absent on older workers. Next 24 h by load zone, now first. */
-  dam_hours?: Record<string, DamHour[]>
-  /** "recorded:ERCOT NP4-190-CD", "ercot", or "none" (no saved DAM day: the zone runs on the price bands). */
-  dam_label?: string
-  dam_as_of?: string | null
-  /** Hours of charging that fill each zone (fleet.zone_hours_needed). */
-  zone_hours_needed?: Record<string, number>
-  /** Chosen charge hours by zone, as DamHour.hour_start strings. */
-  zone_charge_hours?: Record<string, string[]>
-  /** "dam_cheap_hour" | "before_spike" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full" | "sell_band" */
-  zone_charge_why?: Record<string, string>
 }
 
 export type Provenance = {
@@ -164,8 +152,6 @@ export type Provenance = {
 export type ArchiveRows = {
   posting?: { id?: number; report?: string; posted_at?: string; file_name?: string; event?: string }
   prices?: Array<{ settlement_point: string; interval_ending: string; price_usd_mwh: number }>
-  /** The saved DAM days (NP4-190-CD) this tick's look-ahead read. */
-  dam?: Array<{ report: string; delivery_date: string; file: string }>
   overlay?: string
 }
 
@@ -251,4 +237,26 @@ export type StateReply = SessionState | WorkerDown
 
 export function isWorkerDown(reply: StateReply): reply is WorkerDown {
   return reply.status === "worker_not_running"
+}
+
+/* Task 15: the day-ahead (DAM) look-ahead fields the engine adds to each tick (policy.dam_charge, since #50/#52).
+ * Add-only and optional: an older worker sends none of them. Read a tick as `FlowTick & FlowTickDam`. */
+export type FlowTickDam = {
+  /** Next 24 h of DAM hours by load zone, current hour first. */
+  dam_hours?: Record<string, Array<{ hour_start: string; usd_mwh: number }>>
+  /** "recorded:ERCOT NP4-190-CD", "ercot", or "none" (no saved DAM day: the zones run on the price bands). */
+  dam_label?: string
+  /** The delivery dates read, comma-separated. */
+  dam_as_of?: string | null
+  /** Hours of charging that fill each zone (fleet.zone_hours_needed). */
+  zone_hours_needed?: Record<string, number>
+  /** Chosen charge hours by zone, as hour_start strings. */
+  zone_charge_hours?: Record<string, string[]>
+  /** "dam_cheap_hour" | "before_spike" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full" | "sell_band" */
+  zone_charge_why?: Record<string, string>
+}
+
+/** Task 15: provenance.archive_rows.dam, the saved DAM days (NP4-190-CD) the tick's look-ahead read. */
+export type ArchiveRowsDam = {
+  dam?: Array<{ report: string; delivery_date: string; file: string }>
 }
