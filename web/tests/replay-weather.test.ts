@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
 import type { FlowTick, FlowZoneRow } from "../src/features/flow/types"
 import {
-  ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, isWeatherReason, ringBox, zoneWeather,
+  ISLANDED_TEXT, alertKeptBase, clipPolygon, cloudBlobs, fleetWeather, isWeatherReason, ringBox, zoneWeather,
 } from "../src/features/replay/weatherModel"
+import { berylTick22, counties } from "./fixtures/beryl22"
 import {
   FLOOR_RAISING_REASONS, SIGNAL_MISSING_REASON, WEATHER_REASONS, isFloorRaisingReason,
 } from "../src/features/replay/reasonCodes"
@@ -125,6 +126,23 @@ describe("zone weather at the playhead's tick", () => {
     const weather = fleetWeather(ZONES, jevNoTick as never, {}, 30)
     for (const zone of ZONES) expect(weather[zone]).toEqual(CALM)
     expect(zoneWeather("Houston", jevNoTick as never, undefined, 30)).toMatchObject({ weather: false, floorRaised: false })
+  })
+
+  it("finds the zones where JEV said no to an alert and the base floor was kept (Task 12 / #47: W2)", () => {
+    for (const zone of ["Houston", "North"]) expect(alertKeptBase(zone, jevNoTick, counties)).toBe(true)
+    for (const zone of ["West", "South"]) expect(alertKeptBase(zone, jevNoTick, counties)).toBe(false)
+    // JEV yes for Harris: the zone was raised, so nothing was kept at base because of a no.
+    expect(alertKeptBase("Houston", berylTick22, counties)).toBe(false)
+    // storm-rule-night after the Midland alert: Midland and Ector JEV no, the other two counties not named.
+    const westNo = {
+      zone_reasons: { West: "normal" },
+      county_reasons: { 48329: "jev_no", 48135: "jev_no", 48451: "not_in_alert", 48441: "not_in_alert" },
+    }
+    expect(alertKeptBase("West", westNo, counties)).toBe(true)
+    // Nothing to read: no county reasons, or no roster.
+    expect(alertKeptBase("Houston", calmTick, counties)).toBe(false)
+    expect(alertKeptBase("Houston", jevNoTick, [])).toBe(false)
+    expect(alertKeptBase("Houston", null, counties)).toBe(false)
   })
 
   it("raises nothing on a calm tick", () => {

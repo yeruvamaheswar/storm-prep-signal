@@ -7,7 +7,8 @@ import { MapStage } from "../src/features/replay/MapStage"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { homeFloorRaised } from "../src/features/replay/reasonCodes"
-import { berylHoustonHomes22, berylHoustonOrders22 } from "./fixtures/beryl22"
+import { JEV_NO_TEXT } from "../src/features/replay/weatherModel"
+import { berylHoustonHomes22, berylHoustonOrders22, counties } from "./fixtures/beryl22"
 
 // Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts.
 // beryl-landfall tick 2 after the Beryl alert (JEV yes for Harris; merged engine with #47, seed 42).
@@ -22,6 +23,18 @@ const gridDownTick = {
   zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: ["Houston"],
+} as unknown as FlowTick
+// heather tick 2 after both hard-freeze warnings (merged engine with #47, seed 42): JEV said no in all nine named counties.
+const jevNoTick = {
+  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:2"],
+  zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
+  zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
+  county_reserve_pct: { 48201: 30, 48157: 30, 48039: 30, 48167: 30, 48339: 30, 48113: 30, 48439: 30, 48085: 30, 48121: 30 },
+  county_reasons: {
+    48201: "jev_no", 48157: "jev_no", 48039: "jev_no", 48167: "jev_no", 48339: "jev_no",
+    48113: "jev_no", 48439: "jev_no", 48085: "jev_no", 48121: "jev_no",
+  },
+  grid_down_zones: [],
 } as unknown as FlowTick
 const calmTick = {
   tick: 1, risk_level: "LOW", reasons: [],
@@ -208,5 +221,36 @@ describe("map weather", { timeout: 20_000 }, () => {
     const tints = [...host.querySelectorAll<HTMLElement>(".replay-wx-islanded")].map((el) => el.dataset.zone)
     expect(tints).toEqual(["Houston"])
     expect(host.querySelector(".replay-wx-rain")).toBeNull()
+  })
+
+  it("names an alert JEV said no to on the zone's chip, with no clouds (Task 12 / #47: W2)", async () => {
+    await act(async () => {
+      root.render(createElement(MapStage, {
+        zones: {}, homes, tick: jevNoTick, counties, baseFloorPct: 30, tSeconds: 0, lens: "send", notice: null, onZone: () => {},
+      }))
+    })
+    for (let i = 0; i < 400 && !host.querySelector(".replay-chip"); i += 1) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
+    }
+    const chips = [...host.querySelectorAll<HTMLButtonElement>(".replay-chip")]
+    const noted = chips.filter((chip) => chip.textContent?.includes(JEV_NO_TEXT)).map((chip) => chip.querySelector("b")?.textContent)
+    expect(noted.sort()).toEqual(["Houston", "North"])
+    expect(host.querySelector(".replay-wx-clouds")).toBeNull()
+    expect(host.querySelector(".replay-wx-rain")).toBeNull()
+  })
+})
+
+describe("zone board after an alert JEV said no to (Task 12 / #47: W2)", () => {
+  it("says the base floor was kept, with no weather and no lit windows", () => {
+    const state = {
+      status: "paused", error: null, updated_at: "", scenario: null, seed: 42, speed: 1, speeds: [1], step_seconds: 120, tick_minutes: 5,
+      tick_index: 2, tick_count: 145, start: { base_floor_pct: 30 }, tick: jevNoTick, homes, orders: {}, zones: {}, charging_mw: 0,
+      provenance: null, alerts: [], grid_down_zones: [], history: [], totals: null, log: [], honest_limits: [], counties,
+    }
+    const page = (zone: string) => renderToStaticMarkup(createElement(ReplayPage, { scenarios: null, state: state as never, nowMs: 0, selectedZone: zone }))
+    expect(page("Houston")).toContain(JEV_NO_TEXT)
+    expect(page("Houston")).not.toContain("is-weather")
+    expect(page("Houston")).not.toContain("var(--rg-window-lit)")
+    expect(page("West")).not.toContain(JEV_NO_TEXT)
   })
 })

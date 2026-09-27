@@ -3,12 +3,12 @@ import type { GeoJSON as LeafletGeoJSON, Map as LeafletMap, Path as LeafletPath 
 import "leaflet/dist/leaflet.css"
 import geo from "../../../../geo/ercot-load-zones.json"
 import type { Point } from "../flow/flowMath"
-import { FLOW_ZONES, type FlowHome, type FlowTick, type FlowZoneRow, type OrderTimelineEntry } from "../flow/types"
+import { FLOW_ZONES, type FlowCounty, type FlowHome, type FlowTick, type FlowZoneRow, type OrderTimelineEntry } from "../flow/types"
 import {
   CONTROLLER_LATLNG, arcPath, arcPoint, chargeOnly, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity,
   zoneArcClass, zoneGeos, zoneGoes, type LatLng, type ZoneActivity,
 } from "./mapModel"
-import { ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, ringBox } from "./weatherModel"
+import { ISLANDED_TEXT, JEV_NO_TEXT, alertKeptBase, clipPolygon, cloudBlobs, fleetWeather, ringBox } from "./weatherModel"
 import type { Lens } from "./ScenarioRail"
 
 export type StageNotice = "worker_down" | "api_down" | null
@@ -18,6 +18,8 @@ type Props = {
   homes: FlowHome[]
   orders?: Record<string, OrderTimelineEntry[]>
   tick: FlowTick | null
+  /** `state.counties`, the county roster (#47). Missing: no JEV-no note. */
+  counties?: FlowCounty[]
   /** `state.start.base_floor_pct`. Missing means no zone is marked raised. */
   baseFloorPct?: number
   tSeconds: number
@@ -53,7 +55,7 @@ function noticeText(notice: StageNotice, apiBase: string): ReactNode {
   return null
 }
 
-export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, lens, notice, apiBase = "", onZone }: Props) {
+export function MapStage({ zones, homes, orders, tick, counties, baseFloorPct, tSeconds, lens, notice, apiBase = "", onZone }: Props) {
   const leafletRef = useRef<HTMLDivElement | null>(null)
   const zoneLayers = useRef<Record<string, LeafletPath>>({})
   const onZoneRef = useRef(onZone)
@@ -293,6 +295,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
           >
             <b>{zone}</b>{line1}<br />{line2}
             {weather[zone].gridDown ? <span className="replay-chip-islanded">{ISLANDED_TEXT}</span> : null}
+            {alertKeptBase(zone, tick, counties) ? <span className="replay-chip-jev-no">{JEV_NO_TEXT}</span> : null}
           </button>
         )
       }) : null}

@@ -6,7 +6,7 @@ import type { Lens } from "./ScenarioRail"
 import {
   SUBSTATION, WORLD, boardPath, keepGauge, lotLook, storyHomes, streetsPath, trustMarks, zoneLots, zonePaths,
 } from "./zoneModel"
-import { ISLANDED_TEXT, type ZoneWeather } from "./weatherModel"
+import { ISLANDED_TEXT, JEV_NO_TEXT, type ZoneWeather } from "./weatherModel"
 import { homeFloorRaised } from "./reasonCodes"
 import "./zone.css"
 
@@ -23,6 +23,8 @@ type Props = {
   backHref?: string
   /** This zone's weather at the playhead's tick (weatherModel.zoneWeather). Missing shows no weather. */
   weather?: ZoneWeather
+  /** An NWS alert was sent here but JEV said no, so the base floor was kept (weatherModel.alertKeptBase). */
+  alertKeptBase?: boolean
 }
 
 const BOARD = boardPath()
@@ -58,7 +60,7 @@ const LEGEND: Array<{ label: string; stroke: string; width: number; dash?: strin
 ]
 
 /** The clay isometric neighbourhood of one zone's homes, ported from the approved Zone mockup. */
-export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/", weather }: Props) {
+export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/", weather, alertKeptBase = false }: Props) {
   // Weather only: a floor raised because the ERCOT signal is missing does not dim the board.
   const raised = weather?.weather === true
   const islanded = weather?.gridDown === true
@@ -193,6 +195,7 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
           ) : null}
         </div>
         {islanded ? <p className="zone-islanded" role="status">{ISLANDED_TEXT}</p> : null}
+        {alertKeptBase ? <p className="zone-jev-no">{JEV_NO_TEXT}</p> : null}
       </div>
     </div>
   )

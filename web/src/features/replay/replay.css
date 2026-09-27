@@ -236,6 +236,15 @@
   font-weight: 700;
 }
 
+/* Task 12 (#47): an NWS alert JEV said no to. Muted words only: no weather, no amber, the floor did not move. */
+.replay-chip-jev-no {
+  display: block;
+  margin-top: 4px;
+  color: var(--rg-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .replay-crumb {
   left: 320px;
   top: 20px;
