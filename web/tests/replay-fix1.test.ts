@@ -7,7 +7,7 @@ import type { FlowHome, HistoryPoint, OrderTimelineEntry } from "../src/features
 import { NOT_REPORTED, sum } from "../src/features/replay/format"
 import { LedgerDrawer, ledgerRow } from "../src/features/replay/LedgerDrawer"
 import {
-  chipLines, chipPlacement, insideRing, zoneActivity, zoneGeos, zoneRaised,
+  chipLines, chipPlacement, insideRing, zoneActivity, zoneArcClass, zoneGeos, zoneGoes, zoneRaised,
 } from "../src/features/replay/mapModel"
 import { PlaybackBar, tickProgress } from "../src/features/replay/PlaybackBar"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
@@ -68,6 +68,70 @@ describe("ledger rows", () => {
   })
 })
 
+// Real post-#41 history points (engine in-process, seed 42, HOME_MAX_KW=11.4; main-impact-audit.md S3).
+// History points carry no mode; intent and intent_reason are copied from the tick (scenario.py, Task 12).
+const heather74: HistoryPoint = {
+  tick: 74, ts: "t74", target_mw: 0.2, delivered_mw: 0, charging_mw: 1.1286, missed_mw: 0.2, unconfirmed_mw: 0,
+  reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0, intent: "charge", intent_reason: "reserve_refill",
+}
+const beryl1: HistoryPoint = {
+  tick: 1, ts: "t1", target_mw: 0.02, delivered_mw: 0.02, charging_mw: 0.908, missed_mw: 0, unconfirmed_mw: 0,
+  reasons: ["charging", "reserve_refill"], breaches: 0, intent: "charge", intent_reason: "grid_call_served",
+}
+const hold4: HistoryPoint = {
+  tick: 4, ts: "t4", target_mw: 0.5477, delivered_mw: 0, charging_mw: 0, missed_mw: 0.5477, unconfirmed_mw: 0,
+  reasons: ["operator_hold"], breaches: 0, intent: "hold", intent_reason: "operator_hold",
+}
+const realHistory = [beryl1, hold4, heather74]
+
+describe("ledger on post-#41 history (B2, B3, W3)", () => {
+  it("heather tick 74: the unsold call is kept for backup, never 'Not sent', and the refill is charged", () => {
+    const row = ledgerRow(heather74)
+    expect(row.why).toContain("Kept for backup, floor raised")
+    expect(row.why).not.toContain("Not sent")
+    expect(row.charged).toBe(1.1286)
+    expect(row.sold).toBe(0)
+  })
+
+  it("an operator hold reads 'Not sent, operator hold' from the reason alone", () => {
+    const row = ledgerRow(hold4)
+    expect(row.why).toContain("Not sent, operator hold")
+    expect(row.why).not.toContain("no spare energy")
+  })
+
+  it("names tick reasons with the shared reason copy", () => {
+    const why = ledgerRow(heather74).why
+    expect(why).toContain("Storm reserve raised")
+    expect(why).toContain("Refilling batteries under their reserve floor")
+    expect(why).toContain("1 home is stale")
+    expect(why).not.toContain("Homes stale:1")
+    expect(ledgerRow(beryl1).why).toContain("Charging on cheap power")
+  })
+
+  it("carries the tick's own intent label, and none when the point has no intent", () => {
+    expect(ledgerRow(heather74).intent).toBe("Fleet did: Charge — refilled batteries under their floor")
+    expect(ledgerRow(beryl1).intent).toBe("Fleet did: Charge — served the call, then charged")
+    expect(ledgerRow(hold4).intent).toBe("Fleet did: Hold — operator hold")
+    expect(ledgerRow(history[0]).intent).toBeUndefined()
+  })
+
+  it("leaves charged unreported when charging_mw is not a finite number", () => {
+    expect(ledgerRow({ ...heather74, charging_mw: Number.NaN }).charged).toBeUndefined()
+  })
+
+  it("renders an amber Charged column and a run total kept apart from asked and sold", () => {
+    const html = renderToStaticMarkup(createElement(LedgerDrawer, { title: "Ledger", history: realHistory, onClose: () => {} }))
+    expect(html).toContain(">Charged<")
+    expect(html).toContain('<td class="n is-charge">1.129 MW</td>')
+    expect(html).toContain('<td class="n is-charge">0.908 MW</td>')
+    expect(html).toMatch(/Charged from the grid over 3 ticks<\/p><b class="is-charge">2\.037 MW<\/b>/)
+    // Asked 0.768 and sold 0.020 over the run; the 2.037 bought never enters either.
+    expect(html).toMatch(/Asked over 3 ticks<\/p><b>0\.768 MW<\/b>/)
+    expect(html).toMatch(/Sold and confirmed<\/p><b class="is-confirmed">0\.020 MW<\/b>/)
+    expect(html).toContain("Fleet did: Hold — operator hold")
+  })
+})
+
 const homes: FlowHome[] = [
   { id: "h1", zone: "North", soc_pct: 50, kw: 0, state: "selling", status: "ok", floor_pct: 30 },
   { id: "h2", zone: "North", soc_pct: 50, kw: 0, state: "selling", status: "ok", floor_pct: 30 },
@@ -97,6 +161,60 @@ describe("zone activity follows the playhead", () => {
     const bare = { h1: [[0, "sent", 3, "own"], [40, "conf", null, "own"]] as OrderTimelineEntry[] }
     expect(zoneActivity("North", homes, bare, 120).soldKw).toBeUndefined()
     expect(chipLines("North", zoneActivity("North", homes, bare, 120), undefined, null, "send")[1]).toBe("kW sold not reported")
+  })
+})
+
+describe("zone activity splits sell from charge (W1)", () => {
+  // Heather tick 74 shape: every order in a zone can be a charge (negative planned kW), and a
+  // zone can hold both. A single home never gets both in one tick (controller.py serve_then_charge).
+  const zoneHomes: FlowHome[] = [
+    { id: "c1", zone: "North", soc_pct: 40, kw: -11.4, state: "charging", status: "live", floor_pct: 60, under_floor_why: "floor_raised" },
+    { id: "c2", zone: "North", soc_pct: 41, kw: -11.4, state: "charging", status: "live", floor_pct: 60, under_floor_why: "floor_raised" },
+    { id: "s1", zone: "South", soc_pct: 70, kw: 2, state: "selling", status: "live", floor_pct: 30 },
+    { id: "c3", zone: "South", soc_pct: 20, kw: -5, state: "charging", status: "live", floor_pct: 30, under_floor_why: "started_under" },
+  ]
+  const zoneOrders: Record<string, OrderTimelineEntry[]> = {
+    c1: [[0, "sent", -11.4, "own"], [8, "exec", -11.4, "own"], [20, "conf", -11.4, "own"]],
+    c2: [[0, "sent", -11.4, "own"], [9, "exec", -11.4, "own"], [25, "conf", -11.4, "own"]],
+    s1: [[0, "sent", 2, "own"], [10, "exec", 2, "own"], [30, "conf", 2, "own"]],
+    c3: [[0, "sent", -5, "own"], [12, "exec", -5, "own"], [40, "conf", -5, "own"]],
+  }
+
+  it("a charge-only zone reads as charging, not asked to sell, and its charges are not 'confirmed' sales", () => {
+    const act = zoneActivity("North", zoneHomes, zoneOrders, 120)
+    expect(act).toMatchObject({ askedSell: 0, askedCharge: 2, confirmed: 0, confirmedCharge: 2, soldKw: 0, chargedKw: 22.8 })
+    expect(chipLines("North", act, undefined, null, "send")).toEqual(["2 homes charging", "22.8 kW charged"])
+    expect(chipLines("North", act, undefined, null, "trust")).toEqual(["2 homes charging", "2 charge confirmed"])
+    expect(zoneArcClass("send", act)).toBe("arc arc-charge")
+    expect(zoneArcClass("trust", act)).toBe("arc arc-charge")
+    expect(zoneGoes(act)).toBe(false)
+  })
+
+  it("a zone that sells and charges names both, and only the sale is sold or confirmed", () => {
+    const act = zoneActivity("South", zoneHomes, zoneOrders, 120)
+    expect(act).toMatchObject({ askedSell: 1, askedCharge: 1, confirmed: 1, confirmedCharge: 1, soldKw: 2, chargedKw: 5 })
+    expect(chipLines("South", act, undefined, null, "send")).toEqual(["1 asked to sell · 1 charging", "2.0 kW sold"])
+    expect(chipLines("South", act, undefined, null, "trust")).toEqual(["1 asked to sell · 1 charging", "1 confirmed · 1 charge confirmed"])
+    expect(zoneArcClass("send", act)).toBe("arc arc-send")
+    expect(zoneGoes(act)).toBe(true)
+  })
+
+  it("a sell-only zone keeps its wording and the blue send arc", () => {
+    const act = zoneActivity("North", homes, orders, 120)
+    expect(act).toMatchObject({ askedSell: 2, askedCharge: 0, confirmedCharge: 0 })
+    expect(chipLines("North", act, undefined, null, "send")).toEqual(["2 homes asked", "6.5 kW sold"])
+    expect(chipLines("North", act, undefined, null, "trust")).toEqual(["2 homes asked", "2 confirmed"])
+    expect(zoneArcClass("send", act)).toBe("arc arc-send")
+    expect(zoneArcClass("keep", act)).toBe("arc arc-keep")
+    expect(zoneArcClass("trust", act)).toBe("arc arc-live")
+    expect(zoneGoes(act)).toBe(true)
+  })
+
+  it("does not invent charged kW for a confirmed charge with no kW on record", () => {
+    const bare = { c1: [[0, "sent", -11.4, "own"], [20, "conf", null, "own"]] as OrderTimelineEntry[] }
+    const act = zoneActivity("North", zoneHomes, bare, 120)
+    expect(act.chargedKw).toBeUndefined()
+    expect(chipLines("North", act, undefined, null, "send")).toEqual(["1 home charging", "kW charged not reported"])
   })
 })
 

@@ -5,8 +5,8 @@ import geo from "../../../../geo/ercot-load-zones.json"
 import type { Point } from "../flow/flowMath"
 import { FLOW_ZONES, type FlowHome, type FlowTick, type FlowZoneRow, type OrderTimelineEntry } from "../flow/types"
 import {
-  CONTROLLER_LATLNG, arcPath, arcPoint, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity, zoneGeos,
-  type LatLng, type ZoneActivity,
+  CONTROLLER_LATLNG, arcPath, arcPoint, chargeOnly, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity,
+  zoneArcClass, zoneGeos, zoneGoes, type LatLng, type ZoneActivity,
 } from "./mapModel"
 import { ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, ringBox } from "./weatherModel"
 import type { Lens } from "./ScenarioRail"
@@ -179,13 +179,12 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
       const el = layer.getElement?.()
       if (!el) continue
       el.classList.toggle("is-raised", raised[zone] === true)
-      el.classList.toggle("is-go", activity[zone]?.sent === true)
+      // A zone that only charges was asked nothing for the call: no blue highlight.
+      el.classList.toggle("is-go", zoneGoes(activity[zone]))
     }
   }
 
   useEffect(paintZones)
-
-  const arcClass = lens === "keep" ? "arc arc-keep" : lens === "trust" ? "arc arc-live" : "arc arc-send"
 
   return (
     <div className={`replay-map-stage lens-${lens}`} aria-label="Map of the four Texas load zones">
@@ -226,7 +225,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
             {FLOW_ZONES.map((zone) => {
               const at = projected.zones[zone]
               if (!at || !activity[zone]?.sent) return null
-              return <path key={`a-${zone}`} className={arcClass} data-zone={zone} d={arcPath(projected.node, at)} />
+              return <path key={`a-${zone}`} className={zoneArcClass(lens, activity[zone])} data-zone={zone} d={arcPath(projected.node, at)} />
             })}
             {FLOW_ZONES.map((zone) => {
               const at = projected.zones[zone]
@@ -281,13 +280,14 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
         const at = projected.zones[zone]
         if (!at) return null
         const [line1, line2] = chipLines(zone, activity[zone], zones[zone], tick, lens)
-        const go = activity[zone]?.sent === true
+        const go = zoneGoes(activity[zone])
+        const charge = chargeOnly(activity[zone])
         const placement = chipPlacement(at, clusterRadius(homeCounts[zone] ?? 0), projected.node)
         return (
           <button
             key={zone}
             type="button"
-            className={`replay-chip${go ? " go" : ""}${placement.below ? " is-below" : ""}`}
+            className={`replay-chip${go ? " go" : ""}${charge ? " charge" : ""}${placement.below ? " is-below" : ""}`}
             style={{ left: at[0], top: placement.top }}
             onClick={() => onZone(zone)}
           >

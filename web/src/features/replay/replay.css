@@ -136,6 +136,17 @@
   animation: replay-flow 1.1s linear infinite;
 }
 
+/* Task 12: charge orders only. Power flows the other way, so the dash runs back to the controller. */
+.arc-charge {
+  stroke: var(--rg-charging);
+  stroke-dasharray: 10 9;
+  animation: replay-flow-back 1.1s linear infinite;
+}
+
+@keyframes replay-flow-back {
+  to { stroke-dashoffset: 19; }
+}
+
 .arc-keep {
   stroke: var(--rg-charging);
   stroke-width: 2;
@@ -154,7 +165,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arc-send {
+  .arc-send,
+  .arc-charge {
     animation: none;
   }
 }
@@ -300,6 +312,11 @@
 
 .replay-chip.go {
   outline: 2px solid var(--rg-gave-energy);
+}
+
+/* Task 12: a zone whose only orders are charges. */
+.replay-chip.charge {
+  outline: 2px solid var(--rg-charging);
 }
 
 .replay-chip:hover {
@@ -510,6 +527,31 @@
 
 .is-confirmed {
   color: var(--rg-confirmed);
+}
+
+/* Task 12: energy bought from the grid. Amber, set apart from the call's rows, never summed with them. */
+.replay-promise .is-charge,
+.replay-ledger .is-charge {
+  color: var(--rg-charging-text);
+}
+
+.replay-row.replay-row-charge {
+  margin-top: 4px;
+  border-top: 1px dashed var(--rg-charging);
+}
+
+.replay-intent {
+  margin: 6px 0 4px;
+  color: var(--rg-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.replay-ledger-intent {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 600;
 }
 
 .replay-breaches {

@@ -24,6 +24,11 @@ describe("reason text", () => {
     expect(reasonText("holding_spare_energy")).toBe("Holding spare energy")
   })
 
+  it("names the charging code the way the engine brief does (brief.py REASON_LINES)", () => {
+    expect(reasonText("charging")).toBe("Charging on cheap power")
+    expect(reasonText("reserve_refill")).toBe("Refilling batteries under their reserve floor")
+  })
+
   it("writes a short brief from the same codes, not the tape sentence", () => {
     expect(tickBrief(tapeTick(5))).toBe(
       "Delivered 0.31 of 0.40 MW. Storm reserve raised; not enough headroom above the floor.",

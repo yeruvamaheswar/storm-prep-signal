@@ -2,6 +2,7 @@ import { centroid, type Point } from "../flow/flowMath"
 import type { FlowHome, FlowTick, FlowZoneRow, OrderTimelineEntry } from "../flow/types"
 import { kw, plainReason } from "./format"
 import { splitOrders } from "./orderState"
+import { isChargeUnit } from "./zoneModel"
 
 /** A geographic point, Leaflet order. */
 export type LatLng = { lat: number; lng: number }
@@ -77,14 +78,22 @@ export function geoBounds(zones: ZoneGeo[]): [[number, number], [number, number]
 }
 
 export type ZoneActivity = {
-  /** Homes in the zone with a `sent` order at or before the playhead. */
+  /** Homes in the zone with a `sent` order at or before the playhead (sell or charge). */
   asked: number
-  /** Homes in the zone with a `conf` at or before the playhead. */
+  /** Homes asked to sell: a `sent` sell unit (planned kW not negative, or not logged). */
+  askedSell: number
+  /** Homes told to charge: a `sent` charge unit (negative planned kW, `isChargeUnit`). */
+  askedCharge: number
+  /** Homes with a `conf` on a sell unit at or before the playhead. A charge confirmation is not a sale. */
   confirmed: number
+  /** Homes with a `conf` on a charge unit at or before the playhead. */
+  confirmedCharge: number
   /** Confirmed discharge kW at the playhead, from each `conf`'s actual kW. Undefined when a confirmed
    * discharge has no kW on record, so the chip says "Not reported" instead of an invented sum. */
   soldKw: number | undefined
-  /** At least one `sent` at or before the playhead: the zone gets the highlight and its arc. */
+  /** Confirmed charge kW at the playhead, as a positive size. Undefined when a confirmed charge has no kW. */
+  chargedKw: number | undefined
+  /** At least one `sent` at or before the playhead: the zone gets its arc. */
   sent: boolean
   /** At least one lost order or report at or before the playhead: the zone gets a loss mark. */
   dropped: boolean
@@ -99,30 +108,61 @@ export function zoneActivity(
 ): ZoneActivity {
   const ids = new Set(homes.filter((home) => home.zone === zone).map((home) => home.id))
   let asked = 0
+  let askedSell = 0
+  let askedCharge = 0
   let confirmed = 0
+  let confirmedCharge = 0
   let soldKw: number | undefined = 0
+  let chargedKw: number | undefined = 0
   let dropped = false
   for (const [id, timeline] of Object.entries(orders ?? {})) {
     if (!ids.has(id)) continue
     const seen = timeline.filter(([at]) => at <= tSeconds)
     if (seen.some(([, kind]) => kind === "sent")) asked += 1
-    if (seen.some(([, kind]) => kind === "conf")) confirmed += 1
     if (seen.some(([, kind]) => kind === "drop" || kind === "rdrop")) dropped = true
+    // Sell or charge is read per unit from its signed planned kW, the same test as isChargeUnit.
     const split = splitOrders(seen)
-    for (const unit of [split.own, split.r]) {
+    const units = [split.own, split.r].filter((unit) => unit.some(([, kind]) => kind === "sent"))
+    const sellUnits = units.filter((unit) => !isChargeUnit(unit))
+    const chargeUnits = units.filter(isChargeUnit)
+    const hasConf = (unit: OrderTimelineEntry[]) => unit.some(([, kind]) => kind === "conf")
+    if (sellUnits.length) askedSell += 1
+    if (chargeUnits.length) askedCharge += 1
+    if (sellUnits.some(hasConf)) confirmed += 1
+    if (chargeUnits.some(hasConf)) confirmedCharge += 1
+    for (const unit of units) {
       const conf = unit.find(([, kind]) => kind === "conf")
       if (!conf) continue
-      const sentKw = unit.find(([, kind]) => kind === "sent")?.[2]
       const actual = conf[2]
-      if (typeof actual === "number") {
+      if (isChargeUnit(unit)) {
+        if (typeof actual !== "number") chargedKw = undefined
+        else if (actual < 0 && chargedKw !== undefined) chargedKw += -actual
+      } else if (typeof actual === "number") {
         if (actual > 0 && soldKw !== undefined) soldKw += actual
-      } else if (!(typeof sentKw === "number" && sentKw < 0)) {
+      } else {
         // A confirmed discharge with no kW on record: the zone total is unknown.
         soldKw = undefined
       }
     }
   }
-  return { asked, confirmed, soldKw, sent: asked > 0, dropped }
+  return { asked, askedSell, askedCharge, confirmed, confirmedCharge, soldKw, chargedKw, sent: asked > 0, dropped }
+}
+
+/** A zone asked to sell gets the blue highlight; a zone that only charges does not. */
+export function zoneGoes(activity: ZoneActivity | null | undefined): boolean {
+  return (activity?.askedSell ?? 0) > 0
+}
+
+/** Only charge orders in the zone: nothing was asked of it for the call. */
+export function chargeOnly(activity: ZoneActivity | null | undefined): boolean {
+  return !!activity && activity.askedCharge > 0 && activity.askedSell === 0
+}
+
+/** The arc's class: amber for a zone that only charges, the lens's own arc otherwise. */
+export function zoneArcClass(lens: ChipLens, activity: ZoneActivity | null | undefined): string {
+  if (lens === "keep") return "arc arc-keep"
+  if (chargeOnly(activity)) return "arc arc-charge"
+  return lens === "trust" ? "arc arc-live" : "arc arc-send"
 }
 
 /** A zone's floor is raised only when both its floor this tick and the fleet's base floor are reported. */
@@ -150,8 +190,20 @@ export function chipLines(
     ]
   }
   if (!activity) return ["Not reported", "Open zone"]
-  const asked = `${activity.asked} ${activity.asked === 1 ? "home" : "homes"} asked`
-  if (lens === "trust") return [asked, `${activity.confirmed} confirmed`]
+  const homes = (n: number) => `${n} ${n === 1 ? "home" : "homes"}`
+  const charging = activity.askedCharge > 0
+  let asked = `${homes(activity.asked)} asked`
+  if (chargeOnly(activity)) asked = `${homes(activity.askedCharge)} charging`
+  else if (charging) asked = `${activity.askedSell} asked to sell · ${activity.askedCharge} charging`
+  if (lens === "trust") {
+    // Only a confirmed sale counts as "confirmed"; a confirmed charge is named apart.
+    const chargeConf = `${activity.confirmedCharge} charge confirmed`
+    if (chargeOnly(activity)) return [asked, chargeConf]
+    return [asked, charging ? `${activity.confirmed} confirmed · ${chargeConf}` : `${activity.confirmed} confirmed`]
+  }
+  if (chargeOnly(activity)) {
+    return [asked, activity.chargedKw === undefined ? "kW charged not reported" : `${kw(activity.chargedKw, 1)} charged`]
+  }
   return [asked, activity.soldKw === undefined ? "kW sold not reported" : `${kw(activity.soldKw, 1)} sold`]
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 import type { FlowHome, OrderTimelineEntry } from "../src/features/flow/types"
 import { keyMoments } from "../src/features/replay/keyMoments"
 import { feedLines } from "../src/features/replay/narrate"
+import { intentLine } from "../src/features/replay/intentCopy"
 import { promiseBreakdown, type ReplayPromiseResult } from "../src/features/replay/promise"
 import { fmtClock, replayTickSeconds, stepSeconds } from "../src/features/replay/tickClock"
 
@@ -326,5 +327,78 @@ describe("feedLines kW honesty and plurals", () => {
     expect(feedLines(one, 120, {}, { breaches: 1 })[0].x).toBe("Books closed. 1 home not counted. Backup breaches: 1.")
     const known = { "home-801": [[0, "sent", 2.5]] satisfies OrderTimelineEntry[], "home-802": [[0, "sent", null]] satisfies OrderTimelineEntry[] }
     expect(feedLines(known, 120, {}, { breaches: 0 })[0].x).toBe("Books closed. 2 homes not counted, 2.5 kW. Backup breaches: 0.")
+  })
+})
+
+// Real post-#41 ticks (engine in-process, seed 42, HOME_MAX_KW=11.4; main-impact-audit.md S3).
+const heather74 = {
+  tick: 74, mode: "AUTO", target_mw: 0.2, delivered_mw: 0, missed_mw: 0.2, unconfirmed_mw: 0, charging_mw: 1.1286,
+  intent: "charge", intent_reason: "reserve_refill", reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0,
+} satisfies ReplayPromiseResult
+const beryl1 = {
+  tick: 1, mode: "AUTO", target_mw: 0.02, delivered_mw: 0.02, missed_mw: 0, unconfirmed_mw: 0, charging_mw: 0.908,
+  intent: "charge", intent_reason: "grid_call_served", reasons: ["charging", "reserve_refill"], breaches: 0,
+} satisfies ReplayPromiseResult
+const hold4 = {
+  tick: 4, mode: "HOLD", target_mw: 0.5477, delivered_mw: 0, missed_mw: 0.5477, unconfirmed_mw: 0, charging_mw: 0,
+  intent: "hold", intent_reason: "operator_hold", reasons: ["operator_hold"], breaches: 0,
+} satisfies ReplayPromiseResult
+
+describe("promiseBreakdown on post-#41 ticks (B1, B3)", () => {
+  test("heather tick 74: the refill shows as charged, apart from the call, and never as sold", () => {
+    expect(promiseBreakdown(heather74)).toEqual([
+      { key: "asked", label: "Asked", mw: 0.2 },
+      { key: "sold_confirmed", label: "Sold and confirmed", mw: 0 },
+      { key: "sent_not_counted", label: "Sent, not counted", mw: 0 },
+      { key: "not_sold", label: "Kept for backup, floor raised", mw: 0.2 },
+      { key: "charged", label: "Charged from the grid", mw: 1.1286 },
+      { key: "breaches", label: "Backup breaches", count: 0 },
+    ])
+  })
+
+  test("beryl tick 1: a served call still names the energy bought", () => {
+    const rows = promiseBreakdown(beryl1)
+    expect(rows).toContainEqual({ key: "sold_confirmed", label: "Sold and confirmed", mw: 0.02 })
+    expect(rows).toContainEqual({ key: "charged", label: "Charged from the grid", mw: 0.908 })
+    // Asked still splits into sold + not counted + not sold; charged is outside that sum.
+    const mwOf = (key: string) => {
+      const row = rows.find((r) => r.key === key)
+      return row && "mw" in row ? row.mw : Number.NaN
+    }
+    expect(mwOf("asked")).toBeCloseTo(mwOf("sold_confirmed") + mwOf("sent_not_counted") + mwOf("not_sold"), 9)
+  })
+
+  test("no charged row when charging_mw is missing or not a finite number (never an invented 0)", () => {
+    const { charging_mw: _c, ...bare } = heather74
+    expect(promiseBreakdown(bare).some((row) => row.key === "charged")).toBe(false)
+    expect(promiseBreakdown({ ...heather74, charging_mw: Number.NaN }).some((row) => row.key === "charged")).toBe(false)
+  })
+
+  test("an operator HOLD tick reads 'Not sent, operator hold', not 'no spare energy'", () => {
+    expect(promiseBreakdown(hold4)).toContainEqual({ key: "not_sold", label: "Not sent, operator hold", mw: 0.5477 })
+    // By mode alone, and by the reason alone (history points carry no mode).
+    const { reasons: _r, ...byMode } = hold4
+    expect(promiseBreakdown(byMode)).toContainEqual({ key: "not_sold", label: "Not sent, operator hold", mw: 0.5477 })
+    const { mode: _m, ...byReason } = hold4
+    expect(promiseBreakdown(byReason)).toContainEqual({ key: "not_sold", label: "Not sent, operator hold", mw: 0.5477 })
+  })
+})
+
+describe("intentLine (B1, B2 shared copy)", () => {
+  test("maps the six engine intent reasons to plain words", () => {
+    expect(intentLine("charge", "grid_call_served")).toBe("Fleet did: Charge — served the call, then charged")
+    expect(intentLine("charge", "reserve_refill")).toBe("Fleet did: Charge — refilled batteries under their floor")
+    expect(intentLine("discharge", "grid_call")).toBe("Fleet did: Sell — sold for the grid call")
+    expect(intentLine("charge", "zone_price")).toBe("Fleet did: Charge — charged on a cheap zone price")
+    expect(intentLine("hold", "no_grid_call")).toBe("Fleet did: Hold — no call")
+    expect(intentLine("hold", "operator_hold")).toBe("Fleet did: Hold — operator hold")
+  })
+
+  test("an empty reason gives the verb only; an unknown code is the code in words; no intent gives no line", () => {
+    expect(intentLine("discharge", "")).toBe("Fleet did: Sell")
+    expect(intentLine("hold", "price_unavailable")).toBe("Fleet did: Hold — price unavailable")
+    expect(intentLine("idle_mode", undefined)).toBe("Fleet did: Idle mode")
+    expect(intentLine(undefined, "grid_call")).toBeNull()
+    expect(intentLine("", "")).toBeNull()
   })
 })

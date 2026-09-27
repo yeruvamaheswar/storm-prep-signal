@@ -133,3 +133,19 @@ def test_live_brief_names_a_zone_floor_from_the_tick_dict():
         }
     )
     assert stamped["brief"] == "Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert)."
+
+
+def test_charging_code_reads_as_charging_on_cheap_power():
+    # calm-charge tick 1 used to print a bare "charging." after the delivered sentence.
+    text = write_brief(
+        tick(
+            delivered_mw=0.02,
+            missed_mw=0.00,
+            target_mw=0.02,
+            reserve_pct=30.0,
+            policy_reason="normal",
+            risk_level="LOW",
+            reasons=["charging"],
+        )
+    )
+    assert text == "Delivered 0.02 of 0.02 MW. Charging on cheap power."
