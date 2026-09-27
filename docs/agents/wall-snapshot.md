@@ -29,6 +29,10 @@ Decision (2026-09-26, Rajat): the snapshot carries the engine's battery feed as 
 - No `telemetry` (feed off, or an old run file) hides the line. A missing count also hides it; `telemetryLine` never guesses a number. The suspect count uses `--dead` only when above 0.
 - Demo: ticks 1 to 9 of `web/src/fixtures/layout-run.json` carry `telemetry` copied from `loop.run("tapes/demo.json", ...)` with `telemetry_feed` on, `fleet_size` 100 and the 25 kWh / 11.4 kW pack (only `plant.homes.{total,live,suspect}` and the four `readings` counts). Ticks 10 to 12 have none, because the file was hand-edited off the tape there (tick 10 target 0.4 vs the tape's 0.2; ticks 11 and 12 show every home live). Regenerate ticks 1 to 9 the same way if `tapes/demo.json` changes.
 
+## Day-ahead fields
+
+Decision (2026-09-27, user): on Live, `/v1/snapshot` passes the tick's day-ahead fields through unchanged: `dam_hours`, `dam_label`, `dam_as_of`, `zone_hours_needed`, `zone_charge_hours`, `zone_charge_why`. The route computes none of them (`CONSTRAINTS.md`, "Backend"). When the tick is older than `stale_after_min` (90), it drops `dam_hours` only, so a stale plan never reads as the next 24 hours; the other fields stay. The Next 24 h price panel reads them: [dam-forecast.md](dam-forecast.md). Tests: the DAM cases in `tests/test_snapshot.py`.
+
 ## Code
 
 - `web/src/wallOrigin.ts`: `wallOrigin` (LIVE / ARCHIVE / Demo fixture)

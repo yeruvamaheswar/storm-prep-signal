@@ -6,10 +6,17 @@ back to fixtures / current_rollups(). This module never raises a 500.
 
 import os
 import re
+from functools import lru_cache
+from pathlib import Path
+from types import SimpleNamespace
 
 import requests
+from dotenv import dotenv_values
 
-from server.engine.fleet import CLUSTER_CENTROIDS, ZONE_ORDER
+from server.engine.fleet import (
+    CLUSTER_CENTROIDS, ZONE_ORDER, county_name, fleet_counties, home_label, new_fleet, seed_settings,
+)
+from server.engine.loop import with_fleet_defaults
 from server.env import load_env
 
 HOME_SELECT = (
@@ -26,6 +33,9 @@ HISTORY_MAX_LIMIT = 200
 READING_SELECT = "tick,seen_at,soc_kwh,charge_state,power_kw"
 COMMAND_SELECT = "command_id,tick,kw,actual_kw,ack,sent_at"
 SEARCH_SAFE = re.compile(r"[^A-Za-z0-9_-]")
+# Task 13: public.homes may hold the 10k seed. The API reads only the demo fleet's ids.
+# Above this many ids the in-list would make the URL too long, so no id filter is sent.
+FLEET_FILTER_MAX_IDS = 1000
 
 
 class HomesUnavailable(Exception):
@@ -46,6 +56,123 @@ def homes_settings():
         "key": os.getenv("SUPABASE_SECRET_KEY", ""),
         "timeout_s": timeout_s,
     }
+
+
+def fleet_size_setting():
+    """FLEET_SIZE (default 100): the one demo fleet Replay, Live and Fleet all show."""
+    load_env()
+    try:
+        return max(0, int(os.getenv("FLEET_SIZE", "100")))
+    except ValueError:
+        return 100
+
+
+def _fleet_n(fleet_size):
+    return fleet_size_setting() if fleet_size is None else max(0, int(fleet_size))
+
+
+def fleet_ids(fleet_size=None):
+    """The fleet's ids in engine order (new_fleet), so home-1000 never counts as one of the first 100."""
+    return [home.home_id for home in new_fleet(_fleet_n(fleet_size))]
+
+
+def fleet_scoped(fleet_size=None):
+    """True when table reads can be limited to the fleet's ids. Above FLEET_FILTER_MAX_IDS they
+    cannot, so a table read is the whole table and must not be labelled as the fleet."""
+    return _fleet_n(fleet_size) <= FLEET_FILTER_MAX_IDS
+
+
+def fleet_filter(fleet_size=None):
+    """PostgREST `and=(home_id.in.(...))` for the fleet. Its own key, so `home_id` stays free for eq/ilike."""
+    n = _fleet_n(fleet_size)
+    if not fleet_scoped(n):
+        return {}
+    return {"and": f"(home_id.in.({','.join(fleet_ids(n))}))"}
+
+
+@lru_cache(maxsize=4)
+def _fleet_id_set(n):
+    return frozenset(fleet_ids(n))
+
+
+def in_fleet(home_id, fleet_size=None):
+    """Checked here against the fleet's ids at any size: no URL is built, so the id cap does not apply."""
+    return home_id in _fleet_id_set(_fleet_n(fleet_size))
+
+
+ENGINE_DIR = Path(os.path.abspath(__file__)).parents[1] / "engine"
+
+
+def engine_dotenv_path():
+    """The .env file the engine's read_settings() loads. It calls load_dotenv() with no path from
+    server/engine/cli.py, so python-dotenv walks up from server/engine and takes the first .env it finds
+    (server/.env if there is one, else the repo root's). None when there is none."""
+    for folder in (ENGINE_DIR, *ENGINE_DIR.parents):
+        candidate = folder / ".env"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def engine_zones():
+    """ZONES exactly as the engine reads it (server/engine/cli.py read_settings, `Zone:FIPS,...`): the
+    process env first, then the engine's .env (engine_dotenv_path), else the engine's default order
+    (loop._FLEET_DEFAULTS, Houston first). The Live worker and the scenario session (Replay) both seed
+    their fleet from it. The .env is read with dotenv_values, never loaded into os.environ, because
+    read_settings()' load_dotenv() would pull the repo-root .env (Supabase keys) into the API process."""
+    raw = os.environ.get("ZONES")
+    if raw is None:
+        path = engine_dotenv_path()
+        raw = dotenv_values(path).get("ZONES") if path else None
+    raw = (raw or "").strip()
+    try:
+        if raw:
+            return dict(pair.split(":", 1) for pair in raw.split(","))
+    except ValueError:
+        pass  # A malformed ZONES stops the engine too; the API keeps the default order, never a 500.
+    return with_fleet_defaults({})["zones"]
+
+
+@lru_cache(maxsize=8)
+def _engine_homes(n, zones):
+    settings = {**seed_settings(n), "zones": dict(zones)}
+    return {home_id: {"zone": zone, "county": fips, "county_name": county_name(fips),
+                      "name": home_label(SimpleNamespace(home_id=home_id, zone=zone, county=fips))}
+            for home_id, (zone, fips) in fleet_counties(settings).items()}
+
+
+def engine_homes(fleet_size=None):
+    """Task 17: {home_id: {zone, county, county_name, name}} for every fleet home as the engine assigns them
+    (assign_zone and assign_county over the ZONES order, as scenario.seed_fleet and loop.run seed the fleet),
+    so Fleet shows each home in the same zone, county and name as Replay and Live. public.homes keeps the
+    seed's own zone column; only the reported values change. Any fleet size (fix round 1): the labels
+    need no URL, only the id filter and the rollups stop at FLEET_FILTER_MAX_IDS."""
+    return _engine_homes(_fleet_n(fleet_size), tuple(engine_zones().items()))
+
+
+def engine_zone_filter(zone, fleet_size=None):
+    """`and=(home_id.in.(...))` for the fleet homes the engine puts in `zone`. Replaces `zone=eq.`, which
+    would filter on the seed's zone column. None above FLEET_FILTER_MAX_IDS (the URL would be too long),
+    where the table's zone column is the only filter there is."""
+    if not fleet_scoped(fleet_size):
+        return None
+    ids = [home_id for home_id, who in engine_homes(fleet_size).items() if who["zone"] == zone]
+    return {"and": f"(home_id.in.({','.join(ids)}))"}
+
+
+def as_fleet_home(row, fleet_size=None, reserve_pct=None, zone_reserve_pct=None):
+    """Console home with the engine's zone, county and name for a fleet id. The zone is set before the
+    floor is read, so a zone override applies to the zone the engine planned the home in. A row outside
+    the fleet (only possible above FLEET_FILTER_MAX_IDS, when no id filter is sent) keeps the table's zone
+    and gets a null county and no name, never the seed order's guess."""
+    who = engine_homes(fleet_size).get(row.get("home_id"))
+    if who is None:
+        home = as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+        home["county"], home["county_name"] = None, None
+        return home
+    home = as_console_home({**row, "zone": who["zone"]}, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+    home["county"], home["county_name"], home["name"] = who["county"], who["county_name"], who["name"]
+    return home
 
 
 def page_limit(limit):
@@ -364,25 +491,35 @@ def exact_count(params, settings=None, http_get=None):
 
 
 def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings=None, http_get=None,
-             reserve_pct=None, zone_reserve_pct=None):
+             reserve_pct=None, zone_reserve_pct=None, fleet_size=None):
     params = {
         "select": HOME_SELECT,
         "order": "home_id.asc",
         "limit": str(page_limit(limit)),
         "offset": str(page_offset(offset)),
+        **fleet_filter(fleet_size),
     }
     if zone:
-        params["zone"] = f"eq.{zone}"
+        # Demo fleet: the engine's zone (Task 17), which is an id subset of the fleet filter.
+        by_engine = engine_zone_filter(zone, fleet_size)
+        if by_engine is None:
+            params["zone"] = f"eq.{zone}"
+        else:
+            params.update(by_engine)
     if status:
         params["status"] = f"eq.{status}"
     needle = SEARCH_SAFE.sub("", q or "")
     if needle:
         params["home_id"] = f"ilike.*{needle}*"
-    return [as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+    return [as_fleet_home(row, fleet_size, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
             for row in fetch_home_rows(params, settings=settings, http_get=http_get)]
 
 
-def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_reserve_pct=None):
+def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_reserve_pct=None,
+              fleet_size=None):
+    if not in_fleet(home_id, fleet_size):
+        # Outside the demo fleet: not found, even when the 10k seed has the row.
+        return None
     rows = fetch_home_rows(
         {"select": HOME_SELECT, "home_id": f"eq.{home_id}", "limit": "1"},
         settings=settings,
@@ -390,7 +527,7 @@ def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_rese
     )
     if not rows:
         return None
-    home = as_console_home(rows[0], reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+    home = as_fleet_home(rows[0], fleet_size, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
     # Fill last_command from the newest command. A missing history table or
     # missing config keeps null instead of raising, so the home still returns.
     try:
@@ -437,18 +574,26 @@ def rollups_from_groups(count_rows, discharge_rows=None):
     return {"n": n, "zones": zones, "clusters": [dict(item) for item in CLUSTER_CENTROIDS]}
 
 
-def _discharging_mw(zone, settings=None, http_get=None):
+def _zone_scope(zone, fleet_size=None):
+    """Rows of one zone within the fleet: the engine's zone for the demo fleet (Task 17), else the table's."""
+    by_engine = engine_zone_filter(zone, fleet_size)
+    if by_engine is not None:
+        return by_engine
+    return {"zone": f"eq.{zone}", **fleet_filter(fleet_size)}
+
+
+def _discharging_mw(zone, settings=None, http_get=None, fleet_size=None):
     total_kw = 0.0
     offset = 0
     while True:
         rows = fetch_home_rows(
             {
                 "select": "assigned_kw",
-                "zone": f"eq.{zone}",
                 "status": "eq.live",
                 "assigned_kw": "gt.0",
                 "limit": "200",
                 "offset": str(offset),
+                **_zone_scope(zone, fleet_size),
             },
             settings=settings,
             http_get=http_get,
@@ -462,14 +607,27 @@ def _discharging_mw(zone, settings=None, http_get=None):
     return total_kw / 1000
 
 
-def table_rollups(settings=None, http_get=None):
-    """Zone counts from Content-Range. Never count() — PostgREST returns PGRST123."""
+def fleet_count(fleet_size=None, settings=None, http_get=None):
+    """How many of the fleet's homes have a row in public.homes (Content-Range, no aggregates)."""
+    return exact_count(fleet_filter(fleet_size), settings=settings, http_get=http_get)
+
+
+def table_rollups(settings=None, http_get=None, fleet_size=None):
+    """Zone counts from Content-Range. Never count() — PostgREST returns PGRST123.
+
+    Raises HomesUnavailable("fleet_unscoped") when the fleet is too large to filter by id: counting
+    the whole table would report its rows as the fleet. The route then serves current_rollups().
+    """
+    if not fleet_scoped(fleet_size):
+        raise HomesUnavailable("fleet_unscoped")
     zones = {name: _empty_zone_row() for name in ZONE_ORDER}
     n = 0
     for zone in ZONE_ORDER:
+        # Task 17: each zone is the engine's (ids), not the seed's zone column.
+        scope = _zone_scope(zone, fleet_size)
         for status in ("live", "stale", "dead"):
             count = exact_count(
-                {"zone": f"eq.{zone}", "status": f"eq.{status}"},
+                {"status": f"eq.{status}", **scope},
                 settings=settings,
                 http_get=http_get,
             )
@@ -478,11 +636,12 @@ def table_rollups(settings=None, http_get=None):
             if status == "stale":
                 zones[zone]["silent"] += count
         discharging = exact_count(
-            {"zone": f"eq.{zone}", "status": "eq.live", "assigned_kw": "gt.0"},
+            {"status": "eq.live", "assigned_kw": "gt.0", **scope},
             settings=settings,
             http_get=http_get,
         )
         zones[zone]["discharging"] = discharging
         if discharging:
-            zones[zone]["discharging_mw"] = _discharging_mw(zone, settings=settings, http_get=http_get)
+            zones[zone]["discharging_mw"] = _discharging_mw(
+                zone, settings=settings, http_get=http_get, fleet_size=fleet_size)
     return {"n": n, "zones": zones, "clusters": [dict(item) for item in CLUSTER_CENTROIDS]}

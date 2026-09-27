@@ -367,6 +367,44 @@ def test_snapshot_keeps_ten_thousand_tick_when_env_is_demo(tmp_path, monkeypatch
     assert tick["live_homes"] == 10_000
 
 
+DAM_FIELDS = {
+    "dam_hours": {"Houston": [
+        {"hour_start": "2026-09-25T12:00-05:00", "usd_mwh": 14.1},
+        {"hour_start": "2026-09-25T13:00-05:00", "usd_mwh": 31.5},
+    ]},
+    "dam_label": "ercot",
+    "dam_as_of": "2026-09-25",
+    "zone_hours_needed": {"Houston": 1},
+    "zone_charge_hours": {"Houston": ["2026-09-25T12:00-05:00"]},
+    "zone_charge_why": {"Houston": "dam_cheap_hour"},
+}
+
+
+def _dam_run(tmp_path, monkeypatch):
+    run = _sized_run(100, 0.4, 100)
+    run["ticks"][0].update(DAM_FIELDS)
+    latest = tmp_path / "latest.json"
+    latest.write_text(json.dumps(run), encoding="utf-8")
+    monkeypatch.setattr("server.api.snapshot.LATEST_RUN", latest)
+    return parse_central("2026-09-25T12:00:47")
+
+
+def test_snapshot_passes_fresh_dam_fields_through(tmp_path, monkeypatch):
+    ts = _dam_run(tmp_path, monkeypatch)
+    tick = build_snapshot(now=ts + timedelta(minutes=10), ingest=lambda _now: LIVE)
+    for key, value in DAM_FIELDS.items():
+        assert tick[key] == value
+
+
+def test_snapshot_drops_stale_dam_hours(tmp_path, monkeypatch):
+    ts = _dam_run(tmp_path, monkeypatch)
+    limit = read_settings()["stale_after_min"]
+    tick = build_snapshot(now=ts + timedelta(minutes=limit + 1), ingest=lambda _now: LIVE)
+    assert "dam_hours" not in tick
+    assert tick["zone_charge_why"] == DAM_FIELDS["zone_charge_why"]
+    assert tick["dam_label"] == "ercot"
+
+
 def test_snapshot_keeps_demo_tick_when_env_is_ten_thousand(tmp_path, monkeypatch):
     latest = tmp_path / "latest.json"
     latest.write_text(json.dumps(_sized_run(100, 0.4, 100)), encoding="utf-8")

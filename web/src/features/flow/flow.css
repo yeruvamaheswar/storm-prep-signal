@@ -397,6 +397,26 @@ body:has(.flow-page),
   margin-left: auto;
 }
 
+.flow-county {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.flow-county-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-county-head h3 {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
 .flow-cells {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
@@ -548,7 +568,7 @@ body:has(.flow-page),
   font-weight: 600;
 }
 
-.flow-jev {
+.flow-named {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -556,8 +576,26 @@ body:has(.flow-page),
   border-top: 1px solid var(--line);
 }
 
-.flow-jev-title {
+.flow-named-title {
   font-weight: 600;
+}
+
+.flow-county-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-county-table th,
+.flow-county-table td {
+  padding: 2px var(--space-2) 2px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.flow-county-table th {
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 500;
 }
 
 .flow-limits li,

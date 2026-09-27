@@ -11,6 +11,7 @@ class Home:
     status: str = "live"      # "live" | "stale" | "dead"
     zone: str = ""            # ERCOT load zone name from the ZONES setting, "" if unassigned
     updated_at: str = ""      # ISO 8601 with UTC offset; "" until the fleet stamps a write
+    county: str = ""          # county FIPS from fleet.ZONE_COUNTIES, "" if unassigned
 
 @dataclass
 class TapeFrame:
@@ -24,11 +25,15 @@ class TapeFrame:
     events: dict = field(default_factory=dict)
     # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO"),
     # simulated faults "network", "crash", "misreport", "short_delivery" (docs/agents/failure-modes.md),
-    # "grid_down" (list of zone names whose batteries back up their own homes: no sell, no charge)
+    # "grid_down" (list of zone names whose batteries back up their own homes: no sell, no charge),
+    # "weather" (zone names under an alert), "weather_counties" (county FIPS named by an alert
+    # to that alert's NWS event name)
     weather_fixture: Optional[str] = None  # path to a saved weather alerts response
     # Load-zone name to $/MWh, only zones with a price (same map as the snapshot's zone_prices).
     zone_prices: dict = field(default_factory=dict)
     zone_price_label: str = "none"   # source of zone_prices, for example "recorded:<source>"
+    # Paths of the NP4-190-CD day files published at this tick: today's, plus tomorrow's from 13:30 CT.
+    dam_fixtures: list = field(default_factory=list)
 
 @dataclass
 class Policy:
@@ -43,6 +48,15 @@ class Policy:
     # Zone name to its own price band, set only when the tick has zone prices. Empty: every
     # zone follows `intent`. See docs/agents/policy-intent.md "Each zone decides".
     zone_intent: dict = field(default_factory=dict)
+    # County FIPS to floor percent and reason, for every roster county of a zone an active alert names.
+    county_reserve_pct: dict = field(default_factory=dict)
+    # "weather_alert" | "not_in_alert", or a fleet reason
+    county_reasons: dict = field(default_factory=dict)
+    # Zones with DAM hours on the tick: the hour starts picked to charge in, and why the zone charges
+    # or waits ("dam_cheap_hour" | "before_spike" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full"
+    # | "sell_band").
+    zone_charge_hours: dict = field(default_factory=dict)
+    zone_charge_why: dict = field(default_factory=dict)
 
 @dataclass
 class Allocation:
@@ -95,3 +109,12 @@ class TickResult:
     charging_mw: float = 0.0
     zone_charging_mw: dict = field(default_factory=dict)  # zone name to MW absorbed
     grid_down_zones: list = field(default_factory=list)   # zones whose batteries only back up their homes
+    county_reserve_pct: dict = field(default_factory=dict)  # county FIPS to floor percent (alerted zones' counties)
+    county_reasons: dict = field(default_factory=dict)      # county FIPS to reason code
+    # Day-ahead look-ahead (docs/agents/dam-forecast.md). Empty / "none" with no DAM on the tick.
+    dam_hours: dict = field(default_factory=dict)          # zone to [{hour_start, usd_mwh}], next 24 h
+    dam_label: str = "none"                                # "ercot" | "recorded:ERCOT NP4-190-CD" | "none"
+    dam_as_of: Optional[str] = None                        # delivery dates read, e.g. "2026-08-30,2026-08-31"
+    zone_hours_needed: dict = field(default_factory=dict)  # zone to hours of charging to fill it
+    zone_charge_hours: dict = field(default_factory=dict)  # zone to the hour starts picked to charge in
+    zone_charge_why: dict = field(default_factory=dict)    # zone to why it charges or waits

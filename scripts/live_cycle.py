@@ -1,4 +1,4 @@
-"""Fetch newest ERCOT outage and price, upsert event=live, run one allocate tick.
+"""Fetch newest ERCOT outage and price (plus the day's DAM prices), upsert event=live, run one allocate tick.
 
 Usage:
   python scripts/live_cycle.py            # one cycle
@@ -46,8 +46,6 @@ from server.engine.signal import (  # noqa: E402
 )
 
 LIVE_EVENT = "live"
-# Live allocates the full 10k fleet (same ids as new_fleet(10000)). Demo stays 100.
-LIVE_FLEET_SIZE = 10_000
 
 
 def unique_rows(rows, keys):
@@ -135,9 +133,11 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
     # main() passes requests.get. Tests that omit it keep the local file.
     if http_get is not None:
         hydrate_local_mode(state_path, url or "", key or "", http_get=http_get)
-    # Live always allocates the 10k fleet so ids match new_fleet(10000).
-    # loop.run scales the 0.40 frame to call_target_mw for this fleet.
-    live_settings = {**settings, "fleet_size": LIVE_FLEET_SIZE}
+    # Live allocates the one demo fleet: settings["fleet_size"] (FLEET_SIZE, default 100),
+    # so its ids are the same home-001.. ids as Replay and Fleet. Zones follow ZONES (Houston
+    # first), like Replay; the Supabase seed is South first (docs/agents/demo-fleet.md). loop.run scales
+    # the 0.40 frame to call_target_mw for this fleet.
+    live_settings = dict(settings)
     outage, price_raw, zones_raw = fetch_live(settings, now)
     postings = live_posting_rows(outage)
     prices = live_price_rows(price_raw) if price_raw is not None else []
@@ -157,6 +157,8 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
             zone_prices = read_zone_prices(zones_raw, now)
         except SignalUnavailable:
             zone_prices = {}
+    # run() reads today's DAM hours (plus tomorrow's once posted) through loop.read_live_dam;
+    # var/dam/ keeps each day, so ERCOT is asked for DAM once a day, not every cycle.
     record = run(
         None, live_settings, log_dir=log_dir, runs_dir=runs_dir, live=True,
         state_path=state_path, frames=[one_live_frame(now)],

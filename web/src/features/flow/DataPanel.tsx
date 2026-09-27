@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { fmtMw, fmtScenarioTime, fmtUsd, reasonLabel } from "./flowMath"
-import type { ActiveAlert, SessionState, StartSummary } from "./types"
+import { fmtMw, fmtScenarioTime, fmtUsd, namedCountyRows, reasonLabel } from "./flowMath"
+import type { ActiveAlert, FlowTick, SessionState, StartSummary } from "./types"
 import { FLOW_ZONES } from "./types"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -61,7 +61,8 @@ function StartBlock({ start }: { start: StartSummary }) {
   )
 }
 
-function AlertBlock({ alert }: { alert: ActiveAlert }) {
+function AlertBlock({ alert, tick }: { alert: ActiveAlert; tick: FlowTick | null }) {
+  const rows = namedCountyRows(alert)
   return (
     <div className="flow-alert">
       <p className="flow-alert-event">{alert.event}</p>
@@ -77,20 +78,32 @@ function AlertBlock({ alert }: { alert: ActiveAlert }) {
           ? <a href={alert.source_url} target="_blank" rel="noreferrer">{alert.source_label ?? "archived NWS alert"}</a>
           : "n/a"} />
       </dl>
-      <div className="flow-jev">
-        <p className="flow-jev-title">JEV System One (TypeSafe) · shadow only</p>
-        {alert.jev ? (
-          <dl>
-            <Row k="Question" v={alert.jev.question} />
-            <Row k="P(threat)" v={`${alert.jev.probability.toFixed(2)} (${alert.jev.answer})`} />
-            <Row k="Model" v={`${alert.jev.model} · ${alert.jev.latency_ms} ms`} />
-            <Row k="Called" v={alert.jev.called_at} />
-            <Row k="Input" v={alert.jev.input_label} />
-          </dl>
+      <div className="flow-named">
+        <p className="flow-named-title">Counties named in this alert</p>
+        {rows.length ? (
+          <table className="flow-county-table">
+            <thead>
+              <tr><th>County</th><th>Zone</th><th>Floor</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const pct = tick?.county_reserve_pct?.[row.fips]
+                return (
+                  <tr key={row.fips}>
+                    <td>{row.county_name}</td>
+                    <td>{row.zone}</td>
+                    <td>{typeof pct === "number" ? `${pct}%` : "storm reserve"}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         ) : (
-          <p className="flow-muted">No recorded JEV reading for this alert.</p>
+          <p className="flow-muted">The alert names no roster county.</p>
         )}
-        <p className="flow-muted">Rules decide the floor. JEV never dispatches; its reading is shown next to the rule.</p>
+        <p className="flow-muted">
+          A county the alert names keeps the storm reserve; other counties in the zone keep the base floor.
+        </p>
       </div>
     </div>
   )
@@ -174,7 +187,9 @@ export function DataPanel({ state, verify }: Props) {
       </Section>
 
       <Section title="Weather alerts sent">
-        {state.alerts.length ? state.alerts.map((alert) => <AlertBlock key={alert.id} alert={alert} />)
+        {state.alerts.length ? state.alerts.map((alert) => (
+          <AlertBlock key={alert.id} alert={alert} tick={tick} />
+        ))
           : <p className="flow-muted">None. Use Send alert to push an archived NWS alert into the next tick.</p>}
       </Section>
 

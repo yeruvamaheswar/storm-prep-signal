@@ -46,6 +46,23 @@ def test_same_seed_gives_same_fleet_and_same_ticks(tmp_path):
     assert c.start_summary["histogram"] != a.start_summary["histogram"]
 
 
+def test_state_carries_replay_orders_before_soc_and_richer_history(tmp_path):
+    s = play(tmp_path, 7, 1)
+    state = s.state()
+    assert state["orders"] == s.last["orders"]
+    assert state["orders"]
+    assert all("soc_before_pct" in home for home in state["homes"])
+    assert {"missed_mw", "unconfirmed_mw", "reserve_pct", "risk_level", "reasons"} <= set(state["history"][-1])
+
+
+def test_history_rows_carry_the_engine_breach_count(tmp_path):
+    s = play(tmp_path, 7, 3)
+    history = s.state()["history"]
+    assert len(history) == 3
+    assert all(isinstance(point["breaches"], int) for point in history)
+    assert history[-1]["breaches"] == s.state()["tick"]["breaches"]
+
+
 def test_starting_charge_is_spread_wide_and_some_start_under_the_floor(tmp_path):
     s = play(tmp_path, 42, 0)
     pcts = [100 * h.soc_kwh / h.capacity_kwh for h in s.homes]
@@ -169,8 +186,21 @@ def test_writes_need_an_operator_and_a_known_scenario(client, tmp_path):
     assert not (tmp_path / "requests.json").exists()
 
 
+def test_speed_accepts_slow_replay_values(client, tmp_path):
+    assert client.post("/v1/scenario/speed", json={"x": 15}, headers=OPERATOR).status_code == 202
+    assert client.post("/v1/scenario/speed", json={"x": 30}, headers=OPERATOR).status_code == 202
+    assert client.post("/v1/scenario/speed", json={"x": 7}, headers=OPERATOR).status_code == 422
+    requests = json.loads((tmp_path / "requests.json").read_text())
+    assert [request["body"]["x"] for request in requests] == [15, 30]
+
+
 def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path):
-    assert "heather" in [s["id"] for s in client.get("/v1/scenarios").json()["scenarios"]]
+    scenario_list = client.get("/v1/scenarios").json()
+    assert "heather" in [s["id"] for s in scenario_list["scenarios"]]
+    # Task 11 added the slow Replay speeds (2.4 is real time) and made 12 the default.
+    # Task 14 added the Day view's 288, 720 and 1440 (5, 2 and 1 min per scenario day).
+    assert scenario_list["speeds"] == [2.4, 4.8, 12, 15, 30, 60, 150, 288, 300, 600, 720, 1440]
+    assert scenario_list["default_speed"] == 12
     assert client.get("/v1/scenario/state").json()["status"] == "worker_not_running"
     ok = client.post("/v1/scenario/start", json={"scenario": "heather", "seed": 5}, headers=OPERATOR)
     assert ok.status_code == 202
@@ -186,3 +216,52 @@ def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path)
     assert state["status"] == "playing"
     assert state["tick_index"] == 3 and len(state["homes"]) == 100
     assert state["provenance"]["posting"]["report"] == "NP3-233-CD"
+
+
+def test_history_points_carry_the_ticks_own_intent(tmp_path):
+    s = session(tmp_path)
+    s.start("heather", 42)
+    for _ in range(80):
+        s.step()
+        tick, point = s.last["result"], s.history[-1]
+        assert point["intent"] == tick["intent"]
+        assert point["intent_reason"] == tick["intent_reason"]
+    assert "charge" in {p["intent"] for p in s.history}
+
+
+def test_home_rows_carry_the_status_the_planner_used(tmp_path):
+    # Without a feed the planner reads the engine's own homes, so both statuses agree.
+    s = play(tmp_path, 42, 5)
+    assert all(h["plan_status"] == h["status"] for h in s.last["homes"])
+    # With the feed the planner reads the reports: the stale and dead counts in the reasons are its view.
+    s = Session({**SETTINGS, "telemetry_feed": True},
+                load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"), log_dir=tmp_path / "feed")
+    s.start("heather", 42)
+    differs = 0
+    for _ in range(80):
+        s.step()
+        reasons = s.last["result"]["reasons"]
+        for status in ("stale", "dead"):
+            code = next((r for r in reasons if r.startswith(f"homes_{status}:")), None)
+            count = int(code.split(":")[1]) if code else 0
+            assert sum(h["plan_status"] == status for h in s.last["homes"]) == count
+        differs += sum(h["plan_status"] != h["status"] for h in s.last["homes"])
+    assert differs > 0
+
+
+@pytest.mark.parametrize("feed", [False, True])
+def test_plan_status_is_the_status_at_plan_time_not_after_a_mid_tick_crash(tmp_path, feed):
+    # faults (seed 42): injected worker errors kill homes mid-tick (orchestration.py set_status "dead") after the
+    # planner already sent them orders, e.g. tick 139 home-010/015/020/025. The row must still say what was planned.
+    s = Session({**SETTINGS, "telemetry_feed": feed},
+                load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"), log_dir=tmp_path / f"faults-{feed}")
+    s.start("faults", 42)
+    crashed = 0
+    while s.step():
+        orders = s.last["orders"] or {}
+        for h in s.last["homes"]:
+            own = [e for e in orders.get(h["id"], []) if e[1] == "sent" and e[0] == 0.0 and e[3] == "own"]
+            if own:
+                assert h["plan_status"] == "live", (s.last["result"]["tick"], h)
+                crashed += h["status"] == "dead"
+    assert crashed > 0

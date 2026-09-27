@@ -5,6 +5,7 @@ means lowering its `soc_kwh` by the energy it gave. The floor is checked again i
 `discharge`, so a wrong or late order can never take a home below its zone's reserve.
 """
 import json
+import math
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -16,6 +17,15 @@ STATUSES = ("live", "stale", "dead")
 # still win when new_fleet gets a dict; this order is for new_fleet(n).
 ZONE_ORDER = ("South", "North", "West", "Houston")
 ZONE_FIPS = {"South": "48355", "North": "48113", "West": "48329", "Houston": "48201"}
+# Simulation roster, not ERCOT's county map. Anchor county (ZONE_FIPS) first.
+ZONE_COUNTIES = {
+    "Houston": (("48201", "Harris"), ("48157", "Fort Bend"), ("48039", "Brazoria"),
+                ("48167", "Galveston"), ("48339", "Montgomery")),
+    "North": (("48113", "Dallas"), ("48439", "Tarrant"), ("48085", "Collin"), ("48121", "Denton")),
+    "West": (("48329", "Midland"), ("48135", "Ector"), ("48451", "Tom Green"), ("48441", "Taylor")),
+    "South": (("48355", "Nueces"), ("48029", "Bexar"), ("48453", "Travis"), ("48215", "Hidalgo")),
+}
+COUNTY_NAMES = {fips: name for counties in ZONE_COUNTIES.values() for fips, name in counties}
 HOME_KWH = 25.0
 HOME_MAX_KW = 11.4
 SOC_MIN_PCT = 45.0
@@ -41,6 +51,31 @@ def assign_zone(index, zones):
     Kept as one tiny function so the team can swap in contiguous blocks with one edit.
     """
     return zones[(index - 1) % len(zones)]
+
+
+def zone_counties(settings):
+    """(zone, fips, name) for each roster county of the settings' zones, in roster order.
+
+    A zone missing from the roster has one county: its ZONES anchor, named by its FIPS.
+    """
+    zones = settings["zones"]
+    order = [zone for zone in ZONE_COUNTIES if zone in zones] + [zone for zone in zones if zone not in ZONE_COUNTIES]
+    return [(zone, fips, name) for zone in order
+            for fips, name in ZONE_COUNTIES.get(zone, ((zones[zone], zones[zone]),))]
+
+
+def assign_county(index_in_zone, counties):
+    """County for the zone's home number `index_in_zone` (1-based): round-robin, like assign_zone."""
+    return counties[(index_in_zone - 1) % len(counties)]
+
+
+def county_name(fips):
+    return COUNTY_NAMES.get(fips, fips)
+
+
+def home_label(home):
+    """Display name like Houston-FortBend-005. The number is the home_id's; home_id never changes."""
+    return f"{home.zone}-{county_name(home.county).replace(' ', '')}-{home.home_id.rsplit('-', 1)[-1]}"
 
 
 def fleet_cap_mw(settings):
@@ -160,6 +195,28 @@ def new_fleet(settings, persist=False, path=None):
     if persist:
         save_fleet(homes, path)
     return homes
+
+
+def fleet_counties(settings):
+    """{home_id: (zone, county FIPS)} for new_fleet(settings), in fleet order.
+
+    The same rule scenario.seed_fleet uses: each zone's homes take its roster counties
+    round-robin (assign_county) by their place within the zone. No randomness. `settings`
+    may be that dict, or an int n (seed_settings: the Supabase seed's ZONE_ORDER, South first,
+    as scripts/seed_homes.py wrote public.homes). The engine (Live worker and Replay) uses the
+    ZONES order instead, Houston first, so per-id zones differ; counts per zone and county do not.
+    See docs/agents/demo-fleet.md, Counties.
+    """
+    if isinstance(settings, int):
+        settings = seed_settings(settings)
+    counties = {}
+    for zone, fips, _ in zone_counties(settings):
+        counties.setdefault(zone, []).append(fips)
+    in_zone, out = {}, {}
+    for home in new_fleet(settings):
+        in_zone[home.zone] = in_zone.get(home.zone, 0) + 1
+        out[home.home_id] = (home.zone, assign_county(in_zone[home.zone], counties[home.zone]))
+    return out
 
 
 def save_fleet(homes, path=None):
@@ -287,8 +344,8 @@ def has_unknown_zone(home, policy):
 
 
 def floor_kwh(home, policy):
-    """The energy this home must keep, using its zone's floor when the policy has one."""
-    pct = policy.zone_reserve_pct.get(home.zone, policy.reserve_pct)
+    """The energy this home must keep: its county's floor, else its zone's, else the fleet's."""
+    pct = policy.county_reserve_pct.get(home.county, policy.zone_reserve_pct.get(home.zone, policy.reserve_pct))
     return home.capacity_kwh * pct / 100
 
 
@@ -307,6 +364,23 @@ def room_kw(home, settings):
     """The most this home can take in this tick: room left to full, capped by its max kW."""
     room = max(0.0, home.capacity_kwh - home.soc_kwh)
     return min(home.max_kw, room * 60 / settings["tick_minutes"])
+
+
+def zone_hours_needed(homes, settings, grid_down=()):
+    """Zone to whole hours of charging that fill it: ceil(room kWh / max kW), both summed over the zone.
+
+    Counts live homes in a known zone whose grid is up; a zone with none of them needs 0.
+    Pure. Pass the planner's view (reported homes when the battery feed is on), never the truth.
+    """
+    room, rate = {}, {}
+    for home in homes:
+        if home.status != "live" or home.zone in grid_down:
+            continue
+        room[home.zone] = room.get(home.zone, 0.0) + max(0.0, home.capacity_kwh - home.soc_kwh)
+        rate[home.zone] = rate.get(home.zone, 0.0) + home.max_kw
+    # 1e-9 keeps float noise (19.000000001 kWh at 1 kW) from asking for an extra hour.
+    return {zone: (math.ceil(room.get(zone, 0.0) / rate[zone] - 1e-9) if rate.get(zone) else 0)
+            for zone in settings.get("zones", {})}
 
 
 def discharge(homes, alloc, policy, settings):

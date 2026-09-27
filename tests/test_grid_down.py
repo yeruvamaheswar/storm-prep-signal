@@ -221,8 +221,7 @@ def test_the_weather_step_requests_name_the_alert_zones_and_island_them(tmp_path
     catalog = json.loads((ROOT / "tapes" / "scenarios" / "catalog.json").read_text())["scenarios"]
     heather = next(entry for entry in catalog if entry["id"] == "heather")
     entry = {**heather, "alerts": ["harris-warning"], "grid_down_overlay": True}
-    s = Session(dict(SESSION_SETTINGS), [entry], log_dir=tmp_path / "logs", alert_dir=alert_dir,
-                jev_dir=tmp_path / "jev")
+    s = Session(dict(SESSION_SETTINGS), [entry], log_dir=tmp_path / "logs", alert_dir=alert_dir)
     s.start("heather", 7)
     assert s.state()["scenario"]["alerts"][0]["zones"] == ["Houston"]
     s.apply({"kind": "alert", "body": {"alert_id": "harris-warning"}})

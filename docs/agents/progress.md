@@ -2,6 +2,14 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Task 4 Replay Texas view
+
+- Built the redesigned Replay page at `/` from the approved `Main.dc.html` look, driven by the scenario session APIs and existing Replay logic.
+- Added focused Replay components under `web/src/features/replay/`: map stage, scenario rail, lens controls, promise panel, feed, playback, ledger, and About this data drawer.
+- The page polls `/v1/scenario/state`, lists `/v1/scenarios`, posts scenario/play/speed/weather requests through Uma's `/flow` API module, and keeps the full layout when the worker reports `worker_not_running`.
+- Added `web/tests/replay-components.test.ts` for the promise panel, ledger, and worker-not-running state.
+- Verification: `cd web && npm test`, `cd web && npm run build`, and `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` passed.
+
 ## 2026-09-25: Slice 0, research and plan (no application code)
 
 - Wrote `docs/research.md`. It covers NP3-233-CD access, auth (id_token as a Bearer token,
@@ -1018,6 +1026,37 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
 
+## 2026-09-26: Replay order timelines for `/flow`
+
+- `server/engine/order_log.py` turns one tick's orchestration event log into compact per-home `orders` timelines for Replay, with only the contract kinds `sent`, `drop`, `exec`, `rdrop`, `retry`, `reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`.
+- `server/engine/scenario.py` now exposes `orders` at the top level of scenario state, records `soc_before_pct` per home, and extends each history row add-only with missed/unconfirmed MW, reserve percent, risk level, and reasons. `/flow` speeds now include 15x and 30x while keeping 300x as default.
+- `web/src/features/flow/types.ts` has additive types for the Replay fields. Docs updated in `grid-flow.md` and `code-flow.md`.
+- Tests: focused order/session tests 15 passed. `pytest -q`: 658 passed. `FUZZ_SEEDS=50 pytest -q`: 658 passed. Web: vitest 279 passed, `npm run build` clean.
+
+## 2026-09-26: Task 2 redesign shell
+
+- `/` now mounts the Replay placeholder, `/live` the Live placeholder, `/fleet` the new Fleet grid placeholder, `/fleet/table` the old fleet table, `/wall` the old wall, and `/flow` stays Uma's flow page.
+- Added `features/shell` top bar, URL state helpers, `--rg-*` tokens, Overpass, three, and React Three Fiber v9.
+- Tests: web 285 passed, build clean with Vite chunk-size warning, Python 658 passed, code-flow 2 passed.
+
+## 2026-09-26: Task 2 redesign shell fix round 1
+
+- Replay and Live shell slots now use neutral placeholder text and no live status dot. `zoomToZone` / `zoomToHome` skip history writes when the requested zoom is already current. `isFleetTablePath` handles `/fleet/table` and `/fleet/table.html` before the fleet grid route.
+- The old fleet table Wall link still points at `/` because an existing test pins that href and was not edited.
+- Tests: `cd web && npm test && npm run build` (287 passed, build passed with the existing chunk-size warning); `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` (2 passed).
+
+## 2026-09-26: Replay order timelines fix round 1
+
+- 2026-09-26: Replay core logic, Task 3.
+  - Added `web/src/features/replay/` with pure TS helpers for order state, keyed order splitting, tick clock mapping, narration, promise math, and key moments. No React or UI.
+  - Tests embed the real North tick-3 order timelines from `Zone.dc.html` and cover retry/drop/confirm/not-counted transitions, charging orders, own vs reassigned keys, feed sentences, promise rows, and clock math.
+  - `docs/agents/code-flow.md` now names `web/src/features/replay/` in the web diagram and file map.
+  - Verification: `cd web && npm test && npm run build` passed (301 Vitest tests; Vite chunk-size warning only). `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` passed (2).
+
+- Fixed order timeline direction tracking so a lost retry order at 60 s is `drop`, while lost reports after `exec` or `dup` stay `rdrop`.
+- Added the fourth timeline key (`own` / `r`) so one home can display its own command and a reassigned-in command in the same tick without mixing lifecycles.
+- Added real fault-tick tests for lossy seeds, keyed lifecycles, and slow speed validation. Verification: focused order/session tests 23 passed; `HOME_MAX_KW=11.4 pytest -q` 666 passed; `FUZZ_SEEDS=50 HOME_MAX_KW=11.4 pytest -q` 666 passed; web vitest 285 passed; web build clean with the existing chunk-size warning.
+
 ## 2026-09-26: Persist operator HOLD / AUTO for the live worker
 
 - Named gap: Hold/Auto lived only in `var/state.json`. The wall on Render and the laptop `live_cycle` worker do not share that file, so a wall HOLD never reached `allocate()`.
@@ -1153,3 +1192,77 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Filled gap: `Policy.zone_intent` now copies to `TickResult.zone_intent`, so run files, `/v1/snapshot`, the wall zone drill-in, and `/flow` can name each zone's own charge / hold / discharge band.
 - Snapshot does not allocate. It rebuilds the same labels from the already-stamped LZ price rows and carries old tick values when present.
 - Tests: engine tick path 24, run-file copy, snapshot price intent, wall zone lens, and `/flow` data panel.
+
+## 2026-09-26: JEV gates the alert floor per county (/flow)
+
+- Decided with the user: JEV decides which homes in an alerted zone keep more backup. A county the alert names rises to `storm_reserve_pct` on JEV yes (P(yes) >= `policy.JEV_YES_AT`, 0.5), keeps `base_reserve_pct` on JEV no, and fails safe to the storm reserve with no reading. A county in the same zone that the alert does not name keeps base (`not_in_alert`). Fleet-wide reasons and a tape's whole-zone alert still outrank it. Replaces "JEV is a shadow reading and never dispatches". Rule: `CONSTRAINTS.md` `reserve_policy` row and "Zones"; detail: `docs/agents/grid-flow.md` "JEV county gate".
+- Engine: `reserve_policy(..., county_alerts=None)`; new fields `Home.county`, `Policy.county_reserve_pct` / `county_reasons`, `TickResult.county_reserve_pct` / `county_reasons`; `fleet.ZONE_COUNTIES` (simulation roster, 17 counties) and `floor_kwh` reads county, then zone, then fleet. Under ERCOT HIGH or a missing signal the county table reports the real 60% floor with the fleet reason. `loop.play_frame` passes `events["weather_counties"]`. `telemetry` keeps `county` on the reported copies, so the planner uses county floors.
+- `/flow` session: `seed_fleet` deals each home a roster county; display names like `Houston-FortBend-005` (`home_id` unchanged, `new_fleet` unchanged). A sent alert adds its roster counties to `events["weather_counties"]` instead of zones to `events["weather"]`. State adds `homes[].name / county / county_name / floor_reason`, `alerts[].jev_by_county`, top-level `counties`. `HONEST_LIMITS` JEV line rewritten.
+- Readings: the four per-alert files moved (`git mv`) to `data/fixtures/jev/<alert_id>/<anchor_fips>.json`; `scripts/jev_shadow.py --county` / `--all-counties` recorded 8 more (all "no", P 0.06–0.19). Only Beryl (Harris 0.74) raises a floor: 5 Harris homes at 60%, the other 20 Houston homes at 30%. Table: grid-flow.md.
+- Web (`web/src/features/flow/`): per-county groups and JEV table (Slice 3, other agent); this entry adds labels for the four county reasons and `zoneFloorText` (zone header reads "floor 30–60% by county" when county floors differ), with 2 vitest cases. End-to-end: a real Beryl and Heather `Session.state()` run through `countyGroups`, `countyFloorNote`, `alertCountyRows`, `jevFloorText`; field names and types match `types.ts`.
+- Files: `server/engine/contracts.py`, `fleet.py`, `policy.py`, `loop.py`, `scenario.py`, `telemetry.py`; `scripts/jev_shadow.py`; `data/fixtures/jev/`; `tests/test_jev_county_floor.py` (new, 13 tests), `tests/test_scenario_alerts.py` (JEV test replaced by the gate rule; recorded-reading test walks the per-county layout); `web/src/features/flow/flowMath.ts`, `ZoneBatteries.tsx`, `web/tests/flow.test.ts`. Docs: `CONSTRAINTS.md`, `docs/agents/grid-flow.md`, `system-design.md`, `code-flow.md`, `docs/humans/grid-flow.md`, `docs/humans/epics.md`.
+- `pytest -q` (without the untracked `tests/* 2.py` duplicates, which fail on main too): 741 passed. Web: `tsc` clean, `vitest` 290 passed.
+
+## 2026-09-27: price-spike offers the real Dallas heat advisory (/flow)
+
+- Named gap (chosen by Uma): give `price-spike` a real archived alert so JEV has a county-by-county "no" to decide on during the North price spike.
+- Alert: FWD Heat Advisory HT.Y 32 (2026), product `202609161703-KFWD-WWUS74-NPWFWD` (last update before the 17:45 CT window), Dallas segment `TXZ119`, expires 20:00 CT. New `ALERTS` entry and `HT.Y` event name in `scripts/fetch_nws_alerts.py`; fixture `data/fixtures/nws/tuning2026-dallas-heat-advisory.json`; catalog `price-spike.alerts`.
+- JEV (`jev-1.13.0`, `--all-counties`): Dallas 0.05, Tarrant 0.05, Collin 0.05, Denton 0.04, so North stays at 30% (`jev_no`) and keeps selling on price.
+- Finding: in `price-spike` the JEV no earns less (about $80 against about $138 with no readings, 3 seeds), because the rules do not look ahead and the alert's 60% hold happened to save charge for the $1,000 peak. `heather-spike` goes the other way (about $266 against $129). In Beryl, JEV changes nothing. The Beryl fixture keeps only the Inland Harris segment of a warning that covered all five Houston roster counties. Detail: `docs/agents/grid-flow.md` "Limits".
+- Files: `scripts/fetch_nws_alerts.py`, `data/fixtures/nws/tuning2026-dallas-heat-advisory.json`, `data/fixtures/jev/tuning2026-dallas-heat-advisory/` (4 readings), `tapes/scenarios/catalog.json`, `tests/test_scenario_alerts.py`, `tests/test_jev_county_floor.py` (1 new test). Docs: `docs/agents/grid-flow.md`, `docs/humans/grid-flow.md`.
+- `pytest -q` (without the untracked `tests/* 2.py` duplicates): 748 passed.
+
+## 2026-09-27: JEV removed; a named county keeps the storm reserve (/flow)
+
+- Decided by the user: JEV (TypeSafe) is removed. When an active NWS alert names a roster county, that county keeps `storm_reserve_pct` (county reason `weather_alert`); the zone's other counties keep base (`not_in_alert`). No event-type table, no probability. Fleet-wide reasons and whole-zone alerts still outrank; a zone with any named county still stops price selling. Replaces the 2026-09-26 "JEV gates the alert floor per county" entry above. Why: a throwaway check of 12 real archived NWS alerts (15 JEV calls) found JEV said no to both Uri 2021 alerts and never split the Beryl segments (table: `docs/agents/grid-flow.md`, "Why JEV was removed").
+- Engine: `policy.JEV_YES_AT` gone, `_county_floor(zone, named, ...)`; `scenario.load_jev` / `JEV_DIR` / `jev_dir` gone; `alerts[].named_counties` (roster order, `{fips, county_name, zone}`) replaces `jev` and `jev_by_county`; `events["weather_counties"]` is now `{fips: NWS event name}`. `CONSTRAINTS.md` `reserve_policy` row, "Zones" and `events` keys updated (dated 2026-09-27).
+- Deleted: `scripts/jev_shadow.py`, `data/fixtures/jev/`, `data/fixtures/jev_harris.json`, `JEV_API_KEY` in `.env.example`.
+- Web (`web/src/features/flow/`): the JEV panel is replaced by a "Counties named in this alert" table; county notes read "named in alert · floor 60%" / "not named · floor 30%".
+- Tests: `tests/test_jev_county_floor.py` renamed `tests/test_county_alert_floor.py`; `tests/test_scenario_alerts.py`, `tests/test_grid_down.py`, `web/tests/flow.test.ts` updated.
+- Replays (seeds 7, 42, 1234, alert after the first tick, zone revenue): `heather-spike` Houston $129.35 mean with the alert, `price-spike` North $141.59. The removed code with no readings gives the same numbers. Detail: `grid-flow.md` "Limits".
+- Next gap named (user): charge on ERCOT day-ahead prices; recorded in `docs/agents/epics.md`, epic 7.
+- Docs: `docs/agents/grid-flow.md`, `code-flow.md` (diagrams too), `system-design.md`, `index.md`, `epics.md`, `plan.md`, `research.md`; `docs/humans/grid-flow.md`, `docs/humans/epics.md`.
+- `pytest -q`: 761 passed, 6 failed (all in the untracked `tests/test_tick_paths 2.py` and `tests/test_grid_down 2.py` duplicates). Web: `vitest` 292 passed, `tsc --noEmit` clean.
+
+## 2026-09-27: Charge in the cheapest day-ahead hours (epic 7 look-ahead)
+
+- Gap (epic 7, named by the user): above its floor a battery charged whenever its zone was at or below $25 and never looked ahead. Decided with the user: each zone charges in its cheapest upcoming ERCOT DAM (NP4-190-CD) hours, sized from how much charge it needs, on a real-time dip, and only when a later hour pays back the round trip. Selling, the storm cap and refill to the floor are unchanged; no DAM falls back to the $25/$60 bands. Rule: `CONSTRAINTS.md` `reserve_policy` row; detail and backtest: `docs/agents/policy-intent.md` "Cheapest DAM hours".
+- Engine: `signal.fetch_dam_prices`, `dam_days_published`, `dam_hour_start`, `read_dam_prices`, `dam_window`; `fleet.zone_hours_needed`; `reserve_policy(..., dam_hours=, zone_hours_needed=)` with `policy.dam_charge`; `acted_intent` reads `dam_cheap_hour` / `rt_dip`; `loop.frame_dam`, `read_live_dam` (cache `var/dam/`), `run(live_dam=...)`. New setting `ROUND_TRIP_PCT=89` (`.env.example`, `render.yaml`, `read_settings` as `round_trip_pct`). New fields: `TapeFrame.dam_fixtures`; `Policy.zone_charge_hours`, `zone_charge_why`; `TickResult.dam_hours`, `dam_label`, `dam_as_of`, `zone_hours_needed`, `zone_charge_hours`, `zone_charge_why`.
+- Data and scripts: `scripts/fetch_dam_prices.py` (fixtures in `data/fixtures/dam/`, all 18 scenario days; ERCOT serves the 2024 dates and rate-limits with HTTP 429, so the fetch was rerun after about 65 s), `scripts/backtest_dam.py`; `scripts/build_scenarios.py` stamps `dam_fixtures`; `scripts/live_cycle.py` gets DAM through `loop.run`.
+- Wall and API: `/v1/snapshot` passes the DAM fields through on Live and drops stale `dam_hours`; `web/src/damForecast.ts` and `DamForecast.tsx` show "Next 24 h price (ERCOT DAM, $/MWh)" under `IntervalStrip` (`docs/agents/dam-forecast.md`).
+- Backtest (17 days, 68 zone-days; 2024-01-18 skipped, incomplete real-time in Supabase): hit 31% / 60% / 67% / 67% for k = 1 to 4; DAM-chosen hours paid $19.47 / $19.55 / $20.84 / $21.64 real-time against hindsight $16.74 / $17.65 / $18.67 / $19.81. On zone-days with at least k hours at or under $25, band / DAM / hindsight: $21.59 / $17.89 / $15.14 (k = 1, 59 zone-days), $20.52 / $16.38 / $15.20 (k = 2, 54), $19.60 / $15.81 / $14.51 (k = 3, 45), $18.61 / $14.59 / $13.72 (k = 4, 37). Worst misses: 2026-09-03 (about 0% hit in almost every zone), 2024-07-08 South, 2026-09-16 West. Tables: `policy-intent.md` "Backtest".
+- Replays (seed 42, $25/$60 bands → DAM rule, net $ = delivered minus charging cost, 0 breaches in all): `calm-charge` net $101.37 → $106.76, `heather-thaw` $34.53 → $47.87, `beryl-landfall` −$13.46 → −$10.07, `heather-spike` $1041.08 → $842.68. Open finding, pending the user's decision: `heather-spike` nets about $198 less. At 13:30 tomorrow's cheaper DAM arrived, so Houston waited (`cheaper_hour_later`) through today's real $21 dip at 14:30-16:00 and met the $1,165 peak with less charge. The rule is not claimed as a net win in every scenario. Detail: `policy-intent.md` "Replay".
+- `HONEST_LIMITS` (`server/engine/scenario.py`): five DAM lines (hours sized per zone, payback on DAM not real-time, one fetch a day, 89% is an example, can wait past a real dip for a cheaper hour beyond a price spike).
+- `server/engine/tick_emit.py`: commands are grouped by home once per tick, instead of a 10k × 10k scan. The scan only showed once DAM sent charge orders to almost every live home; `tests/test_live_cycle.py` went from 92 s to 6.2 s.
+- The calm-day scenario test now asserts that a zone charges above $25 only with reason `dam_cheap_hour` or `rt_dip`, and that every tick carries `dam_label` `recorded:ERCOT NP4-190-CD`.
+- Live dry run at 02:00 CT: used 2026-09-27 only (tomorrow not yet published), 22 hours per zone, $18.97 to $123.53/MWh, `dam_label` `ercot`.
+- Docs: `CONSTRAINTS.md`; `docs/agents/policy-intent.md`, new `dam-forecast.md`, `index.md`, `price-live.md`, `live-ingest.md`, `wall-snapshot.md`, `interval-strip.md`, `code-flow.md` (diagrams too), `system-design.md`, `grid-flow.md`, `epics.md`; `docs/humans/policy-intent.md`, new `dam-forecast.md`, `grid-flow.md`, `epics.md`; `README.md`.
+- Tests: `tests/test_dam.py` (new), DAM cases in `tests/test_fleet.py`, `test_policy.py`, `test_controller.py`, `test_live_cycle.py`, `test_snapshot.py`, `test_build_scenarios.py`; `web/tests/damForecast.test.ts`. Doc checks: `tests/test_code_flow.py`, `tests/test_system_design.py` pass.
+- `pytest -q --ignore="tests/test_grid_down 2.py" --ignore="tests/test_tick_paths 2.py"`: 761 passed in 42.31 s.
+
+## 2026-09-27: Live DAM cache: where the worker runs
+
+- Question: does the live DAM cache (`var/dam/`) survive in production, so the live cycle fetches each delivery day once? Checked where `scripts/live_cycle.py` runs: only on a laptop, by hand. Render has one service (`reservegate-api`, start command `scenario_session.py` + uvicorn); no Render cron or worker, no GitHub Actions job (CI runs tests only), no Supabase `pg_cron`, `pg_net` or Edge Functions. Supabase `runs` holds 51 `source=live` rows, all 2026-09-26 19:46 to 2026-09-27 00:34 UTC: one `--loop` session. Evidence and the rule for a future move: `docs/agents/live-ingest.md` "Where it runs".
+- Result: the cache was not at risk. The laptop disk keeps `var/dam/` across cycles and restarts. No code change, no migration. The old note that "a Render restart empties it" was wrong, since nothing on Render reads or writes `var/dam/`.
+- ERCOT 429: `fetch_dam_prices` stops at the first non-200 GET and never retries, so a rate-limited day costs one GET per cycle.
+- Tests (`tests/test_live_cycle.py`): a restarted worker that finds the day in `var/dam/` makes no DAM GET; a DAM 429 is one GET per cycle, not cached, and tried once more next cycle. Existing: a second cycle makes no DAM GET; a DAM failure falls back to the bands.
+- Docs: `docs/agents/live-ingest.md`, `dam-forecast.md`, `system-design.md`.
+- `pytest -q`: 833 passed.
+
+## 2026-09-27: DAM charge hours stop at the next price spike (epic 7)
+
+- Gap: the `heather-spike` finding above. Decided by the user: the look-ahead window for choosing charge hours ends at the first later DAM hour at or above `discharge_threshold_usd_mwh`. Choices recorded in `docs/agents/policy-intent.md` "Cheapest DAM hours": the current hour never ends the window; payback still reads the whole window, spike included; storm zones cut too; new why `before_spike` (add-only) when the cut changed the chosen hours.
+- Engine: `policy.dam_charge`, new `policy._cheapest`; `controller.acted_intent` reads `before_spike` after `dam_cheap_hour`. Web: `damForecast.ts` line "N cheapest hours before the next sell-band hour". `CONSTRAINTS.md` `reserve_policy`, `acted_intent` and `Policy.zone_charge_why` got dated add-only sentences. `HONEST_LIMITS`: the "wait past a real dip beyond a spike" line is replaced by "fills up before a spike even when it already holds enough for the call".
+- Replays (seed 42, bands / first DAM / stop at spike, net $, 0 breaches in all): `calm-charge` 101.37 / 106.76 / 107.75, `heather-spike` 1041.08 / 842.68 / 1016.79, `heather-thaw` 34.53 / 47.87 / 34.91, `beryl-landfall` −13.46 / −10.07 / −10.07. Why each moved: `policy-intent.md` "Replay".
+- Tests: 5 new `test_dam_*` cases in `tests/test_policy.py`; `test_dam_charge_hours_follow_how_much_charge_the_zone_needs` now expects 5 hours, not 6 (its last hour is $60, which ends the window); `before_spike` added to the `acted_intent` DAM case in `tests/test_controller.py` and to the calm-day reason whitelist in `tests/test_build_scenarios.py`; `web/tests/damForecast.test.ts` 1 new case.
+- `pytest -q` (rebased on the DAM cache entry above): 838 passed. Web: `vitest` 648 passed, `tsc --noEmit` clean. `scripts/backtest_dam.py` not rerun (it scores DAM against real-time and does not call the policy).
+
+## 2026-09-27: Replay off JEV; the kept web JEV pieces deleted
+
+- Replay's alert detail ("About this data") now shows the "Counties named in this alert" table /flow shows, from `alerts[].named_counties` through `flowMath.namedCountyRows`: county (FIPS), zone, and the floor and reason on the tick on screen ("60% · NWS weather alert"). The JEV P(yes) column, yes/no decision, anchor-county reading block and gate sentence are gone; the footnote uses /flow's rule sentence. The map chip and zone board lose the "NWS alert · JEV no · base floor kept" note (`alertKeptBase`, `JEV_NO_TEXT`), which a named county can no longer cause. `MapStage` loses its `counties` prop and `AlertDetail` its `counties` prop, which only fed JEV.
+- Deleted from `web/src/features/flow/`: `JevReading`, `JevDecision`, `CountyJev`, `ActiveAlert.jev` / `jev_by_county`, the three JEV reason labels, `AlertCountyRow`, `alertCountyRows`, `jevFloorText`. `rg -i jev web/src` is empty.
+- Backend: the scenario state already sent no JEV field (`tests/test_county_alert_floor.py` asserts it). `server/engine/brief.py` still mapped the retired county reasons `weather_alert_jev_yes` / `weather_alert_no_jev` and wrote "Base floor kept in …: NWS alert, JEV no" from `jev_no`; the engine emits none of these, so that dead code is removed. No API field removed.
+- Tests: `web/tests/replay-flow-parity.test.ts` asserts the named-county rows and adds a check that Replay and /flow list the same counties, zones and floors on one tick; Heather tick 2 is the current engine's (all nine named counties at 60%). `flow.test.ts` again asserts the three JEV labels are gone. `replay-weather.test.ts`, `replay-weather-views.test.ts`, `replay-zone.test.ts`, `fixtures/beryl22.ts` (reason code and alert shape only; same floors) and `tests/test_brief.py` (ticks from the named-county rule) updated.
+- Browser: heather seed 42, both freeze alerts sent after tick 1, paused at tick 2; the drawer lists four North and five Houston counties at "60% · NWS weather alert" and no JEV text.
+- Docs: `docs/agents/grid-flow.md` ("Named-county rule", "Tests").
+- `pytest -q` (merged with main after the DAM cache and stop-at-spike entries above): 838 passed. Web: `vitest` 650 passed (50 files), `tsc --noEmit` clean.

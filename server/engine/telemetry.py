@@ -273,7 +273,7 @@ class TelemetryState:
             z["homes"]["total"] += 1
             z["homes"][status] += 1
             soc = hs.last["soc_kwh"] if hs.last else 0.0
-            reported = Home(h.home_id, h.capacity_kwh, soc, h.max_kw, "live", h.zone)
+            reported = Home(h.home_id, h.capacity_kwh, soc, h.max_kw, "live", h.zone, county=h.county)
             z["soc_mwh"] += soc / 1000
             z["floor_mwh"] += floor_kwh(reported, policy) / 1000
             # An islanded battery is not available to the grid, however full it is.
@@ -311,5 +311,5 @@ class TelemetryState:
             hs = self.homes[h.home_id]
             soc = hs.last["soc_kwh"] if hs.last else 0.0
             status = plan_status(h.status, data_status(hs, self.base_s, self.settings))
-            copies.append(Home(h.home_id, h.capacity_kwh, soc, h.max_kw, status, h.zone))
+            copies.append(Home(h.home_id, h.capacity_kwh, soc, h.max_kw, status, h.zone, county=h.county))
         return copies

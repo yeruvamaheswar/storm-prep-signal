@@ -306,6 +306,7 @@ export function OperatorWall({ run }: OperatorWallProps) {
         liveSelectable={canLive}
         onRuntime={pickRuntime}
         showTapeChrome={origin.showScrubber}
+        damTick={origin.showScrubber ? null : (watch.tick ?? null)}
       />
     </main>
   )

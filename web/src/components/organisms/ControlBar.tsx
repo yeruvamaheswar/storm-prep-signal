@@ -4,6 +4,7 @@ import type { RuntimeMode } from "../../runtimeMode"
 import type { SceneId } from "../../fixtures/scenes"
 import type { LoadZone } from "../../zonePaint"
 import { Button } from "../atoms/Button"
+import { DamForecast } from "./DamForecast"
 import { IntervalStrip } from "./IntervalStrip"
 import { modeTickIndex } from "./modeTicks"
 import { TapeScrubber } from "./TapeScrubber"
@@ -29,6 +30,8 @@ type ControlBarProps = {
   onRuntime?: (mode: RuntimeMode) => void
   /** 01–12 tape chrome. False for live and archive-clocked sources. */
   showTapeChrome?: boolean
+  /** The /v1/snapshot tick only, never a tape tick. */
+  damTick?: TickView | null
 }
 
 export function ControlBar({
@@ -49,6 +52,7 @@ export function ControlBar({
   liveSelectable = false,
   onRuntime,
   showTapeChrome,
+  damTick = null,
 }: ControlBarProps) {
   const showTape = showTapeChrome ?? runtime !== "live"
   const live = runtime === "live"
@@ -158,7 +162,10 @@ export function ControlBar({
           rollups={rollups}
         />
       ) : (
-        <IntervalStrip intervals={intervals} />
+        <div className="tape-stack">
+          <IntervalStrip intervals={intervals} />
+          <DamForecast tick={damTick} />
+        </div>
       )}
     </footer>
   )

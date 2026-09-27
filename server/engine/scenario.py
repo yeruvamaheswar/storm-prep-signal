@@ -17,24 +17,27 @@ from pathlib import Path
 
 from server.engine.baseline import load_baseline
 from server.engine.brief import write_brief
-from server.engine.events import start_run
-from server.engine.fleet import new_fleet
+from server.engine.events import log_event, start_run
+from server.engine.fleet import STATUSES, assign_county, county_name, home_label, new_fleet, zone_counties
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
+from server.engine.order_log import order_timelines
 from server.engine.score import new_board, update
-from server.engine.telemetry import TelemetryState
+from server.engine.telemetry import TelemetryState, data_status, plan_status
 from server.engine.tick_emit import build_tick_emit
 
 SCENARIO_DIR = Path("var") / "scenario"
 CATALOG_PATH = Path("tapes") / "scenarios" / "catalog.json"
 ALERT_DIR = Path("data") / "fixtures" / "nws"
-JEV_DIR = Path("data") / "fixtures" / "jev"
 # 25 homes per zone, so every battery can be drawn on the page.
 SCENARIO_FLEET_SIZE = 100
 # Wide on purpose: some batteries start under the 30% floor, some near full.
 SOC_RANGE_PCT = (10.0, 95.0)
 # Time-lapse factors: scenario seconds per wall second. 300 plays one 5-minute tick per second.
-SPEEDS = (60, 150, 300, 600)
-DEFAULT_SPEED = 300
+# 2.4 is real time for the Replay page: one 5-minute tick plays its 125 s order window at true speed.
+# 288, 720 and 1440 are the Replay Day view's 5, 2 and 1 min per 24-hour scenario day (86400 / x seconds).
+SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 288, 300, 600, 720, 1440)
+# About 25 s per 5-minute tick, slow enough to follow each order.
+DEFAULT_SPEED = 12
 # The page calls the worker gone when state.json has not been rewritten for this long.
 STALE_AFTER_S = 10
 HIST_BINS = 10
@@ -43,7 +46,7 @@ LOG_LINES = 12
 KW_EPS = 1e-6
 # A battery within this many percent of its floor is "at floor", not holding spare charge.
 FLOOR_BAND_PCT = 0.5
-REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down")
+REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down", "step", "seek")
 HONEST_LIMITS = (
     "The fleet is simulated. Each battery's starting charge is a seeded random draw.",
     "The grid ask (target MW) is synthetic; no public dispatch target exists.",
@@ -51,7 +54,18 @@ HONEST_LIMITS = (
     "Weather alerts are real archived NWS text; the operator chooses when to send them.",
     "Hand-placed overlays are labeled as overlays.",
     "Pack: 25 kWh, 11.4 kW (example settings, not Base specs), shown in time-lapse.",
-    "Rules make every decision. JEV is a shadow reading and never dispatches.",
+    "A county an alert names keeps the storm reserve whatever the alert type; the alert's other zone "
+    "counties keep the base floor. No model weighs how dangerous the alert is.",
+    "Charge hours are sized per zone (its homes' room kWh over their max kW, summed), not per home.",
+    "The payback check uses day-ahead (DAM) prices, not the real-time prices that will actually happen.",
+    "The later DAM hour in the payback check is a forecast value, not a planned sale: the fleet sells only "
+    "on a grid call.",
+    "A scenario with no saved DAM day (Winter Storm Heather, 2024-01-15) runs on the $25 charge and $60 sell "
+    "price bands.",
+    "DAM prices are fetched once a day. If ERCOT posts late, Live runs on today's hours until tomorrow's arrive.",
+    "The 89% battery round trip is an example figure (Powerwall 3 datasheet), not a Base spec.",
+    "Before a day-ahead price spike a zone fills up, even when it already holds enough for the grid call "
+    "through the spike.",
 )
 
 
@@ -105,24 +119,26 @@ def alert_summary(alert):
     return {key: alert.get(key) for key in keys if key in alert}
 
 
-def alert_zones(alert, settings):
-    """Load zones named by the alert's county FIPS codes, and codes that match no zone.
+def alert_counties(alert, settings):
+    """Roster counties named by the alert as (zone, fips, name) in roster order, and codes that match none.
 
-    The NWS SAME code is 0 + state + county ("048201"); ZONES holds "48201".
+    The NWS SAME code is 0 + state + county ("048201"); the roster holds "48201".
     """
-    fips_to_zone = {fips: zone for zone, fips in settings["zones"].items()}
-    zones, unknown = set(), []
+    named, unknown = set(), []
+    roster = {fips for _, fips, _ in zone_counties(settings)}
     for code in alert.get("counties", []):
         fips = str(code)[-5:]
-        if fips in fips_to_zone:
-            zones.add(fips_to_zone[fips])
+        if fips in roster:
+            named.add(fips)
         else:
             unknown.append(str(code))
-    return sorted(zones), unknown
+    return [row for row in zone_counties(settings) if row[1] in named], unknown
 
 
-def load_jev(alert_id, jev_dir=JEV_DIR):
-    return read_json(Path(jev_dir) / f"{alert_id}.json", None)
+def alert_zones(alert, settings):
+    """Load zones named by the alert's roster counties, and codes that match no county."""
+    counties, unknown = alert_counties(alert, settings)
+    return sorted({zone for zone, _, _ in counties}), unknown
 
 
 # --- request inbox (the API writes, the worker reads) ---
@@ -179,12 +195,20 @@ def read_state(scenario_dir=SCENARIO_DIR, now=None):
 # --- the session ---
 
 def seed_fleet(settings, seed):
-    """new_fleet ids, zones and pack size, with each starting charge drawn from SOC_RANGE_PCT."""
+    """new_fleet ids, zones and pack size, with each starting charge drawn from SOC_RANGE_PCT.
+
+    Each home also gets a roster county, round-robin by its place within its zone.
+    """
     homes = new_fleet(settings)
     rng = random.Random(seed)
     low, high = SOC_RANGE_PCT
+    counties, in_zone = {}, {}
+    for zone, fips, _ in zone_counties(settings):
+        counties.setdefault(zone, []).append(fips)
     for home in homes:
         home.soc_kwh = round(home.capacity_kwh * rng.uniform(low, high) / 100, 3)
+        in_zone[home.zone] = in_zone.get(home.zone, 0) + 1
+        home.county = assign_county(in_zone[home.zone], counties[home.zone])
     return homes
 
 
@@ -196,11 +220,18 @@ def soc_histogram(homes, bins=HIST_BINS):
     return counts
 
 
-def floor_pct_for(home, policy_view):
-    return policy_view["zone_reserve_pct"].get(home.zone, policy_view["reserve_pct"])
+def floor_pct_for(home, policy):
+    """Same order as fleet.floor_kwh: county, then zone, then fleet."""
+    return policy.county_reserve_pct.get(home.county, policy.zone_reserve_pct.get(home.zone, policy.reserve_pct))
 
 
-def home_state(home, emit, floor_pct, zone_reason, grid_down):
+def home_row(home):
+    """Who the battery is: id, display name, zone and county."""
+    return {"id": home.home_id, "name": home_label(home), "zone": home.zone, "county": home.county,
+            "county_name": county_name(home.county)}
+
+
+def home_state(home, emit, floor_pct, floor_reason, grid_down):
     """One word for how the battery is behaving this tick, from confirmed kW and its status."""
     if home.status in ("dead", "stale"):
         return home.status
@@ -220,7 +251,8 @@ def home_state(home, emit, floor_pct, zone_reason, grid_down):
     # Drained to its floor: everything above it was sold, so there is nothing left to give.
     if soc_pct <= floor_pct + FLOOR_BAND_PCT:
         return "at_floor"
-    if zone_reason not in ("normal", "", None):
+    # not_in_alert keeps the base floor, so nothing is reserved beyond normal.
+    if floor_reason not in ("normal", "not_in_alert", "", None):
         return "reserved"
     return "holding"
 
@@ -228,12 +260,11 @@ def home_state(home, emit, floor_pct, zone_reason, grid_down):
 class Session:
     """One scenario playing on a seeded random fleet. Mutated only by the worker process."""
 
-    def __init__(self, settings, catalog, log_dir=SCENARIO_DIR / "logs", alert_dir=ALERT_DIR,
-                 jev_dir=JEV_DIR):
+    def __init__(self, settings, catalog, log_dir=SCENARIO_DIR / "logs", alert_dir=ALERT_DIR):
         self.settings = with_fleet_defaults(settings)
         self.settings["fleet_size"] = SCENARIO_FLEET_SIZE
         self.catalog = catalog
-        self.log_dir, self.alert_dir, self.jev_dir = Path(log_dir), Path(alert_dir), Path(jev_dir)
+        self.log_dir, self.alert_dir = Path(log_dir), Path(alert_dir)
         self.scenario = None
         self.frames, self.baseline, self.sidecar = [], None, {}
         self.index, self.playing, self.speed = 0, False, DEFAULT_SPEED
@@ -242,6 +273,12 @@ class Session:
         self.start_summary, self.last, self.history = {}, None, []
         self.started_under = set()   # home ids whose random starting charge was under the base floor
         self.active_alerts, self.grid_down_zones = [], []
+        # Operator actions that change engine input, each with the tick index it took effect at, so a seek can
+        # re-run them (Task 16). Kept across a seek; start and reset clear it. `applied` holds the ids already
+        # applied in the current run of the tape.
+        self.actions, self.applied, self.next_action_id = [], set(), 1
+        # Set while a seek re-runs ticks: its replayed operator actions are not noted on the page again.
+        self.replaying = False
         self.messages = []
         self.error = None
 
@@ -263,6 +300,10 @@ class Session:
                 self.send_alert(body.get("alert_id"))
             elif kind == "grid_down":
                 self.set_grid_down(body.get("zone"), bool(body.get("down", True)))
+            elif kind == "step":
+                self.step_paused()
+            elif kind == "seek":
+                self.seek(body.get("tick"))
             else:
                 raise ValueError(f"unknown request {kind!r}")
         except ValueError as exc:
@@ -283,10 +324,17 @@ class Session:
         self.playing = True
 
     def reset(self, seed=None):
-        """New random fleet (same scenario), back to the first tick. Overlays are cleared."""
+        """New random fleet (same scenario), back to the first tick. Overlays and the action log are cleared."""
         if self.scenario is None:
             raise ValueError("pick a scenario first")
-        self.seed = int(seed) if seed else random.SystemRandom().randrange(1, 1_000_000)
+        self.rebuild(int(seed) if seed else random.SystemRandom().randrange(1, 1_000_000))
+        self.actions, self.next_action_id = [], 1
+        self.note(f"fleet seeded (seed {self.seed})")
+
+    def rebuild(self, seed):
+        """The fleet, feed, board and overlays as they were before the first tick, from `seed`. The action log is
+        left alone (a seek keeps it)."""
+        self.seed = seed
         self.settings["seed"] = self.seed
         self.homes = seed_fleet(self.settings, self.seed)
         self.telemetry = (TelemetryState(self.homes, self.settings, self.seed)
@@ -294,10 +342,10 @@ class Session:
         self.board = new_board(self.settings)
         self.index, self.mode, self.last, self.history = 0, "AUTO", None, []
         self.active_alerts, self.grid_down_zones, self.error = [], [], None
+        self.applied = set()
         self.start_summary = self.summarize_start()
         self.started_under = {h.home_id for h in self.homes
                               if 100 * h.soc_kwh / h.capacity_kwh < self.settings["base_reserve_pct"]}
-        self.note(f"fleet seeded (seed {self.seed})")
 
     def set_playing(self, playing):
         if self.scenario is None:
@@ -306,8 +354,24 @@ class Session:
             self.reset(self.seed)
         self.playing = playing
 
+    def step_paused(self):
+        """Play exactly one frame while paused (the Replay page's Next tick). Playback stays paused."""
+        if self.scenario is None:
+            raise ValueError("pick a scenario first")
+        if self.playing:
+            raise ValueError("pause first")
+        if self.index >= len(self.frames):
+            raise ValueError("scenario finished")
+        try:
+            self.step()
+        except Exception as exc:
+            # Same as a crashed tick in the worker loop: named on the page, never raised.
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.note(f"tick failed: {self.error}")
+        self.playing = False
+
     def set_speed(self, x):
-        if x not in SPEEDS:
+        if isinstance(x, bool) or x not in SPEEDS:
             raise ValueError(f"speed must be one of {SPEEDS}")
         self.speed = x
 
@@ -319,7 +383,8 @@ class Session:
         alert = load_alert(alert_id, self.alert_dir)
         if alert is None:
             raise ValueError(f"alert fixture {alert_id!r} is missing")
-        zones, unknown = alert_zones(alert, self.settings)
+        counties, unknown = alert_counties(alert, self.settings)
+        zones = sorted({zone for zone, _, _ in counties})
         if unknown:
             self.note(f"alert counties with no load zone ignored: {', '.join(unknown)}")
         if not zones:
@@ -327,9 +392,15 @@ class Session:
         if any(a["id"] == alert_id for a in self.active_alerts):
             raise ValueError("alert already sent")
         sent_tick = self.frames[self.index].tick if self.index < len(self.frames) else None
+        named = [{"fips": fips, "county_name": name, "zone": zone} for zone, fips, name in counties]
         self.active_alerts.append({**alert_summary(alert), "zones": zones, "sent_at_tick": sent_tick,
-                                   "jev": load_jev(alert_id, self.jev_dir)})
+                                   "named_counties": named})
         self.note(f"alert sent: {alert.get('event')} for {', '.join(zones)}, applies from the next tick")
+        if not self.replaying:
+            # Sent again earlier than its logged tick (after a rewind): the earlier send replaces the later one.
+            self.actions = [a for a in self.actions
+                            if not (a["kind"] == "alert" and a["alert_id"] == alert_id and a["index"] > self.index)]
+            self.log_action({"kind": "alert", "alert_id": alert_id})
 
     def set_grid_down(self, zone, down):
         if self.scenario is None:
@@ -345,6 +416,69 @@ class Session:
             zones.discard(zone)
         self.grid_down_zones = sorted(zones)
         self.note(f"overlay: grid {'down' if down else 'restored'} in {zone}, applies from the next tick")
+        if not self.replaying:
+            self.log_action({"kind": "grid_down", "zone": zone, "down": bool(down)})
+
+    # the operator action log and seeking (Task 16)
+
+    def log_action(self, action):
+        """Log an operator action that changes engine input, at the tick index it takes effect from. HOLD is not
+        logged: the mode comes from the tape's `operator` events, not from the operator."""
+        tick = self.frames[self.index].tick if self.index < len(self.frames) else None
+        entry = {**action, "id": self.next_action_id, "index": self.index, "tick": tick}
+        self.next_action_id += 1
+        # Kept in tick order (a send after a rewind can land before later entries); same index keeps send order.
+        self.actions = sorted(self.actions + [entry], key=lambda a: a["index"])
+        self.applied.add(entry["id"])
+
+    def apply_logged_actions(self):
+        """Re-apply the logged actions that take effect at the current index and are not applied in this run."""
+        for action in self.actions:
+            if action["index"] != self.index or action["id"] in self.applied:
+                continue
+            self.applied.add(action["id"])
+            self.replaying = True
+            try:
+                if action["kind"] == "alert":
+                    self.send_alert(action["alert_id"])
+                elif action["kind"] == "grid_down":
+                    self.set_grid_down(action["zone"], action["down"])
+            except ValueError as exc:
+                self.replaying = False
+                self.note(f"replayed {action['kind']} refused: {exc}")
+            finally:
+                self.replaying = False
+
+    def seek(self, tick):
+        """Go to tick index `tick` by re-running the engine: the same seed and the logged actions at their ticks.
+
+        Back: rebuild from the seed, then step to it. Forward: step to it. Every tick is a real engine tick. The
+        action log is kept, and `playing` is left as it was.
+        """
+        if self.scenario is None:
+            raise ValueError("pick a scenario first")
+        if isinstance(tick, bool) or not isinstance(tick, int):
+            raise ValueError(f"tick must be a whole tick index, not {tick!r}")
+        target = max(0, min(tick, len(self.frames) - 1))
+        if target == self.index:
+            return
+        playing = self.playing
+        # Mark the run's event log first, so a reader can tell the tick events after it are a re-run.
+        log_event("scenario", "seek", **{"from": self.index, "to": target})
+        if target < self.index:
+            self.rebuild(self.seed)
+            self.apply_logged_actions()
+        try:
+            while self.index < target:
+                self.step()
+        except Exception as exc:
+            # Same as a crashed tick in the worker loop: playback stops, and the page names where and why.
+            self.playing = False
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.note(f"seek to tick {target} stopped at tick {self.index}: {self.error}")
+            return
+        self.playing = playing
+        self.note(f"moved to tick {self.index} of {len(self.frames)}")
 
     # ticks
 
@@ -359,14 +493,20 @@ class Session:
         return datetime.fromisoformat(ts) <= datetime.fromisoformat(expires)
 
     def overlay(self, frame):
-        """This frame with the operator's overlays added to its events."""
+        """This frame with the operator's overlays added to its events.
+
+        Alerts go in as the counties they name, never as whole zones, so an unnamed county keeps base.
+        """
         events = dict(frame.events)
-        zones = set(events.get("weather", []))
+        counties = dict(events.get("weather_counties", {}))
         for alert in self.active_alerts:
-            if self.alert_active(alert, frame.ts):
-                zones.update(alert["zones"])
-        if zones:
-            events["weather"] = sorted(zones)
+            if not self.alert_active(alert, frame.ts):
+                continue
+            for row in alert["named_counties"]:
+                # Two alerts on one county both raise it, so the first event name is kept.
+                counties.setdefault(row["fips"], alert.get("event"))
+        if counties:
+            events["weather_counties"] = counties
         if self.grid_down_zones:
             events["grid_down"] = sorted(set(events.get("grid_down", [])) | set(self.grid_down_zones))
         return replace(frame, events=events)
@@ -378,45 +518,96 @@ class Session:
             return False
         frame = self.overlay(self.frames[self.index])
         self.mode = frame.events.get("operator", self.mode)
+        soc_before = {home.home_id: round(100 * home.soc_kwh / home.capacity_kwh, 2) for home in self.homes}
+        planned = self.plan_statuses(frame)
         result, cycle, policy, scaled, risk = play_frame(
             frame, self.homes, self.settings, self.baseline, self.mode, telemetry=self.telemetry)
         self.board = update(self.board, result, self.homes)
         emit = build_tick_emit(scaled, self.homes, cycle)
-        self.last = self.describe_tick(result, emit, policy, scaled, risk)
+        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before, planned_status=planned)
         self.history = (self.history + [{
             "tick": result.tick, "ts": result.ts, "target_mw": result.target_mw,
             "delivered_mw": result.delivered_mw, "charging_mw": self.last["charging_mw"],
+            "missed_mw": result.missed_mw, "unconfirmed_mw": cycle.unconfirmed_mw,
+            "reserve_pct": result.reserve_pct, "risk_level": result.risk_level,
+            "reasons": list(result.reasons), "breaches": result.breaches,
+            "intent": result.intent, "intent_reason": result.intent_reason,
+            # The frame's own price and the mode it played in, and which events it carried (overlays and alert
+            # counties included), for the Replay day bar. Copied, never re-derived.
+            "price_usd_mwh": result.price_usd_mwh, "price_label": result.price_label, "mode": result.mode,
+            "events": sorted(frame.events),
         }])[-HISTORY_POINTS:]
         self.index += 1
+        # After a rewind, an action logged at this index is sent again here, as the operator sent it the first time.
+        self.apply_logged_actions()
         if self.index >= len(self.frames):
             self.playing = False
             self.note("scenario finished")
         return True
 
-    def describe_tick(self, result, emit, policy, frame, risk):
+    def feed_statuses(self):
+        """Each home's data status as the next plan will read it, or None without a feed.
+
+        orchestrate_tick plans from telemetry.reported_homes before any reading of the new tick
+        arrives, so the age of the newest accepted reading is the same now as at plan time.
+        The feed moves its clock on when the tick finishes, so this is taken before play_frame.
+        """
+        if self.telemetry is None:
+            return None
+        return {home_id: data_status(hs, self.telemetry.base_s, self.telemetry.settings)
+                for home_id, hs in self.telemetry.homes.items()}
+
+    def plan_statuses(self, frame):
+        """Each home's status as the planner will read it this tick, taken before play_frame.
+
+        play_frame applies the frame's status events first (fleet.apply_events), then plans; with the feed
+        on it plans from telemetry.reported_homes, which combines that status with the report age. A home
+        can then die mid-tick (orchestration worker_error) after it got its order, so the end-of-tick
+        status is not what the planner saw. This works on the frame's events only; no home is changed.
+        """
+        feed = self.feed_statuses()
+        planned = {}
+        for home in self.homes:
+            status = home.status
+            for event_status in STATUSES:  # apply_events order: a later list wins
+                if home.home_id in frame.events.get(event_status, []):
+                    status = event_status
+            planned[home.home_id] = status if feed is None else plan_status(status, feed[home.home_id])
+        return planned
+
+    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before, feed_status=None, planned_status=None):
         tick = {**asdict(result), "brief": write_brief(result)}
-        policy_view = {"reserve_pct": policy.reserve_pct, "zone_reserve_pct": policy.zone_reserve_pct}
         grid_down = set(frame.events.get("grid_down", []))
         homes, zones = [], {}
         for home in self.homes:
             home_emit = emit["homes"][home.home_id]
-            floor_pct = floor_pct_for(home, policy_view)
+            floor_pct = floor_pct_for(home, policy)
             reason = policy.zone_reasons.get(home.zone, policy.reason)
-            state = home_state(home, home_emit, floor_pct, reason, home.zone in grid_down)
+            floor_reason = policy.county_reasons.get(home.county, reason)
+            state = home_state(home, home_emit, floor_pct, floor_reason, home.zone in grid_down)
             kw = home_emit["power_kw"]
-            homes.append({"id": home.home_id, "zone": home.zone, "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
+            homes.append({**home_row(home), "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
+                          "soc_before_pct": soc_before.get(home.home_id),
                           "kw": round(kw, 3), "state": state, "status": home.status, "floor_pct": floor_pct,
-                          "under_floor_why": self.under_floor_why(home, state, floor_pct)})
+                          "floor_reason": floor_reason,
+                          "under_floor_why": self.under_floor_why(home, state, floor_pct),
+                          # What allocate saw: the reported status with the feed, else the home's own.
+                          "plan_status": (planned_status[home.home_id] if planned_status is not None
+                                          else home.status if feed_status is None
+                                          else plan_status(home.status, feed_status[home.home_id]))})
             row = zones.setdefault(home.zone, {
                 "selling_mw": result.zone_delivered_mw.get(home.zone, 0.0),
                 "charging_mw": result.zone_charging_mw.get(home.zone, 0.0),
-                "reserve_pct": floor_pct, "reason": reason, "price_usd_mwh": result.zone_prices.get(home.zone),
+                "reserve_pct": policy.zone_reserve_pct.get(home.zone, policy.reserve_pct), "reason": reason,
+                "price_usd_mwh": result.zone_prices.get(home.zone),
                 "grid_down": home.zone in grid_down, "homes": 0, "states": {}, "soc_mwh": 0.0,
             })
             row["homes"] += 1
             row["states"][state] = row["states"].get(state, 0) + 1
             row["soc_mwh"] += home.soc_kwh / 1000
-        return {"result": tick, "homes": homes, "zones": zones, "charging_mw": result.charging_mw,
+        return {"result": tick, "homes": homes, "zones": zones,
+                "orders": order_timelines(cycle.events, cycle.allocation.per_home_kw),
+                "charging_mw": result.charging_mw,
                 "provenance": self.provenance(frame, risk)}
 
     # what the page shows
@@ -476,6 +667,8 @@ class Session:
                 "pack": {"kwh": self.settings["home_kwh"], "kw": self.settings["home_max_kw"]}}
 
     def note(self, text):
+        if self.replaying:
+            return  # a seek re-applying a logged action: the page already showed it the first time
         self.messages = (self.messages + [{"at": utc_now(), "text": text}])[-LOG_LINES:]
 
     def status(self):
@@ -492,12 +685,16 @@ class Session:
         if self.scenario is not None:
             scenario = {key: self.scenario.get(key) for key in
                         ("id", "name", "event", "window", "summary", "tape", "baseline", "label", "grid_down_overlay")}
+            # The tape's own ends, so the Replay day bar spans the real scenario window.
+            scenario["first_ts"] = self.frames[0].ts if self.frames else None
+            scenario["last_ts"] = self.frames[-1].ts if self.frames else None
             # Each alert's load zones, so the weather step can name the zones a grid-down overlay covers.
             scenario["alerts"] = [{**alert_summary(a), "zones": alert_zones(a, self.settings)[0]} for a in
                                   (load_alert(i, self.alert_dir) for i in self.scenario.get("alerts", [])) if a]
         live_homes = self.last["homes"] if self.last else [
-            {"id": h.home_id, "zone": h.zone, "soc_pct": round(100 * h.soc_kwh / h.capacity_kwh, 2), "kw": 0.0,
-             "state": "holding", "status": h.status, "floor_pct": self.settings["base_reserve_pct"]}
+            {**home_row(h), "soc_pct": round(100 * h.soc_kwh / h.capacity_kwh, 2), "kw": 0.0,
+             "state": "holding", "status": h.status, "floor_pct": self.settings["base_reserve_pct"],
+             "floor_reason": "normal"}
             for h in self.homes]
         return {
             "status": self.status(), "error": self.error, "updated_at": utc_now(), "pid": os.getpid(),
@@ -507,11 +704,16 @@ class Session:
             "start": self.start_summary,
             "tick": self.last["result"] if self.last else None,
             "homes": live_homes,
+            "orders": self.last["orders"] if self.last else {},
             "zones": self.last["zones"] if self.last else {},
             "charging_mw": self.last["charging_mw"] if self.last else 0.0,
             "provenance": self.last["provenance"] if self.last else None,
             "alerts": self.active_alerts,
             "grid_down_zones": self.grid_down_zones,
+            # Task 16: the operator actions a seek re-runs (for marks), and whether a seek is running. The worker
+            # writes one state with seeking true before it runs a seek; this ordinary state is never mid-seek.
+            "actions": [dict(action) for action in self.actions], "seeking": False,
+            "counties": [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
             "history": self.history, "totals": self.board, "log": self.messages,
             "honest_limits": list(HONEST_LIMITS),
         }

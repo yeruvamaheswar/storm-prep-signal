@@ -28,6 +28,13 @@
     "interval_ending": "2024-01-16T12:15:00-06:00",
     "price_usd_mwh": 53.86
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "2": {
@@ -58,6 +65,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T12:15:00-06:00",
     "price_usd_mwh": 53.86
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -90,6 +104,13 @@
     "interval_ending": "2024-01-16T12:15:00-06:00",
     "price_usd_mwh": 53.86
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "4": {
@@ -120,6 +141,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T12:30:00-06:00",
     "price_usd_mwh": 53.6
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -152,6 +180,13 @@
     "interval_ending": "2024-01-16T12:30:00-06:00",
     "price_usd_mwh": 53.6
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "6": {
@@ -182,6 +217,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T12:30:00-06:00",
     "price_usd_mwh": 53.6
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -214,6 +256,13 @@
     "interval_ending": "2024-01-16T12:45:00-06:00",
     "price_usd_mwh": 52.1
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "8": {
@@ -244,6 +293,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T12:45:00-06:00",
     "price_usd_mwh": 52.1
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -276,6 +332,13 @@
     "interval_ending": "2024-01-16T12:45:00-06:00",
     "price_usd_mwh": 52.1
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "10": {
@@ -306,6 +369,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T13:00:00-06:00",
     "price_usd_mwh": 47.92
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -338,6 +408,13 @@
     "interval_ending": "2024-01-16T13:00:00-06:00",
     "price_usd_mwh": 47.92
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "12": {
@@ -368,6 +445,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T13:00:00-06:00",
     "price_usd_mwh": 47.92
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -400,6 +484,13 @@
     "interval_ending": "2024-01-16T13:15:00-06:00",
     "price_usd_mwh": 44.22
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "14": {
@@ -430,6 +521,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T13:15:00-06:00",
     "price_usd_mwh": 44.22
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -462,6 +560,13 @@
     "interval_ending": "2024-01-16T13:15:00-06:00",
     "price_usd_mwh": 44.22
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "16": {
@@ -492,6 +597,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T13:30:00-06:00",
     "price_usd_mwh": 35.25
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -524,6 +636,13 @@
     "interval_ending": "2024-01-16T13:30:00-06:00",
     "price_usd_mwh": 35.25
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   }
   ]
  },
  "18": {
@@ -554,6 +673,13 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T13:30:00-06:00",
     "price_usd_mwh": 35.25
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
    }
   ]
  },
@@ -586,6 +712,18 @@
     "interval_ending": "2024-01-16T13:45:00-06:00",
     "price_usd_mwh": 33.65
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "20": {
@@ -616,6 +754,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T13:45:00-06:00",
     "price_usd_mwh": 33.65
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -648,6 +798,18 @@
     "interval_ending": "2024-01-16T13:45:00-06:00",
     "price_usd_mwh": 33.65
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "22": {
@@ -678,6 +840,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T14:00:00-06:00",
     "price_usd_mwh": 31.14
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -710,6 +884,18 @@
     "interval_ending": "2024-01-16T14:00:00-06:00",
     "price_usd_mwh": 31.14
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "24": {
@@ -740,6 +926,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T14:00:00-06:00",
     "price_usd_mwh": 31.14
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -772,6 +970,18 @@
     "interval_ending": "2024-01-16T14:15:00-06:00",
     "price_usd_mwh": 27.21
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "26": {
@@ -802,6 +1012,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T14:15:00-06:00",
     "price_usd_mwh": 27.21
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -834,6 +1056,18 @@
     "interval_ending": "2024-01-16T14:15:00-06:00",
     "price_usd_mwh": 27.21
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "28": {
@@ -864,6 +1098,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T14:30:00-06:00",
     "price_usd_mwh": 24.77
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -896,6 +1142,18 @@
     "interval_ending": "2024-01-16T14:30:00-06:00",
     "price_usd_mwh": 24.77
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "30": {
@@ -926,6 +1184,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T14:30:00-06:00",
     "price_usd_mwh": 24.77
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -958,6 +1228,18 @@
     "interval_ending": "2024-01-16T14:45:00-06:00",
     "price_usd_mwh": 23.56
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "32": {
@@ -988,6 +1270,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T14:45:00-06:00",
     "price_usd_mwh": 23.56
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1020,6 +1314,18 @@
     "interval_ending": "2024-01-16T14:45:00-06:00",
     "price_usd_mwh": 23.56
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "34": {
@@ -1050,6 +1356,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T15:00:00-06:00",
     "price_usd_mwh": 22.28
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1082,6 +1400,18 @@
     "interval_ending": "2024-01-16T15:00:00-06:00",
     "price_usd_mwh": 22.28
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "36": {
@@ -1112,6 +1442,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T15:00:00-06:00",
     "price_usd_mwh": 22.28
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1144,6 +1486,18 @@
     "interval_ending": "2024-01-16T15:15:00-06:00",
     "price_usd_mwh": 21.35
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "38": {
@@ -1174,6 +1528,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T15:15:00-06:00",
     "price_usd_mwh": 21.35
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1206,6 +1572,18 @@
     "interval_ending": "2024-01-16T15:15:00-06:00",
     "price_usd_mwh": 21.35
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "40": {
@@ -1236,6 +1614,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T15:30:00-06:00",
     "price_usd_mwh": 20.95
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1268,6 +1658,18 @@
     "interval_ending": "2024-01-16T15:30:00-06:00",
     "price_usd_mwh": 20.95
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "42": {
@@ -1298,6 +1700,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T15:30:00-06:00",
     "price_usd_mwh": 20.95
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1330,6 +1744,18 @@
     "interval_ending": "2024-01-16T15:45:00-06:00",
     "price_usd_mwh": 21.07
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "44": {
@@ -1360,6 +1786,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T15:45:00-06:00",
     "price_usd_mwh": 21.07
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1392,6 +1830,18 @@
     "interval_ending": "2024-01-16T15:45:00-06:00",
     "price_usd_mwh": 21.07
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "46": {
@@ -1422,6 +1872,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T16:00:00-06:00",
     "price_usd_mwh": 21.41
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1454,6 +1916,18 @@
     "interval_ending": "2024-01-16T16:00:00-06:00",
     "price_usd_mwh": 21.41
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "48": {
@@ -1484,6 +1958,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T16:00:00-06:00",
     "price_usd_mwh": 21.41
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1516,6 +2002,18 @@
     "interval_ending": "2024-01-16T16:15:00-06:00",
     "price_usd_mwh": 24.34
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "50": {
@@ -1546,6 +2044,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T16:15:00-06:00",
     "price_usd_mwh": 24.34
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1578,6 +2088,18 @@
     "interval_ending": "2024-01-16T16:15:00-06:00",
     "price_usd_mwh": 24.34
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "52": {
@@ -1608,6 +2130,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T16:30:00-06:00",
     "price_usd_mwh": 46.88
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1640,6 +2174,18 @@
     "interval_ending": "2024-01-16T16:30:00-06:00",
     "price_usd_mwh": 46.88
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "54": {
@@ -1670,6 +2216,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T16:30:00-06:00",
     "price_usd_mwh": 46.88
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1702,6 +2260,18 @@
     "interval_ending": "2024-01-16T16:45:00-06:00",
     "price_usd_mwh": 60.77
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "56": {
@@ -1732,6 +2302,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T16:45:00-06:00",
     "price_usd_mwh": 60.77
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1764,6 +2346,18 @@
     "interval_ending": "2024-01-16T16:45:00-06:00",
     "price_usd_mwh": 60.77
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "58": {
@@ -1794,6 +2388,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T17:00:00-06:00",
     "price_usd_mwh": 79.3
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1826,6 +2432,18 @@
     "interval_ending": "2024-01-16T17:00:00-06:00",
     "price_usd_mwh": 79.3
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "60": {
@@ -1856,6 +2474,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T17:00:00-06:00",
     "price_usd_mwh": 79.3
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1888,6 +2518,18 @@
     "interval_ending": "2024-01-16T17:15:00-06:00",
     "price_usd_mwh": 98.59
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "62": {
@@ -1918,6 +2560,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T17:15:00-06:00",
     "price_usd_mwh": 98.59
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -1950,6 +2604,18 @@
     "interval_ending": "2024-01-16T17:15:00-06:00",
     "price_usd_mwh": 98.59
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "64": {
@@ -1980,6 +2646,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T17:30:00-06:00",
     "price_usd_mwh": 228.84
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2012,6 +2690,18 @@
     "interval_ending": "2024-01-16T17:30:00-06:00",
     "price_usd_mwh": 228.84
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "66": {
@@ -2042,6 +2732,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T17:30:00-06:00",
     "price_usd_mwh": 228.84
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2074,6 +2776,18 @@
     "interval_ending": "2024-01-16T17:45:00-06:00",
     "price_usd_mwh": 761.43
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "68": {
@@ -2104,6 +2818,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T17:45:00-06:00",
     "price_usd_mwh": 761.43
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2136,6 +2862,18 @@
     "interval_ending": "2024-01-16T17:45:00-06:00",
     "price_usd_mwh": 761.43
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "70": {
@@ -2166,6 +2904,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T18:00:00-06:00",
     "price_usd_mwh": 844.97
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2198,6 +2948,18 @@
     "interval_ending": "2024-01-16T18:00:00-06:00",
     "price_usd_mwh": 844.97
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "72": {
@@ -2228,6 +2990,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T18:00:00-06:00",
     "price_usd_mwh": 844.97
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2260,6 +3034,18 @@
     "interval_ending": "2024-01-16T18:15:00-06:00",
     "price_usd_mwh": 514.22
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "74": {
@@ -2290,6 +3076,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T18:15:00-06:00",
     "price_usd_mwh": 514.22
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2322,6 +3120,18 @@
     "interval_ending": "2024-01-16T18:15:00-06:00",
     "price_usd_mwh": 514.22
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "76": {
@@ -2352,6 +3162,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T18:30:00-06:00",
     "price_usd_mwh": 1175.32
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2384,6 +3206,18 @@
     "interval_ending": "2024-01-16T18:30:00-06:00",
     "price_usd_mwh": 1175.32
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "78": {
@@ -2414,6 +3248,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T18:30:00-06:00",
     "price_usd_mwh": 1175.32
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2446,6 +3292,18 @@
     "interval_ending": "2024-01-16T18:45:00-06:00",
     "price_usd_mwh": 602.34
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "80": {
@@ -2476,6 +3334,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T18:45:00-06:00",
     "price_usd_mwh": 602.34
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2508,6 +3378,18 @@
     "interval_ending": "2024-01-16T18:45:00-06:00",
     "price_usd_mwh": 602.34
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "82": {
@@ -2538,6 +3420,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T19:00:00-06:00",
     "price_usd_mwh": 424.37
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2570,6 +3464,18 @@
     "interval_ending": "2024-01-16T19:00:00-06:00",
     "price_usd_mwh": 424.37
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "84": {
@@ -2600,6 +3506,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T19:00:00-06:00",
     "price_usd_mwh": 424.37
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2632,6 +3550,18 @@
     "interval_ending": "2024-01-16T19:15:00-06:00",
     "price_usd_mwh": 262.33
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "86": {
@@ -2662,6 +3592,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T19:15:00-06:00",
     "price_usd_mwh": 262.33
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2694,6 +3636,18 @@
     "interval_ending": "2024-01-16T19:15:00-06:00",
     "price_usd_mwh": 262.33
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "88": {
@@ -2724,6 +3678,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T19:30:00-06:00",
     "price_usd_mwh": 322.27
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2756,6 +3722,18 @@
     "interval_ending": "2024-01-16T19:30:00-06:00",
     "price_usd_mwh": 322.27
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "90": {
@@ -2786,6 +3764,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T19:30:00-06:00",
     "price_usd_mwh": 322.27
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2818,6 +3808,18 @@
     "interval_ending": "2024-01-16T19:45:00-06:00",
     "price_usd_mwh": 265.62
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "92": {
@@ -2848,6 +3850,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T19:45:00-06:00",
     "price_usd_mwh": 265.62
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2880,6 +3894,18 @@
     "interval_ending": "2024-01-16T19:45:00-06:00",
     "price_usd_mwh": 265.62
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "94": {
@@ -2910,6 +3936,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T20:00:00-06:00",
     "price_usd_mwh": 243.72
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -2942,6 +3980,18 @@
     "interval_ending": "2024-01-16T20:00:00-06:00",
     "price_usd_mwh": 243.72
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "96": {
@@ -2972,6 +4022,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T20:00:00-06:00",
     "price_usd_mwh": 243.72
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3004,6 +4066,18 @@
     "interval_ending": "2024-01-16T20:15:00-06:00",
     "price_usd_mwh": 224.9
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "98": {
@@ -3034,6 +4108,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T20:15:00-06:00",
     "price_usd_mwh": 224.9
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3066,6 +4152,18 @@
     "interval_ending": "2024-01-16T20:15:00-06:00",
     "price_usd_mwh": 224.9
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "100": {
@@ -3096,6 +4194,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T20:30:00-06:00",
     "price_usd_mwh": 189.74
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3128,6 +4238,18 @@
     "interval_ending": "2024-01-16T20:30:00-06:00",
     "price_usd_mwh": 189.74
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "102": {
@@ -3158,6 +4280,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T20:30:00-06:00",
     "price_usd_mwh": 189.74
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3190,6 +4324,18 @@
     "interval_ending": "2024-01-16T20:45:00-06:00",
     "price_usd_mwh": 157.42
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "104": {
@@ -3220,6 +4366,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T20:45:00-06:00",
     "price_usd_mwh": 157.42
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3252,6 +4410,18 @@
     "interval_ending": "2024-01-16T20:45:00-06:00",
     "price_usd_mwh": 157.42
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "106": {
@@ -3282,6 +4452,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T21:00:00-06:00",
     "price_usd_mwh": 135.04
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3314,6 +4496,18 @@
     "interval_ending": "2024-01-16T21:00:00-06:00",
     "price_usd_mwh": 135.04
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "108": {
@@ -3344,6 +4538,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T21:00:00-06:00",
     "price_usd_mwh": 135.04
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3376,6 +4582,18 @@
     "interval_ending": "2024-01-16T21:15:00-06:00",
     "price_usd_mwh": 179.33
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "110": {
@@ -3406,6 +4624,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T21:15:00-06:00",
     "price_usd_mwh": 179.33
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3438,6 +4668,18 @@
     "interval_ending": "2024-01-16T21:15:00-06:00",
     "price_usd_mwh": 179.33
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "112": {
@@ -3468,6 +4710,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T21:30:00-06:00",
     "price_usd_mwh": 193.66
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3500,6 +4754,18 @@
     "interval_ending": "2024-01-16T21:30:00-06:00",
     "price_usd_mwh": 193.66
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "114": {
@@ -3530,6 +4796,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T21:30:00-06:00",
     "price_usd_mwh": 193.66
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3562,6 +4840,18 @@
     "interval_ending": "2024-01-16T21:45:00-06:00",
     "price_usd_mwh": 143.78
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "116": {
@@ -3592,6 +4882,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T21:45:00-06:00",
     "price_usd_mwh": 143.78
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3624,6 +4926,18 @@
     "interval_ending": "2024-01-16T21:45:00-06:00",
     "price_usd_mwh": 143.78
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "118": {
@@ -3654,6 +4968,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T22:00:00-06:00",
     "price_usd_mwh": 123.68
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  },
@@ -3686,6 +5012,18 @@
     "interval_ending": "2024-01-16T22:00:00-06:00",
     "price_usd_mwh": 123.68
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "120": {
@@ -3717,6 +5055,18 @@
     "interval_ending": "2024-01-16T22:00:00-06:00",
     "price_usd_mwh": 123.68
    }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
+   }
   ]
  },
  "121": {
@@ -3747,6 +5097,18 @@
     "settlement_point": "LZ_WEST",
     "interval_ending": "2024-01-16T22:15:00-06:00",
     "price_usd_mwh": 112.44
+   }
+  ],
+  "dam": [
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-16",
+    "file": "data/fixtures/dam/np4_190_cd_20240116.json"
+   },
+   {
+    "report": "NP4-190-CD",
+    "delivery_date": "2024-01-17",
+    "file": "data/fixtures/dam/np4_190_cd_20240117.json"
    }
   ]
  }

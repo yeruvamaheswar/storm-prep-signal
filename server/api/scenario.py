@@ -10,7 +10,7 @@ from datetime import timedelta
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Header
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 
 from server.api import archive
 from server.api.prices import POINT_TO_ZONE
@@ -35,7 +35,8 @@ class PlayBody(BaseModel):
 
 
 class SpeedBody(BaseModel):
-    x: int
+    # Not only whole numbers: 2.4 is real time for 5-minute ticks.
+    x: float
 
 
 class AlertBody(BaseModel):
@@ -45,6 +46,11 @@ class AlertBody(BaseModel):
 class GridDownBody(BaseModel):
     zone: Literal["Houston", "North", "South", "West"]
     down: bool = True
+
+
+class SeekBody(BaseModel):
+    # A tick index (0 = before the first tick). The worker clamps it to the tape; 2.5, "7" or true are refused.
+    tick: StrictInt
 
 
 def _catalog():
@@ -123,7 +129,22 @@ def post_speed(body: SpeedBody, x_operator_id: Optional[str] = Header(None)):
     operator = _require_operator(x_operator_id)
     if body.x not in store.SPEEDS:
         raise ApiError(422, "bad_speed", f"Speed must be one of {', '.join(map(str, store.SPEEDS))}.")
-    return _record("speed", body.model_dump(), operator)
+    # Record 12, not 12.0, so whole speeds read the same as before.
+    x = int(body.x) if body.x.is_integer() else body.x
+    return _record("speed", {"x": x}, operator)
+
+
+@router.post("/scenario/step", status_code=202)
+def post_step(x_operator_id: Optional[str] = Header(None)):
+    """Next tick while paused: the worker plays exactly one frame and stays paused."""
+    operator = _require_operator(x_operator_id)
+    state = store.read_state(store.SCENARIO_DIR)
+    # A stopped worker is named first: "pause first" would send the operator the wrong way.
+    if state.get("status") == "worker_not_running":
+        raise ApiError(409, "worker_not_running", f"Next tick needs the session worker. {state.get('brief', '')}".strip())
+    if state.get("status") != "paused":
+        raise ApiError(409, "not_paused", "Next tick works only while a scenario is paused.")
+    return _record("step", {}, operator)
 
 
 @router.post("/scenario/alert", status_code=202)
@@ -138,3 +159,9 @@ def post_alert(body: AlertBody, x_operator_id: Optional[str] = Header(None)):
 @router.post("/scenario/grid-down", status_code=202)
 def post_grid_down(body: GridDownBody, x_operator_id: Optional[str] = Header(None)):
     return _record("grid_down", body.model_dump(), _require_operator(x_operator_id))
+
+
+@router.post("/scenario/seek", status_code=202)
+def post_seek(body: SeekBody, x_operator_id: Optional[str] = Header(None)):
+    """Rewind or fast-forward: the worker re-runs the engine to this tick index (same seed, same logged actions)."""
+    return _record("seek", body.model_dump(), _require_operator(x_operator_id))

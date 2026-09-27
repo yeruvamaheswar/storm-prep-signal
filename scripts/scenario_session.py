@@ -34,6 +34,34 @@ POLL_S = 0.25
 HEARTBEAT_S = 1.0
 
 
+def rescale_next_step(next_step, now, old_step_s, new_step_s):
+    """When the next tick is due after a speed change: the time left, at the new rate."""
+    if old_step_s == new_step_s or not old_step_s > 0 or next_step <= now:
+        return next_step
+    return now + (next_step - now) * new_step_s / old_step_s
+
+
+def tick_left(session, next_step, paused_left, now):
+    """Real seconds left in the current tick, for the page's playhead: counting down while playing, the kept
+    remainder while paused mid-tick, None when no tick is running or frozen (idle, finished, after Next tick)."""
+    if session.playing:
+        return round(max(0.0, next_step - now), 3)
+    return None if paused_left is None else round(paused_left, 3)
+
+
+def superseded_seek(batch, k):
+    """True when a later seek in this poll's batch replaces seek `k`: only speed requests lie between them, so running
+    just the last one gives the same result with one re-run (a drag can queue several). Any other request keeps the
+    earlier seek. Play included: Play on a finished tape resets the run, so it must be judged after the earlier seek."""
+    for later in batch[k + 1:]:
+        kind = later.get("kind")
+        if kind == "seek":
+            return True
+        if kind != "speed":
+            return False
+    return False
+
+
 def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, seed=None, steps=None,
         settings=None, poll_s=POLL_S, clock=time.monotonic, sleep=time.sleep, ignore_old_requests=True):
     """The worker loop. Returns the session after `steps` ticks (or never, without --steps)."""
@@ -44,12 +72,57 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
     if scenario:
         session.start(scenario, seed)
     played, next_step, last_write = 0, clock(), None
+    # Seconds left in the tick a pause froze; None when no tick is frozen.
+    paused_left = None
     while True:
         changed = False
-        for request in read_requests(last_seq, scenario_dir):
-            session.apply(request)
+        step_before = session.step_seconds()
+        playing_before, index_before = session.playing, session.index
+        # A start or reset begins a new tick window at once, even when the index does not move (the old run sat at
+        # tick 0 with its next tick still due). A seek that moved the index lands on its tick for a full window.
+        # The last of these in the batch decides; a no-op or refused seek changes nothing.
+        restart = None
+        batch = read_requests(last_seq, scenario_dir)
+        for k, request in enumerate(batch):
+            kind = request.get("kind")
             last_seq, changed = request["seq"], True
+            if kind == "seek" and superseded_seek(batch, k):
+                continue
+            if kind == "seek" and session.scenario is not None:
+                # Tell the page before a long re-run; it shows the tick it has until the new one is written.
+                seeking = session.state()
+                seeking["seeking"] = True
+                seeking["tick_left_s"] = tick_left(session, next_step, paused_left, clock())
+                write_state(seeking, scenario_dir)
+            index_at = session.index
+            session.apply(request)
+            if kind in ("start", "reset"):
+                restart = "start"
+            elif kind == "seek" and session.index != index_at:
+                restart = "seek"
         now = clock()
+        step_after = session.step_seconds()
+        # A speed change mid-tick keeps the share of the tick already played; only the rest changes pace.
+        next_step = rescale_next_step(next_step, now, step_before, step_after)
+        if paused_left is not None and step_before > 0 and step_after != step_before:
+            paused_left = paused_left * step_after / step_before
+        if playing_before and not session.playing:
+            # Pause keeps the time left in this tick instead of letting the clock run on.
+            paused_left = max(0.0, next_step - now)
+        if restart == "seek":
+            # The page lands on the seek's tick and shows it for a full window, like a Next tick.
+            next_step, paused_left = now + step_after, None
+        elif restart == "start" or session.index < index_before:
+            # A reset or a new scenario: nothing is left of the old tick.
+            next_step, paused_left = now, None
+        elif session.index > index_before:
+            # Only Next tick moves the index here. The page plays the stepped tick from now, so its window runs
+            # from now too, even when Play (or a pause) lands in the same poll; the old tick's remainder is dropped.
+            next_step, paused_left = now + step_after, None
+        if not playing_before and session.playing:
+            # Play resumes the frozen tick, or the rest of a stepped tick (none left if it ran out).
+            next_step = now + paused_left if paused_left is not None else max(next_step, now)
+            paused_left = None
         # --steps runs as fast as it can; the page run waits for the time-lapse clock.
         if session.playing and (steps is not None or now >= next_step):
             try:
@@ -63,11 +136,15 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
                 traceback.print_exc()
             next_step, changed = now + session.step_seconds(), True
         if changed or last_write is None or now - last_write >= HEARTBEAT_S:
-            write_state(session.state(), scenario_dir)
+            state = session.state()
+            state["tick_left_s"] = tick_left(session, next_step, paused_left, now)
+            write_state(state, scenario_dir)
             last_write = now
         if steps is not None and (played >= steps or not session.playing):
             return session
-        sleep(poll_s)
+        # While playing, wake for the next tick if it is due before the next poll, so a step shorter than
+        # poll_s (the Day view's 1 min per day is 0.21 s) keeps its pace.
+        sleep(min(poll_s, max(0.0, next_step - clock())) if session.playing else poll_s)
 
 
 def main(argv=None):

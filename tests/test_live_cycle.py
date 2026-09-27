@@ -42,6 +42,14 @@ class Reply:
         return self._rows
 
 
+def dam_reply(point):
+    """NP4-190-CD for 2026-09-25 at one point: $30 all day, $12 from 12:00 to 14:00 (HE 13, 14)."""
+    prices = [12.0 if he in (13, 14) else 30.0 for he in range(1, 25)]
+    return {"fields": [{"name": n} for n in ("deliveryDate", "hourEnding", "settlementPoint",
+                                             "settlementPointPrice", "DSTFlag")],
+            "data": [["2026-09-25", f"{he:02d}:00", point, usd, False] for he, usd in enumerate(prices, 1)]}
+
+
 def _fake_ercot(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     for name in ("ERCOT_USERNAME", "ERCOT_PASSWORD", "ERCOT_SUBSCRIPTION_KEY"):
@@ -53,6 +61,8 @@ def _fake_ercot(monkeypatch, tmp_path):
     def get(url, **kwargs):
         if "np6-905-cd" in url:
             return FakeResponse(200, NP6.read_text())
+        if "np4-190-cd" in url:
+            return FakeResponse(200, json.dumps(dam_reply(kwargs["params"]["settlementPoint"])))
         return FakeResponse(200, NP3.read_text())
 
     monkeypatch.setattr(requests, "post", post)
@@ -153,18 +163,19 @@ def test_one_cycle_upserts_live_rows_and_allocates(tmp_path, monkeypatch):
     tick = result["record"]["ticks"][-1]
     assert result["record"]["source"] == "live"
     assert len(result["record"]["ticks"]) == 1
-    # Live allocates the 10k fleet even though SETTINGS is 100 homes.
-    assert result["record"]["settings"]["fleet_size"] == 10_000
-    assert tick["target_mw"] == pytest.approx(40.0)
+    # Task 13 spec change: live allocates the configured fleet (SETTINGS is 100 homes), not a fixed 10k.
+    # The 0.40 MW demo call at 100 homes stays 0.40 MW.
+    assert result["record"]["settings"]["fleet_size"] == 100
+    assert tick["target_mw"] == pytest.approx(0.40)
     assert tick["target_label"] == "synthetic"
-    assert tick["delivered_mw"] == pytest.approx(40.0)
+    assert tick["delivered_mw"] == pytest.approx(0.40)
     assert tick["missed_mw"] == pytest.approx(0.0)
-    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 10_000
+    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 100
     assert "temp_stub" not in tick["reasons"]
     assert tick["breaches"] == 0
     latest = json.loads((tmp_path / "runs" / "latest.json").read_text())
-    assert latest["ticks"][-1]["delivered_mw"] == pytest.approx(40.0)
-    assert latest["ticks"][-1]["target_mw"] == pytest.approx(40.0)
+    assert latest["ticks"][-1]["delivered_mw"] == pytest.approx(0.40)
+    assert latest["ticks"][-1]["target_mw"] == pytest.approx(0.40)
 
 
 def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
@@ -175,9 +186,96 @@ def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
     )
     assert result["upsert"].startswith("skipped")
     tick = result["record"]["ticks"][-1]
-    assert tick["delivered_mw"] == pytest.approx(40.0)
-    assert tick["target_mw"] == pytest.approx(40.0)
+    # Task 13 spec change: the 100-home SETTINGS fleet answers the 0.40 MW demo call.
+    assert tick["delivered_mw"] == pytest.approx(0.40)
+    assert tick["target_mw"] == pytest.approx(0.40)
     assert tick["target_label"] == "synthetic"
+
+
+def test_live_tick_carries_the_dam_forecast_and_fetches_each_day_once(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    kwargs = dict(now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                  state_path=tmp_path / "state.json", url="", key="", persist=False, send=None)
+    tick = cycle.run_cycle(SETTINGS, **kwargs)["record"]["ticks"][-1]
+    # 12:00 is before tomorrow's DAM posts, so the window runs from 12:00 to midnight.
+    assert sorted(tick["dam_hours"]) == ["Houston", "North", "South", "West"]
+    assert len(tick["dam_hours"]["North"]) == 12
+    assert tick["dam_hours"]["North"][0] == {"hour_start": "2026-09-25T12:00-05:00", "usd_mwh": 12.0}
+    assert (tick["dam_label"], tick["dam_as_of"]) == ("ercot", "2026-09-25")
+    assert set(tick["zone_charge_why"]) == {"Houston", "North", "South", "West"}
+    assert (tmp_path / "var" / "dam" / "np4_190_cd_20260925.json").exists()
+
+    # The next cycle reads var/dam/ and never asks ERCOT for DAM again.
+    real_get = requests.get
+
+    def no_dam(url, **kw):
+        assert "np4-190-cd" not in url, "DAM was fetched twice in one day"
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", no_dam)
+    again = cycle.run_cycle(SETTINGS, **kwargs)["record"]["ticks"][-1]
+    assert len(again["dam_hours"]["North"]) == 12
+
+
+def test_a_restarted_worker_reads_the_saved_dam_day_and_never_fetches_it(tmp_path, monkeypatch):
+    # The laptop worker's var/dam/ outlives the process: a fresh `--loop` finds the day already saved.
+    _fake_ercot(monkeypatch, tmp_path)
+    saved = tmp_path / "var" / "dam" / "np4_190_cd_20260925.json"
+    saved.parent.mkdir(parents=True)
+    body = dam_reply("LZ_NORTH")
+    saved.write_text(json.dumps({"source": "ERCOT NP4-190-CD dam_stlmnt_pnt_prices",
+                                 "delivery_date": "2026-09-25", **body}))
+    real_get = requests.get
+
+    def no_dam(url, **kw):
+        assert "np4-190-cd" not in url, "a saved DAM day was fetched again"
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", no_dam)
+    tick = cycle.run_cycle(SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                           state_path=tmp_path / "state.json", url="", key="", persist=False,
+                           send=None)["record"]["ticks"][-1]
+    assert list(tick["dam_hours"]) == ["North"]
+    assert tick["dam_as_of"] == "2026-09-25"
+
+
+def test_a_dam_429_is_one_attempt_per_cycle_not_a_retry_loop(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    real_get = requests.get
+    dam_gets = []
+
+    def rate_limited(url, **kw):
+        if "np4-190-cd" in url:
+            dam_gets.append(kw["params"]["settlementPoint"])
+            return FakeResponse(429, "Too Many Requests")
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", rate_limited)
+    kwargs = dict(now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                  state_path=tmp_path / "state.json", url="", key="", persist=False, send=None)
+    tick = cycle.run_cycle(SETTINGS, **kwargs)["record"]["ticks"][-1]
+    assert len(dam_gets) == 1
+    assert (tick["dam_hours"], tick["dam_label"]) == ({}, "none")
+    assert not (tmp_path / "var" / "dam").exists()
+    cycle.run_cycle(SETTINGS, **kwargs)
+    assert len(dam_gets) == 2
+
+
+def test_live_tick_without_dam_falls_back_to_the_price_bands(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    real_get = requests.get
+
+    def dam_down(url, **kw):
+        if "np4-190-cd" in url:
+            return FakeResponse(503, "busy")
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", dam_down)
+    tick = cycle.run_cycle(SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                           state_path=tmp_path / "state.json", url="", key="", persist=False,
+                           send=None)["record"]["ticks"][-1]
+    assert (tick["dam_hours"], tick["dam_label"], tick["zone_charge_why"]) == ({}, "none", {})
+    assert tick["breaches"] == 0
 
 
 def test_one_live_frame_stays_synthetic_demo_peak():
@@ -188,11 +286,12 @@ def test_one_live_frame_stays_synthetic_demo_peak():
 
 
 def test_live_tick_allocates_ten_thousand_ids(tmp_path, monkeypatch):
+    # Task 13: 10k is no longer the live default; a FLEET_SIZE=10000 setting still allocates new_fleet(10000).
     from server.engine.fleet import new_fleet
 
     _fake_ercot(monkeypatch, tmp_path)
     result = cycle.run_cycle(
-        SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        {**SETTINGS, "fleet_size": 10_000}, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )
     tick = result["record"]["ticks"][-1]
@@ -203,16 +302,34 @@ def test_live_tick_allocates_ten_thousand_ids(tmp_path, monkeypatch):
     assert [row["home_id"] for row in saved] == expected_ids
 
 
-def test_live_call_follows_call_target_and_cap(tmp_path, monkeypatch):
+def test_live_worker_allocates_the_configured_fleet_size(tmp_path, monkeypatch):
+    # Task 13: one demo fleet everywhere. Live allocates settings["fleet_size"] (FLEET_SIZE), never a fixed 10k.
+    from server.engine.fleet import new_fleet
+
     _fake_ercot(monkeypatch, tmp_path)
     result = cycle.run_cycle(
-        {**SETTINGS, "call_target_mw": 30.0}, now=NOW,
+        {**SETTINGS, "fleet_size": 37}, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
+    )
+    tick = result["record"]["ticks"][-1]
+    assert result["record"]["settings"]["fleet_size"] == 37
+    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 37
+    saved = json.loads((tmp_path / "fleet" / "homes.json").read_text())
+    assert [row["home_id"] for row in saved] == [home.home_id for home in new_fleet(37)]
+    assert not hasattr(cycle, "LIVE_FLEET_SIZE")
+
+
+def test_live_call_follows_call_target_and_cap(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    # Task 13: the 10k fleet is now a setting, not the live default; the call and cap rules are unchanged.
+    result = cycle.run_cycle(
+        {**SETTINGS, "fleet_size": 10_000, "call_target_mw": 30.0}, now=NOW,
         runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )
     assert result["record"]["ticks"][-1]["target_mw"] == pytest.approx(30.0)
     result = cycle.run_cycle(
-        {**SETTINGS, "call_target_mw": 80.0}, now=NOW,
+        {**SETTINGS, "fleet_size": 10_000, "call_target_mw": 80.0}, now=NOW,
         runs_dir=tmp_path / "runs2", log_dir=tmp_path / "logs",
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )

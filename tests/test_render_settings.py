@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # The API re-rates postings and sizes the fleet with these; the laptop worker reads the same names.
 PINNED = ("FLEET_SIZE", "HOME_KWH", "HOME_MAX_KW", "BASE_RESERVE_PCT", "STORM_RESERVE_PCT",
-          "CHARGE_BELOW_USD", "DISCHARGE_ABOVE_USD")
+          "CHARGE_BELOW_USD", "DISCHARGE_ABOVE_USD", "ROUND_TRIP_PCT")
 
 
 def render_values():

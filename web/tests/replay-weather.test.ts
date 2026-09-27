@@ -1,0 +1,215 @@
+import { describe, expect, it } from "vitest"
+import type { FlowTick, FlowZoneRow } from "../src/features/flow/types"
+import {
+  ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, isWeatherReason, ringBox, zoneWeather,
+} from "../src/features/replay/weatherModel"
+import { berylTick22 } from "./fixtures/beryl22"
+import {
+  FLOOR_RAISING_REASONS, SIGNAL_MISSING_REASON, WEATHER_REASONS, isFloorRaisingReason,
+} from "../src/features/replay/reasonCodes"
+
+type TickPart = Pick<FlowTick, "tick" | "risk_level" | "reasons" | "zone_reserve_pct" | "zone_reasons" | "grid_down_zones">
+type RowPart = Pick<FlowZoneRow, "reserve_pct" | "reason" | "grid_down">
+
+// Real engine ticks, played in-process through server/engine/scenario.py Session (base floor 30%, HOME_MAX_KW=11.4,
+// HOME_KWH=25). Re-run on c19119c (origin/main 162bd0a, post-#50/#52 DAM look-ahead, merged into Task 15): the
+// floors and zone reasons are unchanged; the reasons lists below are the re-run's.
+// storm-rule-high tick 26 (04:05 CT, seed 1): the 04:00 NP3-233-CD posting rates HIGH, so every zone keeps 60%.
+const riskTick: TickPart = {
+  tick: 26, risk_level: "HIGH", reasons: ["reserve_refill", "homes_stale:1"],
+  zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
+  zone_reasons: { Houston: "storm_risk_high", North: "storm_risk_high", South: "storm_risk_high", West: "storm_risk_high" },
+  grid_down_zones: [],
+}
+// beryl-landfall tick 2, after the Beryl tropical storm warning was sent after tick 1 (seed 42): the alert names
+// Harris, so only Houston rises. Since #47 the zone floor is its highest county floor.
+const alertTick: TickPart = {
+  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
+  zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
+  zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
+  grid_down_zones: [],
+}
+type CountyTickPart = TickPart & Pick<FlowTick, "county_reserve_pct" | "county_reasons">
+// heather tick 2, after both hard-freeze warnings (Harris and Dallas) were sent at tick 1 (same run settings, 2026-09-27
+// named-county rule): all nine named counties keep the 60% storm reserve, so Houston and North rise with reason
+// weather_alert; South and West keep the 30% base floor.
+const namedTick: CountyTickPart = {
+  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:2"],
+  zone_reserve_pct: { Houston: 60, North: 60, South: 30, West: 30 },
+  zone_reasons: { Houston: "weather_alert", North: "weather_alert", South: "normal", West: "normal" },
+  county_reserve_pct: { 48201: 60, 48157: 60, 48039: 60, 48167: 60, 48339: 60, 48113: 60, 48439: 60, 48085: 60, 48121: 60 },
+  county_reasons: {
+    48201: "weather_alert", 48157: "weather_alert", 48039: "weather_alert", 48167: "weather_alert", 48339: "weather_alert",
+    48113: "weather_alert", 48439: "weather_alert", 48085: "weather_alert", 48121: "weather_alert",
+  },
+  grid_down_zones: [],
+}
+// storm-rule-high tick 1 (02:00 CT, seed 1): LOW, every zone at the base floor.
+const calmTick: TickPart = {
+  tick: 1, risk_level: "LOW", reasons: ["reserve_refill"],
+  zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
+  zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
+  grid_down_zones: [],
+}
+// beryl-landfall tick 3 (seed 42) with the grid-down overlay on Houston (set after tick 1, so from tick 2).
+const gridDownTick: TickPart = {
+  tick: 3, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "grid_down:Houston"],
+  zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
+  zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
+  grid_down_zones: ["Houston"],
+}
+const gridDownRows: Record<string, RowPart> = {
+  Houston: { reserve_pct: 30, reason: "normal", grid_down: true },
+  North: { reserve_pct: 30, reason: "normal", grid_down: false },
+  South: { reserve_pct: 30, reason: "normal", grid_down: false },
+  West: { reserve_pct: 30, reason: "normal", grid_down: false },
+}
+
+// feed-failure tick 73 (2026-09-12 18:00 CT, seed 1): no NP3-233-CD signal, so the engine fails safe and every zone
+// keeps the 60% storm floor with reason signal_unavailable (server/engine/policy.py). A missing feed is not weather.
+const signalMissingTick: TickPart = {
+  tick: 73, risk_level: null, reasons: ["reserve_refill", "homes_stale:1", "timed_out:5", "duplicates_ignored:5", "over_delivery:5"],
+  zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
+  zone_reasons: { Houston: "signal_unavailable", North: "signal_unavailable", South: "signal_unavailable", West: "signal_unavailable" },
+  grid_down_zones: [],
+}
+const signalMissingRows: Record<string, RowPart> = Object.fromEntries(
+  ["Houston", "North", "South", "West"].map((zone) => [zone, { reserve_pct: 60, reason: "signal_unavailable", grid_down: false }]),
+)
+
+const ZONES = ["West", "North", "South", "Houston"] as const
+const CALM = { floorRaised: false, weather: false, gridDown: false }
+
+describe("reason codes", () => {
+  it("treats the storm rule and weather alerts as weather, and normal or a missing signal as not", () => {
+    expect(isWeatherReason("storm_risk_high")).toBe(true)
+    expect(isWeatherReason("weather_alert")).toBe(true)
+    expect(isWeatherReason("weather_alert:North")).toBe(true)
+    expect(isWeatherReason("signal_unavailable")).toBe(false)
+    expect(isWeatherReason("storm_reserve")).toBe(false)
+    expect(isWeatherReason("some_alert")).toBe(false)
+    expect(isWeatherReason("normal")).toBe(false)
+    expect(isWeatherReason("")).toBe(false)
+    expect(isWeatherReason(undefined)).toBe(false)
+  })
+
+  it("keeps the promise panel's floor-raising codes and the weather codes in one module", () => {
+    expect([...FLOOR_RAISING_REASONS]).toEqual(["storm_reserve", "signal_unavailable", "weather_alert"])
+    expect([...WEATHER_REASONS]).toEqual(["storm_risk_high", "weather_alert"])
+    expect(SIGNAL_MISSING_REASON).toBe("signal_unavailable")
+    expect(isFloorRaisingReason("signal_unavailable")).toBe(true)
+    expect(isFloorRaisingReason("weather_alert:North")).toBe(true)
+    expect(isFloorRaisingReason("normal")).toBe(false)
+  })
+})
+
+describe("zone weather at the playhead's tick", () => {
+  it("raises every zone and shows weather on a HIGH risk tick", () => {
+    const weather = fleetWeather(ZONES, riskTick as never, {}, 30)
+    for (const zone of ZONES) expect(weather[zone]).toEqual({ floorRaised: true, weather: true, gridDown: false })
+  })
+
+  it("shows weather only over the alerted zone on a weather-alert tick", () => {
+    const weather = fleetWeather(ZONES, alertTick as never, {}, 30)
+    expect(weather.Houston).toEqual({ floorRaised: true, weather: true, gridDown: false })
+    expect(weather.North).toEqual(CALM)
+    expect(weather.South).toEqual(CALM)
+    expect(weather.West).toEqual(CALM)
+  })
+
+  it("keeps the raised floor but shows no weather when the ERCOT signal is missing", () => {
+    const weather = fleetWeather(ZONES, signalMissingTick as never, signalMissingRows as never, 30)
+    for (const zone of ZONES) expect(weather[zone]).toEqual({ floorRaised: true, weather: false, gridDown: false })
+    // The zone rows alone (no tick) say the same.
+    expect(zoneWeather("North", null, signalMissingRows.North as never, 30)).toEqual({ floorRaised: true, weather: false, gridDown: false })
+  })
+
+  it("shows weather over every zone a named-county alert raised, and none elsewhere (Heather tick 2)", () => {
+    const weather = fleetWeather(ZONES, namedTick as never, {}, 30)
+    expect(weather.Houston).toEqual({ floorRaised: true, weather: true, gridDown: false })
+    expect(weather.North).toEqual({ floorRaised: true, weather: true, gridDown: false })
+    expect(weather.South).toEqual(CALM)
+    expect(weather.West).toEqual(CALM)
+  })
+
+  it("shows weather over a zone whose alert names only some of its counties (Beryl tick 22: Harris named)", () => {
+    expect(berylTick22.county_reasons?.["48157"]).toBe("not_in_alert")
+    const weather = fleetWeather(ZONES, berylTick22, {}, 30)
+    expect(weather.Houston).toEqual({ floorRaised: true, weather: true, gridDown: false })
+    for (const zone of ["North", "South", "West"] as const) expect(weather[zone]).toEqual(CALM)
+  })
+
+  it("raises nothing on a calm tick", () => {
+    const weather = fleetWeather(ZONES, calmTick as never, {}, 30)
+    for (const zone of ZONES) expect(weather[zone]).toEqual(CALM)
+  })
+
+  it("reads the base floor from the data, never a fixed 30", () => {
+    // Same 60% floors, but a fleet whose base floor is 60: no floor is above base and the reason is normal.
+    const tick = { ...alertTick, zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" } }
+    expect(zoneWeather("Houston", tick as never, undefined, 60)).toEqual(CALM)
+    expect(zoneWeather("Houston", tick as never, undefined, 30)).toEqual({ floorRaised: true, weather: true, gridDown: false })
+  })
+
+  it("shows weather for a weather reason even when the base floor is missing", () => {
+    expect(zoneWeather("Houston", alertTick as never, undefined, undefined)).toEqual({ floorRaised: false, weather: true, gridDown: false })
+    expect(zoneWeather("North", alertTick as never, undefined, undefined)).toEqual(CALM)
+  })
+
+  it("marks only the reported grid-down zone as islanded", () => {
+    const weather = fleetWeather(ZONES, gridDownTick as never, gridDownRows as never, 30)
+    expect(weather.Houston).toEqual({ floorRaised: false, weather: false, gridDown: true })
+    expect(weather.North.gridDown).toBe(false)
+  })
+
+  it("falls back to the zone rows of the same tick when the tick has no grid-down list", () => {
+    const { grid_down_zones: _omit, ...noList } = gridDownTick
+    expect(zoneWeather("Houston", noList as never, gridDownRows.Houston as never, 30).gridDown).toBe(true)
+    expect(zoneWeather("North", noList as never, gridDownRows.North as never, 30).gridDown).toBe(false)
+  })
+
+  it("shows nothing when the data is missing", () => {
+    const weather = fleetWeather(ZONES, null, {}, undefined)
+    for (const zone of ZONES) expect(weather[zone]).toEqual(CALM)
+    expect(zoneWeather("Houston", { zone_reserve_pct: {}, zone_reasons: {} } as never, undefined, 30)).toEqual(CALM)
+  })
+
+  it("uses the zone row when the tick has no floor for that zone", () => {
+    const row = { reserve_pct: 60, reason: "weather_alert", grid_down: false }
+    expect(zoneWeather("Houston", null, row as never, 30)).toEqual({ floorRaised: true, weather: true, gridDown: false })
+  })
+
+  it("names the islanded state in plain words", () => {
+    expect(ISLANDED_TEXT).toBe("Islanded: backing up its own homes")
+  })
+})
+
+describe("weather geometry from a zone's projected ring", () => {
+  const ring: Array<[number, number]> = [[100, 50], [300, 50], [300, 250], [100, 250]]
+
+  it("boxes the projected ring", () => {
+    expect(ringBox(ring)).toEqual({ x: 100, y: 50, w: 200, h: 200 })
+    expect(ringBox([])).toBeNull()
+    expect(ringBox([[Number.NaN, 1]])).toBeNull()
+  })
+
+  it("places cloud blobs inside the zone's box, around its anchor", () => {
+    const box = { x: 100, y: 50, w: 200, h: 200 }
+    const blobs = cloudBlobs(box, [200, 150])
+    expect(blobs.length).toBeGreaterThan(0)
+    for (const blob of blobs) {
+      expect(blob.cx).toBeGreaterThanOrEqual(box.x)
+      expect(blob.cx).toBeLessThanOrEqual(box.x + box.w)
+      expect(blob.cy).toBeGreaterThanOrEqual(box.y)
+      expect(blob.cy).toBeLessThanOrEqual(box.y + box.h)
+      expect(blob.rx).toBeGreaterThan(0)
+      expect(blob.ry).toBeGreaterThan(0)
+      expect(blob.rx).toBeLessThanOrEqual(box.w / 2)
+    }
+    expect(blobs[0]).toMatchObject({ cx: 200, cy: 150 })
+  })
+
+  it("clips the rain to the zone's shape, relative to its box", () => {
+    expect(clipPolygon(ring, { x: 100, y: 50, w: 200, h: 200 })).toBe("polygon(0px 0px, 200px 0px, 200px 200px, 0px 200px)")
+  })
+})

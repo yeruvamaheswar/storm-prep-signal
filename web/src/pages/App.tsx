@@ -3,8 +3,9 @@ import type { RunFile } from "../contracts"
 import { OperatorWall } from "../components/templates/OperatorWall"
 import { FleetApp } from "../features/fleet/FleetApp"
 import { FlowApp } from "../features/flow/FlowApp"
+import { FleetGridApp, LiveApp, ReplayApp } from "../features/shell/ShellPages"
 import { loadRun } from "../loadRun"
-import { isFleetPath, isFlowPath } from "./route"
+import { isFleetPath, isFleetTablePath, isFlowPath, isLivePath, isWallPath } from "./route"
 
 function WallApp() {
   const [run, setRun] = useState<RunFile | null>(null)
@@ -29,11 +30,20 @@ function WallApp() {
 }
 
 export function App() {
-  if (isFleetPath(window.location.pathname)) {
+  if (isLivePath(window.location.pathname)) {
+    return <LiveApp />
+  }
+  if (isFleetTablePath(window.location.pathname)) {
     return <FleetApp />
+  }
+  if (isFleetPath(window.location.pathname)) {
+    return <FleetGridApp />
   }
   if (isFlowPath(window.location.pathname)) {
     return <FlowApp />
   }
-  return <WallApp />
+  if (isWallPath(window.location.pathname)) {
+    return <WallApp />
+  }
+  return <ReplayApp />
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { createClient } from "../../api/client"
 import { apiBaseUrl } from "../../api/health"
 import type { HomeHistory } from "../../domain/types"
+import { homeName } from "../replay/homeName"
 import { ChargeHistory } from "./ChargeHistory"
 import {
   ackClass,
@@ -50,7 +51,7 @@ export function HomePage({ home, onBack }: HomePageProps) {
         <button type="button" className="fleet-button" onClick={onBack}>
           Back
         </button>
-        <h1 className="fleet-title">{home.home_id}</h1>
+        <h1 className="fleet-title">{homeName(home)}</h1>
       </header>
       <section className="fleet-strip" aria-label="Home readings">
         <div>

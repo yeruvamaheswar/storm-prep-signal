@@ -1,4 +1,40 @@
 :root {
+  --rg-ink: #17201c;
+  --rg-muted: #5c6660;
+  --rg-panel-map: #f2f3ef;
+  --rg-panel-clay: #f7f8f5;
+  --rg-line: #d6d9d2;
+  --rg-map-bg: #101a16;
+  --rg-calm-zone: #1b2a24;
+  --rg-zone-stroke: #4b6358;
+  --rg-raised-floor-zone: rgba(201, 138, 27, 0.3);
+  --rg-raised-floor-stroke: #d39a35;
+  --rg-clay-scene: #dcdfd8;
+  --rg-clay-board: #cdd1c9;
+  --rg-clay-street: #bfc3ba;
+  --rg-clay-lawn: #3f7a5f;
+  --rg-order-way: #1fa9b5;
+  --rg-gave-energy: #35c3ce;
+  --rg-battery-glow: #7fe3e8;
+  --rg-lost: #c8412f;
+  --rg-confirmed: #2f8a55;
+  --rg-charging: #c98a1b;
+  --rg-charging-text: #a4640c;
+  --rg-not-counted: #8a928c;
+  /* Zone board and home panel UI (ported from mockup/Zone.dc.html). */
+  --rg-focus: #0e6f78;
+  --rg-surface: #ffffff;
+  --rg-clay-text: #3c4641;
+  --rg-clay-rule: #e1e4dd;
+  --rg-clay-tile: #e3e6df;
+  --rg-clay-art-bg: #d4d8d0;
+  --rg-later-text: #6f7772;
+  --rg-on-ink-muted: #b9c2bc;
+  --rg-batt-idle: #e9eae6;
+  --rg-panel-radius: 16px;
+  --rg-pill-radius: 999px;
+  --rg-list-radius: 12px;
+  --rg-font: "Overpass", system-ui, sans-serif;
   --field: #f4f1ea;
   --ink: #1c1917;
   --muted: #6b645b;
@@ -22,4 +58,21 @@
   --text-metric: 28px;
   --text-body: 15px;
   --text-label: 11px;
+  /* Task 7 */
+  --rg-window-lit: #efb866;
+  /* Task 8: fleet battery cells (mockup/Fleet.dc.html). */
+  --rg-fleet-under: #9aa19c;
+  --rg-fleet-shell: #f4f5f2;
+  --rg-fleet-edge: #5a625d;
+  --rg-fleet-off-shell: #3e4440;
+  --rg-fleet-off-well: #2b302d;
+  --rg-fleet-off-word: #6b726d;
+  --rg-fleet-word-edge: #4a544f;
+  --rg-fleet-stale-edge: #b97a12;
+  --rg-fleet-bank: #c9cdc5;
+  --rg-islanded: #2f5f8f;
+  --rg-fleet-reserved: #7e62a8;
+  /* Task 12: charging words on the light panels. --rg-charging-text (#a4640c) is 4.28:1 on the map panel;
+   * this is 4.96:1 there and 5.19:1 on clay. Amber fills keep --rg-charging. */
+  --rg-charging-text-strong: #965b0a;
 }

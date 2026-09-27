@@ -193,3 +193,137 @@ def test_zone_prices_still_decide_when_the_headline_price_is_missing():
     policy = zoned(make_risk("LOW"), zone_prices={"Houston": 10.0}, price=None, label="none")
     assert (policy.intent, policy.intent_reason) == ("hold", "price_unavailable")
     assert policy.zone_intent == {"Houston": "charge", "North": "hold", "South": "hold", "West": "hold"}
+
+
+# --- cheapest day-ahead (DAM) hours --------------------------------------------------------
+
+DAM_SETTINGS = {**ZONE_INTENT_SETTINGS, "round_trip_pct": 89}
+
+
+def dam(prices):
+    """The next hours of DAM, current hour first, in TickResult.dam_hours shape."""
+    return [{"hour_start": f"2026-08-30T{12 + i:02d}:00-05:00", "usd_mwh": usd} for i, usd in enumerate(prices)]
+
+
+def with_dam(north_hours, needed, rt=None, risk="LOW", alerted=None, mode="AUTO"):
+    zone_prices = {"North": rt} if rt is not None else {}
+    return reserve_policy(make_risk(risk) if risk else None, DAM_SETTINGS, alerted, mode=mode,
+                          price_usd_mwh=rt, price_label="ercot" if rt is not None else "none",
+                          zone_prices=zone_prices, dam_hours={"North": north_hours},
+                          zone_hours_needed={"North": needed})
+
+
+def test_dam_waits_at_20_when_cheaper_hours_come_later():
+    # $20 is under the $25 band, but two cheaper DAM hours are coming and 2 hours fill the zone.
+    policy = with_dam(dam([20.0, 30.0, 8.0, 9.0, 60.0]), needed=2, rt=20.0)
+    assert policy.zone_intent["North"] == "hold"
+    assert policy.zone_charge_why["North"] == "cheaper_hour_later"
+    assert policy.zone_charge_hours["North"] == ["2026-08-30T14:00-05:00", "2026-08-30T15:00-05:00"]
+
+
+def test_dam_charges_at_26_when_this_is_one_of_the_cheapest_hours():
+    policy = with_dam(dam([26.0, 40.0, 27.0, 90.0]), needed=2, rt=26.0)
+    assert policy.zone_intent["North"] == "charge"
+    assert policy.zone_charge_why["North"] == "dam_cheap_hour"
+
+
+def test_dam_charges_on_a_real_time_dip_the_forecast_missed():
+    # DAM said 30 now (not chosen), but real-time is 9: under the dearest chosen hour (12).
+    policy = with_dam(dam([30.0, 10.0, 12.0, 90.0]), needed=2, rt=9.0)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "rt_dip")
+
+
+def test_dam_skips_a_cheap_hour_no_later_hour_pays_back():
+    # 50 x 0.89 = 44.5, not above the 45 paid now: the round trip loses money.
+    policy = with_dam(dam([45.0, 50.0, 50.0]), needed=1, rt=45.0)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("hold", "no_payback")
+
+
+def test_dam_full_zone_charges_nothing():
+    policy = with_dam(dam([5.0, 90.0]), needed=0, rt=5.0)
+    assert policy.zone_intent["North"] == "hold"
+    assert (policy.zone_charge_why["North"], policy.zone_charge_hours["North"]) == ("full", [])
+
+
+def test_dam_charge_hours_follow_how_much_charge_the_zone_needs():
+    hours = dam([10.0, 11.0, 12.0, 13.0, 50.0, 60.0])
+    assert len(with_dam(hours, needed=1, rt=10.0).zone_charge_hours["North"]) == 1
+    four = with_dam(hours, needed=4, rt=10.0)
+    assert four.zone_charge_hours["North"] == [h["hour_start"] for h in hours[:4]]
+    # Needing more hours than the window holds picks every hour before the $60 sell-band hour.
+    assert len(with_dam(hours, needed=10, rt=10.0).zone_charge_hours["North"]) == 5
+
+
+def test_dam_never_overrides_the_discharge_band():
+    policy = with_dam(dam([70.0, 10.0, 90.0]), needed=2, rt=70.0)
+    assert policy.zone_intent["North"] == "discharge"
+    assert policy.zone_charge_why["North"] == "sell_band"
+
+
+def test_dam_storm_zone_never_discharges():
+    for risk, alerted in (("HIGH", None), (None, None), ("LOW", {"North": "Winter Storm Warning"})):
+        policy = with_dam(dam([70.0, 10.0, 90.0]), needed=1, rt=70.0, risk=risk, alerted=alerted)
+        assert policy.zone_intent["North"] == "hold"
+        assert policy.zone_charge_why["North"] == "cheaper_hour_later"
+
+
+def test_dam_never_chooses_a_cheaper_hour_behind_a_sell_band_hour():
+    # heather-spike: $16 tomorrow sits behind a $78 hour today. The battery would sell into the
+    # $78 hour first, so the window ends there and today's $21 dip is the chosen hour.
+    for needed, chosen in ((1, ["2026-08-30T12:00-05:00"]),
+                           (2, ["2026-08-30T12:00-05:00", "2026-08-30T13:00-05:00"])):
+        policy = with_dam(dam([21.0, 30.0, 78.0, 16.0, 17.0]), needed=needed, rt=21.0)
+        assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "before_spike")
+        assert policy.zone_charge_hours["North"] == chosen
+
+
+def test_dam_window_cut_reads_the_discharge_band_setting():
+    assert with_dam(dam([21.0, 30.0, 60.0, 16.0]), needed=1, rt=21.0).zone_charge_why["North"] == "before_spike"
+    higher = {**DAM_SETTINGS, "discharge_threshold_usd_mwh": 80}
+    policy = reserve_policy(make_risk("LOW"), higher, mode="AUTO", price_usd_mwh=21.0, price_label="ercot",
+                            zone_prices={"North": 21.0}, dam_hours={"North": dam([21.0, 30.0, 78.0, 16.0])},
+                            zone_hours_needed={"North": 1})
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("hold", "cheaper_hour_later")
+
+
+def test_dam_keeps_dam_cheap_hour_when_the_spike_does_not_change_the_choice():
+    policy = with_dam(dam([10.0, 30.0, 78.0, 16.0]), needed=1, rt=10.0)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "dam_cheap_hour")
+
+
+def test_dam_payback_counts_the_spike_hour():
+    # Before the spike only $46 is left: 46 x 0.89 = 40.9, not above 45. The $65 spike pays back.
+    policy = with_dam(dam([45.0, 46.0, 65.0, 5.0]), needed=1, rt=45.0)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "before_spike")
+
+
+def test_dam_storm_zone_also_charges_before_a_spike():
+    # A storm zone never sells on price, but it holds backup and serves calls, so it fills before
+    # the spike rather than betting on a cheaper hour after it.
+    for risk, alerted in (("HIGH", None), ("LOW", {"North": "Winter Storm Warning"})):
+        policy = with_dam(dam([21.0, 30.0, 78.0, 16.0]), needed=1, rt=21.0, risk=risk, alerted=alerted)
+        assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "before_spike")
+
+
+def test_dam_with_no_real_time_price_uses_this_hours_dam_for_payback():
+    policy = with_dam(dam([10.0, 40.0]), needed=1)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "dam_cheap_hour")
+
+
+def test_a_zone_with_no_dam_keeps_the_25_band():
+    policy = reserve_policy(make_risk("LOW"), DAM_SETTINGS, mode="AUTO", price_usd_mwh=40.0,
+                            price_label="ercot", zone_prices={"Houston": 20.0, "North": 20.0},
+                            dam_hours={"North": dam([30.0, 5.0])}, zone_hours_needed={"North": 1, "Houston": 1})
+    assert policy.zone_intent["Houston"] == "charge"
+    assert "Houston" not in policy.zone_charge_why
+    assert policy.zone_intent["North"] == "hold"
+    # DAM hours without zone_hours_needed cannot size the charge, so the band stays.
+    unsized = reserve_policy(make_risk("LOW"), DAM_SETTINGS, mode="AUTO", price_usd_mwh=20.0,
+                             price_label="ercot", zone_prices={"North": 20.0},
+                             dam_hours={"North": dam([30.0, 5.0])})
+    assert unsized.zone_intent["North"] == "charge" and unsized.zone_charge_why == {}
+
+
+def test_dam_operator_hold_sets_no_zone_intent():
+    policy = with_dam(dam([5.0, 90.0]), needed=1, rt=5.0, mode="HOLD")
+    assert policy.zone_intent == {} and policy.zone_charge_why == {}

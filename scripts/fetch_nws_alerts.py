@@ -33,6 +33,7 @@ EVENT_NAMES = {
     "TR.W": "Tropical Storm Warning",
     "HZ.W": "Hard Freeze Warning",
     "FF.W": "Flash Flood Warning",
+    "HT.Y": "Heat Advisory",
 }
 # Each entry names one archived product and the zone whose segment we keep.
 ALERTS = [
@@ -44,6 +45,9 @@ ALERTS = [
      "product_id": "202401151918-KHGX-WWUS74-NPWHGX", "ugc": "TXZ213"},
     {"id": "tuning2026-midland-flash-flood-warning", "wfo": "MAF", "year": 2026, "vtec": "FF.W", "etn": 198,
      "product_id": "202609221931-KMAF-WGUS54-FFWMAF", "ugc": "TXC329"},
+    # The last update before the price-spike window (17:45 CT); the advisory ran Sep 12 to 16.
+    {"id": "tuning2026-dallas-heat-advisory", "wfo": "FWD", "year": 2026, "vtec": "HT.Y", "etn": 32,
+     "product_id": "202609161703-KFWD-WWUS74-NPWFWD", "ugc": "TXZ119"},
 ]
 UGC_START = re.compile(r"^[A-Z]{2}[CZ]\d{3}")
 UGC_END = re.compile(r"\d{6}-$")

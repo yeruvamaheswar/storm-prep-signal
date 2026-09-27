@@ -1,5 +1,14 @@
 import type { FlowRequest } from "./api"
-import type { BatteryState, FlowZoneRow, Provenance, SessionState } from "./types"
+import type {
+  ActiveAlert,
+  BatteryState,
+  FlowCounty,
+  FlowHome,
+  FlowZoneRow,
+  NamedCounty,
+  Provenance,
+  SessionState,
+} from "./types"
 
 export type Point = [number, number]
 export type ZoneShape = { zone: string; path: string; centroid: Point }
@@ -169,11 +178,73 @@ export const REASON_LABEL: Record<string, string> = {
   storm_risk_high: "ERCOT outage rule HIGH",
   weather_alert: "NWS weather alert",
   signal_unavailable: "Outage report unreadable (fail safe)",
+  not_in_alert: "County not named by the alert (base floor)",
 }
 
 export function reasonLabel(code: string | null | undefined): string {
   if (!code) return "No reason"
   return REASON_LABEL[code] ?? code.replace(/_/g, " ")
+}
+
+/** "floor 60% (NWS weather alert)", or "floor 30–60% by county (...)" when the alert names only some of the zone's counties. */
+export function zoneFloorText(row: FlowZoneRow, homes: FlowHome[]): string {
+  const range = countyFloorRange(row.reserve_pct, homes)
+  const pct = range ? countyFloorRangeText(range) : `${row.reserve_pct}%`
+  return `floor ${pct} (${reasonLabel(row.reason)})`
+}
+
+/** The zone's homes keep different county floors: the lowest home floor is under the zone floor (the zone floor
+ * is its highest county floor, policy.py _zone_floor). Null when every home keeps the zone floor or none is reported.
+ * One rule for /flow's zoneFloorText and the Replay keep chip (Task 12). */
+export function countyFloorRange(zonePct: number, homes: Pick<FlowHome, "floor_pct">[]): { low: number; high: number } | null {
+  const floors = homes.map((home) => home.floor_pct).filter((pct) => typeof pct === "number" && Number.isFinite(pct))
+  if (!floors.length) return null
+  const low = Math.min(...floors)
+  return low < zonePct ? { low, high: zonePct } : null
+}
+
+export function countyFloorRangeText(range: { low: number; high: number }): string {
+  return `${range.low}–${range.high}% by county`
+}
+
+export type CountyGroup = { fips: string; name: string; homes: FlowHome[] }
+
+/** A zone's homes by county, in roster order. Homes with no county (older worker) share one group with fips "". */
+export function countyGroups(homes: FlowHome[], counties: FlowCounty[]): CountyGroup[] {
+  const byFips = new Map<string, FlowHome[]>()
+  for (const home of homes) {
+    const fips = home.county ?? ""
+    byFips.set(fips, [...(byFips.get(fips) ?? []), home])
+  }
+  const rostered = counties.map((county) => county.fips).filter((fips) => byFips.has(fips))
+  const others = [...byFips.keys()].filter((fips) => !rostered.includes(fips))
+  return [...rostered, ...others].map((fips) => {
+    const members = byFips.get(fips) ?? []
+    const name = counties.find((county) => county.fips === fips)?.name ?? members[0]?.county_name ?? fips
+    return { fips, name, homes: members }
+  })
+}
+
+const FLEET_REASONS = new Set(["storm_risk_high", "signal_unavailable"])
+
+const ALERT_COUNTY_WORDS: Record<string, string> = {
+  weather_alert: "named in alert",
+  not_in_alert: "not named",
+}
+
+/** "named in alert · floor 60%" or "not named · floor 30%". A fleet-wide reason (ERCOT HIGH, no signal) outranks the alert. */
+export function countyFloorNote(group: CountyGroup, zoneReason: string | undefined): string {
+  const home = group.homes[0]
+  if (!home) return ""
+  const floor = `floor ${home.floor_pct}%`
+  const reason = zoneReason && FLEET_REASONS.has(zoneReason) ? zoneReason : home.floor_reason ?? zoneReason
+  const words = reason ? ALERT_COUNTY_WORDS[reason] : undefined
+  return words ? `${words} · ${floor}` : `${floor} · ${reasonLabel(reason)}`
+}
+
+/** The roster counties an alert names, in the roster order the worker sends. */
+export function namedCountyRows(alert: ActiveAlert): NamedCounty[] {
+  return alert.named_counties ?? []
 }
 
 export function fmtMw(mw: number | null | undefined, digits = 3): string {
@@ -225,6 +296,15 @@ export const WEATHER_STEP_LABEL: Record<WeatherStep, string> = {
   none: "No alert",
   alert: "Alert",
   alert_grid_down: "Alert + grid down",
+}
+
+/**
+ * The alert the picker sends: the operator's pick when this scenario offers it, else the first
+ * alert not yet sent. A pick left over from an earlier scenario is dropped, or the worker refuses it.
+ */
+export function chosenAlertId(offered: Array<{ id: string }>, sentIds: Set<string>, picked: string): string {
+  if (offered.some((alert) => alert.id === picked)) return picked
+  return offered.find((alert) => !sentIds.has(alert.id))?.id ?? ""
 }
 
 type StepState = Pick<SessionState, "alerts" | "grid_down_zones" | "scenario">

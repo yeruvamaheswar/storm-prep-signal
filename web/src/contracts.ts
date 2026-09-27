@@ -28,7 +28,19 @@ export type TickResult = {
   zone_telemetry?: Record<string, Record<string, unknown>>
   /** The snapshot bundles plant and the engine's feed counts here. `feed` stays the ERCOT text. */
   telemetry?: TickTelemetry
+  /** Next 24 h of DAM hours by load zone. The snapshot drops it when the tick is stale. */
+  dam_hours?: Record<string, DamHour[]>
+  /** "ercot" | "recorded:ERCOT NP4-190-CD" | "none" */
+  dam_label?: string
+  dam_as_of?: string | null
+  zone_hours_needed?: Record<string, number>
+  /** Chosen charge hours by load zone, as DamHour.hour_start strings. */
+  zone_charge_hours?: Record<string, string[]>
+  /** "dam_cheap_hour" | "before_spike" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full" | "sell_band" */
+  zone_charge_why?: Record<string, string>
 }
+
+export type DamHour = { hour_start: string; usd_mwh: number }
 
 /** Built from battery reports only (docs/agents/telemetry-vpp.md). All numbers are synthetic. */
 export type TickTelemetry = {
