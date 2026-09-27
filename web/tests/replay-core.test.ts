@@ -104,6 +104,11 @@ describe("tickClock", () => {
     expect(replayTickSeconds({ playing: false, nowMs: 11_000, tickArrivedAtMs: 10_000, stepSeconds: 2, scrubberT: 88 })).toBe(88)
   })
 
+  test("clamps the scrubber value to 0..125 while paused", () => {
+    expect(replayTickSeconds({ playing: false, nowMs: 0, tickArrivedAtMs: 0, stepSeconds: 2, scrubberT: -5 })).toBe(0)
+    expect(replayTickSeconds({ playing: false, nowMs: 0, tickArrivedAtMs: 0, stepSeconds: 2, scrubberT: 400 })).toBe(125)
+  })
+
   test("formats replay seconds as the mockup clock", () => {
     expect(fmtClock(0)).toBe("0:00")
     expect(fmtClock(82.9)).toBe("1:22")
@@ -114,45 +119,148 @@ describe("tickClock", () => {
 describe("feedLines", () => {
   test("returns newest-first mockup narration from the real North tick-3 timelines", () => {
     const lines = feedLines(northOrders, 120, homesById, { breaches: 0 })
-    expect(lines[0]).toEqual({ t: "2:00", x: "Books closed. 4 homes not counted, 15.0 kW. Backup breaches: 0.", c: "#8A928C" })
-    expect(lines).toContainEqual({ t: "1:14", x: "home-054: a duplicate copy was ignored, so it did not run twice.", c: "#8A928C" })
-    expect(lines).toContainEqual({ t: "0:09", x: "home-054's report was lost on the way back.", c: "#C8412F" })
+    expect(lines[0]).toEqual({ t: "2:00", at: 120, x: "Books closed. 4 homes not counted, 15.0 kW. Backup breaches: 0.", c: "var(--rg-not-counted)" })
+    expect(lines).toContainEqual({ t: "1:14", at: 74.8, x: "home-054: a duplicate copy was ignored, so it did not run twice.", c: "var(--rg-not-counted)" })
+    expect(lines).toContainEqual({ t: "0:09", at: 9.4, x: "home-054's report was lost on the way back.", c: "var(--rg-lost)" })
   })
 
   test("aggregates send, initial drops, retry and reassign-failed lines", () => {
     const lines = feedLines(northOrders, 60, homesById, { breaches: 0 })
-    expect(lines).toContainEqual({ t: "0:00", x: "Orders sent to 12 homes for 42.3 kW.", c: "#1FA9B5" })
-    expect(lines).toContainEqual({ t: "0:00", x: "5 orders were lost on the way.", c: "#C8412F" })
-    expect(lines[0]).toEqual({ t: "1:00", x: "7 homes had not answered. Each got one retry.", c: "#C98A1B" })
+    expect(lines).toContainEqual({ t: "0:00", at: 0, x: "Orders sent to 12 homes for 42.3 kW.", c: "var(--rg-order-way)" })
+    expect(lines).toContainEqual({ t: "0:00", at: 0, x: "5 orders were lost on the way.", c: "var(--rg-lost)" })
+    expect(lines[0]).toEqual({ t: "1:00", at: 60, x: "7 homes had not answered. Each got one retry.", c: "var(--rg-charging)" })
 
     const withFailedReassign = { ...northOrders, "home-100": [[60, "reassign_failed", null, "r"]] satisfies OrderTimelineEntry[] }
     expect(feedLines(withFailedReassign, 60, homesById, { breaches: 0 })[0].x).toContain("No spare home could take an order over.")
   })
+
+  test("filters and sorts on the numeric at field, not on the formatted clock string", () => {
+    // 9:00 (540s) sorts before 0:09 (9s) alphabetically, but must sort after it numerically.
+    const lines = feedLines(
+      { "home-001": [[9, "exec", 1, "own"], [540, "conf", 1, "own"]] },
+      600,
+      { "home-001": { kw: 1 } },
+    )
+    const at9 = lines.find((l) => l.x.includes("gave"))
+    const at540 = lines.find((l) => l.x.includes("confirmed"))
+    expect(at9?.at).toBe(9)
+    expect(at540?.at).toBe(540)
+    expect(lines.indexOf(at540!)).toBeLessThan(lines.indexOf(at9!))
+  })
+
+  test("a charge order (negative planned kW) narrates 'charged' and 'charge confirmed', never 'gave'", () => {
+    const chargeOrders = { "home-200": [[0, "sent", -3], [8, "exec", -3], [13, "conf", -3]] satisfies OrderTimelineEntry[] }
+    const lines = feedLines(chargeOrders, 120, { "home-200": { kw: -3 } })
+    expect(lines).toContainEqual(expect.objectContaining({ x: "home-200 charged 3.00 kW." }))
+    expect(lines).toContainEqual(expect.objectContaining({ x: "home-200 charge confirmed." }))
+    expect(lines.some((l) => l.x.includes("gave"))).toBe(false)
+  })
+
+  test("the 'gave' line uses the exec extra, falling back to the planned kW only if exec has none", () => {
+    const partial = { "home-201": [[0, "sent", 5], [10, "exec", 3]] satisfies OrderTimelineEntry[] }
+    expect(feedLines(partial, 20, { "home-201": { kw: 5 } })).toContainEqual(
+      expect.objectContaining({ x: "home-201 gave 3.00 kW." }),
+    )
+
+    const noExecKw = { "home-202": [[0, "sent", 5], [10, "exec", null]] satisfies OrderTimelineEntry[] }
+    expect(feedLines(noExecKw, 20, { "home-202": { kw: 5 } })).toContainEqual(
+      expect.objectContaining({ x: "home-202 gave 5.00 kW." }),
+    )
+  })
+
+  test("kwFor never falls back to the home's current kw; an order with no planned kW leaves the kW out", () => {
+    const noKw = { "home-203": [[0, "sent", null], [5, "exec", null]] satisfies OrderTimelineEntry[] }
+    const lines = feedLines(noKw, 20, { "home-203": { kw: 10 } })
+    expect(lines).toContainEqual(expect.objectContaining({ x: "home-203 gave energy." }))
+    expect(lines).toContainEqual(expect.objectContaining({ x: "Orders sent to 1 homes for 0.0 kW." }))
+  })
+
+  test("the 0 s aggregate counts only sent entries at t === 0, and reports charge kW separately", () => {
+    const mixed = {
+      "home-300": [[0, "sent", 10]] satisfies OrderTimelineEntry[],
+      "home-301": [[0, "sent", -6]] satisfies OrderTimelineEntry[],
+    }
+    const lines = feedLines(mixed, 0, { "home-300": { kw: 10 }, "home-301": { kw: -6 } })
+    expect(lines).toContainEqual(expect.objectContaining({
+      x: "Orders sent to 1 homes for 10.0 kW and 1 homes to charge 6.0 kW.",
+    }))
+  })
+
+  test("the retry aggregate counts retries within [60, 61), and the initial-drop aggregate counts drops with t < 1", () => {
+    const timelines = {
+      "home-400": [[0, "sent", 5], [0.9, "drop", null]] satisfies OrderTimelineEntry[],
+      "home-401": [[0, "sent", 5], [1, "drop", null]] satisfies OrderTimelineEntry[],
+      "home-402": [[0, "sent", 5], [60.9, "retry", null]] satisfies OrderTimelineEntry[],
+      "home-403": [[0, "sent", 5], [61, "retry", null]] satisfies OrderTimelineEntry[],
+    }
+    const homes = Object.fromEntries(Object.keys(timelines).map((id) => [id, { kw: 5 }]))
+    const lines = feedLines(timelines, 61, homes, { breaches: 0 })
+    expect(lines).toContainEqual(expect.objectContaining({ x: "1 orders were lost on the way." }))
+    expect(lines).toContainEqual(expect.objectContaining({ x: "1 homes had not answered. Each got one retry." }))
+  })
 })
 
 describe("promiseBreakdown", () => {
-  test("returns only rows backed by the tick result fields", () => {
+  test("returns one 'not sold' row, labeled 'Kept for backup, floor raised' when a floor-raising reason is present", () => {
+    // Self-consistent fixture: missed_mw = target_mw - delivered_mw, unconfirmed_mw <= missed_mw.
     const tick = {
       target_mw: 0.06,
       delivered_mw: 0.02735,
-      missed_mw: 0.01765,
+      missed_mw: 0.03265,
       unconfirmed_mw: 0.015,
       breaches: 0,
       reserve_pct: 60,
       reasons: ["storm_reserve"],
     } satisfies ReplayPromiseResult
-    expect(promiseBreakdown(tick)).toEqual([
+    const rows = promiseBreakdown(tick)
+    expect(rows).toEqual([
       { key: "asked", label: "Asked", mw: 0.06 },
       { key: "sold_confirmed", label: "Sold and confirmed", mw: 0.02735 },
-      { key: "sent_not_counted", label: "Sent but not counted", mw: 0.015 },
-      { key: "not_sent", label: "Not sent", mw: 0.01765 },
-      { key: "held_back", label: "Held back for raised floor", mw: 0.01765 },
+      { key: "sent_not_counted", label: "Sent, not counted", mw: 0.015 },
+      { key: "not_sold", label: "Kept for backup, floor raised", mw: 0.01765 },
       { key: "breaches", label: "Backup breaches", count: 0 },
     ])
+    const mwOf = (key: string) => {
+      const row = rows.find((r) => r.key === key)
+      return row && "mw" in row ? row.mw : 0
+    }
+    expect(mwOf("asked")).toBeCloseTo(mwOf("sold_confirmed") + mwOf("sent_not_counted") + mwOf("not_sold"), 9)
+  })
+
+  test("labels the 'not sold' row 'Not sent, no spare energy above floors' without a floor-raising reason", () => {
+    const rows = promiseBreakdown({
+      target_mw: 0.06,
+      delivered_mw: 0.02735,
+      missed_mw: 0.03265,
+      unconfirmed_mw: 0.015,
+      reasons: ["timed_out:2"],
+    })
+    expect(rows).toContainEqual({ key: "not_sold", label: "Not sent, no spare energy above floors", mw: 0.01765 })
+  })
+
+  test("a reason merely starting with 'weather' still raises the floor label", () => {
+    const rows = promiseBreakdown({
+      target_mw: 0.06, delivered_mw: 0.02735, missed_mw: 0.03265, unconfirmed_mw: 0.015, reasons: ["weather_alert:North"],
+    })
+    expect(rows).toContainEqual({ key: "not_sold", label: "Kept for backup, floor raised", mw: 0.01765 })
+  })
+
+  test("a high reserve_pct alone (no reason code) does not raise the floor label; there is no threshold", () => {
+    const rows = promiseBreakdown({
+      target_mw: 0.06, delivered_mw: 0.02735, missed_mw: 0.03265, unconfirmed_mw: 0.015, reserve_pct: 60, reasons: [],
+    })
+    expect(rows).toContainEqual({ key: "not_sold", label: "Not sent, no spare energy above floors", mw: 0.01765 })
   })
 
   test("omits values that are not present instead of inventing them", () => {
     expect(promiseBreakdown({ target_mw: 0.4, delivered_mw: 0.2 })).toEqual([
+      { key: "asked", label: "Asked", mw: 0.4 },
+      { key: "sold_confirmed", label: "Sold and confirmed", mw: 0.2 },
+    ])
+  })
+
+  test("omits the 'not sold' row unless both missed_mw and unconfirmed_mw are present", () => {
+    expect(promiseBreakdown({ target_mw: 0.4, delivered_mw: 0.2, missed_mw: 0.2 })).toEqual([
       { key: "asked", label: "Asked", mw: 0.4 },
       { key: "sold_confirmed", label: "Sold and confirmed", mw: 0.2 },
     ])

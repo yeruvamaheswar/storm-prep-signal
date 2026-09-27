@@ -1,23 +1,21 @@
 import type { FlowHome, OrderTimelineEntry } from "../flow/types"
-import { homeOrderState, splitOrders } from "./orderState"
+import { FEED_COLORS, homeOrderState, splitOrders } from "./orderState"
 import { fmtClock } from "./tickClock"
 
-export type FeedLine = { t: string; x: string; c: string }
+export type FeedLine = { t: string; at: number; x: string; c: string }
 export type FeedTickFacts = { breaches?: number }
 
 type OrderUnit = {
   id: string
   timeline: OrderTimelineEntry[]
-  kw: number
+  sentKw?: number
+  execKw?: number
+  confKw?: number
+  isCharge: boolean
 }
 
-const COLOR = {
-  out: "#1FA9B5",
-  gave: "#35C3CE",
-  lost: "#C8412F",
-  ok: "#2F8A55",
-  warn: "#C98A1B",
-  muted: "#8A928C",
+function numericExtra(entry: OrderTimelineEntry | undefined): number | undefined {
+  return entry && typeof entry[2] === "number" ? entry[2] : undefined
 }
 
 function orderUnits(orders: Record<string, OrderTimelineEntry[]>): OrderUnit[] {
@@ -26,26 +24,32 @@ function orderUnits(orders: Record<string, OrderTimelineEntry[]>): OrderUnit[] {
     const split = splitOrders(timeline)
     for (const entries of [split.own, split.r]) {
       if (!entries.length) continue
-      const sent = entries.find((entry) => entry[1] === "sent")
-      const exec = entries.find((entry) => entry[1] === "exec")
-      const conf = entries.find((entry) => entry[1] === "conf")
-      const rawKw = sent?.[2] ?? exec?.[2] ?? conf?.[2]
-      units.push({ id, timeline: entries, kw: typeof rawKw === "number" ? Math.abs(rawKw) : 0 })
+      const sentKw = numericExtra(entries.find((entry) => entry[1] === "sent"))
+      const execKw = numericExtra(entries.find((entry) => entry[1] === "exec"))
+      const confKw = numericExtra(entries.find((entry) => entry[1] === "conf"))
+      const isCharge = (sentKw ?? execKw ?? confKw ?? 0) < 0
+      units.push({ id, timeline: entries, sentKw, execKw, confKw, isCharge })
     }
   }
   return units
 }
 
-function kwFor(id: string, unitKw: number, homesById: Record<string, Pick<FlowHome, "kw"> | undefined>): number {
-  return unitKw || Math.abs(homesById[id]?.kw ?? 0)
+/** The planned (sent) magnitude, used for aggregate sums. Never falls back to a home's current kw:
+ * an order with no planned kW contributes 0 kW rather than inventing one. */
+function plannedKw(unit: OrderUnit): number {
+  const value = unit.sentKw ?? unit.execKw ?? unit.confKw
+  return value === undefined ? 0 : Math.abs(value)
 }
 
-function sumKw(units: OrderUnit[], homesById: Record<string, Pick<FlowHome, "kw"> | undefined>): number {
-  return units.reduce((sum, unit) => sum + kwFor(unit.id, unit.kw, homesById), 0)
+/** The kW the "gave"/"charged" line reports: the exec extra, falling back to the planned (sent) kW
+ * only when exec has none. Undefined means the sentence leaves the kW out entirely. */
+function gaveKw(unit: OrderUnit): number | undefined {
+  const value = unit.execKw ?? unit.sentKw
+  return value === undefined ? undefined : Math.abs(value)
 }
 
-function add(line: FeedLine[], at: number, x: string, c: string): void {
-  line.push({ t: fmtClock(at), x, c })
+function add(lines: FeedLine[], at: number, x: string, c: string): void {
+  lines.push({ t: fmtClock(at), at, x, c })
 }
 
 export function feedLines(
@@ -54,47 +58,65 @@ export function feedLines(
   homesById: Record<string, Pick<FlowHome, "kw"> | undefined> = {},
   tickFacts: FeedTickFacts = {},
 ): FeedLine[] {
+  void homesById // kept for a stable call signature; kw always comes from the order's own timeline now.
   const units = orderUnits(orders)
   const lines: FeedLine[] = []
   if (!units.length) return lines
 
-  add(lines, 0, `Orders sent to ${units.length} homes for ${sumKw(units, homesById).toFixed(1)} kW.`, COLOR.out)
+  const initialSent = units.filter((unit) => unit.timeline.some(([at, kind]) => at === 0 && kind === "sent"))
+  if (initialSent.length) {
+    const dischargeSent = initialSent.filter((unit) => !unit.isCharge)
+    const chargeSent = initialSent.filter((unit) => unit.isCharge)
+    const dischargeHomes = new Set(dischargeSent.map((unit) => unit.id)).size
+    const dischargeKw = dischargeSent.reduce((sum, unit) => sum + plannedKw(unit), 0)
+    let sentence = `Orders sent to ${dischargeHomes} homes for ${dischargeKw.toFixed(1)} kW.`
+    if (chargeSent.length) {
+      const chargeHomes = new Set(chargeSent.map((unit) => unit.id)).size
+      const chargeKw = chargeSent.reduce((sum, unit) => sum + plannedKw(unit), 0)
+      sentence = `Orders sent to ${dischargeHomes} homes for ${dischargeKw.toFixed(1)} kW and ${chargeHomes} homes to charge ${chargeKw.toFixed(1)} kW.`
+    }
+    add(lines, 0, sentence, FEED_COLORS.out)
+  }
 
-  const initialDrops = units.filter((unit) => unit.timeline.some(([at, kind]) => at === 0 && kind === "drop")).length
-  if (initialDrops) add(lines, 0, `${initialDrops} orders were lost on the way.`, COLOR.lost)
+  const initialDrops = units.filter((unit) => unit.timeline.some(([at, kind]) => at < 1 && kind === "drop")).length
+  if (initialDrops) add(lines, 0, `${initialDrops} orders were lost on the way.`, FEED_COLORS.lost)
 
-  const retryCount = units.filter((unit) => unit.timeline.some(([at, kind]) => at === 60 && kind === "retry")).length
+  const retryCount = units.filter((unit) => unit.timeline.some(([at, kind]) => at >= 60 && at < 61 && kind === "retry")).length
   const hasReassignFailure = units.some((unit) => unit.timeline.some(([, kind]) => kind === "reassign_failed"))
   if (retryCount) {
     const suffix = hasReassignFailure ? " No spare home could take an order over." : ""
-    add(lines, 60, `${retryCount} homes had not answered. Each got one retry.${suffix}`, COLOR.warn)
+    add(lines, 60, `${retryCount} homes had not answered. Each got one retry.${suffix}`, FEED_COLORS.charging)
   }
 
   for (const unit of units) {
-    const kw = kwFor(unit.id, unit.kw, homesById)
+    const gave = gaveKw(unit)
     for (const [at, kind] of unit.timeline) {
-      if (kind === "exec") add(lines, at, `${unit.id} gave ${kw.toFixed(2)} kW.`, COLOR.gave)
-      if (kind === "conf") add(lines, at, `${unit.id} confirmed. Counted.`, COLOR.ok)
-      if (kind === "rdrop") add(lines, at, `${unit.id}'s report was lost on the way back.`, COLOR.lost)
-      if (kind === "dup") add(lines, at, `${unit.id}: a duplicate copy was ignored, so it did not run twice.`, COLOR.muted)
-      if (kind === "drop" && at > 0) add(lines, at, `${unit.id}'s retry was lost too.`, COLOR.lost)
+      if (kind === "exec") {
+        if (unit.isCharge) {
+          add(lines, at, gave === undefined ? `${unit.id} charged.` : `${unit.id} charged ${gave.toFixed(2)} kW.`, FEED_COLORS.charging)
+        } else {
+          add(lines, at, gave === undefined ? `${unit.id} gave energy.` : `${unit.id} gave ${gave.toFixed(2)} kW.`, FEED_COLORS.gave)
+        }
+      }
+      if (kind === "conf") {
+        add(lines, at, unit.isCharge ? `${unit.id} charge confirmed.` : `${unit.id} confirmed. Counted.`, FEED_COLORS.ok)
+      }
+      if (kind === "rdrop") add(lines, at, `${unit.id}'s report was lost on the way back.`, FEED_COLORS.lost)
+      if (kind === "dup") add(lines, at, `${unit.id}: a duplicate copy was ignored, so it did not run twice.`, FEED_COLORS.muted)
+      if (kind === "drop" && at > 0) add(lines, at, `${unit.id}'s retry was lost too.`, FEED_COLORS.lost)
     }
   }
 
   if (tSeconds >= 120 && typeof tickFacts.breaches === "number") {
     const notCounted = units.filter((unit) => homeOrderState(unit.timeline, 120).s !== "ok")
+    const notCountedKw = notCounted.reduce((sum, unit) => sum + plannedKw(unit), 0)
     add(
       lines,
       120,
-      `Books closed. ${notCounted.length} homes not counted, ${sumKw(notCounted, homesById).toFixed(1)} kW. Backup breaches: ${tickFacts.breaches}.`,
-      COLOR.muted,
+      `Books closed. ${notCounted.length} homes not counted, ${notCountedKw.toFixed(1)} kW. Backup breaches: ${tickFacts.breaches}.`,
+      FEED_COLORS.muted,
     )
   }
 
-  return lines.filter((line) => clockSeconds(line.t) <= tSeconds).sort((a, b) => clockSeconds(b.t) - clockSeconds(a.t))
-}
-
-function clockSeconds(clock: string): number {
-  const [minutes, seconds] = clock.split(":").map(Number)
-  return minutes * 60 + seconds
+  return lines.filter((line) => line.at <= tSeconds).sort((a, b) => b.at - a.at)
 }

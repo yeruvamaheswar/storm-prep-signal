@@ -78,10 +78,33 @@ describe("homeOrderState", () => {
     })
   })
 
-  test("returns the mockup labels and color values", () => {
+  test("splitOrders treats any key other than 'r' as own", () => {
+    const weird = [[0, "sent", 4, "bogus"]] as unknown as OrderTimelineEntry[]
+    expect(splitOrders(weird)).toEqual({ own: weird, r: [] })
+  })
+
+  test("conf does not set gave; only exec does", () => {
+    const confOnly: OrderTimelineEntry[] = [
+      [0, "sent", 4],
+      [20, "conf", 4],
+    ]
+    expect(homeOrderState(confOnly, 20)).toMatchObject({ s: "ok", gave: false })
+  })
+
+  test("a charge order's nc label reads 'Charge not confirmed, not counted'", () => {
+    const chargeNeverConfirmed: OrderTimelineEntry[] = [
+      [0, "sent", -3],
+      [8, "exec", -3],
+    ]
+    const state = homeOrderState(chargeNeverConfirmed, 120)
+    expect(state.s).toBe("nc")
+    expect(stateLabel(state, -3)).toBe("Charge not confirmed, not counted")
+  })
+
+  test("returns the mockup labels and token color values", () => {
     expect(stateLabel({ s: "nc", gave: true, retried: true, dup: false }, 5)).toBe("Gave energy, not counted")
     expect(stateLabel({ s: "nc", gave: false, retried: true, dup: false }, 5)).toBe("No answer, not counted")
-    expect(stateColor("lost")).toBe("#C8412F")
-    expect(stateColor("ok")).toBe("#2F8A55")
+    expect(stateColor("lost")).toBe("var(--rg-lost)")
+    expect(stateColor("ok")).toBe("var(--rg-confirmed)")
   })
 })

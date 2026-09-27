@@ -13,11 +13,15 @@ export function stepSeconds(tickMinutes: number, speed: number): number {
   return (tickMinutes * 60) / speed
 }
 
+function clampT(t: number): number {
+  return Math.min(125, Math.max(0, t))
+}
+
 export function replayTickSeconds(input: ReplayClockInput): number {
-  if (!input.playing) return input.scrubberT
+  if (!input.playing) return clampT(input.scrubberT)
   if (!(input.stepSeconds > 0)) return 0
   const elapsedSeconds = Math.max(0, (input.nowMs - input.tickArrivedAtMs) / 1000)
-  return Math.min(125, (elapsedSeconds / input.stepSeconds) * 125)
+  return clampT((elapsedSeconds / input.stepSeconds) * 125)
 }
 
 export function fmtClock(tSeconds: number): string {

@@ -22,7 +22,7 @@ describe("Replay promise panel", () => {
     expect(html).toContain("0.400 MW")
     expect(html).toContain("Sold and confirmed")
     expect(html).toContain("0.250 MW")
-    expect(html).toContain("Sent but not counted")
+    expect(html).toContain("Sent, not counted")
     expect(html).toContain("Backup breaches")
     expect(html).toContain(">0<")
     expect(html).toContain("Open the ledger")

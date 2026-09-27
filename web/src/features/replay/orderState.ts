@@ -10,23 +10,35 @@ export type ReplayOrderState = {
   charging: boolean
 }
 
+/** The one colour map for replay order state and feed narration. Values are `--rg-*` token references
+ * (`web/src/design/tokens.css`), never raw hex, so both the map view and the feed stay in sync with the design system. */
 export const REPLAY_STATE_COLORS: Record<ReplayOrderStatus, string> = {
-  out: "#1FA9B5",
-  retry: "#1FA9B5",
-  lost: "#C8412F",
-  wait: "#35C3CE",
-  rlost: "#C8412F",
-  ok: "#2F8A55",
-  nc: "#8A928C",
-  idle: "#8A928C",
+  out: "var(--rg-order-way)",
+  retry: "var(--rg-order-way)",
+  lost: "var(--rg-lost)",
+  wait: "var(--rg-gave-energy)",
+  rlost: "var(--rg-lost)",
+  ok: "var(--rg-confirmed)",
+  nc: "var(--rg-not-counted)",
+  idle: "var(--rg-not-counted)",
 }
+
+/** Feed narration colours, derived from the same map plus the one token (charging) that has no order state of its own. */
+export const FEED_COLORS = {
+  out: REPLAY_STATE_COLORS.out,
+  gave: REPLAY_STATE_COLORS.wait,
+  lost: REPLAY_STATE_COLORS.lost,
+  ok: REPLAY_STATE_COLORS.ok,
+  charging: "var(--rg-charging)",
+  muted: REPLAY_STATE_COLORS.nc,
+} as const
 
 const DEFAULT_STATE: ReplayOrderState = { s: "idle", gave: false, retried: false, dup: false, charging: false }
 
 export function splitOrders(timeline: OrderTimelineEntry[] = []): { own: OrderTimelineEntry[]; r: OrderTimelineEntry[] } {
   const split = { own: [] as OrderTimelineEntry[], r: [] as OrderTimelineEntry[] }
   for (const entry of timeline) {
-    const key = entry[3] ?? "own"
+    const key = entry[3] === "r" ? "r" : "own"
     split[key].push(entry)
   }
   return split
@@ -57,7 +69,6 @@ export function homeOrderState(timeline: OrderTimelineEntry[] = [], tSeconds: nu
     if (kind === "rdrop") s = "rlost"
     if (kind === "dup") dup = true
     if (kind === "conf") {
-      gave = true
       s = "ok"
     }
   }
@@ -65,14 +76,17 @@ export function homeOrderState(timeline: OrderTimelineEntry[] = [], tSeconds: nu
   return { s, gave, retried, dup, charging }
 }
 
-export function stateLabel(state: Pick<ReplayOrderState, "s" | "gave"> & Partial<ReplayOrderState>, _kw?: number): string {
+export function stateLabel(state: Pick<ReplayOrderState, "s" | "gave"> & Partial<ReplayOrderState>, kw?: number): string {
   if (state.s === "out") return "Order on its way"
   if (state.s === "retry") return "Retrying"
   if (state.s === "lost") return "Order lost"
   if (state.s === "wait") return "Gave energy, waiting for its report"
   if (state.s === "rlost") return "Gave energy, report lost"
   if (state.s === "ok") return "Confirmed, counted"
-  if (state.s === "nc") return state.gave ? "Gave energy, not counted" : "No answer, not counted"
+  if (state.s === "nc") {
+    if (typeof kw === "number" && kw < 0) return "Charge not confirmed, not counted"
+    return state.gave ? "Gave energy, not counted" : "No answer, not counted"
+  }
   return "Holding at its floor"
 }
 
