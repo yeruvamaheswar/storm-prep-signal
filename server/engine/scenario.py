@@ -59,7 +59,8 @@ HONEST_LIMITS = (
     "The payback check uses day-ahead (DAM) prices, not the real-time prices that will actually happen.",
     "DAM prices are fetched once a day. If ERCOT posts late, Live runs on today's hours until tomorrow's arrive.",
     "The 89% battery round trip is an example figure (Powerwall 3 datasheet), not a Base spec.",
-    "The look-ahead can wait past a real price dip for a cheaper hour on the far side of a price spike.",
+    "Before a day-ahead price spike a zone fills up, even when it already holds enough for the grid call "
+    "through the spike.",
 )
 
 

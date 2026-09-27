@@ -3,7 +3,15 @@ import { LOAD_ZONES, type LoadZone } from "./zonePaint"
 
 const HOUR_MS = 3_600_000
 
-const CHARGE_WHY = ["dam_cheap_hour", "rt_dip", "cheaper_hour_later", "no_payback", "full", "sell_band"] as const
+const CHARGE_WHY = [
+  "dam_cheap_hour",
+  "before_spike",
+  "rt_dip",
+  "cheaper_hour_later",
+  "no_payback",
+  "full",
+  "sell_band",
+] as const
 
 export type ChargeWhy = (typeof CHARGE_WHY)[number]
 
@@ -59,8 +67,8 @@ function isDamHour(value: unknown): value is DamHour {
   )
 }
 
-function hoursPhrase(count: number, window: number): string {
-  return `${String(count)} cheapest ${count === 1 ? "hour" : "hours"} of the next ${String(window)}`
+function cheapestPhrase(count: number): string {
+  return `${String(count)} cheapest ${count === 1 ? "hour" : "hours"}`
 }
 
 /** One sentence per zone from the engine's zone_charge_why. Unknown or missing reasons are named, not guessed. */
@@ -75,12 +83,14 @@ export function damLine(
   const chosen = cells.filter((cell) => cell.charge)
   const nowIndex = cells.findIndex((cell) => cell.now)
   const nowCell = nowIndex < 0 ? undefined : cells[nowIndex]
+  const nowPrice = nowCell === undefined ? "" : ` · ${usdMwh(nowCell.usdMwh)} ${priceLabel}`
   switch (why) {
     case "dam_cheap_hour": {
-      const hours = hoursPhrase(hoursNeeded ?? chosen.length, cells.length)
-      const price = nowCell === undefined ? "" : ` · ${usdMwh(nowCell.usdMwh)} ${priceLabel}`
-      return `${zone} · charging now · ${hours}${price}`
+      const hours = `${cheapestPhrase(hoursNeeded ?? chosen.length)} of the next ${String(cells.length)}`
+      return `${zone} · charging now · ${hours}${nowPrice}`
     }
+    case "before_spike":
+      return `${zone} · charging now · ${cheapestPhrase(chosen.length)} before the next sell-band hour${nowPrice}`
     case "rt_dip": {
       if (chosen.length === 0) return `${zone} · charging now · real-time dip`
       const dearest = Math.max(...chosen.map((cell) => cell.usdMwh))
