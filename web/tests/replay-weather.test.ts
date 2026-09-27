@@ -11,19 +11,20 @@ import {
 type TickPart = Pick<FlowTick, "tick" | "risk_level" | "reasons" | "zone_reserve_pct" | "zone_reasons" | "grid_down_zones">
 type RowPart = Pick<FlowZoneRow, "reserve_pct" | "reason" | "grid_down">
 
-// Real engine ticks, played in-process through server/engine/scenario.py Session (seed 1, base floor 30%).
-// storm-rule-high tick 26 (04:05 CT): the 04:00 NP3-233-CD posting rates HIGH, so every zone keeps 60%.
+// Real engine ticks, played in-process through server/engine/scenario.py Session (base floor 30%, HOME_MAX_KW=11.4,
+// HOME_KWH=25). Re-run on c19119c (origin/main 162bd0a, post-#50/#52 DAM look-ahead, merged into Task 15): the
+// floors and zone reasons are unchanged; the reasons lists below are the re-run's.
+// storm-rule-high tick 26 (04:05 CT, seed 1): the 04:00 NP3-233-CD posting rates HIGH, so every zone keeps 60%.
 const riskTick: TickPart = {
-  tick: 26, risk_level: "HIGH", reasons: ["storm_reserve", "homes_stale:1"],
+  tick: 26, risk_level: "HIGH", reasons: ["reserve_refill", "homes_stale:1"],
   zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
   zone_reasons: { Houston: "storm_risk_high", North: "storm_risk_high", South: "storm_risk_high", West: "storm_risk_high" },
   grid_down_zones: [],
 }
-// beryl-landfall tick 2, after the Beryl tropical storm warning was sent at tick 1 (merged engine with #47, seed 42,
-// HOME_MAX_KW=11.4, HOME_KWH=25): the alert names Harris, so only Houston rises. Since #47 the zone floor is its highest
-// county floor.
+// beryl-landfall tick 2, after the Beryl tropical storm warning was sent after tick 1 (seed 42): the alert names
+// Harris, so only Houston rises. Since #47 the zone floor is its highest county floor.
 const alertTick: TickPart = {
-  tick: 2, risk_level: "LOW", reasons: ["charging", "reserve_refill", "homes_stale:1"],
+  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
   zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
@@ -43,16 +44,16 @@ const namedTick: CountyTickPart = {
   },
   grid_down_zones: [],
 }
-// storm-rule-high tick 1 (02:00 CT): LOW, every zone at the base floor.
+// storm-rule-high tick 1 (02:00 CT, seed 1): LOW, every zone at the base floor.
 const calmTick: TickPart = {
-  tick: 1, risk_level: "LOW", reasons: [],
+  tick: 1, risk_level: "LOW", reasons: ["reserve_refill"],
   zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
 }
-// beryl-landfall tick 3 with the grid-down overlay on Houston (sent before tick 2).
+// beryl-landfall tick 3 (seed 42) with the grid-down overlay on Houston (set after tick 1, so from tick 2).
 const gridDownTick: TickPart = {
-  tick: 3, risk_level: "LOW", reasons: ["charging", "homes_stale:1", "grid_down:Houston"],
+  tick: 3, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "grid_down:Houston"],
   zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: ["Houston"],
@@ -64,10 +65,10 @@ const gridDownRows: Record<string, RowPart> = {
   West: { reserve_pct: 30, reason: "normal", grid_down: false },
 }
 
-// feed-failure tick 73 (2026-09-12 18:00 CT): no NP3-233-CD signal, so the engine fails safe and every zone
+// feed-failure tick 73 (2026-09-12 18:00 CT, seed 1): no NP3-233-CD signal, so the engine fails safe and every zone
 // keeps the 60% storm floor with reason signal_unavailable (server/engine/policy.py). A missing feed is not weather.
 const signalMissingTick: TickPart = {
-  tick: 73, risk_level: null, reasons: ["homes_stale:1", "timed_out:6", "duplicates_ignored:6", "over_delivery:6"],
+  tick: 73, risk_level: null, reasons: ["reserve_refill", "homes_stale:1", "timed_out:5", "duplicates_ignored:5", "over_delivery:5"],
   zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
   zone_reasons: { Houston: "signal_unavailable", North: "signal_unavailable", South: "signal_unavailable", West: "signal_unavailable" },
   grid_down_zones: [],

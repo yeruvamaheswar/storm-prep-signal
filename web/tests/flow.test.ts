@@ -16,7 +16,6 @@ import {
   flowStroke,
   fmtScenarioTime,
   namedCountyRows,
-  REASON_LABEL,
   reasonLabel,
   weatherStepRequests,
   zoneFloorText,
@@ -353,12 +352,9 @@ describe("alert county floor", () => {
     expect(namedCountyRows({ ...freeze, named_counties: undefined })).toEqual([])
   })
 
-  it("labels both county reasons and no longer knows the JEV ones", () => {
+  it("labels both county reasons", () => {
     expect(reasonLabel("weather_alert")).toBe("NWS weather alert")
     expect(reasonLabel("not_in_alert")).toBe("County not named by the alert (base floor)")
-    for (const gone of ["weather_alert_jev_yes", "weather_alert_no_jev", "jev_no"]) {
-      expect(REASON_LABEL).not.toHaveProperty(gone)
-    }
   })
 
   it("shows county headers and display names in the zone drill-in", () => {

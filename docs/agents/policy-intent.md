@@ -15,6 +15,7 @@
 | Charged kW > 0, nothing sold, only homes under their floor charged (`reserve_refill` code, no `charging` code) | charge | `reserve_refill` |
 | Charged kW > 0, nothing sold, a `charge` zone was set by the DAM rule (checked after `reserve_refill`; wins over the policy-reason and `zone_price` rows) | charge | `dam_cheap_hour`, else `before_spike`, else `rt_dip` |
 | Sold kW > 0 and sold kW >= charged kW | discharge | policy reason if the band said discharge, else `grid_call` |
+| Nothing moved, target 0, every `zone_intent` zone has a DAM `zone_charge_why` of `cheaper_hour_later`, `no_payback` or `full` (at least one a wait), and the band said charge/discharge or the policy reason is `""` (added 2026-09-27, Task 15) | hold | `cheaper_hour_later`, else `no_payback` |
 | Nothing moved, band said hold | hold | policy reason (`""`, `price_unavailable`) |
 | Nothing moved, band said charge/discharge, target 0 | hold | `no_grid_call` (for the charge band only when every home is full: idle charging otherwise makes it a charge tick) |
 | Nothing moved, band said charge/discharge, target > 0 | hold | policy reason (a call nobody could serve; `reasons` says why) |
