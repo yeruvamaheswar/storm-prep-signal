@@ -286,3 +286,113 @@ def test_step_route_names_a_stopped_worker_before_asking_for_a_pause(client, tmp
     assert reply.status_code == 409
     assert reply.json()["error"] == "worker_not_running"
     assert not (tmp_path / "requests.json").exists()
+
+
+# --- Day view (Task 14): 1, 2 and 5 min per scenario day, and the fields the day bar reads ---
+
+def test_day_view_speeds_are_offered_sorted_and_the_default_is_kept():
+    # 5, 2 and 1 min per 24-hour day at 5-minute ticks.
+    assert {288, 720, 1440} <= set(store.SPEEDS)
+    assert {2.4, 4.8, 12, 15, 30, 60, 150, 300, 600} <= set(store.SPEEDS)
+    assert list(store.SPEEDS) == sorted(store.SPEEDS)
+    assert store.DEFAULT_SPEED == 12
+
+
+def test_one_minute_per_day_is_about_a_fifth_of_a_second_per_tick(tmp_path):
+    s = session(tmp_path)
+    s.set_speed(1440)
+    assert s.step_seconds() == pytest.approx(0.2083, abs=1e-4)
+    s.set_speed(720)
+    assert s.step_seconds() == pytest.approx(0.4167, abs=1e-4)
+    s.set_speed(288)
+    assert s.step_seconds() == pytest.approx(1.0417, abs=1e-4)
+
+
+def drive_by_sleep(tmp_path, speed, ticks):
+    """Run the worker on a fake clock that moves by exactly what the worker asks to sleep.
+    Returns the fake time at which each tick index first appeared in state.json."""
+    now = [0.0]
+    first_seen = {}
+    store.append_request("speed", {"x": speed}, "op-test", tmp_path)
+
+    def sleep(dt):
+        state = json.loads((tmp_path / "state.json").read_text())
+        first_seen.setdefault(state["tick_index"], now[0])
+        if state["tick_index"] >= ticks:
+            raise Stop
+        # A floor so float round-off can never stall the fake clock.
+        now[0] += max(dt, 1e-6)
+
+    with pytest.raises(Stop):
+        worker.run(scenario_dir=tmp_path, scenario="heather", seed=7, settings=dict(SETTINGS),
+                   clock=lambda: now[0], sleep=sleep, ignore_old_requests=False)
+    return first_seen
+
+
+def test_worker_keeps_one_minute_per_day_when_a_tick_is_due_before_the_next_poll(tmp_path):
+    # 0.2083 s per tick is under the 0.25 s poll: the worker sleeps only until the tick is due.
+    seen = drive_by_sleep(tmp_path, 1440, ticks=12)
+    gaps = [seen[i + 1] - seen[i] for i in range(1, 11)]
+    assert all(gap == pytest.approx(300 / 1440, abs=1e-3) for gap in gaps), gaps
+
+
+def test_worker_still_steps_on_time_at_slow_speeds(tmp_path):
+    # 1.0417 s per tick: several 0.25 s polls, then a short sleep to land on the tick.
+    seen = drive_by_sleep(tmp_path, 288, ticks=4)
+    gaps = [seen[i + 1] - seen[i] for i in range(1, 3)]
+    assert all(gap == pytest.approx(300 / 288, abs=1e-3) for gap in gaps), gaps
+
+
+def test_history_points_carry_the_frames_price_mode_and_events(tmp_path):
+    s = session(tmp_path)
+    s.start("operator-hold", 1)
+    for _ in range(22):
+        s.step()
+    by_tick = {point["tick"]: point for point in s.history}
+    frames = {frame.tick: frame for frame in s.frames}
+    assert by_tick[4]["mode"] == "HOLD" and by_tick[21]["mode"] == "HOLD"
+    assert by_tick[3]["mode"] == "AUTO" and by_tick[22]["mode"] == "AUTO"
+    for tick in (1, 4, 22):
+        assert by_tick[tick]["price_usd_mwh"] == frames[tick].price_usd_mwh
+        assert by_tick[tick]["price_label"] == frames[tick].price_label
+        assert by_tick[tick]["events"] == sorted(frames[tick].events)
+
+
+def test_history_events_name_the_faults_overlay_ticks(tmp_path):
+    s = session(tmp_path)
+    s.start("faults", 1)
+    while s.index < len(s.frames) and s.frames[s.index].tick <= 157:
+        s.step()
+    by_tick = {point["tick"]: point for point in s.history}
+    assert "crash" in by_tick[139]["events"] and "network" in by_tick[139]["events"]
+    assert "crash" not in by_tick[138]["events"]
+    assert by_tick[157]["events"] == ["live"]
+    assert by_tick[132]["events"] == []
+
+
+def test_history_events_include_the_alert_counties_the_engine_applied(tmp_path):
+    s = session(tmp_path)
+    s.start("beryl-landfall", 42)
+    s.step()
+    s.send_alert("beryl-harris-tropical-storm-warning")
+    s.step()
+    assert s.history[0]["events"] == []
+    assert s.history[1]["events"] == ["weather_counties"]
+
+
+def test_state_names_the_first_and_last_timestamp_of_the_tape(tmp_path):
+    s = session(tmp_path)
+    s.start("storm-rule-night", 1)
+    scenario = s.state()["scenario"]
+    assert scenario["first_ts"] == s.frames[0].ts == "2026-09-22T16:00:00-05:00"
+    assert scenario["last_ts"] == s.frames[-1].ts == "2026-09-23T04:00:00-05:00"
+    assert session(tmp_path).state()["scenario"] is None
+
+
+def test_every_scenario_tape_is_evenly_spaced_at_tick_minutes():
+    # The day bar places ticks by their real ts; an uneven tape would need a different bar.
+    for entry in load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"):
+        frames = json.loads((ROOT / entry["tape"]).read_text())["frames"]
+        stamps = [datetime.fromisoformat(frame["ts"]) for frame in frames]
+        gaps = {(b - a).total_seconds() for a, b in zip(stamps, stamps[1:])}
+        assert gaps == {SETTINGS["tick_minutes"] * 60}, (entry["id"], gaps)
