@@ -1,6 +1,6 @@
 # Charge, hold, or discharge
 
-The tick's `intent` says what the batteries actually did: charge, hold, or discharge.
+The tick's `intent` says what the fleet was ordered to do this tick: charge, hold, or discharge. If an order is lost on the way, the label still shows the order; delivered MW shows what arrived.
 
 The price picks a plan first. Cheap (at or below $25/MWh) plans a charge. Expensive (at or above $60/MWh) on a calm Auto tick plans a discharge. A storm or a missing outage report never plans a discharge. These are example numbers, not Base specs.
 

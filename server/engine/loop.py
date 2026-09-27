@@ -255,7 +255,7 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
                              int(settings.get("seed", 1)) * 100_000 + frame.tick,
                              telemetry=telemetry)
     alloc = cycle.allocation
-    # The label is what the homes were ordered to do; policy.intent is only the price band.
+    # The label is what the fleet was ordered to do this tick; policy.intent is only the price band.
     intent, intent_reason = acted_intent(alloc, policy, mode)
     result = TickResult(
         tick=frame.tick, ts=frame.ts, mode=mode,

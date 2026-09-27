@@ -53,7 +53,10 @@ def allocate(homes, frame, policy, mode, settings):
 
 
 def acted_intent(alloc, policy, mode):
-    """The tick's (intent, intent_reason): what the fleet was ordered to do, not the price band.
+    """The tick's (intent, intent_reason): what the fleet was ordered to do this tick, not the price band.
+
+    It is the order, not the result: if every discharge order times out, the label is still
+    discharge and `delivered_mw` shows the shortfall.
 
     `Policy.intent` is the price band and is what `allocate` reads. Hold and discharge both
     serve the call, so a hold price can still sell. The wall and run file show this instead.

@@ -92,7 +92,7 @@ New contract fields, all with defaults:
 - `Home.zone: str = ""`
 - `Home.updated_at: str = ""` (ISO 8601 with UTC offset; empty until the fleet stamps a write)
 - `Policy.intent: str = "hold"` and `Policy.intent_reason: str = ""` (`charge` \| `discharge` \| `hold`)
-- `TickResult.intent: str = "hold"` and `TickResult.intent_reason: str = ""` (from `acted_intent`, so it matches what the fleet did; reasons add `grid_call` and `no_grid_call`)
+- `TickResult.intent: str = "hold"` and `TickResult.intent_reason: str = ""` (from `acted_intent`, so it names what the fleet was ordered to do this tick; reasons add `grid_call` and `no_grid_call`)
 - `Allocation.per_home_kw` stays one dict; values are now signed (`>0` discharge, `<0` charge)
 - `TapeFrame.weather_fixture: Optional[str] = None`
 - `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)
