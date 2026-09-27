@@ -72,4 +72,7 @@
   --rg-fleet-bank: #c9cdc5;
   --rg-islanded: #2f5f8f;
   --rg-fleet-reserved: #7e62a8;
+  /* Task 12: charging words on the light panels. --rg-charging-text (#a4640c) is 4.28:1 on the map panel;
+   * this is 4.96:1 there and 5.19:1 on clay. Amber fills keep --rg-charging. */
+  --rg-charging-text-strong: #965b0a;
 }

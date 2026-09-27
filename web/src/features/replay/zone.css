@@ -336,7 +336,7 @@
 }
 
 .is-charge {
-  color: var(--rg-charging-text);
+  color: var(--rg-charging-text-strong);
 }
 
 .zone-breaches {
@@ -498,6 +498,6 @@
 
 /* Task 12: a battery refilling to its backup floor, in the charging text colour. */
 .zone-home-head p.zone-refill {
-  color: var(--rg-charging-text);
+  color: var(--rg-charging-text-strong);
   font-weight: 700;
 }

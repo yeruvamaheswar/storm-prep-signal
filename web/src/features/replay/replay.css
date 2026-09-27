@@ -542,7 +542,7 @@
 /* Task 12: energy bought from the grid. Amber, set apart from the call's rows, never summed with them. */
 .replay-promise .is-charge,
 .replay-ledger .is-charge {
-  color: var(--rg-charging-text);
+  color: var(--rg-charging-text-strong);
 }
 
 .replay-row.replay-row-charge {
