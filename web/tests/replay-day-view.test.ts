@@ -592,3 +592,26 @@ describe("map sun and county rain", { timeout: 20_000 }, () => {
     expect(host.querySelectorAll(".replay-sun.is-on")).toHaveLength(0)
   })
 })
+
+describe("home names reach the home panel and the zone feed (Task 17 pass-throughs)", () => {
+  const home = (id: string, name: string, zone: string, countyName: string) =>
+    ({ id, name, zone, county_name: countyName, soc_pct: 55, kw: 1, state: "selling", status: "live", floor_pct: 30 }) as FlowHome
+  // Real reassignment shape (fixtures in homeName-screens.test.ts): home-071 handed its order to home-003.
+  const south = [home("home-003", "South-Nueces-003", "South", "Nueces"), home("home-071", "South-Bexar-071", "South", "Bexar")]
+  const orders = {
+    "home-003": [[0, "sent", 0.97, "own"], [20.7, "exec", 0.97, "own"], [29.6, "conf", 0.97, "own"], [60, "sent", 0.97, "r"], [74.6, "exec", 0.97, "r"], [87.7, "conf", 0.97, "r"]],
+    "home-071": [[0, "sent", 0.97, "own"], [48.8, "exec", 0.97, "own"], [60, "timeout", null, "own"], [60, "retry", null, "own"], [60, "reassigned", "home-003", "own"], [64.5, "conf", 0.97, "own"]],
+  }
+  const page = (selectedHome: string | null) => renderToStaticMarkup(createElement(ReplayPage, {
+    scenarios: null, state: session({ status: "playing", homes: south, orders }), nowMs: 0, playheadT: 90,
+    selectedZone: "South", selectedHome,
+  } as never))
+
+  it("passes the session homes to the home panel, so it names the home a reassigned order came from", () => {
+    expect(page("home-003")).toContain("Also took over South-Bexar-071&#x27;s order")
+  })
+
+  it("passes the homes by id to the zone feed, so its lines name homes", () => {
+    expect(page(null)).toContain("South-Nueces-003 gave 0.97 kW.")
+  })
+})

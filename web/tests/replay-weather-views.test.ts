@@ -247,7 +247,8 @@ describe("map weather", { timeout: 20_000 }, () => {
     }
     expect(host.querySelector(".replay-wx-clouds")).toBeNull()
     expect(host.querySelector(".replay-wx-rain")).toBeNull()
-    expect([...host.querySelectorAll(".replay-zone")].filter((el) => el.classList.contains("is-raised"))).toHaveLength(2)
+    const raisedZones = [...host.querySelectorAll<SVGElement>(".replay-zone.is-raised")].map((el) => el.dataset.zone).sort()
+    expect(raisedZones).toEqual(["Houston", "North"])
     const chips = [...host.querySelectorAll<HTMLButtonElement>(".replay-chip")]
     expect(chips.some((chip) => /base floor kept/i.test(chip.textContent ?? ""))).toBe(false)
   })
