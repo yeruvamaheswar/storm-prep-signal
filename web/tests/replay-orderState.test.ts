@@ -1,0 +1,87 @@
+import { describe, expect, test } from "vitest"
+import type { OrderTimelineEntry } from "../src/features/flow/types"
+import { homeOrderState, splitOrders, stateColor, stateLabel } from "../src/features/replay/orderState"
+
+const northTick3: Record<string, OrderTimelineEntry[]> = {
+  "home-054": [
+    [0, "sent", 0.01],
+    [9.4, "exec", 0.01],
+    [9.4, "rdrop", null],
+    [60, "retry", null],
+    [74.8, "dup", null],
+    [74.8, "rdrop", null],
+  ],
+  "home-066": [
+    [0, "sent", 2.11],
+    [0, "drop", null],
+    [60, "retry", null],
+    [80.7, "exec", 2.11],
+    [82.3, "conf", 2.11],
+  ],
+  "home-070": [
+    [0, "sent", 5],
+    [0, "drop", null],
+    [60, "retry", null],
+    [60, "drop", null],
+  ],
+}
+
+describe("homeOrderState", () => {
+  test("follows the mockup state transitions for a retry that gives energy but never confirms", () => {
+    expect(homeOrderState(northTick3["home-054"], 0)).toMatchObject({ s: "out", gave: false, retried: false, dup: false })
+    expect(homeOrderState(northTick3["home-054"], 9.4)).toMatchObject({ s: "rlost", gave: true })
+    expect(homeOrderState(northTick3["home-054"], 60)).toMatchObject({ s: "wait", retried: true })
+    expect(homeOrderState(northTick3["home-054"], 74.8)).toMatchObject({ s: "rlost", dup: true })
+    expect(homeOrderState(northTick3["home-054"], 120)).toMatchObject({ s: "nc", gave: true })
+  })
+
+  test("counts a confirmed retry as ok at the real North tick-3 confirmation time", () => {
+    expect(homeOrderState(northTick3["home-066"], 59.9).s).toBe("lost")
+    expect(homeOrderState(northTick3["home-066"], 80.7)).toMatchObject({ s: "wait", gave: true, retried: true })
+    expect(homeOrderState(northTick3["home-066"], 82.3)).toMatchObject({ s: "ok", gave: true })
+    expect(homeOrderState(northTick3["home-066"], 125).s).toBe("ok")
+  })
+
+  test("marks an unanswered lost retry as not counted after close", () => {
+    expect(homeOrderState(northTick3["home-070"], 0)).toMatchObject({ s: "lost", gave: false })
+    expect(homeOrderState(northTick3["home-070"], 60)).toMatchObject({ s: "lost", retried: true })
+    expect(homeOrderState(northTick3["home-070"], 120)).toMatchObject({ s: "nc", gave: false })
+  })
+
+  test("records charging orders while keeping mockup labels and ok confirmation", () => {
+    const chargeOrder: OrderTimelineEntry[] = [
+      [0, "sent", -3],
+      [8, "exec", -3],
+      [13, "conf", -3],
+    ]
+    const state = homeOrderState(chargeOrder, 13)
+    expect(state).toMatchObject({ s: "ok", gave: true, charging: true })
+    expect(stateLabel(state, -3)).toBe("Confirmed, counted")
+  })
+
+  test("splits own and reassigned order keys, defaulting missing keys to own", () => {
+    const mixed: OrderTimelineEntry[] = [
+      [0, "sent", 4],
+      [60, "retry", null, "own"],
+      [61, "reassigned", "home-022", "r"],
+      [63, "exec", 1.5, "r"],
+    ]
+    expect(splitOrders(mixed)).toEqual({
+      own: [
+        [0, "sent", 4],
+        [60, "retry", null, "own"],
+      ],
+      r: [
+        [61, "reassigned", "home-022", "r"],
+        [63, "exec", 1.5, "r"],
+      ],
+    })
+  })
+
+  test("returns the mockup labels and color values", () => {
+    expect(stateLabel({ s: "nc", gave: true, retried: true, dup: false }, 5)).toBe("Gave energy, not counted")
+    expect(stateLabel({ s: "nc", gave: false, retried: true, dup: false }, 5)).toBe("No answer, not counted")
+    expect(stateColor("lost")).toBe("#C8412F")
+    expect(stateColor("ok")).toBe("#2F8A55")
+  })
+})

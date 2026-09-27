@@ -1039,6 +1039,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 ## 2026-09-26: Replay order timelines fix round 1
 
+- 2026-09-26: Replay core logic, Task 3.
+  - Added `web/src/features/replay/` with pure TS helpers for order state, keyed order splitting, tick clock mapping, narration, promise math, and key moments. No React or UI.
+  - Tests embed the real North tick-3 order timelines from `Zone.dc.html` and cover retry/drop/confirm/not-counted transitions, charging orders, own vs reassigned keys, feed sentences, promise rows, and clock math.
+  - `docs/agents/code-flow.md` now names `web/src/features/replay/` in the web diagram and file map.
+  - Verification: `cd web && npm test && npm run build` passed (301 Vitest tests; Vite chunk-size warning only). `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` passed (2).
+
 - Fixed order timeline direction tracking so a lost retry order at 60 s is `drop`, while lost reports after `exec` or `dup` stay `rdrop`.
 - Added the fourth timeline key (`own` / `r`) so one home can display its own command and a reassigned-in command in the same tick without mixing lifecycles.
 - Added real fault-tick tests for lossy seeds, keyed lifecycles, and slow speed validation. Verification: focused order/session tests 23 passed; `HOME_MAX_KW=11.4 pytest -q` 666 passed; `FUZZ_SEEDS=50 HOME_MAX_KW=11.4 pytest -q` 666 passed; web vitest 285 passed; web build clean with the existing chunk-size warning.

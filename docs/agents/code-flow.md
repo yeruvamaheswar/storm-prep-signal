@@ -417,11 +417,13 @@ flowchart TD
     FEEDTS["web/src/reportFeeds.ts, GET /v1/feeds"]
     ROLLTS["web/src/api/rollups.ts, GET /v1/fleet/rollups"]
     SHELL["web/src/features/shell: TopBar, placeholders, URL state"]
+    REPLAYLOGIC["web/src/features/replay: pure order state, clock, narration, promise math"]
     FLOWAPP["web/src/features/flow/FlowApp.tsx at /flow"]
     TELLINE["web/src/components/organisms/telemetryLine.ts, battery line under Worker acks"]
   end
 
   APP --> SHELL
+  SHELL --> REPLAYLOGIC
   FLOWAPP -->|"GET /v1/scenario/state every 500 ms, POST /v1/scenario/*, GET /v1/scenario/verify"| SCAPI
 
   LAYOUT --> LOADRUN
@@ -556,7 +558,7 @@ Wall (`web/src/`, top-level folders):
 - `web/src/components/`: atoms, molecules, organisms, and templates. `templates/OperatorWall.tsx` is the wall.
 - `web/src/design/`: design tokens (`tokens.css`) and the design notes.
 - `web/src/domain/`: `/v1` types, parsers, and helpers for the console pages.
-- `web/src/features/`: the redesigned shell lives in `shell/`: `TopBar.tsx` ports the approved brand/nav/pill frame, `ShellPages.tsx` mounts placeholder Replay, Live, and Fleet screens, and `urlState.ts` reads/writes `scenario`, `zone`, `home`, and `tick` with push-state zoom. The old fleet table lives at `/fleet/table` through `fleet/FleetApp.tsx`; it still pages `GET /v1/homes?zone=&status=&q=&limit=&offset=` (50 rows). `wall/` and `history/` page components remain; they are not separate HTML entries. `web/src/features/flow/` is the `/flow` page: `FlowApp.tsx` polls `GET /v1/scenario/state` every 500 ms and sends requests through `api.ts`; `GridFlow.tsx` draws the grid node and four zone flow lines, `ZoneContribution.tsx` one bar per zone (its homes selling, charging, keeping backup, idle, or grid down, with labeled MW and share of fleet delivery), `ZoneBatteries.tsx` the 25 battery cells of a selected zone, `HistoryStrip.tsx` the recent ticks, `DataPanel.tsx` the data in use (scenario rows, batteries, alert, JEV, overlays), `VerifyArchive.tsx` calls `GET /v1/scenario/verify`, and `flowMath.ts` holds the pure helpers the tests cover.
+- `web/src/features/`: the redesigned shell lives in `shell/`: `TopBar.tsx` ports the approved brand/nav/pill frame, `ShellPages.tsx` mounts placeholder Replay, Live, and Fleet screens, and `urlState.ts` reads/writes `scenario`, `zone`, `home`, and `tick` with push-state zoom. The old fleet table lives at `/fleet/table` through `fleet/FleetApp.tsx`; it still pages `GET /v1/homes?zone=&status=&q=&limit=&offset=` (50 rows). `wall/` and `history/` page components remain; they are not separate HTML entries. `web/src/features/replay/` is the pure logic behind the Replay animation: order timeline state, tick clock mapping, newest-first narration, promise math, and key moments, with no React. `web/src/features/flow/` is the `/flow` page: `FlowApp.tsx` polls `GET /v1/scenario/state` every 500 ms and sends requests through `api.ts`; `GridFlow.tsx` draws the grid node and four zone flow lines, `ZoneContribution.tsx` one bar per zone (its homes selling, charging, keeping backup, idle, or grid down, with labeled MW and share of fleet delivery), `ZoneBatteries.tsx` the 25 battery cells of a selected zone, `HistoryStrip.tsx` the recent ticks, `DataPanel.tsx` the data in use (scenario rows, batteries, alert, JEV, overlays), `VerifyArchive.tsx` calls `GET /v1/scenario/verify`, and `flowMath.ts` holds the pure helpers the tests cover.
 - `web/src/fixtures/`: `console/*.json` (read by `server/api/fixtures.py` and the web tests), `layout-run.json` (the Demo tape, and the API's last fallback run), and `scenes.ts`.
 - `web/src/pages/`: `App.tsx`, mounted by `web/index.html` through `web/src/main.tsx`. `/` renders `ReplayApp`, `/live` renders `LiveApp`, `/fleet` renders `FleetGridApp`, `/fleet/table` renders the old `FleetApp`, `/wall` loads a run and renders `OperatorWall`, and `/flow` renders `FlowApp` (`route.ts` decides which).
 
