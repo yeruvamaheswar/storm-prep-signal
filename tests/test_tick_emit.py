@@ -128,3 +128,22 @@ def test_engine_never_imports_supabase():
         imports = [line for line in path.read_text().splitlines()
                    if line.strip().startswith(("import ", "from "))]
         assert not any("supabase" in line.lower() for line in imports)
+
+
+def test_confirmed_charge_orders_show_charging_with_negative_power():
+    # A charge report is logged as `charge_confirmed`; the emit must still show the kW it took.
+    settings = {**SETTINGS, **FAST}
+    homes = new_fleet(settings)
+    policy = make_policy()
+    policy.intent = "charge"
+    frame = make_frame(target_mw=0.0)
+    cycle = orchestrate_tick(homes, frame, policy, "AUTO", settings, 1)
+    emit = build_tick_emit(frame, homes, cycle, policy)
+
+    assert cycle.charged_mw > 0
+    charging = [row for row in emit["homes"].values() if row["charge_state"] == "CHARGING"]
+    assert charging
+    for row in charging:
+        assert row["power_kw"] < 0
+        assert row["command"]["ack"] == "ok" and row["command"]["actual_kw"] == row["power_kw"]
+    assert abs(sum(-row["power_kw"] for row in charging) / 1000 - cycle.charged_mw) < 1e-9

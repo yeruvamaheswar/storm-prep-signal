@@ -62,9 +62,10 @@ def test_next_run_reloads_matching_homes_instead_of_reseeding(tmp_path, monkeypa
     after_first = {home.home_id: home.soc_kwh for home in load_fleet(_homes_path(tmp_path))}
     _play(tmp_path)
     after_second = {home.home_id: home.soc_kwh for home in load_fleet(_homes_path(tmp_path))}
-    # Same tape from a fresh 45–75% seed would land on the same SOC. Loading the
-    # discharged file means the second process starts lower and finishes lower.
-    assert sum(after_second.values()) < sum(after_first.values()) - 1e-9
+    # Same tape from a fresh 45–75% seed would land on the same SOC. Loading the saved
+    # file means the second process starts from where the first ended, so it lands elsewhere
+    # (homes under the floor refill, so the total need not be lower).
+    assert after_second != after_first
 
 
 def test_wrong_length_homes_json_reseeds(tmp_path, monkeypatch):

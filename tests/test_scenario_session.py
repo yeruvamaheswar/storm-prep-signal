@@ -68,9 +68,12 @@ def test_engine_never_drains_a_battery_below_its_floor(tmp_path):
 
 def test_a_battery_under_its_floor_either_started_there_or_saw_the_floor_rise(tmp_path):
     s = play(tmp_path, 42, 1)
-    early = [h for h in s.last["homes"] if h["state"] == "below_floor"]
+    # Under the floor by charge, whatever the state: a refilling battery reads "charging".
+    def under(h):
+        return h["soc_pct"] < h["floor_pct"] - 0.5
+    early = [h for h in s.last["homes"] if under(h)]
     assert early and {h["under_floor_why"] for h in early} == {"started_under"}
-    assert all(h["under_floor_why"] is None for h in s.last["homes"] if h["state"] != "below_floor")
+    assert all(h["under_floor_why"] is None for h in s.last["homes"] if not under(h))
     for _ in range(79):          # tick 80, 13:35 CT: the storm floor is 60%
         s.step()
     raised = [h for h in s.last["homes"] if h["under_floor_why"] == "floor_raised"]
@@ -78,7 +81,7 @@ def test_a_battery_under_its_floor_either_started_there_or_saw_the_floor_rise(tm
 
 
 def test_drained_batteries_sit_at_the_floor_and_are_not_called_holding(tmp_path):
-    s = play(tmp_path, 42, 90)   # 14:25 CT: LOW again, the ask has drained the spare charge
+    s = play(tmp_path, 42, 70)   # the ask has drained the spare charge before the storm floor rises
     at_floor = [h for h in s.last["homes"] if h["state"] == "at_floor"]
     assert at_floor
     assert all(abs(h["soc_pct"] - h["floor_pct"]) <= 0.5 for h in at_floor)

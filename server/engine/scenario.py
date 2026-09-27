@@ -450,8 +450,12 @@ class Session:
         }
 
     def under_floor_why(self, home, state, floor_pct):
-        """The engine never sells below a floor, so a battery under one either began there or the floor rose."""
-        if state != "below_floor":
+        """The engine never sells below a floor, so a battery under one either began there or the floor rose.
+
+        A battery refilling to its floor reads `charging`; it still gets the reason while under it.
+        """
+        under = 100 * home.soc_kwh / home.capacity_kwh < floor_pct - FLOOR_BAND_PCT
+        if state not in ("below_floor", "charging") or not under:
             return None
         base = self.settings["base_reserve_pct"]
         if home.home_id in self.started_under and 100 * home.soc_kwh / home.capacity_kwh < base - FLOOR_BAND_PCT:

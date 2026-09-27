@@ -1139,3 +1139,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - New `tests/test_render_settings.py` fails when `render.yaml` and `.env.example` disagree on those names.
 - Docs: `CONSTRAINTS.md` (battery pack setting and the fleet-cap arithmetic), `docs/agents/backend.md` (Render step 5).
 - Found while checking the deploy: live `/v1/snapshot` reports ERCOT `quality: auth` with no HTTP status, which `feeds.quality_from_reason` gives for missing credentials, so `ERCOT_*` look unset in the Render dashboard. `/v1/runs/latest` is the 2-tick Supabase row `persist-probe-20260926`, because no live worker has persisted a run since then.
+
+## 2026-09-26: Batteries under their floor refill at any price (Rajat's lane)
+
+- Named gap: batteries under a reserve floor sat idle instead of charging from the grid. Two root causes.
+- 1. `allocate` only ordered a charge when `price_band` said cheap (at or below `CHARGE_BELOW_USD`), so at $26+ a battery under a raised storm floor waited through the storm. Decision (Rajat): the reserve must be in place before a storm, so a home under its floor refills to the floor at any price. New `controller.refill_kw` / `add_refill`, reason `reserve_refill`, label charge / `reserve_refill` (`CONSTRAINTS.md` allocation step 10, `policy-intent.md` "Refill to the floor"). Replaces the earlier "refill is price-only" decision.
+- 2. `tick_emit._actual_by_command` read only `confirmed` reports, but charge reports are `charge_confirmed` (since #34), so every charging battery was written HOLDING at 0 kW in `tick_emit.json` and on `/flow` while `charging_mw` said the fleet charged. It now reads both. `scenario.under_floor_why` also covers a refilling (`charging`) battery.
+- Tapes (100 homes, 25 kWh / 11.4 kW, main -> this change): storm-rule-high 36.0 -> 45.6% delivered, storm-rule-night 40.3 -> 45.4%, feed-failure charged 0.788 -> 0.879 MWh; the other seven unchanged. 0 breaches on every tape.
+- 8 old tests asserted the old rule (under-floor homes get no order / never move / storm ticks label discharge); Rajat approved updating them. 13 new tests.
+- `pytest -q`: 719 passed. `FUZZ_SEEDS=50`: passed, 0 breaches. Web: `tsc` clean, `vitest` 280 passed.
