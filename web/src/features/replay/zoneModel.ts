@@ -174,8 +174,9 @@ export function lotUnit(timeline: OrderTimelineEntry[] | undefined): { key: Unit
   return null
 }
 
-/** Not asked and at its floor. below_floor is counted apart: a live home under its floor now always refills. */
-const AT_FLOOR_STATES: BatteryState[] = ["at_floor", "reserved"]
+/** Not asked and at its floor. below_floor is counted apart (a live home under its floor now always refills), and so
+ * is reserved: its floor was raised, but its charge can sit far above it (#47: raised and base homes share a zone). */
+const AT_FLOOR_STATES: BatteryState[] = ["at_floor"]
 
 export type LotLook = {
   state: ReplayOrderState | null
@@ -251,6 +252,7 @@ export function refillLine(home: Pick<FlowHome, "state" | "under_floor_why">): s
 export function notAskedLabel(home: Pick<FlowHome, "state" | "plan_status">): string {
   if (planNotLive(home)) return NO_FRESH_READING
   if (home.state === "below_floor") return "Not asked, under its floor"
+  if (home.state === "reserved") return "Not asked, kept for backup"
   return AT_FLOOR_STATES.includes(home.state) ? "Not asked, at its floor" : "Not asked"
 }
 
@@ -389,6 +391,8 @@ export type ZoneSummary = {
   notAskedUnderFloor: number | null
   /** Not asked because the planner's reading of it was not live (plan_status), whatever its state. */
   notAskedNoReading: number | null
+  /** Not asked and reserved: its floor was raised, so it keeps its energy for backup. */
+  notAskedReserved: number | null
   notAskedOther: number | null
 }
 
@@ -411,7 +415,7 @@ export function zoneSummary(
   if (!orders || asked === null) {
     return {
       homes: inZone.length, sellHomes: null, sellKw: NOT_REPORTED, chargeHomes: null, chargeKw: NOT_REPORTED, openLabel, openKw: NOT_REPORTED,
-      notAskedAtFloor: null, notAskedUnderFloor: null, notAskedNoReading: null, notAskedOther: null,
+      notAskedAtFloor: null, notAskedUnderFloor: null, notAskedNoReading: null, notAskedReserved: null, notAskedOther: null,
     }
   }
   const sell: Array<number | undefined> = []
@@ -422,6 +426,7 @@ export function zoneSummary(
   let notAskedAtFloor = 0
   let notAskedUnderFloor = 0
   let notAskedNoReading = 0
+  let notAskedReserved = 0
   let notAskedOther = 0
   for (const home of inZone) {
     const split = splitOrders(orders[home.id])
@@ -443,6 +448,7 @@ export function zoneSummary(
       if (planNotLive(home)) notAskedNoReading += 1
       else if (AT_FLOOR_STATES.includes(home.state)) notAskedAtFloor += 1
       else if (home.state === "below_floor") notAskedUnderFloor += 1
+      else if (home.state === "reserved") notAskedReserved += 1
       else notAskedOther += 1
     }
   }
@@ -458,6 +464,7 @@ export function zoneSummary(
     notAskedAtFloor,
     notAskedUnderFloor,
     notAskedNoReading,
+    notAskedReserved,
     notAskedOther,
   }
 }

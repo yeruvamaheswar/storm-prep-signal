@@ -57,6 +57,12 @@ export function ZonePanel({ zone, homes, orders, tick, tSeconds }: Props) {
         <span>Not asked, at their floor</span>
         <b>{homesText(summary.notAskedAtFloor)}</b>
       </div>
+      {summary.notAskedReserved ? (
+        <div className="zone-row">
+          <span>Not asked, kept for backup (floor raised)</span>
+          <b>{homesText(summary.notAskedReserved)}</b>
+        </div>
+      ) : null}
       {summary.notAskedUnderFloor ? (
         <div className="zone-row">
           <span>Not asked, under their floor</span>
