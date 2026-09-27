@@ -196,6 +196,28 @@ def new_fleet(settings, persist=False, path=None):
     return homes
 
 
+def fleet_counties(settings):
+    """{home_id: (zone, county FIPS)} for new_fleet(settings), in fleet order.
+
+    The same rule scenario.seed_fleet uses: each zone's homes take its roster counties
+    round-robin (assign_county) by their place within the zone. No randomness. `settings`
+    may be that dict, or an int n (seed_settings: the Supabase seed's ZONE_ORDER, South first,
+    as scripts/seed_homes.py wrote public.homes). The engine (Live worker and Replay) uses the
+    ZONES order instead, Houston first, so per-id zones differ; counts per zone and county do not.
+    See docs/agents/demo-fleet.md, Counties.
+    """
+    if isinstance(settings, int):
+        settings = seed_settings(settings)
+    counties = {}
+    for zone, fips, _ in zone_counties(settings):
+        counties.setdefault(zone, []).append(fips)
+    in_zone, out = {}, {}
+    for home in new_fleet(settings):
+        in_zone[home.zone] = in_zone.get(home.zone, 0) + 1
+        out[home.home_id] = (home.zone, assign_county(in_zone[home.zone], counties[home.zone]))
+    return out
+
+
 def save_fleet(homes, path=None):
     """Write the seeded homes. Callers that need the wall should read rollups, not this file."""
     dest = Path(path or FLEET_DIR / "homes.json")
