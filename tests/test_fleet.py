@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from server.app import create_app
 from server.api.fixtures import FixtureStore
-from server.engine.contracts import Allocation, Policy
+from server.engine.contracts import Allocation, Policy, TapeFrame
 from server.engine.fleet import (apply_events, assign_zone, current_rollups, discharge,
                                  fleet_rollups, floor_kwh, load_fleet, new_fleet, safe_kw,
                                  save_rollups, set_status, zone_delivered)
@@ -23,6 +23,7 @@ def settings(**over):
         "home_start_soc_min_pct": 45.0, "home_start_soc_max_pct": 75.0,
         "base_reserve_pct": 30.0, "storm_reserve_pct": 60.0,
         "tick_minutes": 5, "zones": ZONES,
+        "margin_pct": 15, "lookahead_hours": 6,
     }
     base.update(over)
     return base
@@ -334,6 +335,29 @@ def test_run_fills_zone_delivered_mw(tmp_path, monkeypatch):
     first = record["ticks"][0]
     assert first["zone_delivered_mw"]
     assert sum(first["zone_delivered_mw"].values()) == pytest.approx(first["delivered_mw"])
+
+
+def test_run_copies_policy_zone_intent_to_each_tick(tmp_path, monkeypatch):
+    monkeypatch.chdir(Path(__file__).resolve().parent.parent)
+    frame = TapeFrame(
+        tick=1,
+        ts="2026-09-25T12:00:00-05:00",
+        target_mw=0.2,
+        target_label="synthetic",
+        price_usd_mwh=40.0,
+        price_label="synthetic",
+        risk_fixture="tests/fixtures/np3_233_cd.json",
+        zone_prices={"Houston": 10.0, "North": 40.0, "South": 40.0, "West": 80.0},
+        zone_price_label="synthetic",
+    )
+    record = run(None, settings(home_kwh=25.0, home_max_kw=11.4), log_dir=tmp_path / "logs",
+                 runs_dir=tmp_path / "runs", frames=[frame])
+    assert record["ticks"][0]["zone_intent"] == {
+        "Houston": "charge",
+        "North": "hold",
+        "South": "hold",
+        "West": "discharge",
+    }
     saved = json.loads((tmp_path / "fleet" / "rollups.json").read_text())
     assert saved["n"] == 100
     assert "homes" not in saved

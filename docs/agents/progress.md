@@ -1148,3 +1148,8 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tapes (100 homes, 25 kWh / 11.4 kW, main -> this change): storm-rule-high 36.0 -> 45.6% delivered, storm-rule-night 40.3 -> 45.4%, feed-failure charged 0.788 -> 0.879 MWh; the other seven unchanged. 0 breaches on every tape.
 - 8 old tests asserted the old rule (under-floor homes get no order / never move / storm ticks label discharge); Rajat approved updating them. 13 new tests.
 - `pytest -q`: 719 passed. `FUZZ_SEEDS=50`: passed, 0 breaches. Web: `tsc` clean, `vitest` 280 passed.
+## 2026-09-27: Zone intent reaches the tick, wall, and flow
+
+- Filled gap: `Policy.zone_intent` now copies to `TickResult.zone_intent`, so run files, `/v1/snapshot`, the wall zone drill-in, and `/flow` can name each zone's own charge / hold / discharge band.
+- Snapshot does not allocate. It rebuilds the same labels from the already-stamped LZ price rows and carries old tick values when present.
+- Tests: engine tick path 24, run-file copy, snapshot price intent, wall zone lens, and `/flow` data panel.

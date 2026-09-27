@@ -270,6 +270,7 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
         reasons=list(alloc.reasons) + (["unknown_weather_zone"] if unknown_weather else []),
         zone_reserve_pct=dict(policy.zone_reserve_pct),
         zone_reasons=dict(policy.zone_reasons),
+        zone_intent=dict(policy.zone_intent),
         zone_delivered_mw=dict(cycle.zone_delivered_mw),
         price_as_of=priced["price_as_of"],
         zone_acks=zone_acks(homes, cycle),

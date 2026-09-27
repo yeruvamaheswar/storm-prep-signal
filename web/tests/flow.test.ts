@@ -93,6 +93,28 @@ describe("data panel overlays", () => {
   })
 })
 
+describe("flow data panel intent", () => {
+  it("shows each zone intent when the engine tick carries it", () => {
+    const state = {
+      scenario: null, start: {}, alerts: [], grid_down_zones: [], honest_limits: [], log: [],
+      provenance: null,
+      tick: {
+        tick: 1, ts: "2024-01-15T13:10:00-06:00", mode: "AUTO",
+        target_mw: 0.2, target_label: "synthetic", delivered_mw: 0.2, missed_mw: 0,
+        price_usd_mwh: 42.25, price_label: "ercot", reserve_pct: 30, policy_reason: "normal",
+        risk_level: "LOW", intent: "charge", intent_reason: "grid_call_served",
+        reasons: [], breaches: 0, zone_reserve_pct: {}, zone_reasons: {},
+        zone_intent: { Houston: "charge", North: "hold", South: "charge", West: "discharge" },
+        brief: "tick",
+      },
+    } as unknown as SessionState
+    const html = renderToStaticMarkup(createElement(DataPanel, { state, verify: null }))
+    expect(html).toContain("Houston intent")
+    expect(html).toContain("West intent")
+    expect(html).toContain(">discharge<")
+  })
+})
+
 describe("flow route", () => {
   it("owns /flow without taking /fleet", () => {
     expect(isFlowPath("/flow")).toBe(true)

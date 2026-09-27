@@ -26,6 +26,7 @@ export type ZoneFacts = {
   discharging: number
   reserved: number
   supplyingMw: number
+  intent: "charge" | "hold" | "discharge" | null
 }
 
 const FLEET_FLOOR = "fleet floor, not a zone floor"
@@ -65,6 +66,7 @@ function zoneOutageMw(tick: TickView, zone: LoadZone): number | null {
 export function zoneFacts(tick: TickView, zone: LoadZone, rollups?: FleetRollups | null): ZoneFacts {
   const price = priceFact(tick, zone)
   const homes = zoneAggregate(tick, zone, rollups) ?? { discharging: 0, reserved: 0, supplyingMw: 0 }
+  const intent = tick.zone_intent?.[zone] ?? null
   return {
     zone,
     outageMw: zoneOutageMw(tick, zone),
@@ -75,6 +77,7 @@ export function zoneFacts(tick: TickView, zone: LoadZone, rollups?: FleetRollups
     discharging: homes.discharging,
     reserved: homes.reserved,
     supplyingMw: homes.supplyingMw,
+    intent,
   }
 }
 
@@ -90,15 +93,17 @@ export function zoneBrief(facts: ZoneFacts): string {
       ? `Price unread (${facts.priceCaption})`
       : `Price ${formatPrice(facts.priceUsdMwh)} $/MWh (${facts.priceCaption})`
   const floor = `Floor ${String(facts.floorPct)}% (${facts.floorCaption})`
+  const intent = facts.intent === null ? "Intent unread" : `Intent ${facts.intent}`
   const homes = `${homesClause(facts.discharging, "discharging")}, ${homesClause(facts.reserved, "reserved")}`
-  return `${facts.zone}. ${outage}. ${price}. ${floor}. ${homes}.`
+  return `${facts.zone}. ${outage}. ${price}. ${floor}. ${intent}. ${homes}.`
 }
 
 /** Map callout for one load zone. The title carries why price and floor are not zone series. */
 export function zoneCallout(facts: ZoneFacts): string {
   const outage = facts.outageMw === null ? "outage unread" : `outage ${formatGridMw(facts.outageMw)} MW`
   const price = facts.priceUsdMwh === null ? "price unread" : `${formatPrice(facts.priceUsdMwh)} $/MWh`
-  return `${facts.zone} · ${outage} · ${price} · floor ${String(facts.floorPct)}% · ${String(facts.discharging)} discharging · ${String(facts.reserved)} reserved`
+  const intent = facts.intent === null ? "intent unread" : facts.intent
+  return `${facts.zone} · ${outage} · ${price} · ${intent} · floor ${String(facts.floorPct)}% · ${String(facts.discharging)} discharging · ${String(facts.reserved)} reserved`
 }
 
 export function zoneOutageSeries(ticks: readonly TickView[], zone: LoadZone): number[] {

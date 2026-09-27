@@ -107,6 +107,7 @@ export type FlowTick = {
   breaches: number
   zone_reserve_pct: Record<string, number>
   zone_reasons: Record<string, string>
+  zone_intent?: Record<string, string>
   brief: string
   charging_mw?: number
   grid_down_zones?: string[]

@@ -47,7 +47,7 @@ Requests left over from an earlier worker are not replayed; the page asks again.
 
 - A battery never sells below its floor. Under its floor it refills to the floor from the grid at any price (Rajat, 2026-09-26, latest; replaces the earlier price-only refill). Filling past the floor still happens only when the zone price is at or below `CHARGE_BELOW_USD` ($25). Rule: `docs/agents/policy-intent.md` "Refill to the floor". A refilling battery reads `charging` and keeps its `under_floor_why`.
 - Each battery's kW comes from `tick_emit`, which counts both `confirmed` and `charge_confirmed` reports. Before 2026-09-26 (latest) it read only `confirmed`, so every charging battery showed 0 kW and "below floor" / HOLDING even while `charging_mw` said the fleet was charging.
-- The worker clamps a charge order to `fleet.room_kw` = `min(max_kw, (capacity − soc) × 60 / tick_minutes)`, so a pack never fills past capacity. Charge is booked apart from delivery: `TickResult.charging_mw` and `zone_charging_mw`. It is never a breach.
+- The worker clamps a charge order to `fleet.room_kw` = `min(max_kw, (capacity − soc) × 60 / tick_minutes)`, so a pack never fills past capacity. Charge is booked apart from delivery: `TickResult.charging_mw` and `zone_charging_mw`. `TickResult.zone_intent` names each zone's price band when the tick has zone prices, and `/flow` shows it beside the zone floors. It is never a breach.
 - A charge order is sent once: never retried, never reassigned (kept from `main` #34 when this branch merged, chosen by the user on 2026-09-26). `CycleResult.charged_mw` (from #34) equals `charging_mw`. Telemetry reports `CHARGING` for negative power.
 - Detail of the controller side: `docs/agents/policy-intent.md` and `docs/agents/epic-3-controller.md`.
 

@@ -103,7 +103,7 @@ New contract fields, all with defaults:
 - `TickResult.plant`, `feed`, `zone_telemetry: dict` (all `default_factory=dict`; empty when `TELEMETRY_FEED=0`). Shapes: `docs/agents/telemetry-vpp.md`.
 - `TickResult.charging_mw: float = 0.0` and `zone_charging_mw: dict` (confirmed MW absorbed from the grid; never counted in `delivered_mw`), and `TickResult.grid_down_zones: list` (sorted zone names from the frame's `grid_down` event). Added 2026-09-26.
 
-- `Policy.zone_intent: dict` (`default_factory=dict`; zone name to `charge` \| `hold` \| `discharge`, set only from zone prices). Added 2026-09-26.
+- `Policy.zone_intent: dict` and `TickResult.zone_intent: dict` (`default_factory=dict`; zone name to `charge` \| `hold` \| `discharge`, set only from zone prices). Added 2026-09-26 / copied to ticks 2026-09-27.
 
 Rule: zone floors react only to weather alerts; there is no per-zone ERCOT outage threshold. Zone intent reads each zone's own price (allocation rule step 9).
 
