@@ -169,7 +169,26 @@ def as_console_home(row):
     zone = row.get("zone")
     if zone:
         home["zone"] = zone
+    _hold_below_floor(home)
     return home
+
+
+def _hold_below_floor(home):
+    """A stored DISCHARGING label on a home under the floor is stale.
+
+    The engine clamp does not count that home as a breach, so the table must
+    not keep the discharge. Charge (power below 0) is left as stored.
+    """
+    if home["soc_kwh"] >= home["floor_kwh"]:
+        return
+    power = home["power_kw"]
+    discharging = home["charge_state"] == "DISCHARGING" or (power is not None and power > 0)
+    if discharging:
+        home["charge_state"] = "HOLDING"
+        home["assigned_kw"] = 0.0
+        home["power_kw"] = 0.0
+    elif home["assigned_kw"] > 0:
+        home["assigned_kw"] = 0.0
 
 
 def _table_get(table, params, settings=None, http_get=None, extra_headers=None):

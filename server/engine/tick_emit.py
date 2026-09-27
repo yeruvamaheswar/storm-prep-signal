@@ -6,9 +6,13 @@ after `orchestrate_tick` and writes `var/fleet/tick_emit.json` itself.
 Shape follows docs/agents/plans/fleet-controller-prompts.md: the whole fleet
 for that tick, including homes left at 0 kW. Charge state and power come only
 from confirmed kW (positive discharge, negative charge, zero holding, FULL or
-EMPTY only at the rails). Ack is `ok` (confirmed) or `timeout` (unconfirmed,
-late, or missing). `command` is None when the tick sent no order.
+EMPTY only at the rails). A home already at or under its floor is HOLDING with
+assigned 0 and power 0, so a clamped order is not labeled DISCHARGING. Ack is
+`ok` (confirmed) or `timeout` (unconfirmed, late, or missing). `command` is
+None when the tick sent no order.
 """
+
+from server.engine.fleet import floor_kwh
 
 ACK_OK = "ok"
 ACK_TIMEOUT = "timeout"
@@ -66,8 +70,20 @@ def _kw_for_command(command_id, home_id, per_home_kw, reassigned_kw):
     return float((per_home_kw or {}).get(home_id, 0.0))
 
 
-def build_tick_emit(frame, homes, cycle):
-    """Whole-fleet emit dict for one tick. Callers JSON-dump it to tick_emit.json."""
+def _at_or_under_floor(home, policy):
+    """True when this home has no energy it may sell. No policy means we cannot tell."""
+    if policy is None:
+        return False
+    return home.soc_kwh <= floor_kwh(home, policy) + KW_EPS
+
+
+def build_tick_emit(frame, homes, cycle, policy=None):
+    """Whole-fleet emit dict for one tick. Callers JSON-dump it to tick_emit.json.
+
+    A home already at or under its floor is written HOLDING with assigned 0 and
+    power 0, even if the plan still listed it. Charge (negative kW) is left
+    alone: pulling a home up toward the floor is not a discharge.
+    """
     per_home_kw = dict(getattr(cycle.allocation, "per_home_kw", {}) or {})
     command_states = dict(getattr(cycle, "command_states", {}) or {})
     events = list(getattr(cycle, "events", []) or [])
@@ -90,17 +106,29 @@ def build_tick_emit(frame, homes, cycle):
         acked = any(command_states.get(cid) == "confirmed" for cid in cids)
         power_kw = float(confirmed_kw) if acked else 0.0
         state = charge_state(float(confirmed_kw) if acked else 0.0, home.soc_kwh, home.capacity_kwh)
-        if not cids and float(per_home_kw.get(home_id, 0.0)) == 0.0:
+        # Below the floor the clamp already delivered 0, so breaches stays 0.
+        # The row must not still say DISCHARGING or carry the planned kW.
+        if state != "CHARGING" and _at_or_under_floor(home, policy) and (
+            state == "DISCHARGING" or assigned_kw > KW_EPS or power_kw > KW_EPS
+        ):
+            assigned_kw = 0.0
+            power_kw = 0.0
+            state = "HOLDING"
+            command = None
+        elif not cids and float(per_home_kw.get(home_id, 0.0)) == 0.0:
             command = None
         else:
-            primary = f"{home_id}:{frame.tick}" if f"{home_id}:{frame.tick}" in cids else cids[0]
-            command = {
-                "command_id": primary,
-                "kw": float(assigned_kw),
-                "actual_kw": float(confirmed_kw) if acked else 0.0,
-                "ack": ACK_OK if acked else ACK_TIMEOUT,
-                "sent_at": frame.ts,
-            }
+            if not cids:
+                command = None
+            else:
+                primary = f"{home_id}:{frame.tick}" if f"{home_id}:{frame.tick}" in cids else cids[0]
+                command = {
+                    "command_id": primary,
+                    "kw": float(assigned_kw),
+                    "actual_kw": float(confirmed_kw) if acked else 0.0,
+                    "ack": ACK_OK if acked else ACK_TIMEOUT,
+                    "sent_at": frame.ts,
+                }
         emit_homes[home_id] = {
             "soc_kwh": float(home.soc_kwh),
             "assigned_kw": float(assigned_kw),
