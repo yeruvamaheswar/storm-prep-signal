@@ -261,7 +261,7 @@ def test_seek_reproduces_every_tick_exactly(tmp_path, case):
 
 # --- the worker ---
 
-def run_worker(tmp_path, script, clock_step=0.05, until=30.0):
+def run_worker(tmp_path, script, clock_step=0.05, until=30.0, scenario="operator-hold", seed=3):
     """Run the worker on a fake clock. `script` maps a fake time to requests to append then. Returns every state
     written, with the fake time it was written at."""
     now = [0.0]
@@ -284,7 +284,7 @@ def run_worker(tmp_path, script, clock_step=0.05, until=30.0):
     worker.write_state = write
     try:
         with pytest.raises(Stop):
-            worker.run(scenario_dir=tmp_path, scenario="operator-hold", seed=3, settings=dict(SETTINGS),
+            worker.run(scenario_dir=tmp_path, scenario=scenario, seed=seed, settings=dict(SETTINGS),
                        clock=lambda: now[0], sleep=sleep, ignore_old_requests=False)
     finally:
         worker.write_state = original
@@ -340,6 +340,35 @@ def test_several_seeks_in_one_poll_run_only_the_last(tmp_path):
     last = written[-1][1]
     assert last["tick_index"] == 1
     assert sum("moved to tick" in line["text"] for line in last["log"]) == 1
+
+
+def test_seeks_with_only_a_speed_change_between_still_run_once(tmp_path):
+    written = run_worker(tmp_path, {30.0: [("seek", {"tick": 0}), ("speed", {"x": 30}), ("seek", {"tick": 1})]},
+                         until=31.0)
+    assert len([s for t, s in written if s.get("seeking")]) == 1
+    last = written[-1][1]
+    assert last["tick_index"] == 1 and last["speed"] == 30
+    assert sum("moved to tick" in line["text"] for line in last["log"]) == 1
+
+
+def test_a_play_between_two_seeks_keeps_the_first_seek_so_a_finished_run_is_not_reset(tmp_path):
+    # Beryl at 1 min per day (0.21 s per tick) finishes its 193 ticks by about 41 s, with the alert logged at t=1.
+    # Play on a finished tape resets the run (new fleet, log cleared). In [seek 10, play, seek 20] the play must be
+    # judged after seek 10, not against the finished tick, so nothing resets and the action log survives.
+    written = run_worker(tmp_path, {
+        0.0: [("speed", {"x": 1440})],
+        1.0: [("alert", {"alert_id": BERYL_ALERT})],
+        45.0: [("seek", {"tick": 10}), ("play", {"playing": True}), ("seek", {"tick": 20})],
+    }, until=45.2, scenario="beryl-landfall", seed=42)
+    before = [s for t, s in written if t <= 45.0][-1]
+    assert before["status"] == "finished" and before["tick_index"] == 193
+    assert len(before["actions"]) == 1
+    assert len([s for t, s in written if s.get("seeking")]) == 2
+    after = [s for t, s in written if t > 45.001 and not s.get("seeking")]
+    first = after[0]
+    assert first["seed"] == 42 and first["tick_index"] == 20 and first["status"] == "playing"
+    assert [(a["kind"], a["index"]) for a in first["actions"]] == [(a["kind"], a["index"]) for a in before["actions"]]
+    assert not any("fleet seeded" in line["text"] for line in first["log"][-3:])
 
 
 def test_a_tick_that_crashes_mid_seek_stops_playback_and_says_where(tmp_path, monkeypatch):
