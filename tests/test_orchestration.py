@@ -695,7 +695,8 @@ def test_zone_intent_books_discharge_and_charge_apart():
     check_books(result, 0.05)
     zone_of = {h.home_id: h.zone for h in homes}
     assert result.credited_mw == pytest.approx(0.05)
-    assert {zone_of[h] for h in result.home_confirmed_kw} == {"Houston"}
+    # South and West have no row (hold), so they share the call with Houston; North only charges.
+    assert {zone_of[h] for h in result.home_confirmed_kw} == {"Houston", "South", "West"}
     north_took = sum(h.soc_kwh - before[h.home_id] for h in homes if h.zone == "North")
     assert result.charged_mw == pytest.approx(north_took * 60 / 5 / 1000)
     acks = zone_acks(homes, result)

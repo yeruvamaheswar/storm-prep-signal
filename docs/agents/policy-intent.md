@@ -6,7 +6,8 @@
 |---|---|---|
 | Mode HOLD | hold | `operator_hold` |
 | Charged kW > sold kW, something sold (mixed, charge-heavy) | charge | `grid_call_served` |
-| Charged kW > 0, nothing sold | charge | policy reason |
+| Charged kW > 0, nothing sold, band said charge | charge | policy reason |
+| Charged kW > 0, nothing sold, band not charge (only zone prices said charge, e.g. headline missing and Houston $10) | charge | `zone_price` |
 | Sold kW > 0 and sold kW >= charged kW | discharge | policy reason if the band said discharge, else `grid_call` |
 | Nothing moved, band said hold | hold | policy reason (`""`, `price_unavailable`) |
 | Nothing moved, band said charge/discharge, target 0 | hold | `no_grid_call` (for the charge band only when every home is full: idle charging otherwise makes it a charge tick) |
@@ -14,7 +15,7 @@
 
 Net flow picks the label (sold and charged are the planned positive and negative kW, as sizes). On a cheap tick with a call, a few homes sell and most charge (e.g. 4 homes sell 0.02 MW while 96 charge 0.48 MW), so it reads charge / `grid_call_served`. An exact tie reads discharge, because the call was served. A discharge-winning mixed tick shows its charge through the `charging` code in `reasons`. A cheap tick with no call charges every home with room, so it reads charge. `/v1/snapshot`'s AUTO overlay still clears `operator_hold`. The wall's banner (`web/src/fleetIntent.ts`) reads `delivered_mw`, not `intent`; `/flow` prints `intent (intent_reason)` as text. Tests: `acted_intent` cases in `tests/test_controller.py`, paths 21 to 23 in `tests/test_tick_paths.py`.
 
-**Decision (2026-09-26).** Fields were added, never renamed. `Policy` and `TickResult` carry `intent` (`charge` \| `discharge` \| `hold`) and `intent_reason`. `Allocation.per_home_kw` stays one dict and is signed: `>0` discharge, `<0` charge. Do not add `per_home_charge_kw` / `per_home_discharge_kw`. `Home.zone` was already present; `Home.updated_at` is the empty-string default until the fleet stamps a write. Charge raises `soc_kwh`. Discharge still never crosses the floor. `breaches == 0`. Since PR #31, `allocate` writes negative kW on `intent == charge` (and per zone with `zone_intent`); hold still serves the call from headroom. Since 2026-09-26, cheap power serves the call, then charges: see "How a charge tick runs" below.
+**Decision (2026-09-26).** Fields were added, never renamed. `Policy` and `TickResult` carry `intent` (`charge` \| `discharge` \| `hold`) and `intent_reason`. `Allocation.per_home_kw` stays one dict and is signed: `>0` discharge, `<0` charge. Do not add `per_home_charge_kw` / `per_home_discharge_kw`. `Home.zone` was already present; `Home.updated_at` is the empty-string default until the fleet stamps a write. Charge raises `soc_kwh`. Discharge still never crosses the floor. `breaches == 0`. Since PR #31, `allocate` writes negative kW on `intent == charge` (and per zone with `zone_intent`); hold still serves the call from headroom. Since 2026-09-26, cheap power serves the call, then charges: see "How a charge tick runs" below. Since 2026-09-26 (later), zone prices set `zone_intent`: see "Each zone decides from its own price".
 
 Open this file when you change the intent rule, the signed allocation contract, the charge/discharge price bands, or how intent is stamped on the tick.
 
@@ -27,6 +28,33 @@ Open this file when you change the intent rule, the signed allocation contract, 
 5. Risk LOW + AUTO: LZ price `<= charge_threshold_usd_mwh` → charge; `>= discharge_threshold_usd_mwh` → discharge; else hold.
 
 Floor-only callers omit `price_label`. Intent stays `hold` and the floor reasons are unchanged.
+
+## Each zone decides from its own price
+
+**Decision (2026-09-26, later): per-zone bands, and the call is still always served.** Before this, the four load-zone prices reached the tick (`zone_prices`) but nothing set `Policy.zone_intent`, so every zone followed the North headline and `allocate_zoned` never ran in production. A $10 Houston and an $80 West were treated the same.
+
+`reserve_policy(..., zone_prices=None)` (add-only; `loop.play_frame` passes the tick's map) sets `Policy.zone_intent[zone]` for every zone in `ZONES` with `price_band`, the same bands as the fleet:
+
+- The zone's own price. A zone whose reason is `storm_risk_high`, `signal_unavailable` or `weather_alert` never gets `discharge` (charge when cheap, else hold).
+- A zone with no price takes the fleet `Policy.intent` (the headline price), except a storm-reason zone gets `hold` where that is `discharge` (charge on a cheap headline is kept: charging never lowers backup).
+- A missing headline price (`price_unavailable`) does not stop zones with their own price: those are real ERCOT numbers, charging never lowers backup, and selling only happens on a call. A tick that charges only because of zone prices is labelled charge / `zone_price`.
+- HOLD mode, a floor-only call (no `price_label`), or no zone prices at all: `zone_intent` stays `{}` and the fleet path runs as before.
+
+`Policy.intent` stays the headline band; `acted_intent` still labels the tick by net flow.
+
+`allocate_zoned` (via `serve_then_charge`, shared with `allocate_charge`):
+
+1. Every live home with headroom in a `discharge` or `hold` zone (a zone with no row counts as hold) shares the call in proportion to its cap (`split_target`, as `allocate_discharge`). Spreading keeps the most homes above their floors for the next call; picking the fewest homes only pays when it frees other homes to charge, and nobody charges in these zones.
+   Only if those caps fall short do `charge`-zone homes sell the remainder, the fewest of them (`pick_sellers`), so the rest of the cheap zone still charges.
+2. Every other live home in a `charge` zone charges at its room cap. Non-selling homes in hold and discharge zones do nothing: the fleet sells only on a call.
+3. A home never sells and charges in one tick. Grid-down, dead, stale and unknown-zone homes get nothing.
+4. Reasons: shortfall head code if missed, `charging` if any home charges, status suffixes; `grid_down:<zone>` appended by `allocate`.
+
+`holding_spare_energy` is dropped from the zoned path: it meant "missed while hold zones sat on headroom", which cannot happen now that hold zones sell for a call. It stays only on the unknown-intent branch of `allocate`.
+
+Tapes (origin/main -> this rule, 0 breaches): heather 24.4 -> 35.5%, heather-thaw 80.5 -> 92.8%, calm-charge 76.9 -> 80.8%; storm-rule-night 35.3 -> 29.2%, storm-rule-high 32.6 -> 32.5%; the rest unchanged within 0.2 points. Why storm-rule-night drops (correct, not a bug): at 16:00-16:25 North is $22-23 but Houston is $67-80 and South $158-303. origin/main charged every zone on the North price (237 kWh over the run); per-zone charges only the cheap zones (92 kWh). The 145 kWh not bought is the 0.143 MWh delivered less: both runs drain every home to the floor by 20:40, so delivery equals energy stored. Deliveries first differ at tick 43 (19:30). storm-rule-high: South at $25.49 (just above $25) at 08:45-08:55 does not charge; 30 kWh less stored, 0.002 MWh less delivered.
+
+Tests: zone-band cases in `tests/test_policy.py`, `allocate_zoned` tier cases in `tests/test_controller.py`, path 24 in `tests/test_tick_paths.py`.
 
 ## Settings
 
@@ -65,6 +93,6 @@ The fuzzer (`tests/test_invariants.py`) draws random fleet and per-zone intents 
 
 ## Callers
 
-`loop.py` stamps price, then calls `reserve_policy(..., mode, price_usd_mwh, price_label)`, then `allocate` (inside `orchestrate_tick`), then stamps the tick with `acted_intent`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
+`loop.py` stamps price, then calls `reserve_policy(..., mode, price_usd_mwh, price_label, zone_prices)`, then `allocate` (inside `orchestrate_tick`), then stamps the tick with `acted_intent`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
 
 People page: `docs/humans/policy-intent.md`.

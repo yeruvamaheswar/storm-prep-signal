@@ -8,6 +8,7 @@ rules in check_tick. Run with -s to read one line per path:
     .venv/bin/pytest -q -s tests/test_tick_paths.py
 """
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from server.engine import fleet, orchestration
 from server.engine import loop as engine
 from server.engine.cli import read_settings
 from server.engine.contracts import Home, TapeFrame
+from server.engine.controller import acted_intent
 
 ROOT = Path(__file__).parent.parent
 CALM = "tests/fixtures/np3_233_cd.json"             # rates LOW
@@ -374,3 +376,30 @@ def test_path_23_cheap_price_with_no_call_charges_and_is_labelled_charge(tmp_pat
     assert moved_kwh(data) > 0
     assert sold_kw(data) == 0 and tick["delivered_mw"] == 0
     assert (tick["intent"], tick["intent_reason"]) == ("charge", data["policy"].intent_reason)
+
+
+# --- each load zone decides from its own price ------------------------------------------------
+
+def test_path_24_each_zone_follows_its_own_price(tmp_path, monkeypatch):
+    # Cheap Houston, expensive West, North and South in between; the headline price is North's.
+    prices = {"Houston": 10.0, "North": 40.0, "South": 40.0, "West": 80.0}
+    tape = replace(frame(price=40.0), zone_prices=prices, zone_price_label="synthetic")
+    record, seen = play(tmp_path, monkeypatch, [tape])
+    tick, data = record["ticks"][0], seen[0]
+    story(24, "zone prices", tick, data, f" | intent_reason {tick['intent_reason']}")
+    policy, planned = data["policy"], data["cycle"].allocation.per_home_kw
+    assert policy.zone_intent == {"Houston": "charge", "North": "hold", "South": "hold",
+                                  "West": "discharge"}
+    zone_of = {h.home_id: h.zone for h in data["homes"]}
+    sellers = {i for i, kw in planned.items() if kw > 0}
+    chargers = {i for i, kw in planned.items() if kw < 0}
+    # The call is met, and only the non-cheap zones sell for it: just what the call needs.
+    assert tick["delivered_mw"] == pytest.approx(0.2)
+    assert sold_kw(data) == pytest.approx(200.0)
+    assert sellers and {zone_of[i] for i in sellers} <= {"West", "North", "South"}
+    # Every live Houston home charges (they start 45-75% full, so all have room); no other zone does.
+    assert chargers == {i for i in fleet_ids("Houston") if data["status"][i] == "live"}
+    assert gained_kwh(data) > 0
+    # The label is what the fleet was ordered to do.
+    assert (tick["intent"], tick["intent_reason"]) == acted_intent(data["cycle"].allocation,
+                                                                   policy, "AUTO")

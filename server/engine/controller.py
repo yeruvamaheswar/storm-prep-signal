@@ -72,7 +72,8 @@ def acted_intent(alloc, policy, mode):
         mode HOLD                        -> hold, operator_hold
         charged > sold                   -> charge; grid_call_served if anything sold (the
                                             call was met while the fleet mostly charged),
-                                            else policy reason
+                                            else policy reason on a charge band, or
+                                            zone_price when only zone prices said charge
         sold >= charged, sold > 0        -> discharge, policy reason if policy said discharge
                                             else grid_call (the grid called, not the price)
         nothing moved, policy said hold  -> hold, policy reason (e.g. price_unavailable)
@@ -94,7 +95,10 @@ def acted_intent(alloc, policy, mode):
     noise_kw = MISSED_TOLERANCE_MW * 1000
     sold = sold_kw > noise_kw
     if charged_kw > noise_kw and charged_kw - sold_kw > noise_kw:
-        return "charge", "grid_call_served" if sold else policy.intent_reason
+        if sold:
+            return "charge", "grid_call_served"
+        # Charging without a charge band means a zone's own price was cheap.
+        return "charge", policy.intent_reason if policy.intent == "charge" else "zone_price"
     if sold:
         return "discharge", policy.intent_reason if policy.intent == "discharge" else "grid_call"
     target_mw = alloc.delivered_mw + alloc.missed_mw
@@ -156,14 +160,58 @@ def allocate_charge(homes, frame, policy, settings):
     in one tick. Charge raises soc and is never a breach; the worker and `discharge` clamp
     it to `room_kw`, so it never fills past capacity.
     """
-    target_mw = frame.target_mw
+    def sell(caps, target_kw):
+        return split_target(pick_sellers(caps, target_kw), target_kw)
+
+    return serve_then_charge(homes, frame, policy, settings, sell, lambda home: True)
+
+
+def allocate_zoned(homes, frame, policy, settings, zone_intent):
+    """Each zone's own price band, but the call is always served while any zone has headroom.
+
+    Every live home with headroom in a discharge or hold zone (a zone with no row counts as
+    hold) shares the call in proportion to its cap, like `allocate_discharge`: spreading the
+    drain keeps the most homes above their floors for the next call. Only when those caps
+    fall short do charge-zone homes sell the remainder, the fewest of them (most headroom
+    first, ties by home_id), so the rest of the cheap zone still charges. Non-selling homes
+    in hold and discharge zones do nothing: the fleet only sells on a call.
+    """
+    zone_of = {home.home_id: home.zone for home in homes}
+
+    def cheap(home_id):
+        return zone_intent.get(zone_of[home_id], "hold") == "charge"
+
+    def sell(caps, target_kw):
+        spread = {home_id: cap for home_id, cap in caps.items() if not cheap(home_id)}
+        shares = split_target(spread, target_kw)
+        remainder = target_kw - sum(spread.values())
+        # Split noise is not a shortfall: a cheap home must not sell 1e-15 kW and lose its charge.
+        if remainder > MISSED_TOLERANCE_MW * 1000:
+            # Fewest cheap homes cover what the other zones could not: the rest keep charging.
+            cheap_caps = {home_id: cap for home_id, cap in caps.items() if cheap(home_id)}
+            shares.update(split_target(pick_sellers(cheap_caps, remainder), remainder))
+        return shares
+
+    return serve_then_charge(homes, frame, policy, settings, sell,
+                             lambda home: cheap(home.home_id))
+
+
+def serve_then_charge(homes, frame, policy, settings, sell, may_charge):
+    """Serve `target_mw` with `sell(caps, target_kw)`, then charge the non-sellers `may_charge` allows.
+
+    Shared by the fleet charge path and the zoned path so both keep the same books:
+    delivered counts the sellers only, missed is the rest, and a home never sells and
+    charges in one tick.
+    """
+    target_kw = frame.target_mw * 1000
     down = grid_down_zones(frame)
-    sellers = pick_sellers(home_caps(homes, policy, settings, down), target_mw * 1000)
-    positive = split_target(sellers, target_mw * 1000)
+    positive = sell(home_caps(homes, policy, settings, down), target_kw)
     room = charge_caps(homes, policy, settings, down)
-    negative = {home_id: -kw for home_id, kw in room.items() if home_id not in sellers}
-    delivered_mw = min(sum(positive.values()) / 1000, target_mw)
-    missed_mw = max(0.0, target_mw - delivered_mw)
+    by_id = {home.home_id: home for home in homes}
+    negative = {home_id: -kw for home_id, kw in room.items()
+                if home_id not in positive and may_charge(by_id[home_id])}
+    delivered_mw = min(sum(positive.values()) / 1000, frame.target_mw)
+    missed_mw = max(0.0, frame.target_mw - delivered_mw)
     reasons = shortfall_codes(policy, missed_mw)
     if negative:
         reasons.append("charging")
@@ -183,49 +231,6 @@ def pick_sellers(caps, target_kw):
         picked[home_id] = cap
         total += cap
     return picked
-
-
-def allocate_zoned(homes, frame, policy, settings, zone_intent):
-    """Each live home follows its own zone's intent; a zone with no row holds.
-
-    Discharge homes share `target_mw` in proportion to their headroom caps. Charge homes
-    each absorb at their room cap (negative kW). Hold and missing-zone homes get nothing.
-    `delivered_mw` counts the positive shares only; `missed_mw` is what was not delivered.
-    """
-    target_mw = frame.target_mw
-    down = grid_down_zones(frame)
-    by_id = {home.home_id: home for home in homes}
-    discharge_caps = home_caps(homes, policy, settings, down)
-    room_caps = charge_caps(homes, policy, settings, down)
-    # Keep only the homes whose zone asks for that direction.
-    discharge_caps = {
-        home_id: cap for home_id, cap in discharge_caps.items()
-        if zone_intent.get(by_id[home_id].zone, "hold") == "discharge"
-    }
-    room_caps = {
-        home_id: cap for home_id, cap in room_caps.items()
-        if zone_intent.get(by_id[home_id].zone, "hold") == "charge"
-    }
-    positive = split_target(discharge_caps, target_mw * 1000)
-    negative = {home_id: -kw for home_id, kw in room_caps.items() if kw > 0}
-    per_home_kw = {**positive, **negative}
-    delivered_mw = min(sum(positive.values()) / 1000, target_mw)
-    missed_mw = max(0.0, target_mw - delivered_mw)
-    reasons = []
-    if missed_mw > MISSED_TOLERANCE_MW:
-        reasons.append("storm_reserve" if is_storm_policy(policy) else "fleet_headroom_short")
-    if negative:
-        reasons.append("charging")
-    if missed_mw > MISSED_TOLERANCE_MW and any(
-        home.status == "live"
-        and not has_unknown_zone(home, policy)
-        and home.zone not in down
-        and zone_intent.get(home.zone, "hold") == "hold"
-        for home in homes
-    ):
-        reasons.append("holding_spare_energy")
-    reasons += status_suffixes(homes, policy)
-    return Allocation(per_home_kw, delivered_mw, missed_mw, reasons)
 
 
 def status_suffixes(homes, policy):

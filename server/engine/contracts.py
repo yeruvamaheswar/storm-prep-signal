@@ -40,6 +40,9 @@ class Policy:
     # Default hold: floor-only callers omit price, and allocate still only discharges.
     intent: str = "hold"              # "charge" | "discharge" | "hold"
     intent_reason: str = ""           # "price_unavailable" | "operator_hold" | ""
+    # Zone name to its own price band, set only when the tick has zone prices. Empty: every
+    # zone follows `intent`. See docs/agents/policy-intent.md "Each zone decides".
+    zone_intent: dict = field(default_factory=dict)
 
 @dataclass
 class Allocation:
@@ -72,7 +75,7 @@ class TickResult:
     breaches: int             # homes discharged below their floor this tick; must be 0
     reasons: list = field(default_factory=list)
     intent: str = "hold"              # what the fleet was ordered to do (controller.acted_intent)
-    intent_reason: str = ""           # policy reason, "operator_hold", "grid_call" or "no_grid_call"
+    intent_reason: str = ""           # policy reason, "operator_hold", "grid_call", "no_grid_call", "zone_price"
     zone_reserve_pct: dict = field(default_factory=dict)   # zone name to floor percent
     zone_reasons: dict = field(default_factory=dict)       # zone name to reason code
     zone_delivered_mw: dict = field(default_factory=dict)  # zone name to MW delivered

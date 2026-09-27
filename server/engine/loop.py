@@ -240,9 +240,11 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
     else:
         zone_price_label = "ercot" if live else frame.zone_price_label
     # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
+    # Zone prices give each zone its own charge/hold/discharge band; with none, one fleet band.
     policy = reserve_policy(
         risk, settings, alerted, mode=mode,
         price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
+        zone_prices=zone_prices,
     )
     # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
     target_mw = scale_target_mw(frame.target_mw, settings)
