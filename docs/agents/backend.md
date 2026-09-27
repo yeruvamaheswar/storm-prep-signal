@@ -20,7 +20,8 @@ pytest -q
 - `web/src/api/health.ts`: `checkHealth(fetch, baseUrl)` returns `ok`, or `down` with a reason (`http <status>`, `bad_payload`, `timeout`, `unreachable`). `useApiHealth()` checks on load and every 30 s. The masthead line in `TopStrip` shows `api ok` (OK color), `api down · <reason>` (Dead color), or `api checking`.
 - Base URL: `VITE_API_BASE_URL` at build time. Empty means same origin.
 - Dev: `web/vite.config.ts` proxies `/health` and `/v1` to `http://localhost:8000` (override with `API_PROXY_TARGET`), so dev needs no CORS. With the API stopped, the proxy answers 500, so the mast reads `api down · http 500`.
-- Deployed: build the wall with `VITE_API_BASE_URL=https://<api host>` and add the wall's origin to `CORS_ORIGINS` on the API. `http://localhost:5173` is allowed by default.
+- Deployed on Vercel: `web/vercel.json` rewrites `/health` and `/v1/*` to the Render API, so the wall stays same origin. Leave `VITE_API_BASE_URL` empty and `CORS_ORIGINS` unchanged. See "Deploy the wall on Vercel" below.
+- Another host without rewrites: build the wall with `VITE_API_BASE_URL=https://<api host>` and add the wall's origin to `CORS_ORIGINS` on the API. `http://localhost:5173` is allowed by default.
 - `createClient` in `web/src/api/client.ts` takes the `/v1` root. Pass `${apiBaseUrl()}/v1` when the wall starts using it.
 
 ## Layout
@@ -80,14 +81,27 @@ pytest -q
 
 ## Deploy on Render
 
-1. Render dashboard, then New, then Blueprint. Pick this repo. Render reads `render.yaml` and creates `reservegate-api`.
-2. After the wall is deployed, add its URL to `CORS_ORIGINS` in the service's environment.
-3. Set `ERCOT_*` and, if you want history, `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the dashboard. `render.yaml` lists the names with `sync: false`.
-4. Render checks `/health` before it sends traffic to a new deploy.
+Live service (2026-09-26): `reservegate-api` at `https://reservegate-api.onrender.com`, free plan, Oregon, auto-deploys `main`. It was created with the build and start commands from `render.yaml`, not through a Blueprint sync, so dashboard edits do not flow back to `render.yaml`.
+
+1. To recreate it: Render dashboard, then New, then Blueprint. Pick this repo. Render reads `render.yaml` and creates `reservegate-api`.
+2. Set `ERCOT_*` and, if you want history, `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the dashboard. `render.yaml` lists the names with `sync: false`. Without them, feeds report quality `auth` and archive Demo fails safe.
+3. Set the health check path to `/health` in the dashboard (Settings, Health Checks) if the service was not made from the Blueprint.
+4. `CORS_ORIGINS` needs the wall's origin only when the wall calls the API cross-origin. The Vercel wall uses rewrites, so it does not.
 
 Python is pinned to 3.12 through `PYTHON_VERSION`, to match CI. The free plan sleeps when idle, so the first request after a pause is slow and in-memory state is gone.
 
-Not done: deploying `web/` itself. `vite build` only builds `index.html` today (the other HTML pages are not in `rollupOptions.input`), and only `/health` is called from the wall so far. A Render static site would build with `VITE_API_BASE_URL` set to the API URL.
+## Deploy the wall on Vercel
+
+The wall (`web/`) deploys to Vercel from GitHub. `web/vercel.json` holds the config: Vite build, rewrites of `/health` and `/v1/*` to `https://reservegate-api.onrender.com`, and a fallback to `index.html` so `/fleet` and `/flow` load. Static files (`/assets`, `/geo/ercot-load-zones.json`) are served before the rewrites.
+
+1. Vercel dashboard, then Add New, then Project. Import `yeruvamaheswar/storm-prep-signal`.
+2. Root Directory: `web`. Leave "Include files outside the root directory" on; the build reads `../geo/ercot-load-zones.json`.
+3. Framework: Vite (from `vercel.json`). Production branch: `main`. No environment variables.
+4. Deploy. Every push to `main` redeploys; other branches get preview URLs.
+
+Check: `https://<vercel host>/health` returns `{ "ok": true }`, and the masthead reads `api ok`.
+
+If the Render URL changes, edit the two destinations in `web/vercel.json`. The first request after Render sleeps can take about a minute; the masthead shows `api down · timeout` until the API wakes.
 
 `GET /v1/fleet/rollups` returns zone counts and MW, never the seeded homes. Shape: `docs/agents/fleet-rollups.md`.
 

@@ -95,6 +95,11 @@ def moved_kwh(data):
     return sum(h.soc_kwh - data["before"][h.home_id] for h in data["homes"])
 
 
+def gained_kwh(data):
+    """kWh the charging homes took this tick (homes that sold are left out)."""
+    return sum(max(0.0, h.soc_kwh - data["before"][h.home_id]) for h in data["homes"])
+
+
 def story(n, name, tick, data, extra=""):
     print(f"\n  path {n:>2} {name:<24} intent {tick['intent']:<9} floor {tick['reserve_pct']:g}%"
           f" | delivered {tick['delivered_mw']:.3f} of {tick['target_mw']:.3f} MW"
@@ -121,15 +126,16 @@ def test_path_02_discharge_on_a_high_price_serves_the_call(tmp_path, monkeypatch
     assert tick["delivered_mw"] == pytest.approx(0.2)
 
 
-def test_path_03_charge_on_a_cheap_price_delivers_nothing_and_fills_safely(tmp_path, monkeypatch):
+def test_path_03_charge_on_a_cheap_price_serves_the_call_and_fills_safely(tmp_path, monkeypatch):
     record, seen = play(tmp_path, monkeypatch, [frame(price=20.0)])
     tick, data = record["ticks"][0], seen[0]
     story(3, "charge ($20)", tick, data, f" | charged {data['cycle'].charged_mw:.3f} MW")
     assert tick["intent"] == "charge"
-    assert tick["delivered_mw"] == 0 and tick["missed_mw"] == pytest.approx(0.2)
+    # Cheap power still answers the call first; the homes not selling charge.
+    assert tick["delivered_mw"] == pytest.approx(0.2) and tick["missed_mw"] == pytest.approx(0.0, abs=EPS)
     assert "charging" in tick["reasons"]
-    assert moved_kwh(data) > 0
-    assert data["cycle"].charged_mw == pytest.approx(moved_kwh(data) * 12 / 1000)
+    assert gained_kwh(data) > 0
+    assert data["cycle"].charged_mw == pytest.approx(gained_kwh(data) * 12 / 1000)
 
 
 def test_path_04_no_price_holds_and_still_serves(tmp_path, monkeypatch):
@@ -153,13 +159,17 @@ def test_path_05_storm_raises_every_floor_to_60(tmp_path, monkeypatch):
         assert "storm_reserve" in tick["reasons"]
 
 
-def test_path_06_storm_with_a_cheap_price_charges_and_never_discharges(tmp_path, monkeypatch):
+def test_path_06_storm_with_a_cheap_price_charges_and_serves_only_above_the_storm_floor(
+        tmp_path, monkeypatch):
     record, seen = play(tmp_path, monkeypatch, [frame(price=20.0, risk=STORM)])
     tick, data = record["ticks"][0], seen[0]
     story(6, "storm + cheap ($20)", tick, data)
     assert tick["intent"] == "charge"
-    assert tick["delivered_mw"] == 0
-    assert all(h.soc_kwh >= data["before"][h.home_id] - EPS for h in data["homes"])
+    assert set(tick["zone_reserve_pct"].values()) == {60.0}
+    # The call is served from headroom above the 60% storm floor (check_tick guards the
+    # floor), and every home not selling charges.
+    assert tick["delivered_mw"] > 0
+    assert data["cycle"].charged_mw > 0
 
 
 def test_path_07_missing_signal_fails_safe_to_60(tmp_path, monkeypatch):
