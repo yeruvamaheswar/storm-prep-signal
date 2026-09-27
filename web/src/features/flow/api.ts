@@ -13,6 +13,8 @@ export type FlowRequest =
   | { kind: "alert"; body: { alert_id: string } }
   | { kind: "grid-down"; body: { zone: string; down: boolean } }
   | { kind: "step"; body: Record<string, never> }
+  /** Task 16: go to tick index N (ticks played) by re-running the engine; the worker clamps N. */
+  | { kind: "seek"; body: { tick: number } }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)

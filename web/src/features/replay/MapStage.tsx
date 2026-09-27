@@ -4,6 +4,8 @@ import "leaflet/dist/leaflet.css"
 import geo from "../../../../geo/ercot-load-zones.json"
 import type { Point } from "../flow/flowMath"
 import { FLOW_ZONES, type FlowHome, type FlowTick, type FlowZoneRow, type OrderTimelineEntry } from "../flow/types"
+import { ROSTER_COUNTIES, alertCounties, rainFips, type AlertLike, type ProvenanceLike } from "./alertWeather"
+import { daylight, solarElevationDeg, type Daylight } from "./sun"
 import {
   CONTROLLER_LATLNG, arcPath, arcPoint, chargeOnly, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity,
   zoneArcClass, zoneGeos, zoneGoes, type LatLng, type ZoneActivity,
@@ -20,6 +22,11 @@ type Props = {
   tick: FlowTick | null
   /** `state.start.base_floor_pct`. Missing means no zone is marked raised. */
   baseFloorPct?: number
+  /** Task 14: the tick's provenance (same tick as `tick`). The keys of its `events.weather_counties` are the counties
+   * an alert applied this tick. Missing: no rain. */
+  provenance?: ProvenanceLike | null
+  /** `state.alerts`, to name each applied county's event (rain only for storm-type events). */
+  alerts?: readonly AlertLike[]
   tSeconds: number
   lens: Lens
   notice: StageNotice
@@ -37,7 +44,7 @@ const PAD_TOP = 76
 const PAD_BOTTOM = 20 + 96 + 24
 
 /** Screen points from Leaflet: the controller node, each zone's anchor and each zone's outline. */
-type Projected = { node: Point; zones: Record<string, Point>; rings: Record<string, Point[]> }
+type Projected = { node: Point; zones: Record<string, Point>; rings: Record<string, Point[]>; counties?: Record<string, Point[]> }
 
 function ringPath(points: Point[]): string {
   return `M${points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L")} Z`
@@ -53,7 +60,9 @@ function noticeText(notice: StageNotice, apiBase: string): ReactNode {
   return null
 }
 
-export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, lens, notice, apiBase = "", onZone }: Props) {
+export function MapStage({
+  zones, homes, orders, tick, baseFloorPct, provenance, alerts, tSeconds, lens, notice, apiBase = "", onZone,
+}: Props) {
   const leafletRef = useRef<HTMLDivElement | null>(null)
   const zoneLayers = useRef<Record<string, LeafletPath>>({})
   const onZoneRef = useRef(onZone)
@@ -71,6 +80,17 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
   const weather = useMemo(() => fleetWeather(FLOW_ZONES, tick, zones, baseFloorPct), [tick, zones, baseFloorPct])
   // The amber fill shows any raised floor (a missing signal too); clouds and rain show weather only.
   const raised = useMemo(() => Object.fromEntries(FLOW_ZONES.map((zone) => [zone, weather[zone].floorRaised])), [weather])
+  // Task 14: rain only over the counties an alert applied this tick, and only for storm-type events (alertWeather).
+  const rain = useMemo(() => rainFips(alertCounties(provenance, alerts)), [provenance, alerts])
+  // Task 14: night and twilight from the sun at each zone's anchor at the tick's own instant. No tick, no shading.
+  const tickTs = tick?.ts
+  const sun = useMemo(() => {
+    const ms = tickTs ? Date.parse(tickTs) : NaN
+    const out: Record<string, Daylight> = {}
+    if (!Number.isFinite(ms)) return out
+    for (const z of geos) out[z.zone] = daylight(solarElevationDeg(ms, z.anchor.lat, z.anchor.lng))
+    return out
+  }, [tickTs, geos])
   const homeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const home of homes) counts[home.zone] = (counts[home.zone] ?? 0) + 1
@@ -142,6 +162,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
           node: toPoint(CONTROLLER_LATLNG),
           zones: Object.fromEntries(geos.map((z) => [z.zone, toPoint(z.anchor)])),
           rings: Object.fromEntries(geos.map((z) => [z.zone, z.ring.map(([lng, lat]) => toPoint({ lat, lng }))])),
+          counties: Object.fromEntries(ROSTER_COUNTIES.map((c) => [c.fips, c.ring.map(([lng, lat]) => toPoint({ lat, lng }))])),
         })
       }
       m.on("zoomend moveend", reproject)
@@ -214,6 +235,19 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
           <>
             {FLOW_ZONES.map((zone) => {
               const ring = projected.rings[zone]
+              if (!ring?.length) return null
+              // Task 14: two stacked layers, so day, twilight and night change opacity only.
+              const shade = sun[zone]
+              return (
+                <g key={`s-${zone}`}>
+                  <path className={`replay-sun replay-sun-twilight${shade === "twilight" || shade === "night" ? " is-on" : ""}`}
+                    data-zone={zone} data-daylight={shade ?? "unknown"} d={ringPath(ring)} />
+                  <path className={`replay-sun replay-sun-night${shade === "night" ? " is-on" : ""}`} data-zone={zone} d={ringPath(ring)} />
+                </g>
+              )
+            })}
+            {FLOW_ZONES.map((zone) => {
+              const ring = projected.rings[zone]
               if (!weather[zone].gridDown || !ring?.length) return null
               return <path key={`i-${zone}`} className="replay-wx-islanded" data-zone={zone} d={ringPath(ring)} />
             })}
@@ -246,31 +280,35 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
           <defs>
             <filter id="replay-cloud" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18" /></filter>
           </defs>
-          {FLOW_ZONES.map((zone) => {
-            const ring = projected.rings[zone]
+          {rain.map((fips) => {
+            const ring = projected.counties?.[fips]
             const box = ring ? ringBox(ring) : null
-            const at = projected.zones[zone]
-            if (!weather[zone].weather || !box || !at) return null
+            if (!box) return null
+            const centre: Point = [box.x + box.w / 2, box.y + box.h / 2]
             return (
-              <g key={zone} className="replay-wx-clouds" data-zone={zone} filter="url(#replay-cloud)">
-                {cloudBlobs(box, at).map((blob, k) => <ellipse key={k} cx={blob.cx} cy={blob.cy} rx={blob.rx} ry={blob.ry} />)}
+              <g key={fips} className="replay-wx-clouds" data-fips={fips} filter="url(#replay-cloud)">
+                {cloudBlobs(box, centre).map((blob, k) => <ellipse key={k} cx={blob.cx} cy={blob.cy} rx={blob.rx} ry={blob.ry} />)}
               </g>
             )
           })}
         </svg>
       ) : null}
-      {projected ? FLOW_ZONES.map((zone) => {
-        const ring = projected.rings[zone]
+      {projected ? rain.map((fips) => {
+        const ring = projected.counties?.[fips]
         const box = ring ? ringBox(ring) : null
-        if (!weather[zone].weather || !box) return null
+        if (!ring || !box) return null
         return (
-          <div key={`r-${zone}`} className="replay-wx-rain" data-zone={zone} aria-hidden="true"
+          <div key={`r-${fips}`} className="replay-wx-rain" data-fips={fips} aria-hidden="true"
             style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: clipPolygon(ring, box) }}>
             <div className="replay-wx-rain-sheet" />
           </div>
         )
       }) : null}
       <div className="replay-crumb replay-panel"><b>Texas</b><span>{notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
+      <p className="replay-map-legend replay-panel">
+        <span>Shading: night and twilight from the sun over each zone at the tick's time (NOAA equations).</span>
+        <span>Rain: counties an NWS storm alert names this tick (Census county outlines, simplified).</span>
+      </p>
       {notice ? (
         <div className={`replay-panel replay-worker-empty is-${notice}`} role="status">
           {noticeText(notice, apiBase)}

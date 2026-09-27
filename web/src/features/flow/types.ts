@@ -171,6 +171,13 @@ export type StartSummary = {
 export type HistoryPoint = {
   tick: number
   ts: string
+  /* Task 14 (Day view), add-only: copied from the frame, absent from older workers. The frame's price with its label,
+   * the mode it played in, and its event keys (sorted; overlays and alert counties included). */
+  price_usd_mwh?: number | null
+  price_label?: string
+  mode?: string
+  events?: string[]
+  /* end Task 14 */
   target_mw: number
   delivered_mw: number
   charging_mw: number
@@ -201,11 +208,32 @@ export type OrderKind =
 
 export type OrderTimelineEntry = [number, OrderKind, number | string | null | undefined, ("own" | "r")?]
 
+/** One operator action the worker logged with the tick it took effect (Task 16A); a seek re-applies it there. */
+export type OperatorAction = {
+  kind: string
+  id?: number
+  index: number
+  tick?: number | null
+  alert_id?: string
+  zone?: string
+  down?: boolean
+}
+
 export type SessionState = {
   status: "idle" | "playing" | "paused" | "finished" | "error"
+  /* Task 14 / 16 (Day view, seek), add-only; absent from older workers. `seeking` is true in the one state the worker
+   * writes just before it runs a seek; `actions` is the operator action log a seek replays. */
+  seeking?: boolean
+  actions?: OperatorAction[]
+  /* end Task 14 / 16 */
   error: string | null
   updated_at: string
-  scenario: (Omit<ScenarioEntry, "alerts"> & { alerts: Array<AlertSummary & { zones?: string[] }> }) | null
+  /** `first_ts` / `last_ts` (Task 14): the tape's first and last frame ts. Absent from older workers. */
+  scenario: (Omit<ScenarioEntry, "alerts"> & {
+    alerts: Array<AlertSummary & { zones?: string[] }>
+    first_ts?: string | null
+    last_ts?: string | null
+  }) | null
   seed: number | null
   speed: number
   speeds: number[]

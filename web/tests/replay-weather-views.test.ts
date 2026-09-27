@@ -8,6 +8,7 @@ import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { homeFloorRaised } from "../src/features/replay/reasonCodes"
 import { berylHoustonHomes22, berylHoustonOrders22, counties } from "./fixtures/beryl22"
+import { beryl as berylDay, heatherFreeze as heatherDay } from "./fixtures/day14"
 
 // Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts.
 // beryl-landfall tick 2 after the Beryl alert (it names Harris; merged engine with #47, seed 42).
@@ -175,12 +176,22 @@ describe("map weather", { timeout: 20_000 }, () => {
     expect(host.querySelector(".replay-chip")).not.toBeNull()
   }
 
-  it("draws clouds and rain only over the alerted zone", async () => {
-    await mount(alertTick)
-    const clouds = [...host.querySelectorAll<SVGGElement>(".replay-wx-clouds")].map((el) => el.dataset.zone)
-    const rain = [...host.querySelectorAll<HTMLElement>(".replay-wx-rain")].map((el) => el.dataset.zone)
-    expect(clouds).toEqual(["Houston"])
-    expect(rain).toEqual(["Houston"])
+  // Task 14 ruling (spec change): rain is county-level, only over the counties an alert applied this tick
+  // (`provenance.events.weather_counties`) and only for storm-type events. It was zone-level before.
+  it("draws clouds and rain only over the alerted county", async () => {
+    await act(async () => {
+      root.render(createElement(MapStage, {
+        zones: {}, homes, tick: alertTick, provenance: berylDay.provenance2 as never, alerts: berylDay.alerts as never,
+        baseFloorPct: 30, tSeconds: 0, lens: "send", notice: null, onZone: () => {},
+      }))
+    })
+    for (let i = 0; i < 400 && !host.querySelector(".replay-chip"); i += 1) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
+    }
+    const clouds = [...host.querySelectorAll<SVGGElement>(".replay-wx-clouds")].map((el) => el.dataset.fips)
+    const rain = [...host.querySelectorAll<HTMLElement>(".replay-wx-rain")].map((el) => el.dataset.fips)
+    expect(clouds).toEqual(["48201"])
+    expect(rain).toEqual(["48201"])
     expect(host.querySelectorAll(".replay-wx-clouds ellipse").length).toBeGreaterThan(0)
     const box = host.querySelector<HTMLElement>(".replay-wx-rain")
     expect(box?.style.clipPath).toMatch(/^polygon\(/)
@@ -220,17 +231,21 @@ describe("map weather", { timeout: 20_000 }, () => {
     expect(host.querySelector(".replay-wx-rain")).toBeNull()
   })
 
-  it("puts weather over every zone a named-county alert raised, and none elsewhere (Heather tick 2)", async () => {
+  // Task 14 ruling (spec change): a freeze alert raises floors but brings no rain, so Heather shows amber floors over the
+  // zones it raised and no clouds. It showed zone clouds before.
+  it("raises the floors of every zone a named-county alert raised, with no rain for a freeze (Heather tick 2)", async () => {
     await act(async () => {
       root.render(createElement(MapStage, {
-        zones: {}, homes, tick: namedTick, baseFloorPct: 30, tSeconds: 0, lens: "send", notice: null, onZone: () => {},
+        zones: {}, homes, tick: namedTick, provenance: heatherDay.provenance2 as never, alerts: heatherDay.alerts as never,
+        baseFloorPct: 30, tSeconds: 0, lens: "send", notice: null, onZone: () => {},
       }))
     })
     for (let i = 0; i < 400 && !host.querySelector(".replay-chip"); i += 1) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
     }
-    const clouds = [...host.querySelectorAll<HTMLElement>(".replay-wx-clouds")].map((el) => el.dataset.zone)
-    expect(clouds.sort()).toEqual(["Houston", "North"])
+    expect(host.querySelector(".replay-wx-clouds")).toBeNull()
+    expect(host.querySelector(".replay-wx-rain")).toBeNull()
+    expect([...host.querySelectorAll(".replay-zone")].filter((el) => el.classList.contains("is-raised"))).toHaveLength(2)
     const chips = [...host.querySelectorAll<HTMLButtonElement>(".replay-chip")]
     expect(chips.some((chip) => /base floor kept/i.test(chip.textContent ?? ""))).toBe(false)
   })

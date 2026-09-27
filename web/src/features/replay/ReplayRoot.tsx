@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { apiBaseUrl } from "../../api/health"
 import { TopBar } from "../shell/TopBar"
 import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomToHome, zoomToZone } from "../shell/urlState"
 import { fetchScenarios, fetchState, sendRequest, type FlowRequest } from "../flow/api"
-import { isWorkerDown, type ScenarioList, type StateReply } from "../flow/types"
-import { canStep } from "./PlaybackBar"
+import { isWorkerDown, type ScenarioList, type SessionState, type StateReply } from "../flow/types"
+import {
+  advanceDayHead, canSeek, dayPlayheadMs, dayStops, dayWindow, emptyArrivals, initialDayHead, observedSecondsPerTick,
+  ordersViewSpeed, runKey, seekClock, settleSeek, trackArrivals, viewPlaySpeed, type SeekPending,
+} from "./dayModel"
+import { canStep, type ReplayView } from "./PlaybackBar"
 import { ReplayPage } from "./ReplayPage"
-import { advancePlayhead, initialPlayhead, playheadSeconds } from "./tickClock"
+import { SPEED_STOPS, advancePlayhead, initialPlayhead, playheadSeconds } from "./tickClock"
 import { rememberSpeed, useReplayKeys, type SentSpeed } from "./useReplayKeys"
 import "./replay.css"
 
@@ -16,6 +20,15 @@ function safeUrlState() {
 
 function errorText(err: unknown): string {
   return err instanceof Error && err.message ? err.message : "the API did not accept the request"
+}
+
+/** Day view polls faster, so a tick at about 1 min per day (0.21 s) is seen close to when it lands. */
+const POLL_MS: Record<ReplayView, number> = { day: 250, orders: 500 }
+
+/** The real length of one tick, for the sun's fade between ticks (`--replay-step-ms`, replay.css). */
+function stepMs(session: SessionState | null): string {
+  const ms = session && session.status === "playing" ? session.step_seconds * 1000 : 0
+  return `${Math.round(Math.min(2000, Math.max(0, Number.isFinite(ms) ? ms : 0)))}ms`
 }
 
 export function ReplayRoot() {
@@ -28,6 +41,12 @@ export function ReplayRoot() {
   const [nowMs, setNowMs] = useState(() => Date.now())
   // Where the playhead sits inside the current tick; re-anchored on each new tick and each speed change.
   const [playhead, setPlayhead] = useState(() => initialPlayhead(Date.now()))
+  // Task 14: the Day view is the default. Its playhead glides between real ticks' ts; the pace is measured from arrivals.
+  const [view, setView] = useState<ReplayView>("day")
+  const [dayHead, setDayHead] = useState(initialDayHead)
+  const [arrivals, setArrivals] = useState(emptyArrivals)
+  // Task 16B: a seek this page sent, until the worker lands on it.
+  const [seekPending, setSeekPending] = useState<SeekPending | null>(null)
   const [url, setUrl] = useState(safeUrlState)
   // The last speed sent (slider or keys), so [ and ] nudge from it before the next poll reports it.
   const sentSpeed = useRef<SentSpeed | null>(null)
@@ -58,43 +77,87 @@ export function ReplayRoot() {
         setApiDown(false)
         setState(next)
         if (!isWorkerDown(next)) {
+          const now = Date.now()
+          const playing = next.status === "playing"
           const observed = {
-            tickIndex: next.tick_index, playing: next.status === "playing", stepSeconds: next.step_seconds, nowMs: Date.now(),
+            tickIndex: next.tick_index, playing, stepSeconds: next.step_seconds, nowMs: now,
             finished: next.status === "finished", tickLeft: next.tick_left_s,
           }
           setPlayhead((prev) => advancePlayhead(prev, observed))
+          const tsMs = next.tick?.ts ? Date.parse(next.tick.ts) : NaN
+          setDayHead((prev) => advanceDayHead(prev, {
+            tickIndex: next.tick_index, tsMs: Number.isFinite(tsMs) ? tsMs : null, playing: playing && next.seeking !== true,
+            stepSeconds: next.step_seconds, tickMinutes: next.tick_minutes, tickLeft: next.tick_left_s, nowMs: now,
+          }))
+          // A new run (scenario switch or reset) starts the pace and any pending seek over; the Day bar's window,
+          // marks and playhead are read from this state, so they follow it.
+          const key = runKey(next)
+          setArrivals((prev) => trackArrivals(prev, { key, tickIndex: next.tick_index, playing, speed: next.speed, atMs: now }))
+          setSeekPending((prev) => settleSeek(prev, { seeking: next.seeking, tickIndex: next.tick_index, key }, now))
         }
       } catch {
         if (!cancelled) setApiDown(true)
       }
     }
     void poll()
-    const timer = setInterval(() => void poll(), 500)
+    const timer = setInterval(() => void poll(), POLL_MS[view])
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [base])
+  }, [base, view])
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 250)
     return () => clearInterval(timer)
   }, [])
 
-  function post(request: FlowRequest) {
+  const live = state && !isWorkerDown(state) && !apiDown ? state : null
+
+  function send(request: FlowRequest) {
     rememberSpeed(sentSpeed, request, live?.speed ?? null, Date.now())
     sendRequest(fetch, base, request)
       .then(() => setPostError(null))
-      .catch((err: unknown) => setPostError(`Could not send "${request.kind}": ${errorText(err)}.`))
+      .catch((err: unknown) => {
+        setPostError(`Could not send "${request.kind}": ${errorText(err)}.`)
+        if (request.kind === "seek") setSeekPending(null)
+      })
   }
 
-  const live = state && !isWorkerDown(state) && !apiDown ? state : null
+  function post(request: FlowRequest) {
+    // Rajat's coupling: Play or Start in Day view first asks for the day pace when the speed is not a day stop.
+    const x = viewPlaySpeed(view, request, live)
+    if (x !== null) send({ kind: "speed", body: { x } })
+    if (request.kind === "seek") {
+      const win = live ? dayWindow(live) : null
+      setSeekPending({
+        tick: request.body.tick, label: win && live ? seekClock(win, request.body.tick, live.tick_minutes) : null,
+        atMs: Date.now(), key: runKey(live), sawSeeking: false,
+      })
+    }
+    send(request)
+  }
+
+  function changeView(next: ReplayView) {
+    setView(next)
+    // Watch orders plays one tick's order window; a day pace would flash through it.
+    const x = next === "orders" ? ordersViewSpeed(live) : null
+    if (x !== null) send({ kind: "speed", body: { x } })
+  }
+
+  const seekBusy = seekPending !== null || live?.seeking === true
   useReplayKeys({
     status: live?.status ?? null,
     speed: live?.speed ?? null,
     speeds: scenariosFailed ? null : live?.speeds,
     canStep: canStep(live),
     sent: sentSpeed,
+    // [ and ] move within the current view's stops (the DayBar presets' tooltip names them).
+    stops: view === "day" ? dayStops(live?.speeds) : SPEED_STOPS,
+    tickIndex: live?.tick_index ?? null,
+    tickCount: live?.tick_count ?? null,
+    tickMinutes: live?.tick_minutes ?? null,
+    canSeek: !seekBusy && canSeek(live),
   }, post)
   const playheadT = live ? playheadSeconds(playhead, nowMs) : undefined
   const rightSlot = live ? (
@@ -106,7 +169,7 @@ export function ReplayRoot() {
   ) : <span className="rg-pill">No scenario loaded</span>
 
   return (
-    <div className="rg-shell replay-shell">
+    <div className="rg-shell replay-shell" style={{ "--replay-step-ms": stepMs(live) } as CSSProperties}>
       <TopBar current="replay" rightSlot={rightSlot} />
       <ReplayPage
         scenarios={scenarios}
@@ -117,6 +180,11 @@ export function ReplayRoot() {
         postError={postError}
         nowMs={nowMs}
         playheadT={playheadT}
+        view={view}
+        onView={changeView}
+        dayPlayheadMs={live ? dayPlayheadMs(dayHead, nowMs) : null}
+        observedStepSeconds={observedSecondsPerTick(arrivals.list)}
+        seek={seekBusy ? { busy: true, label: seekPending?.label ?? null, tick: seekPending?.tick ?? null } : null}
         selectedZone={url.zone}
         selectedHome={url.home}
         backHref={typeof window === "undefined" ? "/" : hrefForUrlState(window.location.pathname, { ...url, zone: null, home: null })}

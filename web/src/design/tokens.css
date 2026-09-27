@@ -75,4 +75,7 @@
   /* Task 12: charging words on the light panels. --rg-charging-text (#a4640c) is 4.28:1 on the map panel;
    * this is 4.96:1 there and 5.19:1 on clay. Amber fills keep --rg-charging. */
   --rg-charging-text-strong: #965b0a;
+  /* Task 14: sun shading over the Replay map, from the map background #101A16 (no new hue). Night stacks on twilight. */
+  --rg-map-twilight: rgba(16, 26, 22, 0.24);
+  --rg-map-night: rgba(16, 26, 22, 0.4);
 }

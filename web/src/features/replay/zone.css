@@ -147,6 +147,12 @@
   }
 }
 
+/* Task 16B: pause freezes the order paths where they are; Play resumes them from there. */
+.replay-scene.is-paused .zp.p-out,
+.replay-scene.is-paused .zp.p-retry {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .zp.p-out,
   .zp.p-retry {
@@ -269,22 +275,6 @@
 .zone-more {
   color: var(--rg-muted);
   font-size: 12.5px;
-}
-
-.zone-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-left: auto;
-}
-
-.zone-legend .lg {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--rg-clay-text);
-  font-size: 12.5px;
-  white-space: nowrap;
 }
 
 /* Right column: the zone summary. */
