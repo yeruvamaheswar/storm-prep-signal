@@ -3,7 +3,7 @@ import type { RunFile } from "../contracts"
 import { OperatorWall } from "../components/templates/OperatorWall"
 import { FleetApp } from "../features/fleet/FleetApp"
 import { FlowApp } from "../features/flow/FlowApp"
-import { FleetGridApp, ReplayApp } from "../features/shell/ShellPages"
+import { FleetGridApp, LiveApp, ReplayApp } from "../features/shell/ShellPages"
 import { loadRun } from "../loadRun"
 import { isFleetPath, isFleetTablePath, isFlowPath, isLivePath, isWallPath } from "./route"
 
@@ -31,7 +31,7 @@ function WallApp() {
 
 export function App() {
   if (isLivePath(window.location.pathname)) {
-    return <WallApp />
+    return <LiveApp />
   }
   if (isFleetTablePath(window.location.pathname)) {
     return <FleetApp />
