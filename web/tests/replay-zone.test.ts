@@ -468,7 +468,7 @@ describe("why a home got no order names the real cause (Task 12: W2, W5)", () =>
     const html = renderToStaticMarkup(createElement(ZoneBoard, {
       zone: "West", homes: west74, orders: west74Orders, tSeconds: 120, lens: "send", openHome: null, onHome: () => {}, onBack: () => {},
     }))
-    expect(html).toContain('aria-label="home-012, No fresh reading, so no order"')
+    expect(html).toContain('aria-label="West-TomGreen-012, No fresh reading, so no order"')
   })
 
   it("the home panel reads the stale plan and the hold, not a choice to keep energy", () => {
@@ -549,7 +549,7 @@ describe("a battery refilling to its floor says so (Task 12: W4)", () => {
     const board = renderToStaticMarkup(createElement(ZoneBoard, {
       zone: "North", homes: [refill1], orders: refill1Orders, tSeconds: 30, lens: "send", openHome: null, onHome: () => {}, onBack: () => {},
     }))
-    expect(board).toContain('aria-label="home-002, Charging to its floor"')
+    expect(board).toContain('aria-label="North-Dallas-002, Charging to its floor"')
   })
 })
 

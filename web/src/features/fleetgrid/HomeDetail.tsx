@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { homeName } from "../replay/homeName"
 import { NO_ZONE, chargeText, floorText, nowText, replayHref, statusLabel, type GridHome } from "./fleetModel"
 
 type HomeDetailProps = {
@@ -30,7 +31,7 @@ export function HomeDetail({ home, onClose }: HomeDetailProps) {
       }}
     >
       <div className="fg-detail-head">
-        <h2>{home.name || home.id}</h2>
+        <h2>{homeName(home)}</h2>
         <button type="button" className="fg-pill" onClick={onClose}>Close</button>
       </div>
       <p className="fg-detail-zone">

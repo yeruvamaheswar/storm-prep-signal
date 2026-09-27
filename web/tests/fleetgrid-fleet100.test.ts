@@ -125,7 +125,7 @@ describe("counties (item 7)", () => {
 
   it("names the county in each cell's label", () => {
     const h = scenario.find((x) => x.id === "home-001")!
-    expect(tileAria(h)).toMatch(/^home-001, Harris County, /)
+    expect(tileAria(h)).toMatch(/^Houston-Harris-001, Harris County, /)
   })
 })
 

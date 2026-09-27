@@ -42,6 +42,9 @@ export type Home = {
   last_command: LastCommand | null
   charge_state: ChargeState | null
   power_kw: number | null
+  /** Task 17, add-only: the engine's display name and county name (GET /v1/homes). Shown through homeName. */
+  name?: string | null
+  county_name?: string | null
 }
 
 export type FleetPageProps = {

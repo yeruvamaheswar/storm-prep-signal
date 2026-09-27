@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react"
 import { reasonLabel } from "../flow/flowMath"
 import type { FlowHome, OrderTimelineEntry } from "../flow/types"
+import { homeName, homeNameById } from "./homeName"
 import { houseModel } from "./house3dModel"
 import { HouseArt } from "./HouseArt"
 import { splitOrders } from "./orderState"
@@ -18,6 +19,9 @@ type Props = {
   homeId: string
   /** Null when the session does not report this home. */
   home: FlowHome | null
+  /** The session's homes, so a home an order came from or went to is named too (Task 17). Without it, that
+   * other home shows its raw id. */
+  homes?: FlowHome[]
   orders?: Record<string, OrderTimelineEntry[]>
   tSeconds: number
   tickMinutes?: number
@@ -40,7 +44,8 @@ function Steps({ steps }: { steps: JourneyStep[] }) {
 }
 
 /** One home's order journey, opened from its lot (`?home=`). Escape or Close shuts it. */
-export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, onClose }: Props) {
+export function HomePanel({ homeId, home, homes, orders, tSeconds, tickMinutes, mode, onClose }: Props) {
+  const nameOf = (id: string) => homeNameById(homes, id)
   const ref = useDrawerFocus<HTMLElement>(onClose)
   const timeline = orders?.[homeId]
   const unit = lotUnit(timeline)
@@ -49,7 +54,8 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
   const look = home ? lotLook(home, timeline, tSeconds, false) : null
   const facts = homeFacts(home ?? {})
   const counted = unit ? countedText(unit.timeline, tSeconds) : null
-  const from = takenOver || unit?.key === "r" ? reassignedFrom(orders, homeId) : null
+  const fromId = takenOver || unit?.key === "r" ? reassignedFrom(orders, homeId) : null
+  const from = fromId === null ? null : nameOf(fromId)
   const chip = look ? (look.tookOver ? `${look.label}. Also took over ${from ?? "another home"}'s order` : look.label) : "Not reported in this session"
   const dot = look?.state ? orderColor(look.state, look.charging) : "var(--rg-not-counted)"
   const asked = unit ? askedText(unit.timeline, tSeconds) : "Not asked"
@@ -61,8 +67,8 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
     <section className="replay-panel zone-home" aria-label="Home detail" ref={ref} tabIndex={-1}>
       <div className="zone-home-head">
         <div>
-          {/* #47: the display name (e.g. Houston-FortBend-005) and county; the id stays for search and ?home=. */}
-          <h2>{home?.name || homeId}</h2>
+          {/* #47, Task 17: the one display name (e.g. Houston-FortBend-005); the id stays for search and ?home=. */}
+          <h2>{home ? homeName({ ...home, id: homeId }) : homeId}</h2>
           <p>
             {home ? `${home.zone} zone${home.county_name ? `, ${home.county_name} County` : ""}. ` : ""}
             {facts.floor === "Not reported" ? "Backup floor not reported." : `Backup floor ${facts.floor} this tick.`}
@@ -111,11 +117,11 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
         {unit ? (
           <>
             {unit.key === "r" ? <p className="zone-sub">Taken over from {from ?? "another home"}</p> : null}
-            <Steps steps={journeySteps(unit.timeline, tSeconds, tickMinutes)} />
+            <Steps steps={journeySteps(unit.timeline, tSeconds, tickMinutes, nameOf)} />
             {takenOver ? (
               <>
                 <p className="zone-sub">Taken over from {from ?? "another home"}</p>
-                <Steps steps={journeySteps(takenOver, tSeconds, tickMinutes)} />
+                <Steps steps={journeySteps(takenOver, tSeconds, tickMinutes, nameOf)} />
               </>
             ) : null}
           </>

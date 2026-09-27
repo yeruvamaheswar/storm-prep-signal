@@ -1,3 +1,4 @@
+import { homeName } from "../replay/homeName"
 import { cellGeometry, cellLook, pctLabel, shortId, tileAria, type GridHome } from "./fleetModel"
 
 type BatteryCellProps = {
@@ -23,7 +24,7 @@ export function BatteryCell({ home, dim, selected, found, onSelect }: BatteryCel
     found ? "hit" : "",
   ].filter(Boolean).join(" ")
   return (
-    <button type="button" className={cls} aria-label={tileAria(home)} data-home={home.id} onClick={() => onSelect(home.id)}>
+    <button type="button" className={cls} aria-label={tileAria(home)} title={homeName(home)} data-home={home.id} onClick={() => onSelect(home.id)}>
       <svg width="36" height="60" viewBox="0 0 36 60" aria-hidden="true">
         <rect x="1.5" y="1.5" width="33" height="57" rx="8" fill={look.shell} stroke={look.edge} strokeWidth="2.2" strokeDasharray={look.dash} />
         <rect x="5" y="5" width="26" height="50" rx="4.5" fill={look.well} />

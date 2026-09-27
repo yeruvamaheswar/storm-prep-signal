@@ -27,8 +27,8 @@ describe("homeName", () => {
     expect(homeName({ id: "home-005", zone: "Houston", countyName: "Fort Bend" })).toBe("Houston-FortBend-005")
   })
 
-  it("uses the county FIPS when the name is missing, as home_label's county_name fallback does", () => {
-    expect(homeName({ id: "home-007", zone: "Houston", county: "48999" })).toBe("Houston-48999-007")
+  it("needs the county name: a bare FIPS is not the engine's name for a roster county, so the id stays", () => {
+    expect(homeName({ id: "home-005", zone: "Houston", county: "48157" })).toBe("home-005")
   })
 
   it("returns the raw id when the zone or county is missing, never a new format", () => {

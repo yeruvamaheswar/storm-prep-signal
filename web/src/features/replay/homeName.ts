@@ -9,6 +9,7 @@ export type NameableHome = {
   home_id?: string
   name?: string | null
   zone?: string | null
+  /** County FIPS. Read by nothing here: the name needs the county's name. */
   county?: string | null
   county_name?: string | null
   countyName?: string | null
@@ -20,15 +21,15 @@ function text(value: unknown): string | null {
 
 /**
  * The engine's `name` when present. Otherwise the same format as server/engine/fleet.py `home_label`:
- * `{zone}-{county name without spaces}-{the id's last "-" part}` (county FIPS when the name is missing,
- * as `county_name` falls back). With no zone or county, the raw id. Never a new format.
+ * `{zone}-{county name without spaces}-{the id's last "-" part}`. With no zone or county name, the raw id
+ * (a bare FIPS is not what the engine prints for a roster county). Never a new format.
  */
 export function homeName(home: NameableHome): string {
   const id = text(home.id) ?? text(home.home_id) ?? ""
   const name = text(home.name)
   if (name) return name
   const zone = text(home.zone)
-  const county = text(home.county_name) ?? text(home.countyName) ?? text(home.county)
+  const county = text(home.county_name) ?? text(home.countyName)
   if (!zone || !county || !id) return id
   return `${zone}-${county.split(" ").join("")}-${id.slice(id.lastIndexOf("-") + 1)}`
 }
