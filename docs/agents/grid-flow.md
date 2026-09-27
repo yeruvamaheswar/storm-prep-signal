@@ -1,6 +1,6 @@
 # Grid flow page (`/flow`)
 
-**Decision (2026-09-26).** `/flow` is an animated view of the real engine playing one archive scenario a tick at a time. A laptop session worker (`scripts/scenario_session.py`) is the only process that runs the engine for it. The `/v1/scenario*` routes only record operator requests and read the worker's output, as `CONSTRAINTS.md` "Backend" requires. Batteries start at a seeded random charge. The operator can send a real archived NWS alert, and the engine reacts on the next tick. The side panel names every archive row in use. JEV is a shadow reading and never dispatches. Charging refills a battery only when the zone price is cheap; there is no refill at any other price.
+**Decision (2026-09-26).** `/flow` is an animated view of the real engine playing one archive scenario a tick at a time. A session worker (`scripts/scenario_session.py`) is the only process that runs the engine for it. It runs on the laptop, or beside uvicorn in the Render instance (decided 2026-09-26, see "Run it on Render"). The `/v1/scenario*` routes only record operator requests and read the worker's output, as `CONSTRAINTS.md` "Backend" requires. Batteries start at a seeded random charge. The operator can send a real archived NWS alert, and the engine reacts on the next tick. The side panel names every archive row in use. JEV is a shadow reading and never dispatches. Charging refills a battery only when the zone price is cheap; there is no refill at any other price.
 
 People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/flow` paragraph. Allocation and fields: `CONSTRAINTS.md` allocation step 7 and "Zones".
 
@@ -14,8 +14,17 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 
 - `--scenario <id> --seed <n>` starts a scenario right away. `--steps N` plays N ticks and exits (tests and smoke checks).
 - The worker reads only committed files (`tapes/scenarios/`, `data/fixtures/`), so it runs without wifi. Stop it with Ctrl-C.
-- On Render there is no worker, so the page shows "session worker not running". This is expected.
 - The worker rewrites `var/scenario/state.json`. Stop it before running `pytest -q`; one replay test reads the same folder.
+
+## Run it on Render
+
+`render.yaml` starts the worker in the background, then `exec`s uvicorn, in the same instance: `python scripts/scenario_session.py & exec uvicorn ...`. The two talk through `var/scenario/`, so they must share a filesystem; a separate Render worker service would not. Deployed page: `https://storm-prep-signal.vercel.app/flow`.
+
+- The service was not made from the Blueprint, so the start command is also set by hand in the Render dashboard (Settings, Start Command). Keep the two the same.
+- Free plan: the instance sleeps after 15 minutes idle. That stops the worker too, and a wake starts from `idle` with no scenario. Press Start again.
+- One instance means one shared session: everyone on the page sees and steers the same scenario.
+- If the worker crashes, uvicorn keeps serving and the page shows "session worker not running" (state older than 10 s) until the next deploy or restart.
+- Measured locally: about 30 MB each for the API and the worker, under the free plan's 512 MB.
 
 ## How one step flows
 
