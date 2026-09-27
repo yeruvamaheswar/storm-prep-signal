@@ -1,4 +1,4 @@
-import type { Point } from "../flow/flowMath"
+import { reasonLabel, type Point } from "../flow/flowMath"
 import type { BatteryState, FlowHome, OrderTimelineEntry } from "../flow/types"
 import { keyMoments } from "./keyMoments"
 import { NOT_REPORTED } from "./format"
@@ -222,11 +222,18 @@ export function underFloorWords(why: FlowHome["under_floor_why"]): string {
 /** Why a home got no order. An operator HOLD sends nothing (controller.py); a home the planner saw as stale or
  * dead gets nothing; since #41 a live home under its floor always refills, so one that did not names that.
  * Empty when nothing reported gives a reason. */
-export function notAskedReason(home: Pick<FlowHome, "state" | "under_floor_why" | "plan_status">, mode?: string | null): string {
+export function notAskedReason(
+  home: Pick<FlowHome, "state" | "under_floor_why" | "plan_status" | "floor_reason">,
+  mode?: string | null,
+): string {
   if (mode === "HOLD") return "Operator hold: no orders this tick."
   if (planNotLive(home)) return `${NO_FRESH_READING}.`
   if (home.state === "at_floor") return "Its charge is at its floor, so it keeps it all for backup."
-  if (home.state === "reserved") return "Its floor was raised, so it keeps its energy for backup."
+  if (home.state === "reserved") {
+    // #47: what raised it (e.g. "NWS alert, JEV yes"), from the home's own county floor reason.
+    const by = home.floor_reason ? ` (${reasonLabel(home.floor_reason)})` : ""
+    return `Its floor was raised${by}, so it keeps its energy for backup.`
+  }
   if (home.state === "below_floor") {
     const why = underFloorWords(home.under_floor_why)
     return `Under its floor${why ? ` (${why})` : ""} and got no refill order this tick.`

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react"
+import { reasonLabel } from "../flow/flowMath"
 import type { FlowHome, OrderTimelineEntry } from "../flow/types"
 import { houseModel } from "./house3dModel"
 import { HouseArt } from "./HouseArt"
@@ -64,6 +65,8 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
           <p>
             {home ? `${home.zone} zone. ` : ""}
             {facts.floor === "Not reported" ? "Backup floor not reported." : `Backup floor ${facts.floor} this tick.`}
+            {/* #47: the county floor's reason, e.g. "NWS alert, JEV yes" or "County not named by the alert (base floor)". */}
+            {home?.floor_reason ? ` ${reasonLabel(home.floor_reason)}.` : ""}
           </p>
           {refill ? <p className="zone-refill">{refill}.</p> : null}
         </div>

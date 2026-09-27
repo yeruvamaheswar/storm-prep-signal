@@ -9,6 +9,7 @@ import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { ZonePanel } from "../src/features/replay/ZonePanel"
 import { OrderPaths } from "../src/features/replay/OrderPaths"
+import { berylHoustonHomes22, berylHoustonOrders22 } from "./fixtures/beryl22"
 import {
   askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, notAskedLabel, notAskedReason, orderPath, refillLine, storyHomes,
   trustMarks, zoneLots, zonePaths, zoneSummary,
@@ -549,5 +550,26 @@ describe("a battery refilling to its floor says so (Task 12: W4)", () => {
       zone: "North", homes: [refill1], orders: refill1Orders, tSeconds: 30, lens: "send", openHome: null, onHome: () => {}, onBack: () => {},
     }))
     expect(board).toContain('aria-label="home-002, Charging to its floor"')
+  })
+})
+
+describe("a home says why its floor is what it is (Task 12 / #47: W3)", () => {
+  const home = (id: string) => berylHoustonHomes22.find((h) => h.id === id) as FlowHome
+
+  it("names the county floor reason on the home panel", () => {
+    const fortBend = renderToStaticMarkup(createElement(HomePanel, {
+      homeId: "home-005", home: home("home-005"), orders: berylHoustonOrders22, tSeconds: 120, mode: "AUTO", onClose: () => {},
+    }))
+    expect(fortBend).toContain("Backup floor 30% this tick. County not named by the alert (base floor).")
+    const harris = renderToStaticMarkup(createElement(HomePanel, {
+      homeId: "home-021", home: home("home-021"), orders: berylHoustonOrders22, tSeconds: 120, mode: "AUTO", onClose: () => {},
+    }))
+    expect(harris).toContain("Backup floor 60% this tick. NWS alert, JEV yes.")
+  })
+
+  it("says what raised a reserved home's floor", () => {
+    expect(notAskedReason(home("home-021"), "AUTO")).toBe("Its floor was raised (NWS alert, JEV yes), so it keeps its energy for backup.")
+    const { floor_reason: _r, ...old } = home("home-021")
+    expect(notAskedReason(old, "AUTO")).toBe("Its floor was raised, so it keeps its energy for backup.")
   })
 })
