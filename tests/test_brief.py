@@ -149,3 +149,56 @@ def test_charging_code_reads_as_charging_on_cheap_power():
         )
     )
     assert text == "Delivered 0.02 of 0.02 MW. Charging on cheap power."
+
+
+# Merged engine with #47 (scenario Session in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25).
+BERYL_22 = dict(
+    delivered_mw=0.02, missed_mw=0.0, target_mw=0.02, reserve_pct=30.0, policy_reason="normal", risk_level="LOW",
+    reasons=["charging", "homes_stale:1"],
+    zone_reserve_pct={"Houston": 60.0, "North": 30.0, "South": 30.0, "West": 30.0},
+    zone_reasons={"Houston": "weather_alert", "North": "normal", "South": "normal", "West": "normal"},
+    county_reserve_pct={"48201": 60.0, "48157": 30.0, "48039": 30.0, "48167": 30.0, "48339": 30.0},
+    county_reasons={"48201": "weather_alert_jev_yes", "48157": "not_in_alert", "48039": "not_in_alert",
+                    "48167": "not_in_alert", "48339": "not_in_alert"},
+)
+HEATHER_2_JEV_NO = dict(
+    delivered_mw=0.2, missed_mw=0.0, target_mw=0.2, reserve_pct=30.0, policy_reason="normal", risk_level="LOW",
+    reasons=["reserve_refill", "homes_stale:2"],
+    zone_reserve_pct={"Houston": 30.0, "North": 30.0, "South": 30.0, "West": 30.0},
+    zone_reasons={"Houston": "normal", "North": "normal", "South": "normal", "West": "normal"},
+    county_reserve_pct={f: 30.0 for f in ("48201", "48157", "48039", "48167", "48339", "48113", "48439", "48085", "48121")},
+    county_reasons={f: "jev_no" for f in ("48201", "48157", "48039", "48167", "48339", "48113", "48439", "48085", "48121")},
+)
+
+
+def test_a_zone_whose_counties_keep_different_floors_names_the_range_and_the_raised_county():
+    # beryl tick 22: only Harris (JEV yes) keeps 60%; the other four Houston counties keep 30%.
+    text = write_brief(tick(**BERYL_22))
+    assert text == ("Delivered 0.02 of 0.02 MW. Floor 30% (Houston 30–60% by county: Harris raised, JEV yes); "
+                    "charging on cheap power; 1 home is stale.")
+    assert "Houston 60%: weather_alert" not in text
+
+
+def test_an_alert_jev_said_no_to_says_the_base_floor_was_kept():
+    # heather tick 2 after both freeze alerts: JEV said no in all nine named counties.
+    text = write_brief(tick(**HEATHER_2_JEV_NO))
+    assert text == ("Delivered 0.20 of 0.20 MW. Base floor kept in Houston and North: NWS alert, JEV no; "
+                    "refilling batteries under their reserve floor; 2 homes are stale.")
+
+
+def test_a_county_not_named_by_the_alert_is_not_a_jev_no():
+    # storm-rule-night after the Midland alert: Midland and Ector JEV no; Tom Green and Taylor not named.
+    text = write_brief(tick(
+        delivered_mw=0.1, missed_mw=0.0, target_mw=0.1, reserve_pct=30.0, policy_reason="normal", risk_level="LOW",
+        reasons=[], zone_reserve_pct={"West": 30.0}, zone_reasons={"West": "normal"},
+        county_reserve_pct={"48329": 30.0, "48135": 30.0, "48451": 30.0, "48441": 30.0},
+        county_reasons={"48329": "jev_no", "48135": "jev_no", "48451": "not_in_alert", "48441": "not_in_alert"},
+    ))
+    assert text == "Delivered 0.10 of 0.10 MW. Base floor kept in West: NWS alert, JEV no."
+
+
+def test_live_brief_reads_the_county_floors_from_the_tick_dict():
+    view = {**BERYL_22, "brief": "tape prose"}
+    stamped = apply_tick_brief(view)
+    assert "Houston 30–60% by county: Harris raised, JEV yes" in stamped["brief"]
+    assert "JEV no" in apply_tick_brief({**HEATHER_2_JEV_NO})["brief"]

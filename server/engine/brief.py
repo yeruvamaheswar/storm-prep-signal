@@ -1,6 +1,8 @@
 """One or two sentences after the decision. Built only from TickResult fields. No LLM."""
 from types import SimpleNamespace
 
+from server.engine.fleet import ZONE_COUNTIES
+
 # Same phrases the wall prints from reasonText(). Live copy must not invent tape prose.
 REASON_LINES = {
     "storm_reserve": "Storm reserve raised",
@@ -10,6 +12,15 @@ REASON_LINES = {
     "holding_spare_energy": "Holding spare energy",
     "reserve_refill": "Refilling batteries under their reserve floor",
     "charging": "Charging on cheap power",
+}
+
+# Why a county's floor was raised (policy.py _county_floor), in the words /flow's REASON_LABEL uses.
+COUNTY_REASON_WORDS = {
+    "weather_alert_jev_yes": "JEV yes",
+    "weather_alert_no_jev": "no JEV reading (fail safe)",
+    "weather_alert": "NWS weather alert",
+    "storm_risk_high": "ERCOT outage rule HIGH",
+    "signal_unavailable": "outage report unreadable (fail safe)",
 }
 
 
@@ -48,15 +59,61 @@ def _join_clauses(lines):
     return "; ".join(parts)
 
 
+def _zone_counties(result, zone):
+    """The zone's roster counties that carry a county floor this tick, as (fips, name), roster order."""
+    floors = getattr(result, "county_reserve_pct", None) or {}
+    return [(fips, name) for fips, name in ZONE_COUNTIES.get(zone, ()) if fips in floors]
+
+
+def _raised_by(result, counties):
+    """ "Harris raised, JEV yes" for the counties above the zone's lowest county floor, grouped by reason."""
+    floors = result.county_reserve_pct
+    reasons = getattr(result, "county_reasons", None) or {}
+    low = min(floors[fips] for fips, _ in counties)
+    groups = {}
+    for fips, name in counties:
+        if floors[fips] > low:
+            groups.setdefault(reasons.get(fips, ""), []).append(name)
+    parts = []
+    for reason, names in groups.items():
+        words = COUNTY_REASON_WORDS.get(reason, reason.replace("_", " "))
+        parts.append(f"{' and '.join(names)} raised, {words}" if words else f"{' and '.join(names)} raised")
+    return " and ".join(parts)
+
+
 def zone_floor_notes(result):
-    """Zones whose floor differs from the fleet floor, as "Houston 60%: weather_alert"."""
+    """Zones whose floor differs from the fleet floor, as "Houston 60%: weather_alert".
+
+    Since #47 a zone's floor is its highest county floor, so when its counties keep different floors
+    the note names the range and the raised counties: "Houston 30–60% by county: Harris raised, JEV yes".
+    """
     notes = []
+    floors = getattr(result, "county_reserve_pct", None) or {}
     for zone, pct in result.zone_reserve_pct.items():
         if pct == result.reserve_pct:
             continue
+        counties = _zone_counties(result, zone)
+        if counties:
+            low = min(floors[fips] for fips, _ in counties)
+            high = max(floors[fips] for fips, _ in counties)
+            if low < high:
+                notes.append(f"{zone} {low:g}–{high:g}% by county: {_raised_by(result, counties)}")
+                continue
         reason = result.zone_reasons.get(zone)
         notes.append(f"{zone} {pct:g}%: {reason}" if reason else f"{zone} {pct:g}%")
     return notes
+
+
+def jev_no_zones(result):
+    """Zones an alert named whose named counties JEV all said no to, so the base floor was kept."""
+    reasons = getattr(result, "county_reasons", None) or {}
+    zones = []
+    for zone in result.zone_reserve_pct:
+        named = [reasons[fips] for fips, _ in _zone_counties(result, zone)
+                 if fips in reasons and reasons[fips] != "not_in_alert"]
+        if named and all(code == "jev_no" for code in named):
+            zones.append(zone)
+    return zones
 
 
 def write_brief(result):
@@ -66,6 +123,9 @@ def write_brief(result):
     """
     delivered = f"Delivered {result.delivered_mw:.2f} of {result.target_mw:.2f} MW"
     lines = [reason_line(code) for code in brief_codes(result)]
+    kept = jev_no_zones(result)
+    if kept:
+        lines = [f"Base floor kept in {' and '.join(kept)}: NWS alert, JEV no", *lines]
     notes = zone_floor_notes(result)
     if notes:
         lines = [f"Floor {result.reserve_pct:g}% ({', '.join(notes)})", *lines]
@@ -85,6 +145,8 @@ def write_brief_from_tick(tick):
             policy_reason=str(tick.get("policy_reason") or ""),
             zone_reserve_pct=dict(tick.get("zone_reserve_pct") or {}),
             zone_reasons=dict(tick.get("zone_reasons") or {}),
+            county_reserve_pct=dict(tick.get("county_reserve_pct") or {}),
+            county_reasons=dict(tick.get("county_reasons") or {}),
         )
     )
 
