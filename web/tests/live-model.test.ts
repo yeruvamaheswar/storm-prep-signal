@@ -1,15 +1,19 @@
 // Task 9 part 2: the Live page's pure model. Every label must be true against the real API replies.
 import { describe, expect, it } from "vitest"
 import {
-  REPLAY_WINDOW_SECONDS, fleetSizeFrom, flowHomeFromRow, homesFromReply, inputRows, liveTick, liveZones, ordersForTick,
-  ordersFromReply, provenanceLines, replayDone, replayT, settingsFromRun, snapshotFromReply, sourcePill, tickTiming,
-  type OrdersState, type SnapshotState,
+  REPLAY_WINDOW_SECONDS, engineZone, engineZoneOrder, fleetSizeFrom, flowHomeFromRow, homesFromReply, inputRows, livePill,
+  liveStatus, liveTick, liveZones, ordersForTick, ordersFromReply, placeHomes, provenanceLines, replayDone, replayT,
+  runFleetSize, settingsFromRun, snapshotFromReply, tickTiming, ZONE_NOTE,
+  type LiveStatus, type OrdersState, type SnapshotState,
 } from "../src/features/live/liveModel"
-import { archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, rollups, runLatest } from "./fixtures/live"
+import {
+  archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, oldRun10k, oldSnapshot10k, rollups, runLatest,
+} from "./fixtures/live"
 
 const headers = (h: Record<string, string>) => ({ get: (name: string) => h[name.toLowerCase()] ?? null })
 const ready = (value: Record<string, unknown>): SnapshotState => ({ kind: "ready", value })
 const settings = settingsFromRun(runLatest)
+const LIVE: LiveStatus = { kind: "live" }
 
 describe("snapshot and orders replies", () => {
   it("keeps a 200 snapshot and turns a failure into the server's brief", () => {
@@ -34,28 +38,94 @@ describe("snapshot and orders replies", () => {
     expect(got).toEqual({ kind: "ready", tick: 1, ts: liveOrders.ts, orders: liveOrders.orders })
     expect(ordersFromReply(200, { tick: 1 })).toEqual({ kind: "error", brief: "the orders reply had no orders" })
   })
+})
 
-  it("reads tick length and base floor from the run's own settings, never a default", () => {
-    expect(settings).toEqual({ tickMinutes: 5, baseFloorPct: 30 })
-    expect(settingsFromRun({ settings: {} })).toEqual({ tickMinutes: undefined, baseFloorPct: undefined })
-    expect(settingsFromRun(null)).toEqual({ tickMinutes: undefined, baseFloorPct: undefined })
+describe("the run's own settings (GET /v1/runs/latest)", () => {
+  it("reads tick length, base floor and fleet size from the run, never a default", () => {
+    expect(settings).toEqual({ tickMinutes: 5, baseFloorPct: 30, fleetSize: 100 })
+    expect(settingsFromRun({ settings: {} })).toEqual({ tickMinutes: undefined, baseFloorPct: undefined, fleetSize: undefined })
+    expect(settingsFromRun(null)).toEqual({ tickMinutes: undefined, baseFloorPct: undefined, fleetSize: undefined })
+  })
+
+  it("falls back to the scoreboard's tick_minutes when settings omit it", () => {
+    expect(settingsFromRun({ settings: {}, totals: { tick_minutes: 15 } }).tickMinutes).toBe(15)
+  })
+
+  it("takes the run's fleet from its settings, then the tick's own home counts", () => {
+    expect(runFleetSize(settings, liveSnapshot)).toBe(100)
+    expect(runFleetSize(settingsFromRun(oldRun10k), liveSnapshot)).toBe(10000)
+    expect(runFleetSize({}, oldSnapshot10k)).toBe(10000)
+    expect(runFleetSize({}, { live_homes: 100 })).toBeNull()
+    expect(runFleetSize({}, null)).toBeNull()
+  })
+})
+
+describe("is this live?", () => {
+  const status = (snapshot: SnapshotState, run = settings, demo: number | null = 100, now = NOW_1221) =>
+    liveStatus(snapshot, run, demo, now)
+
+  it("a fresh live run of the demo fleet is live", () => {
+    expect(status(ready(liveSnapshot))).toEqual({ kind: "live" })
+  })
+
+  it("passes loading and snapshot errors through", () => {
+    expect(status({ kind: "loading" })).toEqual({ kind: "loading" })
+    expect(status({ kind: "error", brief: "http 404: No run file is available." }))
+      .toEqual({ kind: "error", brief: "http 404: No run file is available." })
+  })
+
+  it("an old 10,000-home run is not live, and never says 10,000", () => {
+    const got = status(ready(liveSnapshot), settingsFromRun(oldRun10k))
+    expect(got).toMatchObject({ kind: "not_live", reason: "The newest run is from before the 100-home demo fleet, so it is not shown." })
+    expect(JSON.stringify(got)).not.toMatch(/10,?000/)
+    const noSettings = status(ready(oldSnapshot10k), {})
+    expect(noSettings.kind).toBe("not_live")
+    expect(JSON.stringify(noSettings)).not.toMatch(/10,?000|9,?800/)
+  })
+
+  it("a smaller run than the demo fleet is not live either", () => {
+    expect(status(ready(liveSnapshot), { ...settings, fleetSize: 37 }))
+      .toMatchObject({ kind: "not_live", reason: "The newest run did not use the 100-home demo fleet, so it is not shown." })
+  })
+
+  it("says the worker looks stopped when no tick came for two tick lengths", () => {
+    const later = Date.parse("2026-09-27T17:31:00Z")
+    expect(status(ready(liveSnapshot), settings, 100, later)).toEqual({
+      kind: "not_live",
+      pill: "Not live, last tick 11 min ago",
+      reason: "No new tick since 12:20 CT, so the live worker looks stopped. It runs only when someone starts it.",
+    })
+  })
+
+  it("never judges staleness without the run's tick length", () => {
+    const later = Date.parse("2026-09-27T19:00:00Z")
+    expect(status(ready(liveSnapshot), { tickMinutes: undefined, fleetSize: 100 }, 100, later)).toEqual({ kind: "live" })
+  })
+
+  it("an archive, scenario or sample snapshot is not live", () => {
+    expect(status(ready(archiveSnapshot))).toEqual({
+      kind: "not_live",
+      pill: "ERCOT archive (tuning-2026), not live",
+      reason: "The newest run replays the tuning-2026 archive, not live ERCOT.",
+    })
+    expect(status(ready({ ...archiveSnapshot, source: "scenario" }))).toMatchObject({ pill: "Scenario run, not live ERCOT" })
+    expect(status(ready({ ...archiveSnapshot, source: "fixture" }))).toMatchObject({ pill: "Sample data, not live ERCOT" })
+    expect(status(ready({ ...archiveSnapshot, source: undefined }))).toMatchObject({ pill: "Source not reported, not live" })
   })
 })
 
 describe("the top-right pill", () => {
-  it("says live only for a live run, with minutes since the tick", () => {
-    expect(sourcePill(ready(liveSnapshot), NOW_1221)).toEqual({ text: "Live from ERCOT, updated 1 min ago", live: true })
-    expect(sourcePill(ready(liveSnapshot), Date.parse("2026-09-27T17:20:30Z")).text).toBe("Live from ERCOT, updated under a minute ago")
-    expect(sourcePill(ready({ ...liveSnapshot, ts: undefined }), NOW_1221).text).toBe("Live from ERCOT, update time not reported")
+  it("says live only when live, with minutes since the tick", () => {
+    expect(livePill(LIVE, liveSnapshot, NOW_1221)).toEqual({ text: "Live from ERCOT, updated 1 min ago", live: true })
+    expect(livePill(LIVE, liveSnapshot, Date.parse("2026-09-27T17:20:30Z")).text).toBe("Live from ERCOT, updated under a minute ago")
+    expect(livePill(LIVE, { ...liveSnapshot, ts: undefined }, NOW_1221).text).toBe("Live from ERCOT, update time not reported")
   })
 
-  it("never calls an archive, scenario or sample snapshot live", () => {
-    expect(sourcePill(ready(archiveSnapshot), NOW_1221)).toEqual({ text: "ERCOT archive (tuning-2026), not live", live: false })
-    expect(sourcePill(ready({ ...archiveSnapshot, source: "scenario" }), NOW_1221).text).toBe("Scenario run, not live ERCOT")
-    expect(sourcePill(ready({ ...archiveSnapshot, source: "fixture" }), NOW_1221).text).toBe("Sample data, not live ERCOT")
-    expect(sourcePill(ready({ ...archiveSnapshot, source: undefined }), NOW_1221).text).toBe("Source not reported")
-    expect(sourcePill({ kind: "loading" }, NOW_1221).text).toBe("Reading the ERCOT snapshot")
-    expect(sourcePill({ kind: "error", brief: "x" }, NOW_1221)).toEqual({ text: "ERCOT snapshot unavailable", live: false })
+  it("never calls anything else live", () => {
+    expect(livePill({ kind: "not_live", pill: "ERCOT archive (tuning-2026), not live", reason: "x" }, archiveSnapshot, NOW_1221))
+      .toEqual({ text: "ERCOT archive (tuning-2026), not live", live: false })
+    expect(livePill({ kind: "loading" }, null, NOW_1221).text).toBe("Reading the ERCOT snapshot")
+    expect(livePill({ kind: "error", brief: "x" }, null, NOW_1221)).toEqual({ text: "ERCOT snapshot unavailable", live: false })
   })
 })
 
@@ -111,14 +181,14 @@ describe("what ERCOT is telling us", () => {
   })
 
   it("adds no JEV text anywhere", () => {
-    const text = JSON.stringify([inputRows(liveSnapshot), provenanceLines(liveSnapshot, 100)])
+    const text = JSON.stringify([inputRows(liveSnapshot), provenanceLines(liveSnapshot, 100), ZONE_NOTE])
     expect(text).not.toMatch(/JEV/i)
   })
 })
 
 describe("tick timing", () => {
   it("names the last tick in Central time and counts down to the next from tick_minutes", () => {
-    expect(tickTiming(liveSnapshot, settings, NOW_1221)).toBe("Last tick ran at 12:20 CT. Next tick expected in 3:40.")
+    expect(tickTiming(liveSnapshot, settings, NOW_1221)).toBe("Last tick ran at 12:20 CT. Next tick in 3:40.")
   })
 
   it("never assumes a tick length", () => {
@@ -128,6 +198,11 @@ describe("tick timing", () => {
   it("says so when the next tick is overdue", () => {
     const late = Date.parse("2026-09-27T17:31:00Z")
     expect(tickTiming(liveSnapshot, settings, late)).toBe("Last tick ran at 12:20 CT. Next tick was due at 12:25 CT and has not arrived.")
+  })
+
+  it("adds the day when the last tick was on another day", () => {
+    const nextDay = Date.parse("2026-09-28T15:00:00Z")
+    expect(tickTiming(liveSnapshot, settings, nextDay)).toBe("Last tick ran at Sep 27, 12:20 CT. Next tick was due at Sep 27, 12:25 CT and has not arrived.")
   })
 
   it("an archive tick is stamped with its archive clock and gets no countdown", () => {
@@ -189,6 +264,46 @@ describe("homes from GET /v1/homes", () => {
     expect(fleetSizeFrom(null, { ...rollups, n: 37 })).toBe(37)
     expect(fleetSizeFrom(null, null)).toBeNull()
     expect(fleetSizeFrom(null, { n: "x" })).toBeNull()
+  })
+})
+
+describe("homes in the engine's zones", () => {
+  it("reads the engine's zone order from the snapshot's own per-zone floors", () => {
+    expect(engineZoneOrder(liveSnapshot)).toEqual(["Houston", "North", "South", "West"])
+    expect(engineZoneOrder({ zone_reasons: { West: "normal", South: "normal" } })).toEqual(["West", "South"])
+    expect(engineZoneOrder({})).toEqual([])
+    expect(engineZoneOrder(null)).toEqual([])
+  })
+
+  it("follows fleet.assign_zone: home number i takes zone (i - 1) mod the zone count", () => {
+    const order = ["Houston", "North", "South", "West"]
+    expect(["home-001", "home-002", "home-003", "home-004", "home-005", "home-100"].map((id) => engineZone(id, order)))
+      .toEqual(["Houston", "North", "South", "West", "Houston", "West"])
+    expect(engineZone("home-abc", order)).toBeNull()
+    expect(engineZone("home-000", order)).toBeNull()
+    expect(engineZone("home-001", [])).toBeNull()
+  })
+
+  it("moves each home to its engine zone and takes that zone's floor from the snapshot", () => {
+    const rows = homesFromReply(homesRows, headers(homesHeaders)).homes
+    const placed = placeHomes(rows, { ...liveSnapshot, zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 } })
+    const one = placed.find((home) => home.id === "home-001")
+    // home-001 is South in public.homes and Houston in every engine output.
+    expect(one).toMatchObject({ zone: "Houston", floor_pct: 60, soc_pct: 70, state: "selling" })
+    expect(one?.county).toBeUndefined()
+    expect(one?.county_name).toBeUndefined()
+    expect(placed.find((home) => home.id === "home-002")).toMatchObject({ zone: "North", floor_pct: 30 })
+    // home-005 sat at its 30% South floor in the table; in Houston (60%) it is below the floor.
+    expect(placed.find((home) => home.id === "home-005")).toMatchObject({ zone: "Houston", floor_pct: 60, state: "below_floor" })
+  })
+
+  it("places no home when the engine's zone order is not reported", () => {
+    const rows = homesFromReply(homesRows, headers(homesHeaders)).homes
+    expect(placeHomes(rows, {})).toEqual([])
+  })
+
+  it("the note says zones can differ from the Fleet page", () => {
+    expect(ZONE_NOTE).toBe("Homes sit in the engine's zones, which can differ from the Fleet page. Charge levels are the Fleet table's.")
   })
 })
 

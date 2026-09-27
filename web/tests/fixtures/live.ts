@@ -1,4 +1,4 @@
-// Task 9 part 2: Live page fixtures, trimmed from real replies of the local API (2026-09-27).
+// Task 9 part 2: Live page fixtures, trimmed from real replies of the local API (2026-09-27, re-checked on 162bd0a).
 // `archiveSnapshot` is GET /v1/snapshot as served while the run file pins the tuning-2026 archive.
 // `liveSnapshot` is the same body as a live worker run stamps it (source "live", feed "LIVE").
 
@@ -15,6 +15,9 @@ export const archiveSnapshot = {
   reserve_pct: 30.0,
   policy_reason: "normal",
   risk_level: "LOW",
+  live_homes: 100,
+  stale_homes: 0,
+  dead_homes: 0,
   breaches: 0,
   reasons: ["timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
   intent: "hold",
@@ -95,8 +98,26 @@ export const rollups = {
   clusters: [],
 }
 
+/** GET /v1/runs/latest, trimmed (checked 2026-09-27 on 162bd0a): `settings` is loop.SETTINGS_KEYS and `totals`
+ * is the scoreboard. tick_minutes is in both; the snapshot has neither. */
 export const runLatest = {
+  run_id: "20260927-122000-000001",
   source: "live",
-  settings: { fleet_size: 100, home_kwh: 25, home_max_kw: 11.4, base_reserve_pct: 30, storm_reserve_pct: 60, tick_minutes: 5 },
+  settings: {
+    fleet_size: 100, home_kwh: 25, home_max_kw: 11.4, base_reserve_pct: 30, storm_reserve_pct: 60,
+    charge_threshold_usd_mwh: 25, discharge_threshold_usd_mwh: 60, tick_minutes: 5, telemetry_feed: true,
+  },
+  ticks: [],
+  totals: { tick_minutes: 5, ticks: 1 },
+}
+
+/** An old Supabase run row from the 10,000-home live fleet (before Task 13). Its settings say so. */
+export const oldRun10k = {
+  run_id: "20260920-080000-000001",
+  source: "live",
+  settings: { fleet_size: 10000, base_reserve_pct: 30, storm_reserve_pct: 60, tick_minutes: 5 },
   ticks: [],
 }
+
+/** The same old row with no settings: only the tick's own home counts (PR #39 keeps them at 10,000). */
+export const oldSnapshot10k = { ...liveSnapshot, live_homes: 9800, stale_homes: 150, dead_homes: 50 }
