@@ -2,6 +2,8 @@
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
+import { createClient } from "../src/api/client"
+import { parseHome } from "../src/domain/parse"
 import type { FlowHome, OrderTimelineEntry } from "../src/features/flow/types"
 import { FleetPage } from "../src/features/fleet/FleetPage"
 import { HomePage } from "../src/features/fleet/HomePage"
@@ -125,6 +127,37 @@ describe("Fleet grid", () => {
   it("scenario homes keep the engine name", () => {
     const [home] = fromScenarioHomes([north[0]])
     expect(tileAria(home)).toMatch(/^North-Tarrant-054, Tarrant County, /)
+  })
+})
+
+describe("Fleet table reads the API's name (fix round 1)", () => {
+  const apiRow = {
+    home_id: "home-005", name: "Houston-FortBend-005", status: "live", zone: "Houston", county: "48157", county_name: "Fort Bend",
+    capacity_kwh: 25, soc_kwh: 15, floor_kwh: 7.5, max_kw: 11.4, assigned_kw: 0, eligible: true, skip_reason: null,
+    last_seen: "2026-09-27T12:00:00+00:00", last_command: null, charge_state: "HOLDING", power_kw: 0,
+  }
+
+  it("parseHome keeps name and county_name, and null when absent", () => {
+    const home = parseHome(apiRow)
+    expect(home.name).toBe("Houston-FortBend-005")
+    expect(home.county_name).toBe("Fort Bend")
+    const { name: _n, county_name: _c, ...bare } = apiRow
+    const old = parseHome(bare)
+    expect(old.name).toBeNull()
+    expect(old.county_name).toBeNull()
+  })
+
+  it("a /v1/homes row fetched by the client shows its name on the table and home page", async () => {
+    const fetchMock = async () => new Response(JSON.stringify([apiRow]), { status: 200, headers: { "Content-Type": "application/json" } })
+    const client = createClient({ fetch: fetchMock as typeof fetch, baseUrl: "http://ops.example/v1", operatorId: "op-14" })
+    const [home] = await client.homes()
+    expect(home.name).toBe("Houston-FortBend-005")
+    const table = renderToStaticMarkup(createElement(FleetPage, {
+      homes: [home], statusFilter: "all", zoneFilter: "all", query: "", offset: 0, limit: 50, hasMore: false,
+      onFilter: () => undefined, onZone: () => undefined, onQuery: () => undefined, onPage: () => undefined, onOpenHome: () => undefined,
+    }))
+    expect(table).toContain(">Houston-FortBend-005<")
+    expect(renderToStaticMarkup(createElement(HomePage, { home, onBack: () => undefined }))).toContain("Houston-FortBend-005")
   })
 })
 
