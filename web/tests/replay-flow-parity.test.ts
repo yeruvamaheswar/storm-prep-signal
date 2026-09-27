@@ -410,7 +410,7 @@ function session(overrides: Partial<SessionState> = {}): SessionState {
 const scenarios: ScenarioList = {
   scenarios: [
     { id: "beryl-landfall", name: "Hurricane Beryl landfall", alerts: [], grid_down_overlay: true },
-    { id: "calm-charge", name: "Calm day: charge at noon, sell at the peak", alerts: [] },
+    { id: "calm-charge", name: "Calm day: charge in the morning, sell at the peak", alerts: [] },
   ],
   speeds: [15, 60, 300],
   default_speed: 60,
@@ -859,7 +859,7 @@ describe("Scenario rail parity (gaps 3, 7, 8, 23)", () => {
     render(session())
     expect(host.textContent).toContain("Seed in use: 42")
     typeSeed("77")
-    const calm = [...host.querySelectorAll<HTMLButtonElement>(".replay-scenario")].find((b) => b.querySelector(".title")?.textContent === "Calm day: charge at noon, sell at the peak")!
+    const calm = [...host.querySelectorAll<HTMLButtonElement>(".replay-scenario")].find((b) => b.querySelector(".title")?.textContent === "Calm day: charge in the morning, sell at the peak")!
     act(() => calm.click())
     act(() => button("Reshuffle batteries").click())
     expect(sent).toEqual([

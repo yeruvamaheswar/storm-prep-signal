@@ -80,7 +80,7 @@ SCENARIOS = [
                 " The day-ahead look-ahead charges near $45 before dawn for the morning peak, and the fleet sells"
                 " into it. Then each zone refills in its cheapest day-ahead hours and on real-time dips, to about"
                 " 83% full by 16:00."},
-    {"id": "calm-charge", "name": "Calm day: charge at noon, sell at the peak", "event": "tuning-2026",
+    {"id": "calm-charge", "name": "Calm day: charge in the morning, sell at the peak", "event": "tuning-2026",
      "start": "2026-08-30T07:00", "end": "2026-08-30T22:00", "zone": "LZ_NORTH",
      "summary": "A normal late-summer day. LZ_NORTH sits under $25 until about 12:45 (low $12),"
                 " then climbs to $225 around 19:30. Each zone waits for its cheapest day-ahead hours (North:"

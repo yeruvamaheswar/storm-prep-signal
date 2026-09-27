@@ -59,7 +59,8 @@ HONEST_LIMITS = (
     "The payback check uses day-ahead (DAM) prices, not the real-time prices that will actually happen.",
     "The later DAM hour in the payback check is a forecast value, not a planned sale: the fleet sells only "
     "on a grid call.",
-    "A scenario with no saved DAM day (heather) runs on the $25 charge and $60 sell price bands.",
+    "A scenario with no saved DAM day (Winter Storm Heather, 2024-01-15) runs on the $25 charge and $60 sell "
+    "price bands.",
     "DAM prices are fetched once a day. If ERCOT posts late, Live runs on today's hours until tomorrow's arrive.",
     "The 89% battery round trip is an example figure (Powerwall 3 datasheet), not a Base spec.",
     "Before a day-ahead price spike a zone fills up, even when it already holds enough for the grid call "

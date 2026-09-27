@@ -58,8 +58,8 @@ export const berylHoustonOrders22: Record<string, OrderTimelineEntry[]> = {
   "home-097": [[0.0, "sent", 0.3377641776406161, "own"], [20.4, "exec", 0.3377641776406161, "own"], [29.2, "conf", 0.3377641776406161, "own"]],
 } as Record<string, OrderTimelineEntry[]>
 
-// The same run at tick 60 (02:55 CT), Houston only: Houston waits for its cheaper DAM hour, and the four full
-// Harris homes on the 60% floor get no order (reserved).
+// The same run at tick 60 (02:55 CT), Houston only: every zone charges on a real-time dip (rt_dip), 10 Houston
+// homes charge at 11.4 kW, and the four full Harris homes on the 60% floor get no order (reserved).
 export const berylHoustonHomes60: FlowHome[] = [
   {"id": "home-001", "name": "Houston-Harris-001", "zone": "Houston", "county": "48201", "county_name": "Harris", "soc_pct": 63.82, "soc_before_pct": 67.15, "kw": 10.0, "state": "selling", "status": "live", "floor_pct": 60.0, "floor_reason": "weather_alert", "under_floor_why": null, "plan_status": "live"},
   {"id": "home-005", "name": "Houston-FortBend-005", "zone": "Houston", "county": "48157", "county_name": "Fort Bend", "soc_pct": 100.0, "soc_before_pct": 100.0, "kw": 0.0, "state": "holding", "status": "live", "floor_pct": 30.0, "floor_reason": "not_in_alert", "under_floor_why": null, "plan_status": "live"},

@@ -49,7 +49,7 @@
     },
     {
       "id": "calm-charge",
-      "name": "Calm day: charge at noon, sell at the peak",
+      "name": "Calm day: charge in the morning, sell at the peak",
       "event": "tuning-2026",
       "window": "2026-08-30 07:00 to 22:00 CT",
       "summary": "A normal late-summer day. LZ_NORTH sits under $25 until about 12:45 (low $12), then climbs to $225 around 19:30. Each zone waits for its cheapest day-ahead hours (North: 09:00 to 10:30), so the fleet is nearly full by 10:30; then it sells into the evening.",

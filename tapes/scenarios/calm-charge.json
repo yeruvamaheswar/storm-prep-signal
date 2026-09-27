@@ -1,5 +1,5 @@
 {
- "label": "ERCOT replay, Calm day: charge at noon, sell at the peak, 2026-08-30 07:00 to 22:00 CT. Risk: recorded NP3-233-CD. Price: recorded NP6-905-CD LZ_NORTH; zone_prices: the four load zones. Target: synthetic:price-shaped (no public dispatch target exists).",
+ "label": "ERCOT replay, Calm day: charge in the morning, sell at the peak, 2026-08-30 07:00 to 22:00 CT. Risk: recorded NP3-233-CD. Price: recorded NP6-905-CD LZ_NORTH; zone_prices: the four load zones. Target: synthetic:price-shaped (no public dispatch target exists).",
  "frames": [
   {
    "tick": 1,
