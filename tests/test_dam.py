@@ -125,6 +125,38 @@ def test_fetch_dam_prices_merges_four_zones_and_keeps_secrets_out(monkeypatch):
     assert "SECRET" not in str(err.value)
 
 
+def test_recorded_dam_files_are_cached_by_their_real_path_not_the_relative_one(tmp_path, monkeypatch):
+    # Two worktrees (or a test that changes directory) can hold different files at the same relative path.
+    from types import SimpleNamespace
+
+    from server.engine.loop import frame_dam
+    frame = SimpleNamespace(tick=1, ts="2026-08-30T09:00:00-05:00", dam_fixtures=["dam/day.json"])
+    for name, usd in (("a", 11.0), ("b", 22.0)):
+        folder = tmp_path / name / "dam"
+        folder.mkdir(parents=True)
+        day = {**body(day_rows("LZ_NORTH", "2026-08-30", [usd] * 24)), "delivery_date": "2026-08-30"}
+        (folder / "day.json").write_text(json.dumps(day))
+        monkeypatch.chdir(tmp_path / name)
+        window, label, _ = frame_dam(frame)
+        assert label != "none"
+        assert window["North"][0]["usd_mwh"] == usd
+
+
+def test_fetch_dam_prices_fails_the_day_when_one_zone_has_no_rows(monkeypatch):
+    # The caller saves the body to var/dam/ for good, so a day with a zone missing must not come back.
+    for name, value in SECRETS.items():
+        monkeypatch.setenv(name, value)
+
+    def fake_get(url, params, headers, timeout):
+        rows = [] if params["settlementPoint"] == "LZ_SOUTH" else day_rows(params["settlementPoint"], "2026-08-30", [1.0])
+        return FakeResponse(200, json.dumps(body(rows)))
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    with pytest.raises(SignalUnavailable) as err:
+        fetch_dam_prices({"fetch_timeout_s": 3}, "2026-08-30", id_token="token")
+    assert "LZ_SOUTH" in str(err.value)
+
+
 def test_score_day_compares_dam_choice_with_hindsight_and_the_band():
     hours = [datetime(2026, 8, 30, h, tzinfo=CENTRAL) for h in range(4)]
     dam = dict(zip(hours, [10.0, 30.0, 12.0, 40.0]))

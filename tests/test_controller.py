@@ -892,3 +892,57 @@ def test_acted_intent_zoned_refill_only_on_a_cheap_headline_says_reserve_refill(
     alloc = allocate([home("a", 2.0), home("b", 10.0)], frame(0.0), p, "AUTO", settings())
     assert alloc.reasons == ["reserve_refill"]
     assert acted_intent(alloc, p, "AUTO") == ("charge", "reserve_refill")
+
+
+# --- an all-zones DAM wait names the wait, not a missing call (pr50 audit I4) ------------------
+
+def dam_waiting(band, whys):
+    """Every zone held by the DAM rule; `band` is the headline price band."""
+    p = labelled(band, "")
+    p.zone_intent = {z: "hold" for z in ZONES}
+    p.zone_charge_why = dict(whys)
+    return p
+
+
+def test_acted_intent_all_zones_waiting_for_a_cheaper_hour_on_a_cheap_band_says_so():
+    p = dam_waiting("charge", {z: "cheaper_hour_later" for z in ZONES})
+    alloc = allocate([home("a", 10.0), home("n", 10.0, zone="North")], frame(0.0), p, "AUTO", settings())
+    assert alloc.per_home_kw == {}
+    assert acted_intent(alloc, p, "AUTO") == ("hold", "cheaper_hour_later")
+
+
+def test_acted_intent_all_zones_waiting_on_a_hold_band_says_so():
+    p = dam_waiting("hold", {z: "cheaper_hour_later" for z in ZONES})
+    alloc = allocate([home("a", 10.0), home("n", 10.0, zone="North")], frame(0.0), p, "AUTO", settings())
+    assert acted_intent(alloc, p, "AUTO") == ("hold", "cheaper_hour_later")
+
+
+def test_acted_intent_all_zones_without_payback_says_no_payback():
+    p = dam_waiting("charge", {z: "no_payback" for z in ZONES})
+    alloc = allocate([home("a", 10.0)], frame(0.0), p, "AUTO", settings())
+    assert acted_intent(alloc, p, "AUTO") == ("hold", "no_payback")
+
+
+def test_acted_intent_dam_wait_mixed_with_full_zones_names_the_wait():
+    whys = {z: "full" for z in ZONES} | {"North": "no_payback", "Houston": "cheaper_hour_later"}
+    p = dam_waiting("hold", whys)
+    alloc = allocate([home("a", 10.0)], frame(0.0), p, "AUTO", settings())
+    assert acted_intent(alloc, p, "AUTO") == ("hold", "cheaper_hour_later")
+
+
+def test_acted_intent_a_zone_outside_the_dam_rule_keeps_the_old_reason():
+    # One zone has no DAM decision: the wait is not the whole story, so the old rule stands.
+    p = dam_waiting("charge", {z: "cheaper_hour_later" for z in ZONES if z != "West"})
+    assert acted_intent(Allocation({}, 0.0, 0.0, []), p, "AUTO") == ("hold", "no_grid_call")
+
+
+def test_acted_intent_dam_wait_with_an_unserved_call_keeps_the_policy_reason():
+    p = dam_waiting("hold", {z: "cheaper_hour_later" for z in ZONES})
+    alloc = Allocation({}, 0.0, 0.2, ["storm_reserve"])
+    assert acted_intent(alloc, p, "AUTO") == ("hold", "")
+
+
+def test_acted_intent_dam_wait_keeps_price_unavailable():
+    p = dam_waiting("hold", {z: "cheaper_hour_later" for z in ZONES})
+    p.intent_reason = "price_unavailable"
+    assert acted_intent(Allocation({}, 0.0, 0.0, []), p, "AUTO") == ("hold", "price_unavailable")

@@ -202,7 +202,11 @@ def fetch_dam_prices(settings, delivery_date, id_token=None):
                 merged = {"source": f"{DAM_SOURCE} dam_stlmnt_pnt_prices", "delivery_date": delivery_date,
                           "fields": raw["fields"], "data": []}
             names = [field["name"] for field in merged["fields"]]
-            merged["data"] += [[row.get(name) for name in names] for row in rows_by_name(raw)]
+            rows = [[row.get(name) for name in names] for row in rows_by_name(raw)]
+            if not rows:
+                # The caller caches the day for good, so one empty zone fails the whole day.
+                raise SignalUnavailable(f"no DAM prices for {point} on {delivery_date}")
+            merged["data"] += rows
     except requests.Timeout:
         raise SignalUnavailable(f"ERCOT did not answer within {timeout:g} s") from None
     except (ValueError, KeyError, TypeError):
