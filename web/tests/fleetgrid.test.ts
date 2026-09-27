@@ -1,11 +1,12 @@
-import { createElement } from "react"
+import { act, createElement } from "react"
+import { createRoot } from "react-dom/client"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import type { FlowHome } from "../src/features/flow/types"
 import { FleetGridPage, type FleetGridPageProps } from "../src/features/fleetgrid/FleetGridPage"
 import {
   NOT_REPORTED, cellGeometry, cellLook, filterCounts, findHome, floorLegend, fromLiveRows, fromScenarioHomes,
-  focusZoneFromSearch, isUnderFloor, liveSourceNote, matchesFilter, scenarioSourceNote, nowText, pctLabel, replayHref, shortId, shortState, statusLabel, zoneBanks,
+  errorText, focusZoneFromSearch, isUnderFloor, otherNote, liveSourceNote, matchesFilter, scenarioSourceNote, nowText, pctLabel, replayHref, shortId, shortState, statusLabel, zoneBanks,
   type GridHome,
 } from "../src/features/fleetgrid/fleetModel"
 
@@ -292,5 +293,86 @@ describe("URL zone and source notes", () => {
     expect(scenarioSourceNote({ scenario: { name: "Faults at the peak" }, tick_index: 12, tick_count: 181, status: "playing" }))
       .toBe("Scenario: Faults at the peak, tick 12 of 181, playing.")
     expect(scenarioSourceNote({ scenario: null, tick_index: 0, tick_count: 0, status: "idle" })).toBe("Scenario: none started yet.")
+  })
+})
+
+describe("fix round 1", () => {
+  const flow = (id: string, state: string, soc = 70, floor = 30): FlowHome =>
+    ({ id, zone: "North", soc_pct: soc, kw: 0, state, status: "live", floor_pct: floor }) as FlowHome
+
+  it("gives islanded and reserved their own words and colours, never Holding", () => {
+    const [isl, res] = fromScenarioHomes([flow("home-1", "islanded"), flow("home-2", "reserved")])
+    expect(isl.action).toBe("islanded")
+    expect(shortState(isl)).toBe("Islanded")
+    expect(nowText(isl)).toBe("Islanded: backing up its own home")
+    expect(cellLook(isl).fill).toBe("var(--rg-lost)")
+    expect(res.action).toBe("reserved")
+    expect(shortState(res)).toBe("Reserved")
+    expect(nowText(res)).toBe("Reserved for backup")
+    expect(cellLook(res).fill).toBe("var(--rg-raised-floor-stroke)")
+  })
+
+  it("maps at_floor, below_floor and holding to holding, with the under-floor rule", () => {
+    const [at, below, hold] = fromScenarioHomes([flow("a", "at_floor", 30, 30), flow("b", "below_floor", 20, 30), flow("c", "holding")])
+    expect([at.action, below.action, hold.action]).toEqual(["holding", "holding", "holding"])
+    expect(nowText(below)).toBe("Under its floor, holding")
+    expect(cellLook(below).fill).toBe("var(--rg-fleet-under)")
+    expect(nowText(at)).toBe("Holding")
+  })
+
+  it("says order not confirmed for unconfirmed and Not reported for an unknown state", () => {
+    const [unc, odd] = fromScenarioHomes([flow("u", "unconfirmed"), flow("x", "levitating")])
+    expect(unc.action).toBe("unconfirmed")
+    expect(nowText(unc)).toBe("Order not confirmed")
+    expect(cellLook(unc).fill).toBe("var(--rg-not-counted)")
+    expect(odd.action).toBeNull()
+    expect(shortState(odd)).toBe(NOT_REPORTED)
+    expect(nowText(odd)).toBe(NOT_REPORTED)
+    expect(cellLook(odd).fill).toBe("var(--rg-not-counted)")
+  })
+
+  it("uses a neutral fill for a live home whose floor is not reported", () => {
+    const [h] = fromScenarioHomes([{ ...flow("n", "holding"), floor_pct: null as unknown as number }])
+    expect(h.floorPct).toBeNull()
+    expect(cellLook(h).fill).toBe("var(--rg-not-counted)")
+    const [s] = fromScenarioHomes([{ ...flow("s", "selling"), floor_pct: null as unknown as number }])
+    expect(cellLook(s).fill).toBe("var(--rg-order-way)")
+  })
+
+  it("names homes that are not live, stale or offline", () => {
+    expect(otherNote(homes)).toBe("1 unconfirmed, shown under All")
+    expect(otherNote(homes.filter((h) => h.status !== "other"))).toBeNull()
+  })
+
+  it("shows the server's words on an error", () => {
+    expect(errorText(500, { brief: "homes table missing" })).toBe("http 500: homes table missing")
+    expect(errorText(422, { detail: "limit too big" })).toBe("http 422: limit too big")
+    expect(errorText(502, null)).toBe("http 502")
+    expect(errorText(422, { detail: [{ msg: "x" }] })).toBe("http 422")
+  })
+
+  it("shows the unconfirmed note next to the filters", () => {
+    const html = renderToStaticMarkup(createElement(FleetGridPage, {
+      source: "live", homes, loading: false, error: null, sourceNote: "", filter: "all", selectedId: null, foundId: null,
+      focusZone: null, query: "", onSource: () => {}, onFilter: () => {}, onSelect: () => {}, onQuery: () => {}, onFind: () => {},
+    }))
+    expect(html).toContain("1 unconfirmed, shown under All")
+  })
+
+  it("returns focus to the tile when the detail panel closes", () => {
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    const host = document.createElement("div")
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    const props = {
+      source: "live" as const, homes, loading: false, error: null, sourceNote: "", filter: "all" as const, foundId: null,
+      focusZone: null, query: "", onSource: () => {}, onFilter: () => {}, onSelect: () => {}, onQuery: () => {}, onFind: () => {},
+    }
+    act(() => root.render(createElement(FleetGridPage, { ...props, selectedId: "home-002" })))
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Home detail")
+    act(() => root.render(createElement(FleetGridPage, { ...props, selectedId: null })))
+    expect(document.activeElement?.getAttribute("data-home")).toBe("home-002")
+    act(() => root.unmount())
+    host.remove()
   })
 })

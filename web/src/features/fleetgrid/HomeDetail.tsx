@@ -12,6 +12,13 @@ export function HomeDetail({ home, onClose }: HomeDetailProps) {
   useEffect(() => {
     ref.current?.focus()
   }, [home.id])
+  // On close (Close, Escape, or the parent clearing the selection), focus goes back to the home's tile.
+  const openId = useRef(home.id)
+  openId.current = home.id
+  useEffect(() => () => {
+    const tile = Array.from(document.querySelectorAll<HTMLElement>("[data-home]")).find((el) => el.dataset.home === openId.current)
+    tile?.focus()
+  }, [])
   return (
     <section
       ref={ref}

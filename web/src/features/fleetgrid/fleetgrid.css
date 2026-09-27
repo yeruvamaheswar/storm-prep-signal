@@ -82,6 +82,11 @@
   margin-left: auto;
 }
 
+.fg-other {
+  font-size: 13px;
+  color: var(--rg-muted);
+}
+
 .fg-find label {
   display: flex;
   align-items: center;

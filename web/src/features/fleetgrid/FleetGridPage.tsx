@@ -1,8 +1,9 @@
 import { BankPanel } from "./BankPanel"
 import { FleetLegend } from "./FleetLegend"
 import { HomeDetail } from "./HomeDetail"
+import { Skeleton } from "./Skeleton"
 import {
-  FILTERS, GRID_ZONES, filterCounts, floorLegend, homesTitle, zoneBanks,
+  FILTERS, filterCounts, floorLegend, homesTitle, otherNote, zoneBanks,
   type FilterKey, type GridHome, type SourceKey,
 } from "./fleetModel"
 import "./fleetgrid.css"
@@ -32,24 +33,10 @@ const SOURCES: Array<[SourceKey, string]> = [["live", "Live"], ["scenario", "Sce
 export const FLEET_NOTE =
   "Batteries are simulated. The fill is each battery's real charge from the engine; the dashed line is the floor it keeps for backup."
 
-function Skeleton() {
-  return (
-    <div className="fg-banks" aria-busy="true" aria-label="Loading homes">
-      {GRID_ZONES.map((zone) => (
-        <section key={zone} className="fg-bank is-skeleton" aria-hidden="true">
-          <div className="fg-bank-head"><h2>{zone}</h2><span className="fg-skel-line" /></div>
-          <div className="fg-dist">
-            {Array.from({ length: 25 }, (_, k) => <span key={k} className="fg-skel-cell" />)}
-          </div>
-        </section>
-      ))}
-    </div>
-  )
-}
-
 export function FleetGridPage(props: FleetGridPageProps) {
   const { source, homes, loading, error, sourceNote, filter, selectedId, foundId, focusZone, query } = props
   const counts = homes === null ? null : filterCounts(homes)
+  const other = homes === null ? null : otherNote(homes)
   const selected = homes?.find((h) => h.id === selectedId) ?? null
 
   let body
@@ -98,6 +85,7 @@ export function FleetGridPage(props: FleetGridPageProps) {
             </button>
           ))}
         </div>
+        {other === null ? null : <span className="fg-other">{other}</span>}
         <form
           className="fg-find"
           role="search"

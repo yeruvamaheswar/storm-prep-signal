@@ -4,7 +4,7 @@ import { fetchState } from "../flow/api"
 import { isWorkerDown } from "../flow/types"
 import { FleetGridPage } from "./FleetGridPage"
 import {
-  LIVE_LIMIT, findHome, focusZoneFromSearch, fromLiveRows, fromScenarioHomes, liveSourceNote, scenarioSourceNote,
+  LIVE_LIMIT, errorText, findHome, focusZoneFromSearch, fromLiveRows, fromScenarioHomes, liveSourceNote, scenarioSourceNote,
   type FilterKey, type GridHome, type SourceKey,
 } from "./fleetModel"
 
@@ -13,13 +13,23 @@ const POLL_MS: Record<SourceKey, number> = { live: 15_000, scenario: 1_000 }
 
 type Loaded = { homes: GridHome[]; note: string }
 
+// Own fetch, not createClient().homes: its strict parseHome throws on one row with a missing number and
+// drops the whole list, where this page must keep the row and show "Not reported".
 async function loadLive(base: string): Promise<Loaded> {
   const res = await fetch(`${base}/v1/homes?limit=${LIVE_LIMIT}`, {
     cache: "no-store",
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`http ${res.status}`)
+  if (!res.ok) {
+    let body: unknown = null
+    try {
+      body = await res.json()
+    } catch {
+      // Keep the bare status when the body is not JSON.
+    }
+    throw new Error(errorText(res.status, body))
+  }
   const body: unknown = await res.json()
   if (!Array.isArray(body)) throw new Error("the reply was not a list of homes")
   const homes = fromLiveRows(body)
@@ -48,7 +58,6 @@ export function FleetGridRoot() {
   const [filter, setFilter] = useState<FilterKey>("all")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
-  const [foundId, setFoundId] = useState<string | null>(null)
   const scrolledZone = useRef(false)
 
   useEffect(() => {
@@ -60,7 +69,12 @@ export function FleetGridRoot() {
     setLoaded(null)
     setLoading(true)
     setError(null)
+    // One request at a time: a tick is skipped while the last one is in flight, so an older reply
+    // (up to the 3 s timeout) can never land after, and overwrite, a newer one.
+    let inFlight = false
     async function poll() {
+      if (inFlight) return
+      inFlight = true
       try {
         const next = await (source === "live" ? loadLive(base) : loadScenario(base))
         if (cancelled) return
@@ -69,6 +83,7 @@ export function FleetGridRoot() {
       } catch (err) {
         if (!cancelled) setError(message(err))
       } finally {
+        inFlight = false
         if (!cancelled) setLoading(false)
       }
     }
@@ -89,16 +104,15 @@ export function FleetGridRoot() {
     document.querySelector(`[data-zone="${focusZone}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" })
   }, [focusZone, homes])
 
+  // The search hit follows the current query and the homes loaded now, so it is right after a load or a source switch.
+  const foundId = useMemo(() => (homes === null ? null : findHome(homes, query)?.id ?? null), [homes, query])
+
   useEffect(() => {
     if (foundId === null) return
-    document.querySelector(`[data-home="${CSS.escape(foundId)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" })
+    Array.from(document.querySelectorAll<HTMLElement>("[data-home]"))
+      .find((el) => el.dataset.home === foundId)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [foundId])
-
-  function find(q: string, open: boolean) {
-    const hit = homes === null ? null : findHome(homes, q)
-    setFoundId(hit?.id ?? null)
-    if (open && hit) setSelectedId(hit.id)
-  }
 
   return (
     <FleetGridPage
@@ -117,15 +131,14 @@ export function FleetGridRoot() {
         setSource(next)
         setFilter("all")
         setSelectedId(null)
-        setFoundId(null)
       }}
       onFilter={setFilter}
       onSelect={setSelectedId}
-      onQuery={(q) => {
-        setQuery(q)
-        find(q, false)
+      onQuery={setQuery}
+      onFind={(q) => {
+        const hit = homes === null ? null : findHome(homes, q)
+        if (hit) setSelectedId(hit.id)
       }}
-      onFind={(q) => find(q, true)}
     />
   )
 }

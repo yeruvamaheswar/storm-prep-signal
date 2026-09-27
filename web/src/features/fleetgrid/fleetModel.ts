@@ -15,7 +15,7 @@ export const NO_ZONE = "Zone not reported"
 
 /** live, stale, offline (dead), or other (unconfirmed or a status this page does not know). */
 export type GridStatus = "live" | "stale" | "offline" | "other"
-export type GridAction = "selling" | "charging" | "full" | "holding"
+export type GridAction = "selling" | "charging" | "full" | "holding" | "islanded" | "reserved" | "unconfirmed"
 
 export type GridHome = {
   id: string
@@ -90,13 +90,24 @@ export function fromLiveRows(body: unknown): GridHome[] {
   return out
 }
 
+/** Engine BatteryState (server/engine/scenario.py home_state) to what the cell shows. Unknown states stay null. */
+const SCENARIO_ACTIONS: Record<string, GridAction> = {
+  selling: "selling",
+  charging: "charging",
+  holding: "holding",
+  at_floor: "holding",
+  below_floor: "holding",
+  islanded: "islanded",
+  reserved: "reserved",
+  unconfirmed: "unconfirmed",
+}
+
 /** Scenario session homes (SessionState.homes). */
 export function fromScenarioHomes(homes: FlowHome[]): GridHome[] {
   return homes.filter((h) => isRecord(h) && typeof h.id === "string").map((h) => {
     const rawStatus = typeof h.status === "string" ? h.status : ""
     const status = statusOf(rawStatus)
-    let action: GridAction | null = null
-    if (status === "live") action = h.state === "selling" ? "selling" : h.state === "charging" ? "charging" : "holding"
+    const action = status === "live" ? SCENARIO_ACTIONS[h.state as string] ?? null : null
     return {
       id: h.id,
       zone: zoneOf(h.zone),
@@ -158,6 +169,9 @@ export function shortState(h: GridHome): string {
   if (h.action === "selling") return `Selling${kwText(h.kw)}`
   if (h.action === "charging") return `Charging${kwText(h.kw)}`
   if (h.action === "full") return "Full"
+  if (h.action === "islanded") return "Islanded"
+  if (h.action === "reserved") return "Reserved"
+  if (h.action === "unconfirmed") return "Not confirmed"
   if (isUnderFloor(h)) return "Under floor"
   if (h.action === "holding") return "Holding"
   return NOT_REPORTED
@@ -172,6 +186,9 @@ export function nowText(h: GridHome): string {
   if (h.action === "selling") return `Selling${kw}`
   if (h.action === "charging") return `Charging${kw}`
   if (h.action === "full") return "Full, holding"
+  if (h.action === "islanded") return "Islanded: backing up its own home"
+  if (h.action === "reserved") return "Reserved for backup"
+  if (h.action === "unconfirmed") return "Order not confirmed"
   if (isUnderFloor(h)) return "Under its floor, holding"
   if (h.action === "holding") return "Holding"
   return NOT_REPORTED
@@ -209,7 +226,13 @@ export function fillColor(h: GridHome): string {
   if (h.status !== "live") return "var(--rg-not-counted)"
   if (h.action === "selling") return "var(--rg-order-way)"
   if (h.action === "charging") return "var(--rg-charging)"
+  if (h.action === "islanded") return "var(--rg-lost)"
+  if (h.action === "reserved") return "var(--rg-raised-floor-stroke)"
+  if (h.action === "unconfirmed") return "var(--rg-not-counted)"
   if (isUnderFloor(h)) return "var(--rg-fleet-under)"
+  if (h.action === null) return "var(--rg-not-counted)"
+  // "Charge above its floor" needs a reported floor; without one the fill stays neutral.
+  if (h.floorPct === null) return "var(--rg-not-counted)"
   return "var(--rg-confirmed)"
 }
 
@@ -310,4 +333,24 @@ export function scenarioSourceNote(state: {
 }): string {
   if (state.scenario === null) return "Scenario: none started yet."
   return `Scenario: ${state.scenario.name}, tick ${state.tick_index} of ${state.tick_count}, ${state.status}.`
+}
+
+/** Homes counted under All only (not live, stale or offline), so the filter counts visibly add up. */
+export function otherNote(homes: GridHome[]): string | null {
+  const counts = new Map<string, number>()
+  for (const h of homes) {
+    if (h.status !== "other") continue
+    const label = statusLabel(h).toLowerCase()
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+  if (!counts.size) return null
+  return `${[...counts].map(([label, n]) => `${n} ${label}`).join(", ")}, shown under All`
+}
+
+/** "http 500: <brief or detail>" from an error reply body, when the server sent words. */
+export function errorText(status: number, body: unknown): string {
+  const words = isRecord(body)
+    ? [body.brief, body.detail, body.error].find((v): v is string => typeof v === "string" && v.trim() !== "")
+    : undefined
+  return words ? `http ${status}: ${words}` : `http ${status}`
 }
