@@ -1287,3 +1287,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `fleet.scale_tick_to_fleet`: `missed_mw = max(0, target − delivered)` after scaling (delivered capped at target), so the books close when the fleet cap clips the target; `charging_mw` and `zone_charging_mw` scale with the same factor.
 - `TelemetryState([])` picks no liar instead of raising; `new_fleet` / `assign_zone` with no zones raise `ValueError`. Seeded picks for a real fleet are unchanged (test pins seed 7).
 - `pytest -q`: 917 passed; `FUZZ_SEEDS=50`: 917 passed.
+
+## 2026-09-27: Day view in Replay ships (Task 14B, fix rounds 1 and 2)
+
+- Day view is Replay's default bar: scenario window by real `ts`, marks as ticks play, 5/2/1 min-per-day pace, seek (click/drag, 1-hour buttons, `,` `.` and Shift keys), pause freezes the lines, one line legend, sun shading and county rain on the map. Detail: `docs/agents/grid-flow.md` "Day view (Replay)".
+- Fix round 2: `POST /v1/scenario/seek` also takes `{delta}`, resolved against the worker's live index (`Session.seek_by`); the page sends it for key steps and 1-hour buttons while playing, so `.` at day pace no longer lands behind the worker and rebuilds the run. Two deltas in one poll add up. "Seeking" is held until `last_seek.seq` answers when the worker reports `last_seek`. The finished state is not a seek target (documented). Out-of-order poll replies are dropped (`dayModel.freshReply`).
+- Merged with main after #59 (Live), #61 (phone layout) and #62 (engine fixes): kept the Live `crumbHint` and the 720 px media queries with the Day view's sun, rain, sources note and measured bar height.
+- `pytest -q`: 932 passed; `FUZZ_SEEDS=50`: 932 passed. Web: `vitest` 851 passed (57 files), `tsc -b` clean, build ok.
