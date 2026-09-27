@@ -217,6 +217,50 @@ def test_live_tick_carries_the_dam_forecast_and_fetches_each_day_once(tmp_path, 
     assert len(again["dam_hours"]["North"]) == 12
 
 
+def test_a_restarted_worker_reads_the_saved_dam_day_and_never_fetches_it(tmp_path, monkeypatch):
+    # The laptop worker's var/dam/ outlives the process: a fresh `--loop` finds the day already saved.
+    _fake_ercot(monkeypatch, tmp_path)
+    saved = tmp_path / "var" / "dam" / "np4_190_cd_20260925.json"
+    saved.parent.mkdir(parents=True)
+    body = dam_reply("LZ_NORTH")
+    saved.write_text(json.dumps({"source": "ERCOT NP4-190-CD dam_stlmnt_pnt_prices",
+                                 "delivery_date": "2026-09-25", **body}))
+    real_get = requests.get
+
+    def no_dam(url, **kw):
+        assert "np4-190-cd" not in url, "a saved DAM day was fetched again"
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", no_dam)
+    tick = cycle.run_cycle(SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                           state_path=tmp_path / "state.json", url="", key="", persist=False,
+                           send=None)["record"]["ticks"][-1]
+    assert list(tick["dam_hours"]) == ["North"]
+    assert tick["dam_as_of"] == "2026-09-25"
+
+
+def test_a_dam_429_is_one_attempt_per_cycle_not_a_retry_loop(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    real_get = requests.get
+    dam_gets = []
+
+    def rate_limited(url, **kw):
+        if "np4-190-cd" in url:
+            dam_gets.append(kw["params"]["settlementPoint"])
+            return FakeResponse(429, "Too Many Requests")
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", rate_limited)
+    kwargs = dict(now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                  state_path=tmp_path / "state.json", url="", key="", persist=False, send=None)
+    tick = cycle.run_cycle(SETTINGS, **kwargs)["record"]["ticks"][-1]
+    assert len(dam_gets) == 1
+    assert (tick["dam_hours"], tick["dam_label"]) == ({}, "none")
+    assert not (tmp_path / "var" / "dam").exists()
+    cycle.run_cycle(SETTINGS, **kwargs)
+    assert len(dam_gets) == 2
+
+
 def test_live_tick_without_dam_falls_back_to_the_price_bands(tmp_path, monkeypatch):
     _fake_ercot(monkeypatch, tmp_path)
     real_get = requests.get

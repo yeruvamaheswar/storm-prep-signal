@@ -36,7 +36,7 @@ export type TickResult = {
   zone_hours_needed?: Record<string, number>
   /** Chosen charge hours by load zone, as DamHour.hour_start strings. */
   zone_charge_hours?: Record<string, string[]>
-  /** "dam_cheap_hour" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full" | "sell_band" */
+  /** "dam_cheap_hour" | "before_spike" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full" | "sell_band" */
   zone_charge_why?: Record<string, string>
 }
 

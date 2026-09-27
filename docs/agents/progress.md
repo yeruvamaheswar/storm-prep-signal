@@ -1235,6 +1235,23 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests: `tests/test_dam.py` (new), DAM cases in `tests/test_fleet.py`, `test_policy.py`, `test_controller.py`, `test_live_cycle.py`, `test_snapshot.py`, `test_build_scenarios.py`; `web/tests/damForecast.test.ts`. Doc checks: `tests/test_code_flow.py`, `tests/test_system_design.py` pass.
 - `pytest -q --ignore="tests/test_grid_down 2.py" --ignore="tests/test_tick_paths 2.py"`: 761 passed in 42.31 s.
 
+## 2026-09-27: Live DAM cache: where the worker runs
+
+- Question: does the live DAM cache (`var/dam/`) survive in production, so the live cycle fetches each delivery day once? Checked where `scripts/live_cycle.py` runs: only on a laptop, by hand. Render has one service (`reservegate-api`, start command `scenario_session.py` + uvicorn); no Render cron or worker, no GitHub Actions job (CI runs tests only), no Supabase `pg_cron`, `pg_net` or Edge Functions. Supabase `runs` holds 51 `source=live` rows, all 2026-09-26 19:46 to 2026-09-27 00:34 UTC: one `--loop` session. Evidence and the rule for a future move: `docs/agents/live-ingest.md` "Where it runs".
+- Result: the cache was not at risk. The laptop disk keeps `var/dam/` across cycles and restarts. No code change, no migration. The old note that "a Render restart empties it" was wrong, since nothing on Render reads or writes `var/dam/`.
+- ERCOT 429: `fetch_dam_prices` stops at the first non-200 GET and never retries, so a rate-limited day costs one GET per cycle.
+- Tests (`tests/test_live_cycle.py`): a restarted worker that finds the day in `var/dam/` makes no DAM GET; a DAM 429 is one GET per cycle, not cached, and tried once more next cycle. Existing: a second cycle makes no DAM GET; a DAM failure falls back to the bands.
+- Docs: `docs/agents/live-ingest.md`, `dam-forecast.md`, `system-design.md`.
+- `pytest -q`: 833 passed.
+
+## 2026-09-27: DAM charge hours stop at the next price spike (epic 7)
+
+- Gap: the `heather-spike` finding above. Decided by the user: the look-ahead window for choosing charge hours ends at the first later DAM hour at or above `discharge_threshold_usd_mwh`. Choices recorded in `docs/agents/policy-intent.md` "Cheapest DAM hours": the current hour never ends the window; payback still reads the whole window, spike included; storm zones cut too; new why `before_spike` (add-only) when the cut changed the chosen hours.
+- Engine: `policy.dam_charge`, new `policy._cheapest`; `controller.acted_intent` reads `before_spike` after `dam_cheap_hour`. Web: `damForecast.ts` line "N cheapest hours before the next sell-band hour". `CONSTRAINTS.md` `reserve_policy`, `acted_intent` and `Policy.zone_charge_why` got dated add-only sentences. `HONEST_LIMITS`: the "wait past a real dip beyond a spike" line is replaced by "fills up before a spike even when it already holds enough for the call".
+- Replays (seed 42, bands / first DAM / stop at spike, net $, 0 breaches in all): `calm-charge` 101.37 / 106.76 / 107.75, `heather-spike` 1041.08 / 842.68 / 1016.79, `heather-thaw` 34.53 / 47.87 / 34.91, `beryl-landfall` −13.46 / −10.07 / −10.07. Why each moved: `policy-intent.md` "Replay".
+- Tests: 5 new `test_dam_*` cases in `tests/test_policy.py`; `test_dam_charge_hours_follow_how_much_charge_the_zone_needs` now expects 5 hours, not 6 (its last hour is $60, which ends the window); `before_spike` added to the `acted_intent` DAM case in `tests/test_controller.py` and to the calm-day reason whitelist in `tests/test_build_scenarios.py`; `web/tests/damForecast.test.ts` 1 new case.
+- `pytest -q` (rebased on the DAM cache entry above): 838 passed. Web: `vitest` 648 passed, `tsc --noEmit` clean. `scripts/backtest_dam.py` not rerun (it scores DAM against real-time and does not call the policy).
+
 ## 2026-09-27: Replay off JEV; the kept web JEV pieces deleted
 
 - Replay's alert detail ("About this data") now shows the "Counties named in this alert" table /flow shows, from `alerts[].named_counties` through `flowMath.namedCountyRows`: county (FIPS), zone, and the floor and reason on the tick on screen ("60% · NWS weather alert"). The JEV P(yes) column, yes/no decision, anchor-county reading block and gate sentence are gone; the footnote uses /flow's rule sentence. The map chip and zone board lose the "NWS alert · JEV no · base floor kept" note (`alertKeptBase`, `JEV_NO_TEXT`), which a named county can no longer cause. `MapStage` loses its `counties` prop and `AlertDetail` its `counties` prop, which only fed JEV.
@@ -1243,4 +1260,4 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests: `web/tests/replay-flow-parity.test.ts` asserts the named-county rows and adds a check that Replay and /flow list the same counties, zones and floors on one tick; Heather tick 2 is the current engine's (all nine named counties at 60%). `flow.test.ts` again asserts the three JEV labels are gone. `replay-weather.test.ts`, `replay-weather-views.test.ts`, `replay-zone.test.ts`, `fixtures/beryl22.ts` (reason code and alert shape only; same floors) and `tests/test_brief.py` (ticks from the named-county rule) updated.
 - Browser: heather seed 42, both freeze alerts sent after tick 1, paused at tick 2; the drawer lists four North and five Houston counties at "60% · NWS weather alert" and no JEV text.
 - Docs: `docs/agents/grid-flow.md` ("Named-county rule", "Tests").
-- `pytest -q`: 831 passed. Web: `vitest` 649 passed (50 files), `tsc --noEmit` clean.
+- `pytest -q` (merged with main after the DAM cache and stop-at-spike entries above): 838 passed. Web: `vitest` 650 passed (50 files), `tsc --noEmit` clean.
