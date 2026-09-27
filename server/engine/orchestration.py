@@ -22,8 +22,8 @@ from typing import Optional
 from server.engine.cli import read_settings
 from server.engine.channel import Channel
 from server.engine.contracts import Allocation, Policy, TapeFrame
-from server.engine.controller import allocate, round_down
-from server.engine.fleet import apply_events, fleet_rollups, floor_kwh, new_fleet, safe_kw, set_status
+from server.engine.controller import allocate, grid_down_zones, round_down
+from server.engine.fleet import apply_events, fleet_rollups, floor_kwh, new_fleet, room_kw, safe_kw, set_status
 from server.engine.policy import reserve_policy
 from server.engine.scheduler import Scheduler
 from server.engine.telemetry import TelemetryState
@@ -68,6 +68,10 @@ class CycleResult:
     events: list = field(default_factory=list)
     # home_id to the kW booked for it (only homes with some). Sums to confirmed_mw.
     home_confirmed_kw: dict = field(default_factory=dict)
+    # Charge is booked apart from delivery: confirmed kW absorbed, never credited to the target.
+    charging_mw: float = 0.0
+    zone_charging_mw: dict = field(default_factory=dict)
+    home_charged_kw: dict = field(default_factory=dict)   # home_id to kW absorbed (positive)
     # Filled only when orchestrate_tick gets a TelemetryState (docs/agents/telemetry-vpp.md R7).
     plant: dict = field(default_factory=dict)
     zones: dict = field(default_factory=dict)
@@ -103,6 +107,7 @@ class Runtime:
         self.closed = False
         self.feed = None           # the TelemetryState for this tick, or None with no feed
         self.plan_view = {}        # reported Home copies used by this tick's planner
+        self.grid_down = set()     # zones whose batteries only back up their homes this tick
 
     def log(self, kind, **data):
         self.sched.log(kind, **data)
@@ -156,14 +161,25 @@ class HomeWorker:
         self.send_report(report)
 
     def run(self, cmd):
-        """Discharge for one command. The clamp is the second floor guard (the first is allocate)."""
+        """Run one command. Discharge is clamped to the floor (the second guard; the first is
+        allocate). Charge (negative kW) is clamped to room, so it never fills past capacity.
+        A home whose zone's grid is down runs 0 either way: it backs up its own home."""
         rt, home = self.rt, self.home
         if home.home_id in rt.fail_ids:
             raise RuntimeError("injected worker fault")
-        safe = safe_kw(home, rt.policy, rt.settings)
-        kw = min(cmd.kw, safe)
-        if kw < cmd.kw:
-            rt.log("clamped", command_id=cmd.command_id, home_id=home.home_id, kw=cmd.kw, safe_kw=safe)
+        if home.zone in rt.grid_down:
+            kw = 0.0
+            rt.log("grid_down", command_id=cmd.command_id, home_id=home.home_id, kw=cmd.kw, zone=home.zone)
+        elif cmd.kw < 0:
+            room = room_kw(home, rt.settings)
+            kw = -min(-cmd.kw, room)
+            if kw > cmd.kw:
+                rt.log("clamped", command_id=cmd.command_id, home_id=home.home_id, kw=cmd.kw, room_kw=room)
+        else:
+            safe = safe_kw(home, rt.policy, rt.settings)
+            kw = min(cmd.kw, safe)
+            if kw < cmd.kw:
+                rt.log("clamped", command_id=cmd.command_id, home_id=home.home_id, kw=cmd.kw, safe_kw=safe)
         actual_kw = kw * self.fraction
         if self.fraction < 1.0:
             rt.counts["short_delivery"] += 1
@@ -173,7 +189,8 @@ class HomeWorker:
         rt.ran_kw[cmd.command_id] = actual_kw
         if rt.feed is not None:
             rt.feed.record_execution(home.home_id, actual_kw)
-        if home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
+        # A charging home may still sit under its floor; only a discharge can breach it.
+        if actual_kw > 0 and home.soc_kwh < floor_kwh(home, rt.policy) - 1e-9:
             rt.counts["breaches"] += 1   # only possible if the clamp above is removed
         rt.log("executed", command_id=cmd.command_id, home_id=home.home_id, actual_kw=actual_kw)
         reported_kw = actual_kw * rt.misreport.get(home.home_id, 1.0)
@@ -194,6 +211,7 @@ class ZoneSupervisor:
         self.actual = {}       # command_id to actual_kw from its first report before the close
         self.states = {}       # command_id to "sent", "timed_out", "confirmed", "unconfirmed"
         self.booked = {}       # home_id to the kW booked for it at the close
+        self.charged = {}      # home_id to the kW it confirmed absorbing (charge), at the close
 
     def send(self, cmd):
         msg = {"command_id": cmd.command_id, "command": cmd}
@@ -227,9 +245,11 @@ class ZoneSupervisor:
         rt.counts["charge_mismatch"] += 1
         rt.log("charge_mismatch", command_id=msg["command_id"], home_id=msg["home_id"],
                reported_kwh=reported_kwh, dropped_kwh=dropped_kwh)
-        # The smaller of the claim and the kW the home really gave, taken as-is: converting the
-        # kWh back to kW would drift by a rounding speck and show up as false over-delivery.
-        return min(msg["actual_kw"], rt.ran_kw[msg["command_id"]])
+        # The smaller magnitude of the claim and the kW the home really moved, taken as-is:
+        # converting the kWh back to kW would drift by a rounding speck and show up as false
+        # over-delivery. Magnitude, so a charge (negative) claim is never booked above reality.
+        claimed, ran = msg["actual_kw"], rt.ran_kw[msg["command_id"]]
+        return claimed if abs(claimed) <= abs(ran) else ran
 
     def check_deadline(self):
         """At 60 s: every planned command still unconfirmed gets one retry and one reassignment.
@@ -248,7 +268,9 @@ class ZoneSupervisor:
             rt.counts["retried"] += 1
             rt.log("retry", command_id=cmd.command_id, home_id=cmd.home_id)
             rt.channel.send(self.messages[cmd.command_id], rt.workers[cmd.home_id].receive)
-            self.reassign(cmd)
+            # A charge order is that home's own need, not a share of the target: retry only.
+            if cmd.kw > 0:
+                self.reassign(cmd)
 
     def reassign(self, cmd):
         rt = self.rt
@@ -272,7 +294,9 @@ class ZoneSupervisor:
             home = worker.home
             view = rt.plan_view.get(home.home_id, home)
             if (home.zone != self.zone or view.status != "live" or home.home_id == cmd.home_id
-                    or home.home_id in rt.suspect or home.home_id in rt.reassigned_to):
+                    or home.zone in rt.grid_down
+                    or home.home_id in rt.suspect or home.home_id in rt.reassigned_to
+                    or rt.planned_kw.get(home.home_id, 0.0) < 0):
                 continue
             safe = safe_kw(view, rt.policy, rt.settings)
             spare = round_down(safe - rt.planned_kw.get(home.home_id, 0.0))
@@ -281,12 +305,19 @@ class ZoneSupervisor:
         return best, best_spare
 
     def close(self):
-        """At 120 s: final states, and this zone's planned, confirmed, unconfirmed and over-delivered kW."""
+        """At 120 s: final states, and this zone's planned, confirmed, unconfirmed, over-delivered
+        and charged kW. Charge is its own book: it is never confirmed or credited toward the target."""
         for command_id, state in self.states.items():
             if state != "confirmed":
                 self.states[command_id] = "unconfirmed"
-        planned = confirmed = unconfirmed = over = 0.0
+        planned = confirmed = unconfirmed = over = charged = 0.0
         for cmd in self.shares:
+            if cmd.kw < 0:
+                if cmd.command_id in self.actual:
+                    took = min(-cmd.kw, max(0.0, -self.actual[cmd.command_id]))
+                    charged += took
+                    self.charged[cmd.home_id] = self.charged.get(cmd.home_id, 0.0) + took
+                continue
             family = [cmd] + ([self.children[cmd.command_id]] if cmd.command_id in self.children else [])
             got = sum(self.actual[c.command_id] for c in family if c.command_id in self.actual)
             heard = any(c.command_id in self.actual for c in family)
@@ -308,7 +339,7 @@ class ZoneSupervisor:
                 if take > 0:
                     self.booked[c.home_id] = self.booked.get(c.home_id, 0.0) + take
                     left -= take
-        return planned, confirmed, unconfirmed, over
+        return planned, confirmed, unconfirmed, over, charged
 
 
 def short_fractions(frame):
@@ -402,8 +433,9 @@ def orchestrate_tick(homes, frame, policy, mode, settings, seed, telemetry=None)
     plan = allocate(plan_homes, frame, policy, mode, settings)
     rt = Runtime(settings, policy, frame.tick, seed)
     rt.plan_view = {h.home_id: h for h in plan_homes}
+    rt.grid_down = grid_down_zones(frame)
     if telemetry is not None:
-        telemetry.start_tick(rt.sched, homes)
+        telemetry.start_tick(rt.sched, homes, rt.grid_down)
         rt.feed = telemetry
     supervisors = build_jobs(homes, plan, rt, fractions)
     for sup in supervisors.values():
@@ -437,6 +469,7 @@ def build_result(frame, plan, rt, supervisors, books):
     zone_confirmed = {zone: b[1] / 1000 for zone, b in books.items()}
     zone_unconfirmed = {zone: b[2] / 1000 for zone, b in books.items()}
     over_delivery_mw = sum(b[3] for b in books.values()) / 1000
+    zone_charging = {zone: b[4] / 1000 for zone, b in books.items()}
     confirmed_mw = sum(zone_confirmed.values())
     credited_mw = min(confirmed_mw, frame.target_mw)
     missed_mw = frame.target_mw - credited_mw
@@ -445,10 +478,11 @@ def build_result(frame, plan, rt, supervisors, books):
     for code in ("timed_out", "duplicates_ignored", "short_delivery", "over_delivery", "charge_mismatch"):
         if c[code]:
             reasons.append(f"{code}:{c[code]}")
-    states, booked = {}, {}
+    states, booked, charged = {}, {}, {}
     for sup in supervisors.values():
         states.update(sup.states)
         booked.update(sup.booked)
+        charged.update(sup.charged)
     return CycleResult(
         allocation=Allocation(dict(plan.per_home_kw), credited_mw, missed_mw, reasons),
         breaches=c["breaches"], command_states=states,
@@ -458,6 +492,7 @@ def build_result(frame, plan, rt, supervisors, books):
         timed_out=c["timed_out"], retried=c["retried"], reassigned=c["reassigned"],
         duplicates_ignored=c["duplicates_ignored"], late=c["late"],
         over_delivery_mw=over_delivery_mw, events=rt.sched.events, home_confirmed_kw=booked,
+        charging_mw=sum(zone_charging.values()), zone_charging_mw=zone_charging, home_charged_kw=charged,
     )
 
 

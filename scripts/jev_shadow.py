@@ -1,12 +1,17 @@
 """Ask TypeSafe's Jev one yes/no question about a storm alert and record the answer.
 
 Usage: python scripts/jev_shadow.py
+       python scripts/jev_shadow.py --alert <id> [--out data/fixtures/jev/<id>.json]
 
-Shadow only: nothing in the engine or policy reads the recording, so Jev never makes a
-dispatch decision. Reads the alert from tests/fixtures/nws_alert_harris.json when it exists,
-otherwise a built-in sample, and writes data/fixtures/jev_harris.json. The key comes from
-JEV_API_KEY in .env and is sent only in the Authorization header.
+Shadow only: the engine and policy never read the recording, so Jev never makes a dispatch
+decision; the /flow page only shows it next to the rule. With no --alert, reads
+tests/fixtures/nws_alert_harris.json when it exists, otherwise a built-in sample, and writes
+data/fixtures/jev_harris.json. With --alert, sends the archived NWS alert
+data/fixtures/nws/<id>.json plus the load zone its county maps to, and writes
+data/fixtures/jev/<id>.json. The key comes from JEV_API_KEY in .env and is sent only in the
+Authorization header.
 """
+import argparse
 import json
 import os
 import sys
@@ -18,6 +23,11 @@ import requests
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from server.engine.cli import read_settings  # noqa: E402
+from server.engine.scenario import ALERT_DIR, JEV_DIR, alert_zones, load_alert  # noqa: E402
+
 ALERT_FIXTURE = ROOT / "tests" / "fixtures" / "nws_alert_harris.json"
 OUTPUT = ROOT / "data" / "fixtures" / "jev_harris.json"
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
@@ -57,6 +67,27 @@ def read_alert():
     return alert, "fixture"
 
 
+def read_archived_alert(alert_id):
+    """The archived alert text plus the one load zone and county it maps to, and its input label."""
+    alert = load_alert(alert_id, ROOT / ALERT_DIR)
+    if alert is None:
+        fail(f"no archived alert {alert_id!r} in {ALERT_DIR}")
+    settings = read_settings()
+    zones, _ = alert_zones(alert, settings)
+    if len(zones) != 1:
+        fail(f"{alert_id} maps to {len(zones)} load zones; the question names one county")
+    zone = zones[0]
+    county = settings["zones"][zone]
+    state = {key: alert.get(key) for key in ("event", "headline", "description", "areaDesc", "sender",
+                                             "sent", "onset", "expires")}
+    state["county"] = f"FIPS {county}"
+    state["load_zone"] = zone
+    if not all(state.values()):
+        fail(f"{alert_id} is missing one of {', '.join(state)}")
+    label = f"archived NWS alert {alert.get('product_id', alert_id)}, county {county} ({zone} zone)"
+    return state, label
+
+
 def ask_jev(api_key, alert):
     """One POST, no retries. Returns the parsed reply and the round trip in milliseconds."""
     body = {"model": MODEL, "state": alert,
@@ -79,11 +110,21 @@ def ask_jev(api_key, alert):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Record one shadow Jev reading for a storm alert.")
+    parser.add_argument("--alert", help="archived alert id in data/fixtures/nws/")
+    parser.add_argument("--out", help="output path (default data/fixtures/jev/<alert>.json)")
+    args = parser.parse_args()
     load_dotenv(ROOT / ".env")
     api_key = os.getenv("JEV_API_KEY", "")
     if not api_key:
         fail("JEV_API_KEY is not set in .env")
-    alert, input_label = read_alert()
+    if args.alert:
+        alert, input_label = read_archived_alert(args.alert)
+        output = Path(args.out) if args.out else ROOT / JEV_DIR / f"{args.alert}.json"
+    else:
+        alert, input_label = read_alert()
+        output = Path(args.out) if args.out else OUTPUT
+    output = output if output.is_absolute() else ROOT / output
 
     called_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     reply, latency_ms = ask_jev(api_key, alert)
@@ -103,10 +144,12 @@ def main():
         "input_label": input_label,
         "recorded": True,
     }
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(json.dumps(record, indent=2) + "\n")
+    if args.alert:
+        record["alert_id"] = args.alert
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(record, indent=2) + "\n")
     print(f"Jev ({model}, {input_label} input): {record['answer']}, P(yes)={probability:g},"
-          f" {latency_ms} ms -> {OUTPUT.relative_to(ROOT)}")
+          f" {latency_ms} ms -> {output}")
 
 
 if __name__ == "__main__":

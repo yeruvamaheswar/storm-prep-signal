@@ -1,0 +1,14 @@
+{
+ "source": "Supabase public.ercot_postings, event tuning-2026, ERCOT NP3-233-CD",
+ "postings": 765,
+ "from": "2026-08-25T00:00:47",
+ "to": "2026-09-25T23:00:48",
+ "median_mw_by_lead": [
+  20342.0,
+  20305.0,
+  20273.0,
+  20245.0,
+  20230.0,
+  20206.0
+ ]
+}

@@ -159,6 +159,7 @@ class TelemetryState:
                 outages[i] = [(start, start + rng.uniform(200.0, 1500.0))]
         self.outages = outages
         self.power = dict.fromkeys(ids, 0.0)
+        self.grid_down = frozenset()   # this tick's grid-down zones, set by start_tick
         self.totals = new_stats()
         # Registration: every battery checks in once before the first tick, as a real device
         # does when it is installed, so tick 1 plans from a report instead of from nothing.
@@ -172,15 +173,17 @@ class TelemetryState:
         """One reading from the battery's side: its clock may be off, and a liar's charge is frozen."""
         self.seq[home.home_id] += 1
         seq = self.seq[home.home_id]
-        charge_state = "DISCHARGING" if power_kw > 0 else "HOLDING"
+        charge_state = "DISCHARGING" if power_kw > 0 else "CHARGING" if power_kw < 0 else "HOLDING"
         return {"command_id": f"telemetry:{home.home_id}:1:{seq}", "home_id": home.home_id,
                 "boot_id": 1, "seq": seq, "device_ts": t_abs + self.skew[home.home_id],
                 "soc_kwh": self.frozen.get(home.home_id, home.soc_kwh), "power_kw": power_kw,
-                "charge_state": charge_state, "grid": "connected", "health": "ok"}
+                "charge_state": charge_state, "grid": "down" if home.zone in self.grid_down else "connected",
+                "health": "ok"}
 
-    def start_tick(self, sched, homes):
+    def start_tick(self, sched, homes, grid_down=frozenset()):
         """Snapshot what the plan saw, then schedule every home's readings on this tick's clock."""
         self.sched, self.stopped = sched, False
+        self.grid_down = frozenset(grid_down)
         self.sim = {h.home_id: h for h in homes}
         self.stats = new_stats()
         self.power = dict.fromkeys(self.homes, 0.0)
@@ -199,7 +202,7 @@ class TelemetryState:
         return self.offline(home_id, self.base_s + self.sched.now)
 
     def record_execution(self, home_id, actual_kw):
-        """Called by HomeWorker.run: from now on this battery reports that it is discharging."""
+        """Called by HomeWorker.run: from now on this battery reports that power (negative charges)."""
         self.power[home_id] += actual_kw
 
     def check_energy(self, confirmed_kw, unsure):
@@ -273,11 +276,13 @@ class TelemetryState:
             reported = Home(h.home_id, h.capacity_kwh, soc, h.max_kw, "live", h.zone)
             z["soc_mwh"] += soc / 1000
             z["floor_mwh"] += floor_kwh(reported, policy) / 1000
-            if status == "live":
+            # An islanded battery is not available to the grid, however full it is.
+            if status == "live" and h.zone not in self.grid_down:
                 z["available_mw"] += safe_kw(reported, policy, self.settings) / 1000
             z["max_data_age_s"] = max(z["max_data_age_s"], now - hs.last_seen)
         for name, z in zones.items():
             z["delivering_mw"] = result.zone_delivered_mw.get(name, 0.0)
+            z["grid_down"] = name in self.grid_down
             z["coverage"] = z["homes"]["live"] / z["homes"]["total"]
         plant = self._empty_rollup()
         for z in zones.values():

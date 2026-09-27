@@ -303,21 +303,29 @@ def safe_kw(home, policy, settings):
     return min(home.max_kw, headroom * 60 / settings["tick_minutes"])
 
 
+def room_kw(home, settings):
+    """The most this home can absorb this tick: room to capacity, capped by its max kW."""
+    room = max(0.0, home.capacity_kwh - home.soc_kwh)
+    return min(home.max_kw, room * 60 / settings["tick_minutes"])
+
+
 def discharge(homes, alloc, policy, settings):
     """Apply the allocation and return how many homes ended below their floor (must be 0).
 
     Second guard on the floor: each order is clamped to the home's safe kW (headroom under its
     current zone floor, and its max kW), so a clamp instead of a breach is the normal outcome
-    of a bad order. A home that is not live cannot act on an order, so it is left alone.
+    of a bad order. A negative order charges, clamped to `room_kw`, so it never fills past
+    capacity; charge is never a breach. A home that is not live cannot act on an order.
     Called once per tick; it sees no command ids, so duplicate protection lives in orchestrate_tick.
     """
     by_id = {h.home_id: h for h in homes}
     breaches = 0
     for home_id, kw in alloc.per_home_kw.items():
-        if kw <= 0:
-            continue
         home = by_id[home_id]
-        if home.status != "live":
+        if kw == 0 or home.status != "live":
+            continue
+        if kw < 0:
+            home.soc_kwh += min(-kw, room_kw(home, settings)) * settings["tick_minutes"] / 60
             continue
         actual_kw = min(kw, safe_kw(home, policy, settings))
         if actual_kw <= 0:

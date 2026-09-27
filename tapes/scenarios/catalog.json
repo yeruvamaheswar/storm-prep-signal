@@ -1,0 +1,159 @@
+{
+  "label": "Scenario catalog for the /flow page. Each tape is a recorded ERCOT window; overlays are labeled.",
+  "scenarios": [
+    {
+      "id": "heather",
+      "name": "Winter Storm Heather",
+      "event": "heather",
+      "window": "2024-01-15 07:00 to 19:00 CT",
+      "summary": "Recorded NP3-233-CD outage postings and four-zone NP6-905-CD prices. The storm rule reads HIGH only after the 13:03 posting.",
+      "label": "recorded ERCOT; target synthetic",
+      "tape": "tapes/heather.json",
+      "baseline": "data/fixtures/heather/baseline.json",
+      "provenance": "tapes/scenarios/heather.provenance.json",
+      "alerts": [
+        "heather-dallas-hard-freeze-warning",
+        "heather-harris-hard-freeze-warning"
+      ],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "heather-spike",
+      "name": "Heather: cheap afternoon, $1,165 evening",
+      "event": "heather",
+      "window": "2024-01-16 12:00 to 22:00 CT",
+      "summary": "Winter Storm Heather, day after the HIGH posting. LZ_HOUSTON dips near $21 from 14:30 to 16:30, then spikes to $1,165 around 18:15. The storm rule reads LOW, so the fleet charges, then sells.",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/heather-spike.json",
+      "baseline": "data/fixtures/heather/baseline.json",
+      "provenance": "tapes/scenarios/heather-spike.provenance.json",
+      "alerts": [
+        "heather-harris-hard-freeze-warning"
+      ],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "heather-thaw",
+      "name": "Heather thaw: sell the morning, charge at noon",
+      "event": "heather",
+      "window": "2024-01-17 05:00 to 18:00 CT",
+      "summary": "Last storm day. LZ_HOUSTON is $70 to $87 around 07:00, then falls to $6 by 15:00. The fleet sells into the morning and charges through the cheap afternoon.",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/heather-thaw.json",
+      "baseline": "data/fixtures/heather/baseline.json",
+      "provenance": "tapes/scenarios/heather-thaw.provenance.json",
+      "alerts": [
+        "heather-harris-hard-freeze-warning"
+      ],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "calm-charge",
+      "name": "Calm day: charge at noon, sell at the peak",
+      "event": "tuning-2026",
+      "window": "2026-08-30 07:00 to 22:00 CT",
+      "summary": "A normal late-summer day. LZ_NORTH sits under $25 until about 12:45 (low $12), then climbs to $225 around 19:30. Charge first, then sell.",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/calm-charge.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/calm-charge.provenance.json",
+      "alerts": [],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "storm-rule-high",
+      "name": "Storm rule HIGH: the 60% floor",
+      "event": "tuning-2026",
+      "window": "2026-09-16 02:00 to 14:00 CT",
+      "summary": "The postings from 04:00 to 12:00 rate HIGH (North outages over the +15% margin), so every zone keeps 60%. The 13:00 posting reads LOW and the floor drops back to 30%. Baseline is the same month (in sample).",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/storm-rule-high.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/storm-rule-high.provenance.json",
+      "alerts": [],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "price-spike",
+      "name": "Price spike: LZ_NORTH over $1,000",
+      "event": "tuning-2026",
+      "window": "2026-09-16 17:45 to 22:00 CT",
+      "summary": "The same day, after the storm rule reads LOW again. LZ_NORTH goes from $225 to $498 at 18:00 and passes $1,000 around 19:45. The price-shaped ask rises to its 1.0 MW cap and the fleet sells until it reaches its floor.",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/price-spike.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/price-spike.provenance.json",
+      "alerts": [],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "storm-rule-night",
+      "name": "Storm rule turns HIGH mid-peak",
+      "event": "tuning-2026",
+      "window": "2026-09-22 16:00 to 2026-09-23 04:00 CT",
+      "summary": "The fleet sells into a $90 to $213 evening. The 21:00 posting rates HIGH, so the floor rises to 60% while prices are still high. The 02:00 posting reads LOW again.",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/storm-rule-night.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/storm-rule-night.provenance.json",
+      "alerts": [
+        "tuning2026-midland-flash-flood-warning"
+      ],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "feed-failure",
+      "name": "Feed failure: postings withheld",
+      "event": "tuning-2026",
+      "window": "2026-09-12 12:00 to 23:00 CT",
+      "summary": "A cheap day with a $55 to $76 evening. From 18:00 to 21:00 the builder withholds the outage postings (overlay), so the rule fails safe: signal_unavailable and a 60% floor. Only charge above 60% can be sold until the postings return.",
+      "label": "recorded ERCOT; target synthetic:price-shaped; overlays (hand-placed, not archive): postings withheld 18:00-21:00 (feed failure)",
+      "tape": "tapes/scenarios/feed-failure.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/feed-failure.provenance.json",
+      "alerts": [],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "faults",
+      "name": "Faults at the peak: lossy network, crashes, misreports",
+      "event": "tuning-2026",
+      "window": "2026-09-02 08:00 to 23:00 CT",
+      "summary": "LZ_NORTH is cheap until noon, then spikes to $484 around 20:00. During the peak the builder adds simulated faults (overlays): a lossy network, five crashed homes, two misreporting homes. Floors still hold.",
+      "label": "recorded ERCOT; target synthetic:price-shaped; overlays (hand-placed, not archive): lossy network 19:00-20:30, 5 homes crash 19:30, 2 homes misreport 20:00-20:30, crashed homes back 21:00",
+      "tape": "tapes/scenarios/faults.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/faults.provenance.json",
+      "alerts": [],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "operator-hold",
+      "name": "Operator HOLD through the peak",
+      "event": "tuning-2026",
+      "window": "2026-09-17 16:30 to 21:30 CT",
+      "summary": "LZ_NORTH runs $105 to $380 from 16:30 and peaks near $720 around 18:15. An operator HOLD (overlay) stops all dispatch from 16:45 to 18:15, so the charge is still there when the rules resume on AUTO at the peak.",
+      "label": "recorded ERCOT; target synthetic:price-shaped; overlays (hand-placed, not archive): operator HOLD 16:45-18:15, AUTO from 18:15",
+      "tape": "tapes/scenarios/operator-hold.json",
+      "baseline": "data/fixtures/tuning-2026/baseline.json",
+      "provenance": "tapes/scenarios/operator-hold.provenance.json",
+      "alerts": [],
+      "grid_down_overlay": false
+    },
+    {
+      "id": "beryl-landfall",
+      "name": "Hurricane Beryl landfall",
+      "event": "beryl",
+      "window": "2024-07-07 22:00 to 2024-07-08 14:00 CT",
+      "summary": "Beryl came ashore early on July 8. Houston load fell away and LZ_HOUSTON went negative from about 08:00 to 13:30. Prices stay under $25 all window, so the fleet charges to full; the storm rule never read HIGH. The operator can mark a zone's grid down (overlay) to show batteries carrying homes.",
+      "label": "recorded ERCOT; target synthetic:price-shaped",
+      "tape": "tapes/scenarios/beryl-landfall.json",
+      "baseline": "data/fixtures/beryl/baseline.json",
+      "provenance": "tapes/scenarios/beryl-landfall.provenance.json",
+      "alerts": [
+        "beryl-harris-tropical-storm-warning"
+      ],
+      "grid_down_overlay": true
+    }
+  ]
+}

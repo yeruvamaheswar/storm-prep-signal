@@ -10,6 +10,7 @@ from server.engine.baseline import BASELINE_PATH, load_baseline
 from server.engine.brief import write_brief
 from server.engine.cli import read_settings
 from server.engine.contracts import TapeFrame, TickResult
+from server.engine.controller import grid_down_zones
 from server.engine.events import log_event, start_run
 from server.engine.fleet import (
     apply_events,
@@ -207,6 +208,82 @@ def write_run_files(runs_dir, run_id, record):
     (runs_dir / "latest.json").write_text(text)
 
 
+def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=False,
+               live_risk=None, live_price=None, live_zone_prices=None):
+    """One tick through the fleet. Mutates `homes`; writes no files (log_event aside).
+
+    apply_events → compute_risk → reserve_policy → orchestrate_tick → TickResult.
+    Returns (result, cycle, policy, frame, risk): frame carries the scaled target, risk is the
+    RiskResult the policy read (None when the signal was unavailable).
+    `run` plays a whole tape through this; scripts/scenario_session.py calls it one tick at a time.
+    """
+    apply_events(homes, frame.events)
+    if live:
+        risk = live_risk
+    else:
+        risk = read_risk(frame.risk_fixture, baseline, settings) if frame.risk_fixture else None
+    alerted, unknown_weather = weather_zones(frame, settings)
+    if unknown_weather:
+        log_event("weather", "ignored", ok=False, reason="unknown_weather_zone", zones=unknown_weather)
+    # Stamp price before the policy so intent can read the LZ number.
+    if live:
+        priced = stamp_price({"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label},
+                             live_price)
+    else:
+        priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
+                  "price_as_of": None}
+    # Recorded zone prices belong to the tape's moment. A live run never shows them as now:
+    # it uses the four zones fetched from ERCOT for this run, or none if that fetch failed.
+    zone_prices = dict(live_zone_prices or {}) if live else dict(frame.zone_prices)
+    if not zone_prices:
+        zone_price_label = "none"
+    else:
+        zone_price_label = "ercot" if live else frame.zone_price_label
+    # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
+    policy = reserve_policy(
+        risk, settings, alerted, mode=mode,
+        price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
+    )
+    # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
+    target_mw = scale_target_mw(frame.target_mw, settings)
+    frame = replace(frame, target_mw=target_mw)
+    # Plan, send each order over a lossy simulated channel, retry at 60 s, close at 120 s.
+    # The workers drain the batteries, so there is no separate discharge call.
+    # Delivered is confirmed MW only. A seed per tick replays the same faults.
+    # With the feed on, the plan uses what the batteries reported, never the simulator's truth.
+    cycle = orchestrate_tick(homes, frame, policy, mode, settings,
+                             int(settings.get("seed", 1)) * 100_000 + frame.tick,
+                             telemetry=telemetry)
+    alloc = cycle.allocation
+    result = TickResult(
+        tick=frame.tick, ts=frame.ts, mode=mode,
+        target_mw=target_mw, target_label=frame.target_label,
+        delivered_mw=alloc.delivered_mw, missed_mw=alloc.missed_mw,
+        price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
+        reserve_pct=policy.reserve_pct, policy_reason=policy.reason, risk_level=policy.risk_level,
+        live_homes=count(homes, "live"), stale_homes=count(homes, "stale"), dead_homes=count(homes, "dead"),
+        breaches=cycle.breaches,
+        reasons=list(alloc.reasons) + (["unknown_weather_zone"] if unknown_weather else []),
+        zone_reserve_pct=dict(policy.zone_reserve_pct),
+        zone_reasons=dict(policy.zone_reasons),
+        zone_delivered_mw=dict(cycle.zone_delivered_mw),
+        price_as_of=priced["price_as_of"],
+        zone_acks=zone_acks(homes, cycle),
+        intent=policy.intent,
+        intent_reason=policy.intent_reason,
+        zone_prices=zone_prices,
+        zone_price_label=zone_price_label,
+        # plant["zones"] repeats zone_telemetry, so the tick keeps one copy.
+        plant={k: v for k, v in cycle.plant.items() if k != "zones"},
+        feed=dict(cycle.feed),
+        zone_telemetry=dict(cycle.zones),
+        charging_mw=cycle.charging_mw,
+        zone_charging_mw=dict(cycle.zone_charging_mw),
+        grid_down_zones=sorted(grid_down_zones(frame)),
+    )
+    return result, cycle, policy, frame, risk
+
+
 def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, state_path=None,
         frames=None, live_risk=_UNSET, live_price=_UNSET, baseline_path=BASELINE_PATH,
         live_zone_prices=_UNSET):
@@ -250,69 +327,11 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
     ticks = []
     board = new_board(settings)
     for frame in frames:
-        apply_events(homes, frame.events)
-        if live:
-            risk = live_risk
-        else:
-            risk = read_risk(frame.risk_fixture, baseline, settings) if frame.risk_fixture else None
-        alerted, unknown_weather = weather_zones(frame, settings)
-        if unknown_weather:
-            log_event("weather", "ignored", ok=False, reason="unknown_weather_zone", zones=unknown_weather)
         mode = frame.events.get("operator", mode)
         write_operator_mode(state_path, mode)
-        # Stamp price before the policy so intent can read the LZ number. Allocate ignores intent.
-        if live:
-            priced = stamp_price({"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label},
-                                 live_price)
-        else:
-            priced = {"price_usd_mwh": frame.price_usd_mwh, "price_label": frame.price_label,
-                      "price_as_of": None}
-        # Recorded zone prices belong to the tape's moment. A live run never shows them as now:
-        # it uses the four zones fetched from ERCOT for this run, or none if that fetch failed.
-        zone_prices = dict(live_zone_prices or {}) if live else dict(frame.zone_prices)
-        if not zone_prices:
-            zone_price_label = "none"
-        else:
-            zone_price_label = "ercot" if live else frame.zone_price_label
-        # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
-        policy = reserve_policy(
-            risk, settings, alerted, mode=mode,
-            price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
-        )
-        # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
-        target_mw = scale_target_mw(frame.target_mw, settings)
-        frame = replace(frame, target_mw=target_mw)
-        # Plan, send each order over a lossy simulated channel, retry at 60 s, close at 120 s.
-        # The workers drain the batteries, so there is no separate discharge call.
-        # Delivered is confirmed MW only. A seed per tick replays the same faults.
-        # With the feed on, the plan uses what the batteries reported, never the simulator's truth.
-        cycle = orchestrate_tick(homes, frame, policy, mode, settings,
-                                 int(settings.get("seed", 1)) * 100_000 + frame.tick,
-                                 telemetry=telemetry)
-        alloc = cycle.allocation
-        result = TickResult(
-            tick=frame.tick, ts=frame.ts, mode=mode,
-            target_mw=target_mw, target_label=frame.target_label,
-            delivered_mw=alloc.delivered_mw, missed_mw=alloc.missed_mw,
-            price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
-            reserve_pct=policy.reserve_pct, policy_reason=policy.reason, risk_level=policy.risk_level,
-            live_homes=count(homes, "live"), stale_homes=count(homes, "stale"), dead_homes=count(homes, "dead"),
-            breaches=cycle.breaches,
-            reasons=list(alloc.reasons) + (["unknown_weather_zone"] if unknown_weather else []),
-            zone_reserve_pct=dict(policy.zone_reserve_pct),
-            zone_reasons=dict(policy.zone_reasons),
-            zone_delivered_mw=dict(cycle.zone_delivered_mw),
-            price_as_of=priced["price_as_of"],
-            zone_acks=zone_acks(homes, cycle),
-            intent=policy.intent,
-            intent_reason=policy.intent_reason,
-            zone_prices=zone_prices,
-            zone_price_label=zone_price_label,
-            # plant["zones"] repeats zone_telemetry, so the tick keeps one copy.
-            plant={k: v for k, v in cycle.plant.items() if k != "zones"},
-            feed=dict(cycle.feed),
-            zone_telemetry=dict(cycle.zones),
-        )
+        result, cycle, policy, frame, _risk = play_frame(
+            frame, homes, settings, baseline, mode, telemetry=telemetry, live=live,
+            live_risk=live_risk, live_price=live_price, live_zone_prices=live_zone_prices)
         board = update(board, result, homes)
         brief = write_brief(result)
         log_event("tick", "ok", **asdict(result), brief=brief)

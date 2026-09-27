@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from server.api import v1
+from server.api import scenario, v1
 from server.api.fixtures import FixtureStore
 from server.env import load_env
 
@@ -40,6 +40,7 @@ def create_app(fixtures: FixtureStore | None = None) -> FastAPI:
         return {"ok": True}
 
     app.include_router(v1.router)
+    app.include_router(scenario.router)
     return app
 
 

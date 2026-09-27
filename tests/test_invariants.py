@@ -2,7 +2,8 @@
 
 How it works: for each seed 1..N (N from the env var FUZZ_SEEDS, default 30) we build one random
 world from random.Random(seed) (fleet size, per-zone floors that move mid-run, target, channel
-faults, dead and stale homes, whole-zone kills, short deliveries, crashing and misreporting workers), run 12 ticks of orchestrate_tick, and check the PRD rules after
+faults, dead and stale homes, whole-zone kills, grid-down zones, short deliveries, crashing and
+misreporting workers, charge and mixed per-zone intents), run 12 ticks of orchestrate_tick, and check the PRD rules after
 every tick. The only randomness is the seeded Random, so a failing seed fails the same way forever.
 
 Rerun one seed (prints one line per tick, raises on the first broken rule):
@@ -62,10 +63,16 @@ def random_floors(rng):
     return {zone: rng.choice((30.0, 60.0)) for zone in ZONES}
 
 
-def make_policy(floors):
+def make_policy(floors, rng=None):
     # A copy of floors, so a later floor move never rewrites a policy an earlier tick used.
     reasons = {zone: ("weather_alert" if pct == 60.0 else "normal") for zone, pct in floors.items()}
-    return Policy(30.0, "normal", "LOW", zone_reserve_pct=dict(floors), zone_reasons=reasons)
+    policy = Policy(30.0, "normal", "LOW", zone_reserve_pct=dict(floors), zone_reasons=reasons)
+    if rng is not None:
+        # Charge ticks, and mixed ticks where some zones charge while others sell.
+        policy.intent = rng.choice(("discharge", "discharge", "hold", "charge"))
+        if rng.random() < 0.3:
+            policy.zone_intent = {zone: rng.choice(("charge", "discharge", "hold")) for zone in ZONES}
+    return policy
 
 
 def random_events(rng, homes):
@@ -86,6 +93,9 @@ def random_events(rng, homes):
     events["live"] = [i for i in events["live"] if i not in events["stale"]]
     short = rng.sample(ids, rng.randint(0, len(ids) // 4))
     events["short_delivery"] = {home_id: rng.random() for home_id in short}
+    # Sometimes a zone's grid is down: its batteries back up their homes and must not move.
+    if rng.random() < 0.2:
+        events["grid_down"] = [rng.choice(list(ZONES))]
     return events
 
 
@@ -94,7 +104,7 @@ def make_frame(tick, target_mw, events):
                      events=events)
 
 
-def check_tick(seed, tick, result, homes, policy, before, status_before, target_mw):
+def check_tick(seed, tick, result, homes, policy, before, status_before, target_mw, down=()):
     """Every PRD rule and money invariant for one tick. The seed is in every message."""
     at = f"seed {seed} tick {tick}"
     planned = sum(result.zone_planned_mw.values())
@@ -106,19 +116,36 @@ def check_tick(seed, tick, result, homes, policy, before, status_before, target_
     assert abs(result.missed_mw - (target_mw - result.credited_mw)) <= EPS, \
         f"{at}: missed {result.missed_mw} != target {target_mw} - credited {result.credited_mw}"
 
-    # Honest books: everything reported before the close is booked or shown as over-delivery.
-    heard = sum(e["actual_kw"] for e in result.events if e["kind"] == "confirmed") / 1000
+    # Honest books: every discharge reported before the close is booked or shown as over-delivery.
+    heard = sum(e["actual_kw"] for e in result.events if e["kind"] == "confirmed" and e["actual_kw"] > 0) / 1000
     assert abs(result.confirmed_mw + result.over_delivery_mw - heard) <= EPS, \
         f"{at}: confirmed {result.confirmed_mw} + over {result.over_delivery_mw} != heard {heard}"
 
-    # Honest books under misreporting: no home is booked for more kWh than its charge dropped.
-    booked = {}
+    # Charge has its own book and is never credited toward the target.
+    assert result.charging_mw >= 0, f"{at}: charging {result.charging_mw} is negative"
+    assert abs(result.charging_mw - sum(result.zone_charging_mw.values())) <= EPS
+    assert abs(result.charging_mw - sum(result.home_charged_kw.values()) / 1000) <= EPS
+
+    # Honest books under misreporting: no home is booked for more kWh than its charge moved.
+    by_id = {h.home_id: h for h in homes}
+    gave, took = {}, {}
     for e in result.events:
         if e["kind"] == "confirmed":
-            booked[e["home_id"]] = booked.get(e["home_id"], 0.0) + e["actual_kw"] * TICK_MINUTES / 60
-    for home_id, kwh in booked.items():
-        dropped = before[home_id] - next(h for h in homes if h.home_id == home_id).soc_kwh
+            kwh = e["actual_kw"] * TICK_MINUTES / 60
+            book = gave if kwh > 0 else took
+            book[e["home_id"]] = book.get(e["home_id"], 0.0) + abs(kwh)
+    for home_id, kwh in gave.items():
+        dropped = before[home_id] - by_id[home_id].soc_kwh
         assert kwh <= dropped + EPS, f"{at}: {home_id} booked {kwh} kWh but dropped only {dropped}"
+    for home_id, kwh in took.items():
+        if home_id not in gave:
+            gained = by_id[home_id].soc_kwh - before[home_id]
+            assert kwh <= gained + EPS, f"{at}: {home_id} booked {kwh} kWh charge but gained only {gained}"
+
+    # Charge never fills a battery past its capacity.
+    for home in homes:
+        assert home.soc_kwh <= home.capacity_kwh + EPS, \
+            f"{at}: {home.home_id} filled past capacity ({home.soc_kwh} > {home.capacity_kwh} kWh)"
 
     # Work only moves to a home that answered on time, never to one that timed out.
     timed_out = {e["home_id"] for e in result.events if e["kind"] == "timed_out"}
@@ -138,12 +165,15 @@ def check_tick(seed, tick, result, homes, policy, before, status_before, target_
     twice = {cid: n for cid, n in runs.items() if n > 1}
     assert not twice, f"{at}: commands executed more than once: {twice}"
 
-    by_id = {h.home_id: h for h in homes}
     for home_id, soc_before in before.items():
         home = by_id[home_id]
         lost = soc_before - home.soc_kwh
         if status_before[home_id] != "live":
-            assert lost <= EPS, f"{at}: {home_id} was {status_before[home_id]} but lost {lost} kWh"
+            assert abs(lost) <= EPS, f"{at}: {home_id} was {status_before[home_id]} but moved {-lost} kWh"
+        # A grid-down battery backs up its own home: no order, and its charge does not move.
+        if home.zone in down:
+            assert home_id not in result.allocation.per_home_kw, f"{at}: {home_id} is grid down but got work"
+            assert home.soc_kwh == soc_before, f"{at}: {home_id} is grid down but moved {-lost} kWh"
         if lost > EPS:
             floor = floor_kwh(home, policy)
             assert home.soc_kwh >= floor - EPS, \
@@ -171,7 +201,7 @@ def run_scenario(seed, verbose=False):
         # already below a newly raised floor must get nothing and not count as breaches.
         if rng.random() < 0.25:
             floors[rng.choice(list(ZONES))] = rng.choice((30.0, 60.0))
-        policy = make_policy(floors)
+        policy = make_policy(floors, rng)
         events = random_events(rng, homes)
         frame = make_frame(tick, target_mw, events)
         apply_events(homes, events)
@@ -185,7 +215,8 @@ def run_scenario(seed, verbose=False):
                   f"credited {result.credited_mw:.3f} unconfirmed {result.unconfirmed_mw:.3f} "
                   f"breaches {result.breaches}")
         breaches += result.breaches
-        check_tick(seed, tick, result, homes, policy, before, status_before, target_mw)
+        check_tick(seed, tick, result, homes, policy, before, status_before, target_mw,
+                   down=set(events.get("grid_down", [])))
     return TICKS, breaches
 
 

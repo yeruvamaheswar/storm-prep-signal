@@ -46,4 +46,5 @@ Open this index, then the one file the task needs.
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime |
 | `failure-modes.md` | You are switching on simulated faults (bad network, crashing or lying homes) in a tape or `.env` |
 | `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |
+| `grid-flow.md` | You are changing the `/flow` page, the scenario session worker, scenario tapes, archived NWS alerts, JEV readings, or grid down |
 | `mode-stale-hold.md` | You are changing snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path |

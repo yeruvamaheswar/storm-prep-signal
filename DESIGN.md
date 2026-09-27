@@ -58,6 +58,14 @@ Controls: 2px. Boards: 0. Never 16px or more.
 
 No bounce, elastic, or hover scale. A control may change its border color immediately. Switching ticks may fade the figures in 120ms.
 
+**`/flow` only (added 2026-09-26).** The grid flow page may move power, because the movement is the reading. Everywhere else the rule above stands.
+
+- A flow line is a dashed stroke whose dashes move with linear easing: toward the grid when a zone sells, toward the zone when it charges. A line with no power does not move.
+- A battery fill may transition its height with linear easing, for at most one engine step (the time between ticks on screen). It never overshoots.
+- Under `prefers-reduced-motion: reduce`, nothing moves: lines are still and fills jump to the settled value.
+- Existing tokens only. Selling is OK, charging is Ink, a raised floor or a battery at or under its floor is Reserved (Warn), and a grid-down zone is Dead. No new color, no glow, no gradient.
+- Detail: `docs/agents/grid-flow.md`.
+
 ## 8. Anti-slop (hard fail)
 
 Reject and rewrite if any of these appear:

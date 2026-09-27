@@ -23,7 +23,8 @@ class TapeFrame:
     risk_fixture: Optional[str] = None   # path to an ERCOT outage posting
     events: dict = field(default_factory=dict)
     # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO"),
-    # simulated faults "network", "crash", "misreport", "short_delivery" (docs/agents/failure-modes.md)
+    # simulated faults "network", "crash", "misreport", "short_delivery" (docs/agents/failure-modes.md),
+    # "grid_down" (list of zone names whose batteries back up their own homes: no sell, no charge)
     weather_fixture: Optional[str] = None  # path to a saved weather alerts response
     # Load-zone name to $/MWh, only zones with a price (same map as the snapshot's zone_prices).
     zone_prices: dict = field(default_factory=dict)
@@ -49,7 +50,7 @@ class Allocation:
     missed_mw: float          # target_mw minus delivered_mw, never negative
     reasons: list = field(default_factory=list)
     # reason codes: "operator_hold", "storm_reserve", "signal_unavailable",
-    # "homes_dead:<n>", "homes_stale:<n>", "fleet_headroom_short"
+    # "homes_dead:<n>", "homes_stale:<n>", "fleet_headroom_short", "grid_down:<zone>"
 
 @dataclass
 class TickResult:
@@ -86,3 +87,7 @@ class TickResult:
     plant: dict = field(default_factory=dict)           # plant rollup: homes by status, MWh, MW, coverage
     feed: dict = field(default_factory=dict)            # readings received, accepted, duplicates, late
     zone_telemetry: dict = field(default_factory=dict)  # zone name to the same rollup as plant
+    # Confirmed charge (MW absorbed from the grid). Never counted in delivered_mw.
+    charging_mw: float = 0.0
+    zone_charging_mw: dict = field(default_factory=dict)  # zone name to MW absorbed
+    grid_down_zones: list = field(default_factory=list)   # zones whose batteries only back up their homes
