@@ -113,9 +113,84 @@ def test_the_zones_setting_orders_the_zones_as_it_does_for_the_engine(monkeypatc
     assert (home["zone"], home["county_name"], home["name"]) == ("North", "Dallas", "North-Dallas-001")
 
 
-def test_above_the_id_cap_the_table_zone_stays(monkeypatch):
-    # FLEET_SIZE above FLEET_FILTER_MAX_IDS: no id filter, so today's behaviour: the table's zone, no name.
-    client = api(monkeypatch, seed_table(2000), fleet="2000")
+def test_above_the_id_cap_fleet_rows_still_carry_the_engine_labels(monkeypatch):
+    # Fix round 1: FLEET_SIZE above FLEET_FILTER_MAX_IDS sends no id filter (the whole table comes back),
+    # but every fleet home is still labelled by the engine, never by the seed's zone order.
+    client = api(monkeypatch, seed_table(2500), fleet="2000")
     homes = {home["home_id"]: home for home in client.get("/v1/homes", params={"limit": 200}).json()}
-    assert homes["home-001"]["zone"] == "South"
-    assert "name" not in homes["home-001"]
+    first = homes["home-001"]
+    assert (first["zone"], first["county"], first["county_name"], first["name"]) == \
+        ("Houston", "48201", "Harris", "Houston-Harris-001")
+    assert client.get("/v1/homes/home-1500").json()["name"].endswith("-1500")
+
+
+def test_above_the_id_cap_a_row_outside_the_fleet_gets_no_county_or_name():
+    # home-2001 is in the table but not in a 2,000-home fleet: no county name, so homeName shows the raw id.
+    rows = seed_table(2500)
+    homes = list_homes(q="2001", limit=200, settings=SETTINGS, http_get=postgrest(rows), fleet_size=2000)
+    outside = next(home for home in homes if home["home_id"] == "home-2001")
+    assert outside["county"] is None and outside["county_name"] is None
+    assert "name" not in outside
+
+
+def test_above_the_id_cap_rollups_and_the_zone_filter_keep_the_table_fallback():
+    import pytest
+    from server.api.homes import HomesUnavailable
+
+    rows = seed_table(2500)
+    with pytest.raises(HomesUnavailable):
+        table_rollups(settings=SETTINGS, http_get=postgrest(rows), fleet_size=2000)
+    calls = []
+    list_homes(zone="Houston", limit=10, settings=SETTINGS, http_get=postgrest(rows, calls), fleet_size=2000)
+    assert calls[0]["zone"] == "eq.Houston" and "and" not in calls[0]
+
+
+def write_dotenv(tmp_path, text):
+    path = tmp_path / ".env"
+    path.write_text(text)
+    return path
+
+
+def test_zones_only_in_the_engine_dotenv_reach_the_api_and_the_engine_alike(monkeypatch, tmp_path):
+    # Fix round 1: the engine's read_settings() takes ZONES from the .env its load_dotenv() finds.
+    import dotenv.main
+
+    from server.engine.cli import read_settings
+    from server.api.homes import engine_zones
+
+    path = write_dotenv(tmp_path, "ZONES=West:48329,South:48355,North:48113,Houston:48201\n")
+    monkeypatch.delenv("ZONES", raising=False)
+    monkeypatch.setattr(dotenv.main, "find_dotenv", lambda *args, **kwargs: str(path))
+    monkeypatch.setattr("server.api.homes.engine_dotenv_path", lambda: path)
+    api_zones = engine_zones()
+    assert "ZONES" not in __import__("os").environ  # the API read the file without loading it
+    assert api_zones == read_settings()["zones"]
+    assert list(api_zones) == ["West", "South", "North", "Houston"]
+
+
+def test_process_zones_beat_the_dotenv_in_the_api_as_in_the_engine(monkeypatch, tmp_path):
+    import dotenv.main
+
+    from server.engine.cli import read_settings
+    from server.api.homes import engine_zones
+
+    path = write_dotenv(tmp_path, "ZONES=West:48329,South:48355,North:48113,Houston:48201\n")
+    monkeypatch.setenv("ZONES", "North:48113,Houston:48201,South:48355,West:48329")
+    monkeypatch.setattr(dotenv.main, "find_dotenv", lambda *args, **kwargs: str(path))
+    monkeypatch.setattr("server.api.homes.engine_dotenv_path", lambda: path)
+    assert engine_zones() == read_settings()["zones"]
+    assert list(engine_zones()) == ["North", "Houston", "South", "West"]
+
+
+def test_the_api_finds_the_same_dotenv_as_the_engine(monkeypatch):
+    # read_settings() calls load_dotenv() from server/engine/cli.py, so dotenv walks up from server/engine.
+    from pathlib import Path
+
+    import server.engine.cli as cli
+    from dotenv import find_dotenv
+
+    from server.api.homes import engine_dotenv_path
+
+    monkeypatch.chdir(Path(cli.__file__).parent)
+    found = find_dotenv(usecwd=True)
+    assert (str(engine_dotenv_path()) if engine_dotenv_path() else "") == found

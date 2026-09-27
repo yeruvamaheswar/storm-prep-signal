@@ -7,9 +7,11 @@ back to fixtures / current_rollups(). This module never raises a 500.
 import os
 import re
 from functools import lru_cache
+from pathlib import Path
 from types import SimpleNamespace
 
 import requests
+from dotenv import dotenv_values
 
 from server.engine.fleet import (
     CLUSTER_CENTROIDS, ZONE_ORDER, county_name, fleet_counties, home_label, new_fleet, seed_settings,
@@ -98,31 +100,31 @@ def in_fleet(home_id, fleet_size=None):
     return home_id in _fleet_id_set(_fleet_n(fleet_size))
 
 
-@lru_cache(maxsize=4)
-def _live_counties(n):
-    return fleet_counties(n)
+ENGINE_DIR = Path(os.path.abspath(__file__)).parents[1] / "engine"
 
 
-def with_county(home, fleet_size=None):
-    """Add-only `county` (FIPS) and `county_name`. public.homes has no county column, so this is
-    the engine's own rule (fleet_counties, as the scenario seeds it) on the Supabase seed's zone
-    order (seed_settings, South first), which is the order the table's rows carry. A row whose zone
-    is not the one the seed gave that id gets null, never a guess. Since Task 17 only rows outside the
-    engine assignment use this (above FLEET_FILTER_MAX_IDS); the demo fleet goes through as_fleet_home."""
-    zone, fips = _live_counties(_fleet_n(fleet_size)).get(home.get("home_id"), (None, None))
-    known = fips is not None and home.get("zone") == zone
-    home["county"] = fips if known else None
-    home["county_name"] = county_name(fips) if known else None
-    return home
+def engine_dotenv_path():
+    """The .env file the engine's read_settings() loads. It calls load_dotenv() with no path from
+    server/engine/cli.py, so python-dotenv walks up from server/engine and takes the first .env it finds
+    (server/.env if there is one, else the repo root's). None when there is none."""
+    for folder in (ENGINE_DIR, *ENGINE_DIR.parents):
+        candidate = folder / ".env"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def engine_zones():
-    """ZONES the way the engine reads it (server/engine/cli.py read_settings: `Zone:FIPS,...`), else the
-    engine's default order (loop._FLEET_DEFAULTS, Houston first). The Live worker and the scenario session
-    (Replay) both seed their fleet from it. Not read_settings() itself: its load_dotenv() would pull the
-    repo-root .env into the API process."""
-    load_env()
-    raw = os.getenv("ZONES", "").strip()
+    """ZONES exactly as the engine reads it (server/engine/cli.py read_settings, `Zone:FIPS,...`): the
+    process env first, then the engine's .env (engine_dotenv_path), else the engine's default order
+    (loop._FLEET_DEFAULTS, Houston first). The Live worker and the scenario session (Replay) both seed
+    their fleet from it. The .env is read with dotenv_values, never loaded into os.environ, because
+    read_settings()' load_dotenv() would pull the repo-root .env (Supabase keys) into the API process."""
+    raw = os.environ.get("ZONES")
+    if raw is None:
+        path = engine_dotenv_path()
+        raw = dotenv_values(path).get("ZONES") if path else None
+    raw = (raw or "").strip()
     try:
         if raw:
             return dict(pair.split(":", 1) for pair in raw.split(","))
@@ -140,35 +142,34 @@ def _engine_homes(n, zones):
 
 
 def engine_homes(fleet_size=None):
-    """Task 17: {home_id: {zone, county, county_name, name}} as the engine assigns them (assign_zone and
-    assign_county over the ZONES order, as scenario.seed_fleet and loop.run seed the fleet), so Fleet shows
-    each home in the same zone, county and name as Replay and Live. public.homes keeps the seed's own zone
-    column; only the reported values change. None above FLEET_FILTER_MAX_IDS: those reads are not scoped
-    to the fleet, so they keep the table's zone and with_county (today's behaviour)."""
-    n = _fleet_n(fleet_size)
-    if not fleet_scoped(n):
-        return None
-    return _engine_homes(n, tuple(engine_zones().items()))
+    """Task 17: {home_id: {zone, county, county_name, name}} for every fleet home as the engine assigns them
+    (assign_zone and assign_county over the ZONES order, as scenario.seed_fleet and loop.run seed the fleet),
+    so Fleet shows each home in the same zone, county and name as Replay and Live. public.homes keeps the
+    seed's own zone column; only the reported values change. Any fleet size (fix round 1): the labels
+    need no URL, only the id filter and the rollups stop at FLEET_FILTER_MAX_IDS."""
+    return _engine_homes(_fleet_n(fleet_size), tuple(engine_zones().items()))
 
 
 def engine_zone_filter(zone, fleet_size=None):
     """`and=(home_id.in.(...))` for the fleet homes the engine puts in `zone`. Replaces `zone=eq.`, which
-    would filter on the seed's zone column. None above FLEET_FILTER_MAX_IDS."""
-    engine = engine_homes(fleet_size)
-    if engine is None:
+    would filter on the seed's zone column. None above FLEET_FILTER_MAX_IDS (the URL would be too long),
+    where the table's zone column is the only filter there is."""
+    if not fleet_scoped(fleet_size):
         return None
-    ids = [home_id for home_id, who in engine.items() if who["zone"] == zone]
+    ids = [home_id for home_id, who in engine_homes(fleet_size).items() if who["zone"] == zone]
     return {"and": f"(home_id.in.({','.join(ids)}))"}
 
 
 def as_fleet_home(row, fleet_size=None, reserve_pct=None, zone_reserve_pct=None):
-    """Console home with the engine's zone, county and name for a demo-fleet id. The zone is set before
-    the floor is read, so a zone override applies to the zone the engine planned the home in."""
-    engine = engine_homes(fleet_size)
-    who = engine.get(row.get("home_id")) if engine else None
+    """Console home with the engine's zone, county and name for a fleet id. The zone is set before the
+    floor is read, so a zone override applies to the zone the engine planned the home in. A row outside
+    the fleet (only possible above FLEET_FILTER_MAX_IDS, when no id filter is sent) keeps the table's zone
+    and gets a null county and no name, never the seed order's guess."""
+    who = engine_homes(fleet_size).get(row.get("home_id"))
     if who is None:
-        return with_county(as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct),
-                           fleet_size)
+        home = as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+        home["county"], home["county_name"] = None, None
+        return home
     home = as_console_home({**row, "zone": who["zone"]}, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
     home["county"], home["county_name"], home["name"] = who["county"], who["county_name"], who["name"]
     return home
