@@ -93,7 +93,7 @@ export const BATTERY_LABEL: Record<BatteryState, string> = {
   holding: "Holding",
   reserved: "Reserved for backup",
   at_floor: "At floor, nothing left to sell",
-  below_floor: "Under floor: never sells, refills when power is cheap",
+  below_floor: "Under floor: never sells, refills from the grid at any price",
   islanded: "Grid down, backing up home",
   unconfirmed: "No reply yet",
   stale: "Stale data",

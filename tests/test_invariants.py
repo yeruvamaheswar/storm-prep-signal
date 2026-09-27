@@ -114,6 +114,9 @@ def check_tick(seed, tick, result, homes, policy, before, status_before, target_
     assert result.breaches == 0, f"{at}: breaches {result.breaches} (rerun({seed}))"
     assert 0 <= result.credited_mw <= target_mw + EPS, \
         f"{at}: credited {result.credited_mw} outside 0..{target_mw}"
+    # The plan never promises more than the call, whichever zones sell for it.
+    assert 0 <= result.allocation.delivered_mw <= target_mw + EPS, \
+        f"{at}: planned {result.allocation.delivered_mw} outside 0..{target_mw}"
     assert 0 <= result.confirmed_mw <= planned + EPS, \
         f"{at}: confirmed {result.confirmed_mw} outside 0..planned {planned}"
     assert abs(result.missed_mw - (target_mw - result.credited_mw)) <= EPS, \

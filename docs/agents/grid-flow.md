@@ -1,6 +1,6 @@
 # Grid flow page (`/flow`)
 
-**Decision (2026-09-26).** `/flow` is an animated view of the real engine playing one archive scenario a tick at a time. A laptop session worker (`scripts/scenario_session.py`) is the only process that runs the engine for it. The `/v1/scenario*` routes only record operator requests and read the worker's output, as `CONSTRAINTS.md` "Backend" requires. Batteries start at a seeded random charge. The operator can send a real archived NWS alert, and the engine reacts on the next tick. The side panel names every archive row in use. JEV is a shadow reading and never dispatches. Charging refills a battery only when the zone price is cheap; there is no refill at any other price.
+**Decision (2026-09-26).** `/flow` is an animated view of the real engine playing one archive scenario a tick at a time. A session worker (`scripts/scenario_session.py`) is the only process that runs the engine for it. It runs on the laptop, or beside uvicorn in the Render instance (decided 2026-09-26, see "Run it on Render"). The `/v1/scenario*` routes only record operator requests and read the worker's output, as `CONSTRAINTS.md` "Backend" requires. Batteries start at a seeded random charge. The operator can send a real archived NWS alert, and the engine reacts on the next tick. The side panel names every archive row in use. JEV is a shadow reading and never dispatches. Charging refills a battery only when the zone price is cheap; there is no refill at any other price.
 
 People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/flow` paragraph. Allocation and fields: `CONSTRAINTS.md` allocation step 7 and "Zones".
 
@@ -14,8 +14,17 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 
 - `--scenario <id> --seed <n>` starts a scenario right away. `--steps N` plays N ticks and exits (tests and smoke checks).
 - The worker reads only committed files (`tapes/scenarios/`, `data/fixtures/`), so it runs without wifi. Stop it with Ctrl-C.
-- On Render there is no worker, so the page shows "session worker not running". This is expected.
 - The worker rewrites `var/scenario/state.json`. Stop it before running `pytest -q`; one replay test reads the same folder.
+
+## Run it on Render
+
+`render.yaml` starts the worker in the background, then `exec`s uvicorn, in the same instance: `python scripts/scenario_session.py & exec uvicorn ...`. The two talk through `var/scenario/`, so they must share a filesystem; a separate Render worker service would not. Deployed page: `https://storm-prep-signal.vercel.app/flow`.
+
+- The service was not made from the Blueprint, so the start command is also set by hand in the Render dashboard (Settings, Start Command). Keep the two the same.
+- Free plan: the instance sleeps after 15 minutes idle. That stops the worker too, and a wake starts from `idle` with no scenario. Press Start again.
+- One instance means one shared session: everyone on the page sees and steers the same scenario.
+- If the worker crashes, uvicorn keeps serving and the page shows "session worker not running" (state older than 10 s) until the next deploy or restart.
+- Measured locally: about 30 MB each for the API and the worker, under the free plan's 512 MB.
 
 ## How one step flows
 
@@ -50,11 +59,12 @@ transport-only noise stay out of `orders`; the raw orchestration log still lives
 - `SCENARIO_FLEET_SIZE = 100` (25 per zone), so every battery can be drawn.
 - Every start or reset draws each home's starting charge from `random.Random(seed)`, uniform over 10–95% of 25 kWh. The same seed replays the same fleet and the same ticks. `new_fleet` is unchanged, so other replays stay byte-identical.
 - Pack: 25 kWh, 11.4 kW (example settings, not Base specs). The page shows it in time-lapse and compares it with a Tesla Supercharger in a caption.
-- States on the page: selling, charging, holding, reserved (floor raised by weather or risk), at floor (within 0.5% of it; nothing left to sell), below floor (never sells, refills when power is cheap), islanded (grid down), unconfirmed, stale, dead. Each below-floor battery says why: it started under the floor (random draw) or the floor rose above its charge.
+- States on the page: selling, charging, holding, reserved (floor raised by weather or risk), at floor (within 0.5% of it; nothing left to sell), below floor (never sells; refills from the grid at any price, so this state shows only when it cannot charge, e.g. operator HOLD), islanded (grid down), unconfirmed, stale, dead. Each below-floor battery says why: it started under the floor (random draw) or the floor rose above its charge.
 
-## Charging (price-only refill)
+## Charging
 
-- A battery never sells below its floor. It refills only when the zone price is at or below `CHARGE_BELOW_USD` ($25), the same rule as the wall. At other prices a below-floor battery waits. The user chose this on 2026-09-26; there is no "refill at any price".
+- A battery never sells below its floor. Under its floor it refills to the floor from the grid at any price (Rajat, 2026-09-26, latest; replaces the earlier price-only refill). Filling past the floor still happens only when the zone price is at or below `CHARGE_BELOW_USD` ($25). Rule: `docs/agents/policy-intent.md` "Refill to the floor". A refilling battery reads `charging` and keeps its `under_floor_why`.
+- Each battery's kW comes from `tick_emit`, which counts both `confirmed` and `charge_confirmed` reports. Before 2026-09-26 (latest) it read only `confirmed`, so every charging battery showed 0 kW and "below floor" / HOLDING even while `charging_mw` said the fleet was charging.
 - The worker clamps a charge order to `fleet.room_kw` = `min(max_kw, (capacity − soc) × 60 / tick_minutes)`, so a pack never fills past capacity. Charge is booked apart from delivery: `TickResult.charging_mw` and `zone_charging_mw`. It is never a breach.
 - A charge order is sent once: never retried, never reassigned (kept from `main` #34 when this branch merged, chosen by the user on 2026-09-26). `CycleResult.charged_mw` (from #34) equals `charging_mw`. Telemetry reports `CHARGING` for negative power.
 - Detail of the controller side: `docs/agents/policy-intent.md` and `docs/agents/epic-3-controller.md`.
@@ -80,7 +90,7 @@ transport-only noise stay out of `orders`; the raw orchestration log still lives
 
 `tapes/scenarios/catalog.json` is the list (id, window, summary, label, tape, baseline, provenance sidecar, alerts, `grid_down_overlay`). Heather reuses `tapes/heather.json`; the rest are built by `scripts/build_scenarios.py [--only <id>]` from Supabase (`SUPABASE_URL`, `SUPABASE_SECRET_KEY` in the root `.env`). If Supabase fails it prints `build_scenarios_skipped: <reason>` and writes nothing.
 
-- The grid ask on built tapes is `synthetic:price-shaped`: straight lines through $25 → 0.02 MW, $60 → 0.2 MW, $500 → 1.0 MW, flat beyond; 0.2 MW with no price. A cheap hour asks 0.02 MW, not 0, because `allocate` returns before its charge step on a zero target. Heather keeps its flat 0.2 MW `synthetic` target.
+- The grid ask on built tapes is `synthetic:price-shaped`: straight lines through $25 → 0.02 MW, $60 → 0.2 MW, $500 → 1.0 MW, flat beyond; 0.2 MW with no price. A cheap hour asks 0.02 MW; a few homes serve it and the rest charge (`docs/agents/policy-intent.md`). Heather keeps its flat 0.2 MW `synthetic` target.
 - Hand-placed events (withheld postings, faults, operator HOLD, grid down) are labeled as overlays in the sidecar, the catalog label, and the tape label.
 - `price-spike` and `operator-hold` start at the price run-up on purpose. Starting earlier, the fleet sold into the $100–$400 run-up and reached its floor before the peak, because the rules do not look ahead.
 - Real posting gaps never read as `signal_unavailable` (the builder uses the newest earlier posting), so `feed-failure` withholds postings by hand.

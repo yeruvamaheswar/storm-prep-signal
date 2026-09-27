@@ -5,10 +5,12 @@ Open `/flow` to watch power move between the grid, the four Texas zones, and 100
 - Pick a scenario, such as Winter Storm Heather or Hurricane Beryl. The side panel lists the real ERCOT rows being played.
 - Each battery starts at a random charge. **Reshuffle** gives a new mix. The seed is shown, so the same seed replays the same run.
 - Send a real, saved National Weather Service alert. On the next step, that zone keeps more backup and sells less.
-- Batteries refill only when power is cheap. None ever sells below its backup floor.
+- A battery under its backup floor charges back up to it from the grid, at any price. It fills past the floor only when power is cheap. None ever sells below its backup floor.
 - In Beryl you can mark Houston's grid as down. Its batteries then only power their own homes.
 - JEV gives a second opinion on each alert. It never makes a decision.
 
-Try it: start the API and the wall, run `python scripts/scenario_session.py`, then open `http://localhost:5173/flow`.
+Try it online: open `https://storm-prep-signal.vercel.app/flow`. After 15 quiet minutes the server sleeps, so the first visit can take a minute, and you press Start again.
+
+Try it on your laptop: start the API and the wall, run `python scripts/scenario_session.py`, then open `http://localhost:5173/flow`.
 
 Details: `docs/agents/grid-flow.md`.

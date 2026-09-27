@@ -22,3 +22,4 @@
 - The 15% storm margin was tuned on one month of data and has not been validated.
 - Rules make every decision. No LLM makes dispatch decisions, and the brief is written only after the decision.
 - Don't call it an AI VPP.
+- When a slow home misses the 60 s deadline, its reassignment and the original can both run, so homes may give slightly more than the call (about 1.6% on average in a 50-seed test); the extra is logged as over_delivery and never credited; floors are never crossed.

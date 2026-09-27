@@ -311,16 +311,16 @@ def test_a_charge_tick_raises_charge_and_books_it_apart_from_delivery():
     s = settings(**FAST)
     homes = new_fleet(s)
     before = {h.home_id: h.soc_kwh for h in homes}
-    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
+    result = orchestrate_tick(homes, frame(0.0), floored_charge_policy(), "AUTO", s, 1)
     absorbed_kwh = sum(h.soc_kwh - before[h.home_id] for h in homes)
     assert result.charging_mw * 1000 * s["tick_minutes"] / 60 == pytest.approx(absorbed_kwh)
     assert result.charging_mw > 0
-    # Charge is never delivery: nothing confirmed, nothing credited, the whole call is missed.
+    # Idle charging (no call): charge is never delivery, so nothing is confirmed or credited.
     assert result.confirmed_mw == 0 and result.credited_mw == 0
-    assert result.missed_mw == pytest.approx(0.2)
+    assert result.missed_mw == 0
     assert result.home_confirmed_kw == {}
     assert all(result.home_charged_kw[h.home_id] > 0 for h in homes)
-    check_books(result, 0.2)
+    check_books(result, 0.0)
 
 
 def test_charge_never_fills_past_capacity():
@@ -328,7 +328,7 @@ def test_charge_never_fills_past_capacity():
     homes = new_fleet(s)
     homes[0].soc_kwh = homes[0].capacity_kwh - 0.1   # room for 1.2 kW over 5 minutes, not 5 kW
     homes[1].soc_kwh = homes[1].capacity_kwh          # full: gets no order at all
-    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
+    result = orchestrate_tick(homes, frame(0.0), floored_charge_policy(), "AUTO", s, 1)
     assert homes[0].soc_kwh == pytest.approx(homes[0].capacity_kwh)
     assert result.home_charged_kw[homes[0].home_id] == pytest.approx(1.2, abs=1e-5)
     assert homes[1].home_id not in result.allocation.per_home_kw
@@ -589,17 +589,39 @@ def charge_cycle(target_mw=0.2, seed=1, p=None, soc_pct=None, **over):
     return result, homes, before
 
 
-def test_a_charge_tick_delivers_nothing_and_books_the_charge_apart():
-    result, homes, before = charge_cycle(0.2, **FAST)
-    check_books(result, 0.2)
+def test_an_idle_charge_tick_delivers_nothing_and_books_the_charge_apart():
+    result, homes, before = charge_cycle(0.0, **FAST)
+    check_books(result, 0.0)
     assert result.confirmed_mw == 0 and result.credited_mw == 0
-    assert result.missed_mw == pytest.approx(0.2)
+    assert result.missed_mw == 0
     assert planned(result) == 0
     absorbed = sum(h.soc_kwh - before[h.home_id] for h in homes) * 60 / 5 / 1000
     assert result.charged_mw > 0
     assert result.charged_mw == pytest.approx(absorbed)
     assert result.home_confirmed_kw == {}
     assert "charging" in result.allocation.reasons
+
+
+def test_a_cheap_tick_serves_the_call_and_charges_the_rest_on_the_same_tick():
+    result, homes, before = charge_cycle(0.2, **FAST)
+    check_books(result, 0.2)
+    assert result.credited_mw == pytest.approx(0.2)
+    assert result.missed_mw == pytest.approx(0.0, abs=1e-9)
+    assert result.charging_mw > 0
+    assert result.breaches == 0
+    # Sellers and chargers are different homes, and each moved the way it was told.
+    sellers, chargers = set(result.home_confirmed_kw), set(result.home_charged_kw)
+    assert sellers and chargers and not sellers & chargers
+    assert all(h.soc_kwh < before[h.home_id] for h in homes if h.home_id in sellers)
+    assert all(h.soc_kwh > before[h.home_id] for h in homes if h.home_id in chargers)
+
+
+def test_cheap_power_with_no_call_charges_through_the_worker():
+    result, homes, before = charge_cycle(0.0, **FAST)
+    assert result.credited_mw == 0 and result.missed_mw == 0
+    assert result.charging_mw > 0
+    assert all(h.soc_kwh > before[h.home_id] for h in homes)
+    assert result.breaches == 0
 
 
 def test_charging_never_fills_a_battery_past_full():
@@ -621,7 +643,7 @@ def test_charging_a_home_still_under_a_raised_floor_is_not_a_breach():
 
 
 def test_a_lost_charge_order_is_not_retried_or_reassigned():
-    result, _, _ = charge_cycle(0.2, seed=3, channel_drop_rate=0.5)
+    result, _, _ = charge_cycle(0.0, seed=3, channel_drop_rate=0.5)
     assert result.timed_out == 0 and result.retried == 0 and result.reassigned == 0
     assert not kinds(result, "reassigned")
     assert "unconfirmed" in result.command_states.values()
@@ -661,7 +683,7 @@ def test_a_charging_home_is_never_handed_discharge_work(monkeypatch):
 
 def test_a_battery_that_overstates_its_charge_is_booked_at_what_it_took():
     p = charge_policy()
-    result, homes, before = charge_cycle(0.2, p=p, _misreport={"home-010": 2.0}, **FAST)
+    result, homes, before = charge_cycle(0.0, p=p, _misreport={"home-010": 2.0}, **FAST)
     assert "charge_mismatch:1" in result.allocation.reasons
     absorbed = sum(h.soc_kwh - before[h.home_id] for h in homes) * 60 / 5 / 1000
     assert result.charged_mw == pytest.approx(absorbed)
@@ -673,7 +695,8 @@ def test_zone_intent_books_discharge_and_charge_apart():
     check_books(result, 0.05)
     zone_of = {h.home_id: h.zone for h in homes}
     assert result.credited_mw == pytest.approx(0.05)
-    assert {zone_of[h] for h in result.home_confirmed_kw} == {"Houston"}
+    # South and West have no row (hold), so they share the call with Houston; North only charges.
+    assert {zone_of[h] for h in result.home_confirmed_kw} == {"Houston", "South", "West"}
     north_took = sum(h.soc_kwh - before[h.home_id] for h in homes if h.zone == "North")
     assert result.charged_mw == pytest.approx(north_took * 60 / 5 / 1000)
     acks = zone_acks(homes, result)

@@ -192,7 +192,9 @@ def test_calm_day_charges_on_cheap_ticks_and_sells_at_the_peak(tmp_path):
     ticks = play(tmp_path, "calm-charge", 181)
     cheap = [t for t in ticks if t["price_usd_mwh"] <= 25]
     assert cheap and any(t["charging_mw"] > 0 for t in cheap)
-    assert all(t["charging_mw"] == 0 for t in ticks if t["price_usd_mwh"] > 25)
+    # Each zone charges on its own price (a zone with no price follows the headline one).
+    assert all(mw == 0 for t in ticks for zone, mw in t["zone_charging_mw"].items()
+               if t["zone_prices"].get(zone, t["price_usd_mwh"]) > 25)
     assert max(t["delivered_mw"] for t in ticks if t["price_usd_mwh"] >= 60) > 0.2
     assert sum(t["breaches"] for t in ticks) == 0
 

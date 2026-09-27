@@ -100,7 +100,7 @@ def test_mass_failure_with_a_big_target_is_short_and_says_why():
 
 # --- a floor raised between ticks ---------------------------------------------------
 
-def test_a_newly_raised_floor_gives_under_floor_homes_nothing_and_is_not_a_breach():
+def test_a_newly_raised_floor_gives_under_floor_homes_no_discharge_and_is_not_a_breach():
     s = settings(**FAST)
     homes = new_fleet(s)
     base, storm = policy(30.0), policy(60.0, "storm_risk_high")
@@ -110,10 +110,11 @@ def test_a_newly_raised_floor_gives_under_floor_homes_nothing_and_is_not_a_breac
     under = {h.home_id for h in homes if h.soc_kwh <= floor_kwh(h, storm)}
     assert under, "the raised floor should leave some homes at or under it"
     second, f2, before2 = run(homes, 0.3, storm, s, seed=2, tick=2)
-    assert not under & set(second.allocation.per_home_kw)
+    # Under the new floor: never sold, only refilled toward it.
+    assert all(second.allocation.per_home_kw[h] < 0 for h in under & set(second.allocation.per_home_kw))
     for home in homes:
         if home.home_id in under:
-            assert home.soc_kwh == before2[home.home_id]   # under the new floor: untouched
+            assert before2[home.home_id] - 1e-9 <= home.soc_kwh <= floor_kwh(home, storm) + 1e-9
     assert second.breaches == 0
     assert planned(second) < planned(first)
     check_books(second, f2.target_mw, homes, storm, before2)
