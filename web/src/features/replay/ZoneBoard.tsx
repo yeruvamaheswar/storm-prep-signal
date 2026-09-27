@@ -156,7 +156,7 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
               const look = lotLook(lot.home, orders?.[id], tSeconds, false)
               return (
                 <div key={`tag-${id}`} className="zone-tag" style={{ left: lot.cx - 20 - WORLD.x, top: lot.cy - 104 - WORLD.y, borderColor: look.ring === "rgba(0,0,0,0)" ? "var(--rg-ink)" : look.ring }}>
-                  {id}: {look.label}
+                  {look.name}: {look.label}
                 </div>
               )
             })}

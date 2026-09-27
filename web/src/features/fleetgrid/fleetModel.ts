@@ -4,6 +4,7 @@
  * Honesty: a missing charge, floor or zone stays null and is shown as "Not reported".
  */
 import type { FlowHome } from "../flow/types"
+import { homeName } from "../replay/homeName"
 import { planNotLive } from "../replay/reasonCodes"
 import { hrefForUrlState, readUrlState } from "../shell/urlState"
 
@@ -32,7 +33,8 @@ export type GridHome = {
   action: GridAction | null
   /** Scenario only: the planner used a reading that was not live (`plan_status`), so the home got no order. */
   planStale?: boolean
-  /** Scenario only (#47): display name, e.g. "Houston-FortBend-005", and county name. Search and URLs use `id`. */
+  /** Display name, e.g. "Houston-FortBend-005" (scenario #47; GET /v1/homes since Task 17), and county name.
+   * Shown through homeName; search and URLs use `id`. */
   name?: string | null
   countyName?: string | null
   /** County FIPS (Task 13 item 7): the scenario's own, or the one GET /v1/homes derives with the engine's rule. */
@@ -98,6 +100,8 @@ export function fromLiveRows(body: unknown): GridHome[] {
       kw: num(row.power_kw),
       action: status === "live" ? cs : null,
       planStale: false,
+      // Task 17: the engine's name, zone and county for this id (server/api/homes.py, demo fleet).
+      name: textOrNull(row.name),
       county: textOrNull(row.county),
       countyName: textOrNull(row.county_name),
     })
@@ -415,7 +419,7 @@ export function chargeText(h: GridHome): string {
 
 export function tileAria(h: GridHome): string {
   const county = h.countyName ? `${h.countyName} County, ` : ""
-  return `${h.id}, ${county}${nowText(h)}, charge ${chargeText(h)}`
+  return `${homeName(h)}, ${county}${nowText(h)}, charge ${chargeText(h)}`
 }
 
 export function homesTitle(n: number): string {

@@ -17,6 +17,7 @@ from server.api.homes import (
     table_rollups,
 )
 from server.app import create_app
+from server.engine.fleet import new_fleet
 
 SETTINGS = {"url": "https://example.supabase.co", "key": "test-key", "timeout_s": 3}
 
@@ -105,6 +106,10 @@ def fake_get(rows, readings=None, commands=None):
         select = params.get("select", "")
         if "count()" in select or "sum()" in select:
             return Reply({"code": "PGRST123", "message": "Use of aggregate functions is not allowed"}, ok=False, status_code=400)
+        if "and" in params:
+            # PostgREST and=(home_id.in.(...)): the fleet's ids, or (Task 17) one engine zone's ids.
+            allowed = set(params["and"][len("(home_id.in.("):-2].split(","))
+            out = [item for item in out if item["home_id"] in allowed]
         if params.get("zone", "").startswith("eq."):
             out = [item for item in out if item["zone"] == params["zone"][3:]]
         if params.get("status", "").startswith("eq."):
@@ -151,8 +156,10 @@ def test_list_homes_pages_and_filters():
         row("home-003", "South", assigned_kw=5),
         row("home-010", "Houston"),
     ]
-    page = list_homes(zone="South", limit=1, offset=1, settings=SETTINGS, http_get=fake_get(rows))
-    assert [home["home_id"] for home in page] == ["home-003"]
+    # Task 17: the zone filter is the engine's zone (ZONES order, Houston first): North is home-002 and
+    # home-010 here, whatever the rows' seed zone column says.
+    page = list_homes(zone="North", limit=1, offset=1, settings=SETTINGS, http_get=fake_get(rows))
+    assert [home["home_id"] for home in page] == ["home-010"]
     found = list_homes(q="010", settings=SETTINGS, http_get=fake_get(rows))
     assert [home["home_id"] for home in found] == ["home-010"]
 
@@ -195,7 +202,9 @@ def test_read_home_miss_is_none_not_error():
 
 
 def test_table_rollups_use_content_range_not_aggregates():
-    rows = [row(f"home-{i:04d}", "South" if i < 8000 else "Houston") for i in range(10_000)]
+    # Task 17: a 10,000-row table with the seed's real ids (new_fleet); the 100-home demo fleet is counted
+    # by the engine's zone (25 each), never by the rows' zone column.
+    rows = [row(home.home_id, "South" if i < 8000 else "Houston") for i, home in enumerate(new_fleet(10_000))]
     calls = []
 
     inner = fake_get(rows)
@@ -204,10 +213,10 @@ def test_table_rollups_use_content_range_not_aggregates():
         calls.append((params or {}, headers or {}))
         return inner(url, params=params, headers=headers, timeout=timeout)
 
-    body = table_rollups(settings=SETTINGS, http_get=http_get)
-    assert body["n"] == 10_000
-    assert body["zones"]["South"]["live"] == 8000
-    assert body["zones"]["Houston"]["live"] == 2000
+    body = table_rollups(settings=SETTINGS, http_get=http_get, fleet_size=100)
+    assert body["n"] == 100
+    assert {zone: body["zones"][zone]["live"] for zone in body["zones"]} == \
+        {"South": 25, "North": 25, "West": 25, "Houston": 25}
     assert not any("count()" in (params.get("select") or "") for params, _headers in calls)
     assert any("count=exact" in headers.get("Prefer", "") for _params, headers in calls)
 
@@ -220,15 +229,18 @@ def test_table_rollups_match_existing_shape():
         row("home-004", "West", status="dead"),
     ]
     body = table_rollups(settings=SETTINGS, http_get=fake_get(rows))
+    # Task 17: counted in the engine's zones (home-001 Houston, 002 North, 003 South, 004 West),
+    # not the rows' seed zone column.
     assert body["n"] == 4
     assert set(body["zones"]) == {"South", "North", "West", "Houston"}
-    assert body["zones"]["South"]["live"] == 2
-    assert body["zones"]["South"]["discharging"] == 1
-    assert body["zones"]["South"]["discharging_mw"] == 0.005
-    assert body["zones"]["North"]["stale"] == 1
-    assert body["zones"]["North"]["silent"] == 1
+    assert body["zones"]["Houston"]["live"] == 1
+    assert body["zones"]["North"]["live"] == 1
+    assert body["zones"]["North"]["discharging"] == 1
+    assert body["zones"]["North"]["discharging_mw"] == 0.005
+    assert body["zones"]["South"]["stale"] == 1
+    assert body["zones"]["South"]["silent"] == 1
     assert body["zones"]["West"]["dead"] == 1
-    assert body["zones"]["Houston"]["live"] == 0
+    assert body["zones"]["South"]["live"] == 0
     assert "homes" not in body
     assert "home-001" not in str(body)
     assert body["clusters"][0]["id"] == "South:0"

@@ -2,6 +2,7 @@ import { reasonLabel, type Point } from "../flow/flowMath"
 import type { BatteryState, FlowHome, OrderTimelineEntry } from "../flow/types"
 import { keyMoments } from "./keyMoments"
 import { NOT_REPORTED } from "./format"
+import { homeName } from "./homeName"
 import { OPERATOR_HOLD_TEXT, isOperatorHold, planNotLive } from "./reasonCodes"
 import { homeOrderState, splitOrders, stateColor, stateLabel, type ReplayOrderState } from "./orderState"
 import { fmtClock } from "./tickClock"
@@ -186,6 +187,8 @@ export type LotLook = {
   batt: string
   cable: string
   aria: string
+  /** The home's one display name (homeName), for tags and aria text. */
+  name: string
   label: string
   charging: boolean
   /** Energy is on the service cable: the order ran and waits for its report, or is confirmed. The one cable rule
@@ -267,13 +270,15 @@ export function lotLook(home: FlowHome, timeline: OrderTimelineEntry[] | undefin
     ? active?.s === "ok" ? "Charging to its floor" : "Charging to its floor, waiting for its report"
     : active ? stateLabel(active, unit ? plannedKw(unit.timeline) : undefined) : notAskedLabel(home)
   const suffix = tookOver ? ", also took over another home's order" : ""
+  const name = homeName(home)
   return {
     state: active,
     glow: active?.gave ? "rgba(127,227,232,0.30)" : CLEAR,
     ring: open ? "var(--rg-ink)" : active ? orderColor(active, charging) : CLEAR,
     batt: ran ? (charging ? "var(--rg-charging)" : "var(--rg-battery-glow)") : BATT_IDLE,
     cable: flowing ? (charging ? "var(--rg-charging)" : "var(--rg-gave-energy)") : CLEAR,
-    aria: `${home.id}, ${label}${suffix}`,
+    aria: `${name}, ${label}${suffix}`,
+    name,
     label,
     charging,
     flowing,
@@ -472,8 +477,14 @@ function kwText(value: unknown): string | null {
   return isNum(value) ? `${Math.abs(value).toFixed(2)} kW` : null
 }
 
-/** "This order's journey": one step per logged event, greyed while it is still ahead of the playhead. */
-export function journeySteps(timeline: OrderTimelineEntry[], tSeconds: number, tickMinutes?: number): JourneyStep[] {
+/** "This order's journey": one step per logged event, greyed while it is still ahead of the playhead.
+ * `nameOf` names the home an order was handed to (homeName); without it the logged id is shown. */
+export function journeySteps(
+  timeline: OrderTimelineEntry[],
+  tSeconds: number,
+  tickMinutes?: number,
+  nameOf: (id: string) => string = (id) => id,
+): JourneyStep[] {
   const charging = isChargeUnit(timeline)
   const steps: JourneyStep[] = []
   let retried = false
@@ -490,7 +501,7 @@ export function journeySteps(timeline: OrderTimelineEntry[], tSeconds: number, t
       push(at, ran ? "Its report had not arrived. Retried once." : "No answer. Retried once.")
       retried = true
     }
-    if (kind === "reassigned") push(at, typeof extra === "string" && extra ? `Its order was handed to ${extra}.` : "Its order was handed to another home.")
+    if (kind === "reassigned") push(at, typeof extra === "string" && extra ? `Its order was handed to ${nameOf(extra)}.` : "Its order was handed to another home.")
     if (kind === "reassign_failed") push(at, "No spare home could take it over.")
     if (kind === "exec") {
       const kw = kwText(extra)

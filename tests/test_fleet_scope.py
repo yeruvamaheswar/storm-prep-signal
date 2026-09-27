@@ -120,7 +120,8 @@ def test_table_rollups_count_only_the_fleet():
     calls = []
     body = table_rollups(settings=SETTINGS, http_get=postgrest(seeded_table(), calls), fleet_size=100)
     assert body["n"] == 100
-    assert body["zones"]["South"]["live"] + body["zones"]["Houston"]["live"] == 100
+    # Task 17: counted by the engine's zone (25 each), not the table's South/Houston column.
+    assert {zone: row["live"] for zone, row in body["zones"].items()} == {"South": 25, "North": 25, "West": 25, "Houston": 25}
     assert all("and" in params for params in calls)
 
 
@@ -232,23 +233,26 @@ def test_live_fleet_counties_use_the_live_zones():
 
 def test_homes_rows_carry_a_derived_county(monkeypatch):
     from server.engine.fleet import fleet_counties, seed_settings
+    from server.engine.loop import with_fleet_defaults
 
     client = api(monkeypatch, [row(home.home_id, home.zone) for home in new_fleet(100)])
     homes = client.get("/v1/homes", params={"limit": 200}).json()
-    expected = fleet_counties(seed_settings(100))
+    # Task 17: the engine's assignment (ZONES order, Houston first), not the seed's South-first order.
+    expected = fleet_counties({**seed_settings(100), "zones": with_fleet_defaults({})["zones"]})
     assert len(homes) == 100
     for home in homes:
-        assert home["county"] == expected[home["home_id"]][1]
+        assert (home["zone"], home["county"]) == expected[home["home_id"]]
         assert home["county_name"]
     one = client.get("/v1/homes/home-005").json()
-    assert (one["county"], one["county_name"]) == ("48029", "Bexar")
+    assert (one["county"], one["county_name"]) == ("48157", "Fort Bend")
 
 
-def test_row_in_a_zone_the_engine_did_not_give_it_has_no_county(monkeypatch):
-    # home-001 is South in the Supabase seed. A table row that says North is not relabelled with a guess.
+def test_row_zone_column_never_decides_the_reported_zone(monkeypatch):
+    # Task 17 supersedes the Task 13 null-county rule: home-001 is Houston in the engine whatever the row says.
     client = api(monkeypatch, [row("home-001", "North")])
     home = client.get("/v1/homes").json()[0]
-    assert home["county"] is None and home["county_name"] is None
+    assert (home["zone"], home["county"], home["county_name"], home["name"]) == \
+        ("Houston", "48201", "Harris", "Houston-Harris-001")
 
 
 def test_fleet_counties_route_is_the_roster(monkeypatch):

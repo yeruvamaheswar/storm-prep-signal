@@ -333,7 +333,14 @@ export function parseHome(value: unknown): Home {
     last_command: readCommand(row.last_command),
     charge_state: readChargeState(row.charge_state),
     power_kw: readOptionalNumber(row.power_kw, "power_kw"),
+    // Task 17: passed through for homeName; a missing or empty value stays null.
+    name: optionalText(row.name),
+    county_name: optionalText(row.county_name),
   }
+}
+
+function optionalText(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null
 }
 
 export function parseTape(value: unknown): Tape {
