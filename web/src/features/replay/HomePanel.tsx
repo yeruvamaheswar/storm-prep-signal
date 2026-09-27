@@ -1,10 +1,17 @@
+import { lazy, Suspense, useState } from "react"
 import type { FlowHome, OrderTimelineEntry } from "../flow/types"
+import { houseModel } from "./house3dModel"
 import { HouseArt } from "./HouseArt"
 import { splitOrders } from "./orderState"
 import { useDrawerFocus } from "./useDrawer"
+import { WebGLBoundary } from "./WebGLBoundary"
+import { hasWebGL } from "./webgl"
 import {
   BATT_IDLE, TRANSPARENT, askedText, orderColor, countedText, homeFacts, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, type JourneyStep,
 } from "./zoneModel"
+
+/** three.js lives in this chunk only; the flat HouseArt shows while it loads and when WebGL is missing. */
+const House3D = lazy(() => import("./House3D"))
 
 type Props = {
   homeId: string
@@ -43,6 +50,8 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose
   const chip = look ? (look.tookOver ? `${look.label}. Also took over ${from ?? "another home"}'s order` : look.label) : "Not reported in this session"
   const dot = look?.state ? orderColor(look.state, look.charging) : "var(--rg-not-counted)"
   const asked = unit ? askedText(unit.timeline, tSeconds) : "Not asked"
+  const [webgl] = useState(hasWebGL)
+  const flat = <HouseArt batt={look?.batt ?? BATT_IDLE} cable={look?.cable ?? TRANSPARENT} />
 
   return (
     <section className="replay-panel zone-home" aria-label="Home detail" ref={ref} tabIndex={-1}>
@@ -57,7 +66,13 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose
         <button type="button" className="replay-pill" onClick={onClose}>Close</button>
       </div>
       <div className="zone-home-art">
-        <HouseArt batt={look?.batt ?? BATT_IDLE} cable={look?.cable ?? TRANSPARENT} />
+        {webgl ? (
+          <WebGLBoundary fallback={flat}>
+            <Suspense fallback={flat}>
+              <House3D model={houseModel(home, look)} />
+            </Suspense>
+          </WebGLBoundary>
+        ) : flat}
         <div className="zone-chip">
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" style={{ fill: dot }} /></svg>
           {chip}
