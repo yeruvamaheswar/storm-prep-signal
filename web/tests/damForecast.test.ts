@@ -88,6 +88,12 @@ describe("DAM forecast lines", () => {
     expect(row("dam_cheap_hour", [9, 30], ["2026-09-25T12:00-05:00"], 1).line).toContain("1 cheapest hour of the next 2")
   })
 
+  it("before_spike counts the chosen hours before the sell-band hour, not the whole window", () => {
+    const line = row("before_spike", [21, 30, 78, 16], ["2026-09-25T12:00-05:00", "2026-09-25T13:00-05:00"], 3).line
+    expect(line).toBe("Houston · charging now · 2 cheapest hours before the next sell-band hour · $21.00/MWh ERCOT DAM")
+    expect(row("before_spike", [21, 78], ["2026-09-25T12:00-05:00"], 2).line).toContain("1 cheapest hour before")
+  })
+
   it("rt_dip names the dearest chosen hour", () => {
     const line = row("rt_dip", [30, 11.2, 18.4], ["2026-09-25T13:00-05:00", "2026-09-25T14:00-05:00"], 2).line
     expect(line).toBe(
@@ -124,7 +130,7 @@ describe("DAM forecast lines", () => {
   })
 
   it("every $/MWh in every line carries its label", () => {
-    const whys = ["dam_cheap_hour", "rt_dip", "cheaper_hour_later", "no_payback", "full", "sell_band"]
+    const whys = ["dam_cheap_hour", "before_spike", "rt_dip", "cheaper_hour_later", "no_payback", "full", "sell_band"]
     for (const why of whys) {
       const line = row(why, [20, 11, 30], ["2026-09-25T13:00-05:00"], 1).line
       for (const match of line.matchAll(/\$-?[\d.]+\/MWh/g)) {

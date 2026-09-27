@@ -3,6 +3,7 @@ import type { FlowTick, FlowZoneRow } from "../src/features/flow/types"
 import {
   ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, isWeatherReason, ringBox, zoneWeather,
 } from "../src/features/replay/weatherModel"
+import { berylTick22 } from "./fixtures/beryl22"
 import {
   FLOOR_RAISING_REASONS, SIGNAL_MISSING_REASON, WEATHER_REASONS, isFloorRaisingReason,
 } from "../src/features/replay/reasonCodes"
@@ -18,21 +19,28 @@ const riskTick: TickPart = {
   zone_reasons: { Houston: "storm_risk_high", North: "storm_risk_high", South: "storm_risk_high", West: "storm_risk_high" },
   grid_down_zones: [],
 }
-// beryl-landfall tick 2, after the Beryl tropical storm warning was sent after tick 1 (Session in-process at origin/main
-// 697b0ee + Task 15, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25): the alert names Harris, so only Houston rises. The zone
-// floor is its highest county floor.
+// beryl-landfall tick 2, after the Beryl tropical storm warning was sent at tick 1 (merged engine with #47, seed 42,
+// HOME_MAX_KW=11.4, HOME_KWH=25): the alert names Harris, so only Houston rises. Since #47 the zone floor is its highest
+// county floor.
 const alertTick: TickPart = {
-  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
+  tick: 2, risk_level: "LOW", reasons: ["charging", "reserve_refill", "homes_stale:1"],
   zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
 }
-// heather tick 2, after both hard-freeze warnings (Harris and Dallas) were sent after tick 1 (same run settings): every
-// county either alert names keeps the storm reserve whatever the alert type, so Houston and North rise to 60%.
-const freezeTick: TickPart = {
+type CountyTickPart = TickPart & Pick<FlowTick, "county_reserve_pct" | "county_reasons">
+// heather tick 2, after both hard-freeze warnings (Harris and Dallas) were sent at tick 1 (same run settings, 2026-09-27
+// named-county rule): all nine named counties keep the 60% storm reserve, so Houston and North rise with reason
+// weather_alert; South and West keep the 30% base floor.
+const namedTick: CountyTickPart = {
   tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:2"],
   zone_reserve_pct: { Houston: 60, North: 60, South: 30, West: 30 },
   zone_reasons: { Houston: "weather_alert", North: "weather_alert", South: "normal", West: "normal" },
+  county_reserve_pct: { 48201: 60, 48157: 60, 48039: 60, 48167: 60, 48339: 60, 48113: 60, 48439: 60, 48085: 60, 48121: 60 },
+  county_reasons: {
+    48201: "weather_alert", 48157: "weather_alert", 48039: "weather_alert", 48167: "weather_alert", 48339: "weather_alert",
+    48113: "weather_alert", 48439: "weather_alert", 48085: "weather_alert", 48121: "weather_alert",
+  },
   grid_down_zones: [],
 }
 // storm-rule-high tick 1 (02:00 CT): LOW, every zone at the base floor.
@@ -115,12 +123,19 @@ describe("zone weather at the playhead's tick", () => {
     expect(zoneWeather("North", null, signalMissingRows.North as never, 30)).toEqual({ floorRaised: true, weather: false, gridDown: false })
   })
 
-  it("shows weather over both zones a freeze alert names, whatever the alert type (heather t2)", () => {
-    const weather = fleetWeather(ZONES, freezeTick as never, {}, 30)
+  it("shows weather over every zone a named-county alert raised, and none elsewhere (Heather tick 2)", () => {
+    const weather = fleetWeather(ZONES, namedTick as never, {}, 30)
     expect(weather.Houston).toEqual({ floorRaised: true, weather: true, gridDown: false })
     expect(weather.North).toEqual({ floorRaised: true, weather: true, gridDown: false })
     expect(weather.South).toEqual(CALM)
     expect(weather.West).toEqual(CALM)
+  })
+
+  it("shows weather over a zone whose alert names only some of its counties (Beryl tick 22: Harris named)", () => {
+    expect(berylTick22.county_reasons?.["48157"]).toBe("not_in_alert")
+    const weather = fleetWeather(ZONES, berylTick22, {}, 30)
+    expect(weather.Houston).toEqual({ floorRaised: true, weather: true, gridDown: false })
+    for (const zone of ["North", "South", "West"] as const) expect(weather[zone]).toEqual(CALM)
   })
 
   it("raises nothing on a calm tick", () => {

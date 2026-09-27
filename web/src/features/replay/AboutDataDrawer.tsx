@@ -61,6 +61,7 @@ function damSource(tick: FlowTick | null): string {
 /** Each zone's DAM decision (policy.dam_charge `zone_charge_why`) in words. An unknown code shows in words. */
 const CHARGE_WHY_WORDS: Record<string, string> = {
   dam_cheap_hour: "charging in its cheapest day-ahead hours",
+  before_spike: "charging in its cheapest day-ahead hours before the next sell-band hour",
   rt_dip: "charging on a real-time dip below the day-ahead plan",
   cheaper_hour_later: "waiting for a cheaper day-ahead hour",
   no_payback: "not charging: no later hour pays back",
@@ -205,7 +206,7 @@ export function AboutDataDrawer({ state, onClose }: Props) {
       </section>
       <section>
         <h3>Alerts</h3>
-        {state.alerts.length ? state.alerts.map((alert) => <AlertDetail key={alert.id} alert={alert} counties={state.counties ?? []} tick={state.tick} />) : <p className="replay-note">No alert sent in this session.</p>}
+        {state.alerts.length ? state.alerts.map((alert) => <AlertDetail key={alert.id} alert={alert} tick={state.tick} />) : <p className="replay-note">No alert sent in this session.</p>}
       </section>
       <section>
         <h3>Overlays (hand-placed)</h3>

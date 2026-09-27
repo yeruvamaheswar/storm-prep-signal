@@ -4,8 +4,9 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { FlowRequest } from "../src/features/flow/api"
 import type {
-  ActiveAlert, ArchiveRows, FlowCounty, FlowTick, Provenance, ScenarioList, SessionState, StartSummary,
+  ActiveAlert, FlowCounty, FlowTick, Provenance, ScenarioList, SessionState, StartSummary,
 } from "../src/features/flow/types"
+import { DataPanel } from "../src/features/flow/DataPanel"
 import { AboutDataDrawer } from "../src/features/replay/AboutDataDrawer"
 import { AlertDetail } from "../src/features/replay/AlertDetail"
 import { ScenarioRail } from "../src/features/replay/ScenarioRail"
@@ -15,15 +16,16 @@ import { ZoneShares } from "../src/features/replay/ZoneShares"
 
 /*
  * Real engine data. Ticks, alerts and the county roster below were copied from an in-process run of
- * server.engine.scenario.Session at origin/main 697b0ee (post-#50 DAM look-ahead) plus Task 15's brief.py copy
- * and controller change, HOME_MAX_KW=11.4, HOME_KWH=25, seed 42. Each run played every tick with
- * Session.step() and saved state() per tick; an alert "sent after tick 1" was sent with send_alert() once tick 1
- * had played, so it applies from tick 2 (sent_at_tick 2):
- * - berylTick22: beryl-landfall, Beryl alert sent after tick 1, tick 22 (Harris named: 60%).
- * - heatherTick2: heather, both freeze alerts sent after tick 1, tick 2 (all nine named counties: 60%).
+ * server.engine.scenario.Session (HOME_MAX_KW=11.4, HOME_KWH=25, seed 42):
+ * - berylTick22: beryl-landfall, Beryl alert sent after tick 1, tick 22, at the post-#47 head. The alert names
+ *   Harris only: Harris 60%, the other four Houston counties 30%. Harris's county reason is written as the engine
+ *   sends it since 2026-09-27 (`weather_alert`); the floors are the same under that rule.
+ * - heatherTick2: heather, both freeze alerts sent after tick 1, tick 2, at the 2026-09-27 named-county rule
+ *   (every named county keeps the 60% storm reserve).
+ * - Each alert's `named_counties` is what the engine sends since 2026-09-27.
  * - holdTick: operator-hold tick 4. dischargeTick: storm-rule-high tick 4.
  * - expiredTick: storm-rule-night, Midland alert sent after tick 1, tick 20 (first tick after expiry).
- * The alerts are state().alerts as sent. Only these FlowTick fields are kept (dam_hours is left out).
+ * Only the FlowTick fields are kept.
  */
 
 const counties: FlowCounty[] = [
@@ -64,7 +66,6 @@ const berylAlert: ActiveAlert = {
 }
 
 const DALLAS_ID = "heather-dallas-hard-freeze-warning"
-
 const dallasFreeze: ActiveAlert = {
   id: DALLAS_ID,
   event: "Hard Freeze Warning",
@@ -88,7 +89,6 @@ const dallasFreeze: ActiveAlert = {
 }
 
 const HARRIS_ID = "heather-harris-hard-freeze-warning"
-
 const harrisFreeze: ActiveAlert = {
   id: HARRIS_ID,
   event: "Hard Freeze Warning",
@@ -113,7 +113,6 @@ const harrisFreeze: ActiveAlert = {
 }
 
 const MIDLAND_ID = "tuning2026-midland-flash-flood-warning"
-
 const midlandFlood: ActiveAlert = {
   id: MIDLAND_ID,
   event: "Flash Flood Warning",
@@ -121,10 +120,6 @@ const midlandFlood: ActiveAlert = {
   areaDesc: "Ector; Midland",
   onset: "2026-09-22T14:31:00-05:00",
   expires: "2026-09-22T17:30:00-05:00",
-  sent: "2026-09-22T14:31:00-05:00",
-  sender: "National Weather Service Midland/Odessa TX",
-  source_url: "https://mesonet.agron.iastate.edu/p.php?pid=202609221931-KMAF-WGUS54-FFWMAF",
-  source_label: "Iowa Environmental Mesonet NWS archive",
   counties: ["048135", "048329"],
   zones: ["West"],
   sent_at_tick: 2,
@@ -140,8 +135,8 @@ const berylTick22: FlowTick = {
   mode: "AUTO",
   target_mw: 0.02,
   target_label: "synthetic:price-shaped",
-  delivered_mw: 0.019999999999999993,
-  missed_mw: 6.938893903907228e-18,
+  delivered_mw: 0.02,
+  missed_mw: 0.0,
   price_usd_mwh: 13.9,
   price_label: "recorded:ERCOT NP6-905-CD LZ_HOUSTON",
   reserve_pct: 30.0,
@@ -149,7 +144,7 @@ const berylTick22: FlowTick = {
   risk_level: "LOW",
   intent: "charge",
   intent_reason: "grid_call_served",
-  reasons: ["charging", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
+  reasons: ["charging", "homes_stale:1"],
   breaches: 0,
   zone_reserve_pct: { Houston: 60.0, North: 30.0, South: 30.0, West: 30.0 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
@@ -157,24 +152,10 @@ const berylTick22: FlowTick = {
   county_reasons: {
     "48201": "weather_alert", "48157": "not_in_alert", "48039": "not_in_alert", "48167": "not_in_alert", "48339": "not_in_alert",
   },
-  brief: "Delivered 0.02 of 0.02 MW. Floor 30% (Houston 30–60% by county: Harris raised, NWS weather alert); charging on price: day-ahead plan or charge band; timed out 1; duplicates ignored 1; over delivery 1.",
-  charging_mw: 0.20458485,
+  brief: "Delivered 0.02 of 0.02 MW. Floor 30% (Houston 60%: weather_alert); charging on cheap power; 1 home is stale.",
+  charging_mw: 0.24676088100000002,
   grid_down_zones: [],
-  dam_label: "recorded:ERCOT NP4-190-CD",
-  dam_as_of: "2024-07-07,2024-07-08",
-  zone_hours_needed: { Houston: 1, North: 1, South: 1, West: 2 },
-  zone_charge_hours: {
-    Houston: ["2024-07-08T08:00-05:00"], North: ["2024-07-08T08:00-05:00"], South: ["2024-07-08T08:00-05:00"],
-    West: ["2024-07-08T08:00-05:00", "2024-07-08T09:00-05:00"],
-  },
-  zone_charge_why: { Houston: "cheaper_hour_later", North: "cheaper_hour_later", South: "rt_dip", West: "cheaper_hour_later" },
 }
-
-/** provenance.archive_rows.dam on beryl-landfall tick 22 (same run). */
-const berylDamRows: NonNullable<ArchiveRows["dam"]> = [
-  { report: "NP4-190-CD", delivery_date: "2024-07-07", file: "data/fixtures/dam/np4_190_cd_20240707.json" },
-  { report: "NP4-190-CD", delivery_date: "2024-07-08", file: "data/fixtures/dam/np4_190_cd_20240708.json" },
-]
 
 const heatherTick2: FlowTick = {
   tick: 2,
@@ -205,11 +186,6 @@ const heatherTick2: FlowTick = {
   brief: "Delivered 0.20 of 0.20 MW. Floor 30% (Houston 60%: weather_alert, North 60%: weather_alert); refilling batteries under their reserve floor; 2 homes are stale.",
   charging_mw: 0.4044061380000001,
   grid_down_zones: [],
-  dam_label: "none",
-  dam_as_of: null,
-  zone_hours_needed: {},
-  zone_charge_hours: {},
-  zone_charge_why: {},
 }
 
 const holdTick: FlowTick = {
@@ -236,11 +212,6 @@ const holdTick: FlowTick = {
   brief: "Delivered 0.00 of 0.55 MW. Operator hold.",
   charging_mw: 0.0,
   grid_down_zones: [],
-  dam_label: "recorded:ERCOT NP4-190-CD",
-  dam_as_of: "2026-09-17,2026-09-18",
-  zone_hours_needed: { Houston: 2, North: 2, South: 2, West: 2 },
-  zone_charge_hours: {},
-  zone_charge_why: {},
 }
 
 const dischargeTick: FlowTick = {
@@ -267,14 +238,6 @@ const dischargeTick: FlowTick = {
   brief: "Delivered 0.16 of 0.16 MW. Refilling batteries under their reserve floor; 1 home is stale; timed out 1; duplicates ignored 1; over delivery 1.",
   charging_mw: 0.104435993,
   grid_down_zones: [],
-  dam_label: "recorded:ERCOT NP4-190-CD",
-  dam_as_of: "2026-09-16",
-  zone_hours_needed: { Houston: 1, North: 2, South: 2, West: 2 },
-  zone_charge_hours: {
-    Houston: ["2026-09-16T09:00-05:00"], North: ["2026-09-16T09:00-05:00", "2026-09-16T10:00-05:00"],
-    South: ["2026-09-16T08:00-05:00", "2026-09-16T09:00-05:00"], West: ["2026-09-16T11:00-05:00", "2026-09-16T16:00-05:00"],
-  },
-  zone_charge_why: { Houston: "cheaper_hour_later", North: "cheaper_hour_later", South: "cheaper_hour_later", West: "cheaper_hour_later" },
 }
 
 const expiredTick: FlowTick = {
@@ -283,8 +246,8 @@ const expiredTick: FlowTick = {
   mode: "AUTO",
   target_mw: 0.2088,
   target_label: "synthetic:price-shaped",
-  delivered_mw: 0.20879999999999993,
-  missed_mw: 8.326672684688674e-17,
+  delivered_mw: 0.20879999999999999,
+  missed_mw: 2.7755575615628914e-17,
   price_usd_mwh: 64.85,
   price_label: "recorded:ERCOT NP6-905-CD LZ_NORTH",
   reserve_pct: 30.0,
@@ -301,14 +264,6 @@ const expiredTick: FlowTick = {
   brief: "Delivered 0.21 of 0.21 MW. 1 home is stale; timed out 1; duplicates ignored 1; over delivery 1.",
   charging_mw: 0.0,
   grid_down_zones: [],
-  dam_label: "recorded:ERCOT NP4-190-CD",
-  dam_as_of: "2026-09-22,2026-09-23",
-  zone_hours_needed: { Houston: 1, North: 2, South: 2, West: 1 },
-  zone_charge_hours: {
-    Houston: ["2026-09-23T08:00-05:00"], North: ["2026-09-23T10:00-05:00", "2026-09-23T11:00-05:00"],
-    South: ["2026-09-23T08:00-05:00", "2026-09-23T09:00-05:00"], West: ["2026-09-23T11:00-05:00"],
-  },
-  zone_charge_why: { Houston: "cheaper_hour_later", North: "sell_band", South: "sell_band", West: "sell_band" },
 }
 
 /** The seed-42 fleet the worker reported (25 kWh / 11.4 kW packs, base floor 30%). */
@@ -436,11 +391,11 @@ function drawer(state: SessionState): string {
   return renderToStaticMarkup(createElement(AboutDataDrawer, { state, onClose: () => {} }))
 }
 
-function alertBox(alert: ActiveAlert, tick: FlowTick | null, roster: FlowCounty[] = counties): string {
-  return renderToStaticMarkup(createElement(AlertDetail, { alert, counties: roster, tick }))
+function alertBox(alert: ActiveAlert, tick: FlowTick | null): string {
+  return renderToStaticMarkup(createElement(AlertDetail, { alert, tick }))
 }
 
-/** The text of each county row in the alert's county table, cells joined with " | ". */
+/** The text of each row in the named-county table, cells joined with " | ". */
 function countyRows(html: string): string[] {
   const doc = new DOMParser().parseFromString(html, "text/html")
   return [...doc.querySelectorAll(".replay-county-table tbody tr")].map((row) =>
@@ -486,66 +441,73 @@ describe("Alert detail (gaps 10 and 11)", () => {
     expect(html).toContain("Iowa Environmental Mesonet NWS archive")
   })
 
-  it("lists every county of the alert's zone, named or not, with its floor this tick (Beryl t22: Harris only)", () => {
+  it("lists the counties the alert names under /flow's title, with no model reading (Beryl names Harris only)", () => {
     const html = alertBox(berylAlert, berylTick22)
-    expect(html).toContain("Counties in this alert&#x27;s zones")
-    expect(html).toContain("<th scope=\"col\">Named in alert</th>")
-    expect(countyRows(html)).toEqual([
-      "Harris (48201) | Named in alert | 60% · NWS weather alert",
-      "Fort Bend (48157) | Not named | 30% · County not named by the alert (base floor)",
-      "Brazoria (48039) | Not named | 30% · County not named by the alert (base floor)",
-      "Galveston (48167) | Not named | 30% · County not named by the alert (base floor)",
-      "Montgomery (48339) | Not named | 30% · County not named by the alert (base floor)",
-    ])
+    expect(html).toContain("Counties named in this alert")
+    expect(countyRows(html)).toEqual(["Harris (48201) | Houston | 60% · NWS weather alert"])
+    expect(html).not.toMatch(/JEV|P\(yes\)|Anchor county|Question<\/dt>|Model<\/dt>|TypeSafe/)
   })
 
-  it("states the named-county rule, whatever the alert type", () => {
+  it("states the named-county rule in /flow's words, and that a fleet-wide reason still raises every county", () => {
     const html = alertBox(berylAlert, berylTick22)
-    expect(html).toContain("Every county this alert names keeps the storm reserve, whatever the alert type; the zone&#x27;s other counties keep the base floor.")
-    expect(html).toContain("ERCOT HIGH or an unreadable outage report still raises every county.")
     expect(html).not.toContain("never dispatches")
-    expect(html).not.toMatch(/P\(yes\)|anchor/i)
+    expect(html).not.toContain("Rules decide the floor")
+    expect(html).toContain("A county the alert names keeps the storm reserve; other counties in the zone keep the base floor.")
+    expect(html).toContain("ERCOT HIGH or an unreadable outage report still raises every county.")
   })
 
-  it("keeps every county the Harris freeze alert names at the storm reserve (heather t2)", () => {
+  it("lists every county the Harris freeze alert names, each at the storm reserve (Heather tick 2)", () => {
     const html = alertBox(harrisFreeze, heatherTick2)
     expect(countyRows(html)).toEqual([
-      "Harris (48201) | Named in alert | 60% · NWS weather alert",
-      "Fort Bend (48157) | Named in alert | 60% · NWS weather alert",
-      "Brazoria (48039) | Named in alert | 60% · NWS weather alert",
-      "Galveston (48167) | Named in alert | 60% · NWS weather alert",
-      "Montgomery (48339) | Named in alert | 60% · NWS weather alert",
+      "Harris (48201) | Houston | 60% · NWS weather alert",
+      "Fort Bend (48157) | Houston | 60% · NWS weather alert",
+      "Brazoria (48039) | Houston | 60% · NWS weather alert",
+      "Galveston (48167) | Houston | 60% · NWS weather alert",
+      "Montgomery (48339) | Houston | 60% · NWS weather alert",
     ])
   })
 
-  it("shows the Dallas freeze alert's four North counties as named, Collin included", () => {
+  it("shows the Dallas freeze alert's four North counties at the storm reserve, Collin included", () => {
     const html = alertBox(dallasFreeze, heatherTick2)
     expect(countyRows(html)).toEqual([
-      "Dallas (48113) | Named in alert | 60% · NWS weather alert",
-      "Tarrant (48439) | Named in alert | 60% · NWS weather alert",
-      "Collin (48085) | Named in alert | 60% · NWS weather alert",
-      "Denton (48121) | Named in alert | 60% · NWS weather alert",
+      "Dallas (48113) | North | 60% · NWS weather alert",
+      "Tarrant (48439) | North | 60% · NWS weather alert",
+      "Collin (48085) | North | 60% · NWS weather alert",
+      "Denton (48121) | North | 60% · NWS weather alert",
     ])
+  })
+
+  it("keeps a county the alert does not name off the table (Beryl: Fort Bend stays at 30%, not listed)", () => {
+    const html = alertBox(berylAlert, berylTick22)
+    expect(html).not.toContain("Fort Bend")
+    expect(berylTick22.county_reserve_pct?.["48157"]).toBe(30)
   })
 
   it("says the alert is not in force once the tick carries no county floor for it, and gives the zone floor", () => {
     const html = alertBox(midlandFlood, expiredTick)
     expect(countyRows(html)).toEqual([
-      "Midland (48329) | Named in alert | Alert not in force this tick · zone floor 30%",
-      "Ector (48135) | Named in alert | Alert not in force this tick · zone floor 30%",
-      "Tom Green (48451) | Not named | Alert not in force this tick · zone floor 30%",
-      "Taylor (48441) | Not named | Alert not in force this tick · zone floor 30%",
+      "Midland (48329) | West | Alert not in force this tick · zone floor 30%",
+      "Ector (48135) | West | Alert not in force this tick · zone floor 30%",
     ])
   })
 
   it("says no tick yet for the floor before the first tick", () => {
     const html = alertBox(berylAlert, null)
-    expect(countyRows(html)[0]).toBe("Harris (48201) | Named in alert | No tick played yet")
+    expect(countyRows(html)).toEqual(["Harris (48201) | Houston | No tick played yet"])
   })
 
-  it("reads an alert from an older worker with no named_counties as naming no county", () => {
-    const html = alertBox({ ...berylAlert, named_counties: undefined }, berylTick22)
-    expect(countyRows(html)[0]).toBe("Harris (48201) | Not named | 60% · NWS weather alert")
+  it("lists the named counties in the order the worker sent them", () => {
+    const reversed: ActiveAlert = { ...dallasFreeze, named_counties: [...(dallasFreeze.named_counties ?? [])].reverse() }
+    expect(countyRows(alertBox(reversed, heatherTick2)).map((row) => row.split(" | ")[0]))
+      .toEqual(["Denton (48121)", "Collin (48085)", "Tarrant (48439)", "Dallas (48113)"])
+  })
+
+  it("says so, like /flow, when the alert names no roster county", () => {
+    for (const alert of [{ ...berylAlert, named_counties: [] }, { ...berylAlert, named_counties: undefined }]) {
+      const html = alertBox(alert, berylTick22)
+      expect(html).toContain("The alert names no roster county.")
+      expect(countyRows(html)).toEqual([])
+    }
   })
 
   it("marks missing alert fields as not reported and has no link without a source", () => {
@@ -557,16 +519,30 @@ describe("Alert detail (gaps 10 and 11)", () => {
     expect(html).toMatch(/Source<\/dt><dd>Not reported/)
     expect(html).toContain("After the last tick")
     expect(html).not.toContain("<a ")
-    expect(html).toContain("No roster county in this alert&#x27;s zones.")
+    expect(html).toContain("The alert names no roster county.")
   })
 
-  it("is what the drawer shows for each sent alert, with the session's counties and tick", () => {
+  it("is what the drawer shows for each sent alert, with the session's tick", () => {
     const html = drawer(session())
     expect(html).toContain("048201")
-    expect(countyRows(html)[0]).toBe("Harris (48201) | Named in alert | 60% · NWS weather alert")
+    expect(countyRows(html)).toEqual(["Harris (48201) | Houston | 60% · NWS weather alert"])
     const heather = drawer(session({ scenario: heatherScenario, tick: heatherTick2, alerts: [dallasFreeze, harrisFreeze] }))
     expect(countyRows(heather)).toHaveLength(9)
     expect(heather).not.toContain("never dispatches")
+  })
+
+  it("names the same counties, zones and floors as /flow's alert panel on the same tick", () => {
+    const state = session({ scenario: heatherScenario, tick: heatherTick2, alerts: [dallasFreeze, harrisFreeze] })
+    const flow = new DOMParser().parseFromString(renderToStaticMarkup(createElement(DataPanel, { state, verify: null })), "text/html")
+    const flowRows = [...flow.querySelectorAll(".flow-county-table tbody tr")].map((row) =>
+      [...row.querySelectorAll("td")].map((cell) => cell.textContent?.trim()).join(" | "))
+    const replayRows = countyRows(drawer(state)).map((row) => {
+      const [county, zone, floor] = row.split(" | ")
+      return [county.replace(/ \(\d+\)$/, ""), zone, floor.split(" · ")[0]].join(" | ")
+    })
+    expect(flowRows).toHaveLength(9)
+    expect(replayRows).toEqual(flowRows)
+    expect(flow.body.textContent).toContain("Counties named in this alert")
   })
 })
 
@@ -595,22 +571,6 @@ describe("About this data: provenance rows (gap 13)", () => {
     expect(html).toMatch(/Houston price<\/dt><dd>Not reported/)
     expect(html).not.toContain("no price")
     expect(html).toMatch(/West price<\/dt><dd>\$20\.00\/MWh/)
-  })
-
-  it("lists the day-ahead (DAM) source and the saved DAM files the tick read (beryl t22)", () => {
-    const html = drawer(session({ provenance: { ...provenance, archive_rows: { ...provenance.archive_rows, dam: berylDamRows } } }))
-    const rows = dataRows(html)
-    expect(rows).toContain("Day-ahead (DAM): recorded:ERCOT NP4-190-CD · 2024-07-07,2024-07-08")
-    expect(rows).toContain(
-      "DAM files: NP4-190-CD 2024-07-07 · data/fixtures/dam/np4_190_cd_20240707.jsonNP4-190-CD 2024-07-08 · data/fixtures/dam/np4_190_cd_20240708.json",
-    )
-  })
-
-  it("says the price bands ran when the scenario has no saved DAM day (heather), and not reported for an older worker", () => {
-    expect(dataRows(drawer(session({ tick: heatherTick2 })))).toContain("Day-ahead (DAM): None: price bands")
-    const { dam_label: _label, dam_as_of: _asOf, ...older } = berylTick22
-    expect(dataRows(drawer(session({ tick: older })))).toContain("Day-ahead (DAM): Not reported")
-    expect(drawer(session())).not.toContain("DAM files")
   })
 })
 
@@ -684,9 +644,9 @@ describe("About this data: engine decision (gap 17)", () => {
     expect(html).toMatch(/Fleet did<\/dt><dd>Charge, sold toward the call, then charged/)
     expect(html).not.toContain("grid_call_served")
     expect(html).toContain("Automatic: the engine decides")
-    expect(html).toContain("Charging, Timed out:1, Duplicates ignored:1, Over delivery:1")
+    expect(html).toContain("Charging, Homes stale:1")
     expect(html).toMatch(/Breaches<\/dt><dd>0/)
-    expect(html).toContain("Delivered 0.02 of 0.02 MW. Floor 30% (Houston 30–60% by county: Harris raised, NWS weather alert)")
+    expect(html).toContain("Delivered 0.02 of 0.02 MW. Floor 30% (Houston 60%: weather_alert)")
   })
 
   it("lists each county floor under its zone (Beryl tick 22: Harris 60%, the other four Houston counties 30%)", () => {
@@ -704,7 +664,7 @@ describe("About this data: engine decision (gap 17)", () => {
     expect(rows[north + 1]).toBe("South floor: 30% · Base floor")
   })
 
-  it("lists named counties at the storm reserve (heather t2)", () => {
+  it("lists every named county at the storm reserve (Heather tick 2: both freeze alerts)", () => {
     const rows = dataRows(drawer(session({ scenario: heatherScenario, tick: heatherTick2, alerts: [dallasFreeze, harrisFreeze] })))
     const north = rows.indexOf("North floor: 60% · NWS weather alert")
     expect(north).toBeGreaterThan(-1)
@@ -714,20 +674,8 @@ describe("About this data: engine decision (gap 17)", () => {
       "Collin (48085): 60% · NWS weather alert",
       "Denton (48121): 60% · NWS weather alert",
     ])
-  })
-
-  it("names each zone's day-ahead charge decision in words (beryl t22)", () => {
-    const rows = dataRows(drawer(session()))
-    expect(rows).toContain("Houston charge: waiting for a cheaper day-ahead hour")
-    expect(rows).toContain("South charge: charging on a real-time dip below the day-ahead plan")
-    expect(rows).toContain("West charge: waiting for a cheaper day-ahead hour")
-    const sold = dataRows(drawer(session({ tick: expiredTick, alerts: [] })))
-    expect(sold).toContain("North charge: real-time price is in the sell band")
-  })
-
-  it("shows no zone charge rows on a tick with no DAM day (heather t2 runs on the price bands)", () => {
-    const rows = dataRows(drawer(session({ scenario: heatherScenario, tick: heatherTick2, alerts: [] })))
-    expect(rows.filter((row) => row.includes(" charge: "))).toEqual([])
+    const houston = rows.indexOf("Houston floor: 60% · NWS weather alert")
+    expect(rows.slice(houston + 1, houston + 6).every((row) => row.endsWith(": 60% · NWS weather alert"))).toBe(true)
   })
 
   it("names a real operator hold truthfully: the fleet stopped, no selling and no charging", () => {

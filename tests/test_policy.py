@@ -250,8 +250,8 @@ def test_dam_charge_hours_follow_how_much_charge_the_zone_needs():
     assert len(with_dam(hours, needed=1, rt=10.0).zone_charge_hours["North"]) == 1
     four = with_dam(hours, needed=4, rt=10.0)
     assert four.zone_charge_hours["North"] == [h["hour_start"] for h in hours[:4]]
-    # Needing more hours than the window holds picks every hour.
-    assert len(with_dam(hours, needed=10, rt=10.0).zone_charge_hours["North"]) == 6
+    # Needing more hours than the window holds picks every hour before the $60 sell-band hour.
+    assert len(with_dam(hours, needed=10, rt=10.0).zone_charge_hours["North"]) == 5
 
 
 def test_dam_never_overrides_the_discharge_band():
@@ -265,6 +265,44 @@ def test_dam_storm_zone_never_discharges():
         policy = with_dam(dam([70.0, 10.0, 90.0]), needed=1, rt=70.0, risk=risk, alerted=alerted)
         assert policy.zone_intent["North"] == "hold"
         assert policy.zone_charge_why["North"] == "cheaper_hour_later"
+
+
+def test_dam_never_chooses_a_cheaper_hour_behind_a_sell_band_hour():
+    # heather-spike: $16 tomorrow sits behind a $78 hour today. The battery would sell into the
+    # $78 hour first, so the window ends there and today's $21 dip is the chosen hour.
+    for needed, chosen in ((1, ["2026-08-30T12:00-05:00"]),
+                           (2, ["2026-08-30T12:00-05:00", "2026-08-30T13:00-05:00"])):
+        policy = with_dam(dam([21.0, 30.0, 78.0, 16.0, 17.0]), needed=needed, rt=21.0)
+        assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "before_spike")
+        assert policy.zone_charge_hours["North"] == chosen
+
+
+def test_dam_window_cut_reads_the_discharge_band_setting():
+    assert with_dam(dam([21.0, 30.0, 60.0, 16.0]), needed=1, rt=21.0).zone_charge_why["North"] == "before_spike"
+    higher = {**DAM_SETTINGS, "discharge_threshold_usd_mwh": 80}
+    policy = reserve_policy(make_risk("LOW"), higher, mode="AUTO", price_usd_mwh=21.0, price_label="ercot",
+                            zone_prices={"North": 21.0}, dam_hours={"North": dam([21.0, 30.0, 78.0, 16.0])},
+                            zone_hours_needed={"North": 1})
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("hold", "cheaper_hour_later")
+
+
+def test_dam_keeps_dam_cheap_hour_when_the_spike_does_not_change_the_choice():
+    policy = with_dam(dam([10.0, 30.0, 78.0, 16.0]), needed=1, rt=10.0)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "dam_cheap_hour")
+
+
+def test_dam_payback_counts_the_spike_hour():
+    # Before the spike only $46 is left: 46 x 0.89 = 40.9, not above 45. The $65 spike pays back.
+    policy = with_dam(dam([45.0, 46.0, 65.0, 5.0]), needed=1, rt=45.0)
+    assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "before_spike")
+
+
+def test_dam_storm_zone_also_charges_before_a_spike():
+    # A storm zone never sells on price, but it holds backup and serves calls, so it fills before
+    # the spike rather than betting on a cheaper hour after it.
+    for risk, alerted in (("HIGH", None), ("LOW", {"North": "Winter Storm Warning"})):
+        policy = with_dam(dam([21.0, 30.0, 78.0, 16.0]), needed=1, rt=21.0, risk=risk, alerted=alerted)
+        assert (policy.zone_intent["North"], policy.zone_charge_why["North"]) == ("charge", "before_spike")
 
 
 def test_dam_with_no_real_time_price_uses_this_hours_dam_for_payback():

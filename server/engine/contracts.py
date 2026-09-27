@@ -53,7 +53,8 @@ class Policy:
     # "weather_alert" | "not_in_alert", or a fleet reason
     county_reasons: dict = field(default_factory=dict)
     # Zones with DAM hours on the tick: the hour starts picked to charge in, and why the zone charges
-    # or waits ("dam_cheap_hour" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full" | "sell_band").
+    # or waits ("dam_cheap_hour" | "before_spike" | "rt_dip" | "cheaper_hour_later" | "no_payback" | "full"
+    # | "sell_band").
     zone_charge_hours: dict = field(default_factory=dict)
     zone_charge_why: dict = field(default_factory=dict)
 

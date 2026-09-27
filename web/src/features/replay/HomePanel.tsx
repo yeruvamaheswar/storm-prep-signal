@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react"
-import type { ActiveAlert, FlowHome, OrderTimelineEntry } from "../flow/types"
+import { reasonLabel } from "../flow/flowMath"
+import type { FlowHome, OrderTimelineEntry } from "../flow/types"
 import { houseModel } from "./house3dModel"
 import { HouseArt } from "./HouseArt"
 import { splitOrders } from "./orderState"
@@ -7,7 +8,7 @@ import { useDrawerFocus } from "./useDrawer"
 import { WebGLBoundary } from "./WebGLBoundary"
 import { hasWebGL } from "./webgl"
 import {
-  BATT_IDLE, TRANSPARENT, askedText, orderColor, countedText, homeFacts, homeFloorWords, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, refillLine, type JourneyStep,
+  BATT_IDLE, TRANSPARENT, askedText, orderColor, countedText, homeFacts, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, refillLine, type JourneyStep,
 } from "./zoneModel"
 
 /** three.js lives in this chunk only; the flat HouseArt shows while it loads and when WebGL is missing. */
@@ -22,8 +23,6 @@ type Props = {
   tickMinutes?: number
   /** The tick's mode (`tick.mode`). HOLD means nothing was sent this tick. */
   mode?: string | null
-  /** `state.alerts`: names the alert event for a county it names. Missing: the reason label only. */
-  alerts?: ActiveAlert[]
   onClose: () => void
 }
 
@@ -41,7 +40,7 @@ function Steps({ steps }: { steps: JourneyStep[] }) {
 }
 
 /** One home's order journey, opened from its lot (`?home=`). Escape or Close shuts it. */
-export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, alerts, onClose }: Props) {
+export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, onClose }: Props) {
   const ref = useDrawerFocus<HTMLElement>(onClose)
   const timeline = orders?.[homeId]
   const unit = lotUnit(timeline)
@@ -67,9 +66,8 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, a
           <p>
             {home ? `${home.zone} zone${home.county_name ? `, ${home.county_name} County` : ""}. ` : ""}
             {facts.floor === "Not reported" ? "Backup floor not reported." : `Backup floor ${facts.floor} this tick.`}
-            {/* The county floor's reason, e.g. "Named in the Tropical Storm Warning (storm reserve)" or
-                "County not named by the alert (base floor)". */}
-            {home?.floor_reason ? ` ${homeFloorWords(home, alerts)}.` : ""}
+            {/* #47: the county floor's reason, e.g. "NWS weather alert" or "County not named by the alert (base floor)". */}
+            {home?.floor_reason ? ` ${reasonLabel(home.floor_reason)}.` : ""}
           </p>
           {refill ? <p className="zone-refill">{refill}.</p> : null}
         </div>
@@ -124,7 +122,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, a
         ) : home ? (
           <div className="zone-step">
             <span className="tm">0:00</span>
-            <span>{["Not asked this tick.", notAskedReason(home, mode, alerts)].filter(Boolean).join(" ")}</span>
+            <span>{["Not asked this tick.", notAskedReason(home, mode)].filter(Boolean).join(" ")}</span>
           </div>
         ) : (
           <p className="replay-empty-small">The session reports no home with this id.</p>

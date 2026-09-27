@@ -236,7 +236,6 @@
   font-weight: 700;
 }
 
-
 .replay-crumb {
   left: 320px;
   top: 20px;
@@ -1148,7 +1147,7 @@
   opacity: 0.6;
 }
 
-/* About this data: labelled start-charge bins, alert counties, zone shares, session log. */
+/* About this data: labelled start-charge bins, counties named by an alert, zone shares, session log. */
 .replay-hist {
   gap: 3px;
   height: 110px;
@@ -1188,14 +1187,14 @@
   text-align: center;
 }
 
-.replay-alert-counties {
+.replay-named {
   margin-top: 8px;
   padding: 10px 12px;
   border-radius: var(--rg-list-radius);
   background: var(--rg-clay-tile);
 }
 
-.replay-alert-counties .replay-alert-counties-title {
+.replay-named .replay-named-title {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
@@ -1270,7 +1269,7 @@
   color: var(--rg-focus);
 }
 
-/* About this data: county floors under their zone, and the per-county alert table. */
+/* About this data: county floors under their zone, and the counties an alert names. */
 .replay-data-row.is-sub {
   padding: 3px 0;
 }

@@ -8,7 +8,7 @@ How to read it:
 - Dark bars are the hours that zone picked to charge in. They are its cheapest hours, and it picks as many as it needs to fill up.
 - The outlined bar is the current hour.
 - The thin line marks the zone's highest price.
-- The line under each row says what the zone is doing and why: charging now, waiting for a cheaper hour, or not charging because no later hour pays back the energy lost in the battery.
+- The line under each row says what the zone is doing and why: charging now, charging before a price spike, waiting for a cheaper hour, or not charging because no later hour pays back the energy lost in the battery.
 
 If the panel is missing, we have no current day-ahead prices, and batteries charge at $25/MWh or less, as before.
 

@@ -114,7 +114,7 @@ def acted_intent(alloc, policy, mode):
         charged > sold                   -> charge; grid_call_served if anything sold (the
                                             call was met while the fleet mostly charged),
                                             else policy reason on a charge band,
-                                            dam_cheap_hour / rt_dip when the DAM rule set a
+                                            dam_cheap_hour / before_spike / rt_dip when the DAM rule set a
                                             charging zone, zone_price when a zone's own price
                                             charged (`charging` code), else reserve_refill
                                             (only homes under their floor charged)
@@ -149,7 +149,7 @@ def acted_intent(alloc, policy, mode):
         # A zone the DAM rule set to charge names that rule, not the price band.
         dam_whys = {policy.zone_charge_why.get(zone) for zone, band in policy.zone_intent.items()
                     if band == "charge"}
-        for why in ("dam_cheap_hour", "rt_dip"):
+        for why in ("dam_cheap_hour", "before_spike", "rt_dip"):
             if why in dam_whys:
                 return "charge", why
         # Charging without a charge band means a zone's own price was cheap.

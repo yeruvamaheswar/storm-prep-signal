@@ -141,7 +141,6 @@ export function ReplayPage({
           tSeconds={tSeconds}
           tickMinutes={session?.tick_minutes}
           mode={session?.tick?.mode}
-          alerts={session?.alerts}
           onClose={onCloseHome ?? (() => {})}
         />
       ) : (

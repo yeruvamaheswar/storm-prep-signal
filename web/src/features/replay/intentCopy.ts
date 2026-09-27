@@ -17,6 +17,7 @@ const REASONS: Record<string, string> = {
   zone_price: "charged on a cheap zone price",
   // controller.acted_intent: the DAM rule (policy.dam_charge) set a charging zone.
   dam_cheap_hour: "charged in its zone's cheapest day-ahead hours",
+  before_spike: "charged in its zone's cheapest day-ahead hours before a sell-band hour",
   rt_dip: "charged on a real-time dip below the day-ahead plan",
   // controller.dam_wait_reason: nothing moved, every zone held by the DAM rule.
   cheaper_hour_later: "waiting for a cheaper day-ahead hour",

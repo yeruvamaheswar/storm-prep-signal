@@ -399,6 +399,9 @@ describe("intentLine (B1, B2 shared copy)", () => {
 
   test("names the DAM charge and wait codes the engine stamps", () => {
     expect(intentLine("charge", "dam_cheap_hour")).toBe("Fleet did: Charge, charged in its zone's cheapest day-ahead hours")
+    expect(intentLine("charge", "before_spike")).toBe(
+      "Fleet did: Charge, charged in its zone's cheapest day-ahead hours before a sell-band hour",
+    )
     expect(intentLine("charge", "rt_dip")).toBe("Fleet did: Charge, charged on a real-time dip below the day-ahead plan")
     expect(intentLine("hold", "cheaper_hour_later")).toBe("Fleet did: Hold, waiting for a cheaper day-ahead hour")
     expect(intentLine("hold", "no_payback")).toBe("Fleet did: Hold, no later day-ahead hour pays back a charge")
