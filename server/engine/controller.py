@@ -121,6 +121,8 @@ def acted_intent(alloc, policy, mode):
         sold >= charged, sold > 0        -> discharge, policy reason if policy said discharge
                                             else grid_call (the grid called, not the price)
         nothing moved, policy said hold  -> hold, policy reason (e.g. price_unavailable)
+        nothing moved, no call, every    -> hold, cheaper_hour_later / no_payback (the DAM
+        zone held by the DAM rule           wait), unless the policy already named a reason
         nothing moved, charge/discharge  -> hold, no_grid_call when the target was 0,
                                             else policy reason (a call nobody could serve)
 
@@ -155,9 +157,30 @@ def acted_intent(alloc, policy, mode):
     if sold:
         return "discharge", policy.intent_reason if policy.intent == "discharge" else "grid_call"
     target_mw = alloc.delivered_mw + alloc.missed_mw
+    wait = dam_wait_reason(policy)
+    # Every zone held by the DAM rule: the wait, not a missing call, is why nothing charged.
+    if wait and target_mw <= 0 and (policy.intent in ("charge", "discharge") or not policy.intent_reason):
+        return "hold", wait
     if policy.intent in ("charge", "discharge") and target_mw <= 0:
         return "hold", "no_grid_call"
     return "hold", policy.intent_reason
+
+
+DAM_WAITS = ("cheaper_hour_later", "no_payback")
+
+
+def dam_wait_reason(policy):
+    """The DAM wait code when the DAM rule decided every zone and at least one zone is waiting.
+
+    Every zone in `zone_intent` must have a `zone_charge_why` of a wait or `full` (a full zone
+    needs no charge). `cheaper_hour_later` wins over `no_payback`. Otherwise "".
+    """
+    zones = getattr(policy, "zone_intent", None) or {}
+    whys = getattr(policy, "zone_charge_why", None) or {}
+    found = {whys.get(zone) for zone in zones}
+    if not zones or not found <= set(DAM_WAITS) | {"full"}:
+        return ""
+    return next((why for why in DAM_WAITS if why in found), "")
 
 
 def grid_down_zones(frame):

@@ -397,6 +397,13 @@ describe("intentLine (B1, B2 shared copy)", () => {
     expect(intentLine("hold", "operator_hold")).toBe("Fleet did: Hold, operator hold")
   })
 
+  test("names the DAM charge and wait codes the engine stamps", () => {
+    expect(intentLine("charge", "dam_cheap_hour")).toBe("Fleet did: Charge, charged in its zone's cheapest day-ahead hours")
+    expect(intentLine("charge", "rt_dip")).toBe("Fleet did: Charge, charged on a real-time dip below the day-ahead plan")
+    expect(intentLine("hold", "cheaper_hour_later")).toBe("Fleet did: Hold, waiting for a cheaper day-ahead hour")
+    expect(intentLine("hold", "no_payback")).toBe("Fleet did: Hold, no later day-ahead hour pays back a charge")
+  })
+
   test("an empty reason gives the verb only; an unknown code is the code in words; no intent gives no line", () => {
     expect(intentLine("discharge", "")).toBe("Fleet did: Sell")
     expect(intentLine("hold", "price_unavailable")).toBe("Fleet did: Hold, price unavailable")
