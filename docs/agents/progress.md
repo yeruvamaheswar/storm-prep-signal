@@ -1280,3 +1280,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Browser: heather seed 42, both freeze alerts sent after tick 1, paused at tick 2; the drawer lists four North and five Houston counties at "60% · NWS weather alert" and no JEV text.
 - Docs: `docs/agents/grid-flow.md` ("Named-county rule", "Tests").
 - `pytest -q` (merged with main after the DAM cache and stop-at-spike entries above): 838 passed. Web: `vitest` 650 passed (50 files), `tsc --noEmit` clean.
+
+## 2026-09-27: Engine fixes (grid_down on no-call ticks, scaled books, empty fleet)
+
+- `controller.allocate`: a no-call tick on a hold or discharge price now carries the status codes (`homes_dead:n`, `homes_stale:n`, `unknown_zone`) and `grid_down:<zone>` (allocation rule 7), in the main path's order: `reserve_refill`, status codes, `grid_down`. The unknown-intent hold also adds `grid_down`. `tests/test_controller.py::test_zero_target_is_a_no_op` and `tests/test_grid_down.py` (renamed `test_hold_is_unchanged_and_a_zero_target_still_names_the_down_zone`) had encoded the old empty list and now expect the codes. Side effect: an AUTO no-call tick with a dead/stale home or a down zone no longer reads as "Auto requested — next dispatch pending" (`isPendingAuto` needs zero reasons).
+- `fleet.scale_tick_to_fleet`: `missed_mw = max(0, target − delivered)` after scaling (delivered capped at target), so the books close when the fleet cap clips the target; `charging_mw` and `zone_charging_mw` scale with the same factor.
+- `TelemetryState([])` picks no liar instead of raising; `new_fleet` / `assign_zone` with no zones raise `ValueError`. Seeded picks for a real fleet are unchanged (test pins seed 7).
+- `pytest -q`: 917 passed; `FUZZ_SEEDS=50`: 917 passed.
