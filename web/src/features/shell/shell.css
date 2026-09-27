@@ -1,0 +1,130 @@
+.rg-shell {
+  min-height: 100vh;
+  background: var(--rg-map-bg);
+  color: var(--rg-ink);
+  font-family: var(--rg-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.rg-shell.is-clay {
+  background: var(--rg-clay-scene);
+}
+
+.rg-bar {
+  height: 64px;
+  background: var(--rg-panel-map);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--rg-line);
+  position: relative;
+  z-index: 5;
+}
+
+.rg-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--rg-ink);
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.rg-brand:focus-visible,
+.rg-nav a:focus-visible,
+.rg-pill:focus-visible {
+  outline: 3px solid #0e6f78;
+  outline-offset: 2px;
+}
+
+.rg-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.rg-nav a {
+  border-radius: var(--rg-pill-radius);
+  color: #56615b;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 9px 16px;
+  text-decoration: none;
+}
+
+.rg-nav a:hover {
+  background: #e3e6df;
+  color: var(--rg-ink);
+}
+
+.rg-nav a.on {
+  background: var(--rg-ink);
+  color: var(--rg-panel-map);
+}
+
+.rg-top-slot {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #56615b;
+  font-size: 14px;
+}
+
+.rg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c9cdc5;
+  border-radius: var(--rg-pill-radius);
+  background: #ffffff;
+  color: var(--rg-ink);
+  cursor: default;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 9px 16px;
+  text-decoration: none;
+}
+
+.rg-pill:hover {
+  border-color: var(--rg-ink);
+}
+
+.rg-stage {
+  min-height: calc(100vh - 64px);
+  display: grid;
+  place-items: center;
+  padding: 40px;
+}
+
+.rg-placeholder {
+  width: min(680px, 100%);
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-panel-radius);
+  background: var(--rg-panel-map);
+  box-shadow: 0 12px 32px rgba(4, 10, 8, 0.35);
+  padding: 28px 32px;
+}
+
+.is-clay .rg-placeholder {
+  background: var(--rg-panel-clay);
+  box-shadow: 0 10px 28px rgba(40, 52, 46, 0.14);
+}
+
+.rg-placeholder h1 {
+  color: var(--rg-ink);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.rg-placeholder p {
+  margin-top: 10px;
+  color: var(--rg-muted);
+  font-size: 15px;
+  line-height: 1.45;
+}

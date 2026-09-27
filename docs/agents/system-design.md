@@ -86,7 +86,7 @@ flowchart TB
   end
 
   subgraph ui["Screen, web/"]
-    WALL["Operator wall<br/>Vite + React + TypeScript"]
+    WALL["ReserveGate web shell and wall<br/>Vite + React + TypeScript"]
   end
 
   FILES[("Local files<br/>tapes/, data/, var/")]
@@ -123,7 +123,7 @@ flowchart TB
 | `scripts/stream_telemetry.py` | Writes a synthetic last-reading snapshot for the 10k homes and merge-upserts it onto `public.homes`. `--loop` keeps the feed moving. | Imports into the engine. Touches zone, status, or assigned_kw. |
 | `scripts/scenario_session.py` | Plays one archive scenario for `/flow` a tick at a time with a seeded random fleet, applies operator requests (start, reset, alert, grid down), and writes `var/scenario/state.json`. Laptop only. | Reads the network. Writes the run file or `var/fleet/`. |
 | `server/api/` | Reads the run file, ERCOT, and Supabase, re-rates the posting with the engine's own functions, and serves `/v1` to the wall. Records `/flow` requests and reads the scenario state. | Allocates, writes a second risk rule, or runs a scenario tick. |
-| `web/` | Shows the tick, the floors, the zones, data quality, and the brief. Sends HOLD and AUTO. `/flow` animates a scenario and sends its requests. | Calls ERCOT. Decides anything. |
+| `web/` | Shows the tick, the floors, the zones, data quality, and the brief. Sends HOLD and AUTO. `/`, `/live`, and `/fleet` mount the redesigned ReserveGate shell; `/flow` animates a scenario and sends its requests. | Calls ERCOT. Decides anything. |
 
 How each part connects, file by file: [code-flow.md](code-flow.md), "At a glance" and "File map".
 
@@ -306,7 +306,7 @@ API-only settings (`PORT`, `CORS_ORIGINS`, `CONSOLE_SCENE`, `CONSOLE_FIXTURES_DI
 
 ### Dependencies
 
-Python: `requests`, `python-dotenv`, `pytest`, `fastapi`, `uvicorn`, `httpx2` (test client). Web: `react`, `react-dom`, `leaflet` (the zone map), `@fontsource/ibm-plex-sans`, built with Vite and tested with Vitest. A new dependency is its own gap and needs a line in [CONSTRAINTS.md, Backend](../../CONSTRAINTS.md#backend-server).
+Python: `requests`, `python-dotenv`, `pytest`, `fastapi`, `uvicorn`, `httpx2` (test client). Web: `react`, `react-dom`, `leaflet` (the zone map), `@fontsource/ibm-plex-sans`, `@fontsource/overpass` (redesign shell font), `three`, and `@react-three/fiber` v9 (future 3D replay views for React 19), built with Vite and tested with Vitest. A new dependency is its own gap and needs a line in [CONSTRAINTS.md, Backend](../../CONSTRAINTS.md#backend-server).
 
 ## 10. Security
 

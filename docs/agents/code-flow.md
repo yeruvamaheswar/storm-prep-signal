@@ -166,7 +166,7 @@ flowchart LR
   SCAPI -.->|"/scenario/verify"| ARCHR
 
   subgraph web["5. Wall, web/"]
-    WALL["App.tsx → OperatorWall"]
+    WALL["App.tsx → Replay shell, Live shell, Fleet grid, or /wall OperatorWall"]
     LAYOUT["fixtures/layout-run.json<br/>Demo tape"]
     FLOWP["App.tsx → FlowApp at /flow"]
   end
@@ -412,14 +412,16 @@ flowchart TD
     LAYOUT["web/src/fixtures/layout-run.json, Demo tape"]
     LOADRUN["web/src/loadRun.ts, loadRun, loadMeta"]
     STAMP["web/src/liveStamp.ts, polls /v1/snapshot"]
-    APP["web/index.html, App.tsx: / wall, /fleet list"]
+    APP["web/index.html, App.tsx: / replay shell, /live, /fleet grid, /wall old wall, /fleet/table old table"]
     CLIENT["web/src/api/client.ts, POST /v1/fleet/mode, GET /v1/homes"]
     FEEDTS["web/src/reportFeeds.ts, GET /v1/feeds"]
     ROLLTS["web/src/api/rollups.ts, GET /v1/fleet/rollups"]
+    SHELL["web/src/features/shell: TopBar, placeholders, URL state"]
     FLOWAPP["web/src/features/flow/FlowApp.tsx at /flow"]
     TELLINE["web/src/components/organisms/telemetryLine.ts, battery line under Worker acks"]
   end
 
+  APP --> SHELL
   FLOWAPP -->|"GET /v1/scenario/state every 500 ms, POST /v1/scenario/*, GET /v1/scenario/verify"| SCAPI
 
   LAYOUT --> LOADRUN
@@ -554,9 +556,9 @@ Wall (`web/src/`, top-level folders):
 - `web/src/components/`: atoms, molecules, organisms, and templates. `templates/OperatorWall.tsx` is the wall.
 - `web/src/design/`: design tokens (`tokens.css`) and the design notes.
 - `web/src/domain/`: `/v1` types, parsers, and helpers for the console pages.
-- `web/src/features/`: fleet list at `/fleet` (same `index.html` as the wall). The wall mast **Fleet** link opens `/fleet` (`?zone=` when a load zone is selected). Fleet pages `GET /v1/homes?zone=&status=&q=&limit=&offset=` (50 rows). `wall/` and `history/` page components remain; they are not separate HTML entries. `web/src/features/flow/` is the `/flow` page: `FlowApp.tsx` polls `GET /v1/scenario/state` every 500 ms and sends requests through `api.ts`; `GridFlow.tsx` draws the grid node and four zone flow lines, `ZoneContribution.tsx` one bar per zone (its homes selling, charging, keeping backup, idle, or grid down, with labeled MW and share of fleet delivery), `ZoneBatteries.tsx` the 25 battery cells of a selected zone, `HistoryStrip.tsx` the recent ticks, `DataPanel.tsx` the data in use (scenario rows, batteries, alert, JEV, overlays), `VerifyArchive.tsx` calls `GET /v1/scenario/verify`, and `flowMath.ts` holds the pure helpers the tests cover.
+- `web/src/features/`: the redesigned shell lives in `shell/`: `TopBar.tsx` ports the approved brand/nav/pill frame, `ShellPages.tsx` mounts placeholder Replay, Live, and Fleet screens, and `urlState.ts` reads/writes `scenario`, `zone`, `home`, and `tick` with push-state zoom. The old fleet table lives at `/fleet/table` through `fleet/FleetApp.tsx`; it still pages `GET /v1/homes?zone=&status=&q=&limit=&offset=` (50 rows). `wall/` and `history/` page components remain; they are not separate HTML entries. `web/src/features/flow/` is the `/flow` page: `FlowApp.tsx` polls `GET /v1/scenario/state` every 500 ms and sends requests through `api.ts`; `GridFlow.tsx` draws the grid node and four zone flow lines, `ZoneContribution.tsx` one bar per zone (its homes selling, charging, keeping backup, idle, or grid down, with labeled MW and share of fleet delivery), `ZoneBatteries.tsx` the 25 battery cells of a selected zone, `HistoryStrip.tsx` the recent ticks, `DataPanel.tsx` the data in use (scenario rows, batteries, alert, JEV, overlays), `VerifyArchive.tsx` calls `GET /v1/scenario/verify`, and `flowMath.ts` holds the pure helpers the tests cover.
 - `web/src/fixtures/`: `console/*.json` (read by `server/api/fixtures.py` and the web tests), `layout-run.json` (the Demo tape, and the API's last fallback run), and `scenes.ts`.
-- `web/src/pages/`: `App.tsx`, mounted by `web/index.html` through `web/src/main.tsx`. `/` loads a run and renders `OperatorWall`. `/fleet` renders `FleetApp`. `/flow` renders `FlowApp` (`route.ts` decides which).
+- `web/src/pages/`: `App.tsx`, mounted by `web/index.html` through `web/src/main.tsx`. `/` renders `ReplayApp`, `/live` renders `LiveApp`, `/fleet` renders `FleetGridApp`, `/fleet/table` renders the old `FleetApp`, `/wall` loads a run and renders `OperatorWall`, and `/flow` renders `FlowApp` (`route.ts` decides which).
 
 Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` returns `fixtures/layout-run.json`; `loadMeta` reads `GET /v1/meta`), `liveStamp.ts` (polls `GET /v1/snapshot` and keeps `calmSamples` for the calm meter), `calmStreak.ts` (`wallCalm`: Demo counts the tape prefix, Live and archive count those samples), `reportFeeds.ts` (reads `GET /v1/feeds`), `fleetAggregate.ts` and `zoneLens.ts` (paint LZ counts from `GET /v1/fleet/rollups` or `index % 4`), `runtimeMode.ts` and `wallOrigin.ts` (Demo, archive, or Live), `contracts.ts` (TypeScript copy of the run-file fields; `contracts.py` wins if they disagree), and `main.tsx`.
 
@@ -586,7 +588,7 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 | `uvicorn server.app:app` | `server/.env`, `var/runs/latest.json` (else Supabase `runs`, else `layout-run.json`), `var/fleet/rollups.json`, `var/state.json`, `data/events/<event>/replay.csv`, ERCOT API, Supabase `ercot_postings`, `ercot_prices`, `homes`, and `operator_settings`, `web/src/fixtures/console/*.json` | `var/signal/latest_np3.json`, `latest_np6.json`, `var/state.json`, Supabase `operator_settings` |
 | flow (`/flow`) | `GET /v1/scenarios`, `/v1/scenario/state`, `/v1/scenario/verify`, `/geo/ercot-load-zones.json` (repo `geo/`) | `POST /v1/scenario/start`, `reset`, `play`, `speed`, `alert`, `grid-down` (the API appends to `var/scenario/requests.json`) |
 | wall (`web/index.html`) | `web/src/fixtures/layout-run.json`; `GET /v1/meta`, `/v1/snapshot`, `/v1/feeds`, `/health` | `POST /v1/fleet/mode` |
-| fleet (`/fleet`) | `GET /v1/homes?zone=&status=&q=&limit=&offset=` | none |
+| old fleet table (`/fleet/table`) | `GET /v1/homes?zone=&status=&q=&limit=&offset=` | none |
 
 `var/` is gitignored. `data/events/*/raw/` and all of `data/events/heather/` are gitignored too.
 
@@ -595,7 +597,7 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 - **`load_tape` is still TEMP in `server/engine/loop.py`.** A plain JSON read that does not check labels, offsets, or a naive `ts`. It waits on Sunny's `server/engine/tape.py`, which does not exist. The promised signature is in [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
 - **One ack model.** The tick loop runs `orchestration.orchestrate_tick` (lossy channel, retry, deadline) and reads acks from `orchestration.zone_acks`. `supervisor.simulate_zone_acks` is unused by the engine.
 - **Some `/v1` routes still read fixtures.** `/live`, `/zone`, `/ticks`, `/tapes`, and the `/live/stream` tick event come from `web/src/fixtures/console/*.json`. `/homes` and `/fleet/rollups` read `public.homes` when configured. `/fleet/mode` reaches the engine through `var/state.json` and `public.operator_settings`; attention and playback writes stay in memory.
-- **The `features/` wall and history page components are not routed.** `/` is the operator wall. `/fleet` pages `GET /v1/homes`.
+- **The `features/` wall and history page components are not routed.** `/wall` is the old operator wall. `/fleet/table` pages `GET /v1/homes`; `/fleet` is the new grid shell.
 - **Weather comes only from the tape, or from an operator-sent archived alert on `/flow`.** A frame's `events["weather"]` list reaches `reserve_policy` as `alerted`; the scenario session adds a sent alert's zones to that list until the alert expires. `loop.py` still never reads `TapeFrame.weather_fixture` or a live alert feed, so `weather_label` stays `"none"`.
 - **`/flow` Verify needs `server/.env`.** `server/env.py` loads `server/.env`; the Supabase keys live in the root `.env`, so the API's archive reads (Verify included) return `archive_no_config` until the keys are in `server/.env` or the shell. See `grid-flow.md`.
 - **Battery feed resets each live cycle.** The live worker calls `loop.run` once per cycle, so each call builds a fresh `TelemetryState`: battery report history does not carry between live cycles. Tape runs keep it for the whole run. `/v1/snapshot` sends `plant` and `feed` as `telemetry`, and the wall shows one line of it under Worker acks ([wall-snapshot.md](wall-snapshot.md#battery-telemetry-line)); `zone_telemetry` is not shown yet.

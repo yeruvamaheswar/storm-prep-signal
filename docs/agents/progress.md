@@ -1021,6 +1021,8 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 ## 2026-09-26: Replay order timelines for `/flow`
 
 - `server/engine/order_log.py` turns one tick's orchestration event log into compact per-home `orders` timelines for Replay, with only the contract kinds `sent`, `drop`, `exec`, `rdrop`, `retry`, `reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`.
+- Task 2 redesign shell: `/` now mounts the Replay placeholder, `/live` the Live placeholder, `/fleet` the new Fleet grid placeholder, `/fleet/table` the old fleet table, `/wall` the old wall, and `/flow` stays Uma's flow page. Added `features/shell` top bar, URL state helpers, `--rg-*` tokens, Overpass, three, and React Three Fiber v9. Tests: web 285 passed, build clean with Vite chunk-size warning, Python 658 passed, code-flow 2 passed.
+
 - `server/engine/scenario.py` now exposes `orders` at the top level of scenario state, records `soc_before_pct` per home, and extends each history row add-only with missed/unconfirmed MW, reserve percent, risk level, and reasons. `/flow` speeds now include 15x and 30x while keeping 300x as default.
 - `web/src/features/flow/types.ts` has additive types for the Replay fields. Docs updated in `grid-flow.md` and `code-flow.md`.
 - Tests: focused order/session tests 15 passed. `pytest -q`: 658 passed. `FUZZ_SEEDS=50 pytest -q`: 658 passed. Web: vitest 279 passed, `npm run build` clean.

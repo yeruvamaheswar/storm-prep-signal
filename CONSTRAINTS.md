@@ -28,6 +28,8 @@ File ownership is retired. The desired end state and the next gap live in `docs/
 
 There is no screen module in the engine. The operator wall is a Vite + React + TypeScript app in `web/`. Look and tokens live in `DESIGN.md`. Python dependencies do not change, except the backend set below. The UI does not allocate, set the reserve, or read the brief to make a decision.
 
+UI dependencies added for the redesigned ReserveGate shell (2026-09-26): `@fontsource/overpass`, `three`, and `@react-three/fiber` v9 for React 19. The old wall tokens stay available while new `--rg-*` tokens are added for Replay `/`, Live `/live`, and Fleet `/fleet`.
+
 ## Backend (`server/`)
 
 `fastapi`, `uvicorn`, and `httpx2` (test client only) join `requirements.txt` (added 2026-09-26). No other dependency is added without updating this section.

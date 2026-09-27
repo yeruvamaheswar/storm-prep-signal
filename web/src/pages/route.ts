@@ -12,3 +12,16 @@ export function isFleetPath(pathname: string): boolean {
 export function isFlowPath(pathname: string): boolean {
   return owns(pathname, "flow")
 }
+
+export function isLivePath(pathname: string): boolean {
+  return owns(pathname, "live")
+}
+
+export function isReplayPath(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, "") || "/"
+  return path === "/" || path === "/index.html" || owns(pathname, "replay")
+}
+
+export function isWallPath(pathname: string): boolean {
+  return owns(pathname, "wall")
+}
