@@ -24,7 +24,7 @@ Simulation knobs, not Base specs. In `.env.example`: `CHARGE_BELOW_USD=25`, `DIS
 
 1. Picks just enough live homes to cover `target_mw`: most headroom (`home_caps`) first, ties by `home_id`. Those homes split the call with `split_target`. If headroom is short, every home with headroom sells and `missed_mw` is the rest.
 2. Every other live home with room charges at its `charge_caps` cap (negative kW). A home never sells and charges in one tick.
-3. With `target_mw == 0`, every live home with room charges (idle charging). Other intents with no call still return an empty plan; operator HOLD still wins.
+3. With `target_mw == 0`, every live home with room charges (idle charging). With `zone_intent` set, only homes in `charge` zones charge; a zoned policy with no `charge` zone returns an empty plan. Other intents with no call still return an empty plan; operator HOLD still wins.
 4. Reasons: the shortfall head code if missed, then `charging` if any home charges, then dead/stale/unknown-zone, then `grid_down:<zone>`. Grid-down zones neither sell nor charge.
 
 Before this, a charge tick dropped the whole call and charged every home, adding load when the grid asked for power back.

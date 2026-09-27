@@ -38,8 +38,9 @@ def allocate(homes, frame, policy, mode, settings):
     zone_intent = getattr(policy, "zone_intent", None)
     intent = getattr(policy, "intent", "hold")
     zoned = isinstance(zone_intent, dict) and bool(zone_intent)
-    # With no call only cheap power has work to do: it refills the fleet.
-    if target_mw == 0 and (zoned or intent != "charge"):
+    # With no call only cheap power has work to do: it refills the fleet (per zone if zoned).
+    wants_charge = "charge" in zone_intent.values() if zoned else intent == "charge"
+    if target_mw == 0 and not wants_charge:
         return Allocation({}, 0.0, 0.0, [])
     if zoned:
         alloc = allocate_zoned(homes, frame, policy, settings, zone_intent)

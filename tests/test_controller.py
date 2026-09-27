@@ -489,6 +489,37 @@ def test_zone_intent_splits_discharge_charge_and_hold_by_zone():
     assert_real_reasons(alloc)
 
 
+def test_zone_intent_with_no_call_charges_only_the_charge_zones():
+    p = policy(intent="charge")
+    p.zone_intent = {"Houston": "charge", "North": "discharge"}
+    homes = [home("a", 10.0), home("b", 10.0, zone="North"), home("c", 10.0, zone="South")]
+    alloc = allocate(homes, frame(0.0), p, "AUTO", settings())
+    assert alloc.per_home_kw == {"a": -100.0}
+    assert alloc.delivered_mw == 0.0
+    assert alloc.missed_mw == 0.0
+    assert alloc.reasons == ["charging"]
+
+
+def test_zone_intent_with_no_call_and_no_charge_zone_stays_empty():
+    p = policy(intent="charge")
+    p.zone_intent = {"Houston": "hold", "North": "discharge"}
+    homes = [home("a", 10.0), home("b", 10.0, zone="North")]
+    alloc = allocate(homes, frame(0.0), p, "AUTO", settings())
+    assert alloc.per_home_kw == {} and alloc.reasons == []
+    assert alloc.delivered_mw == 0.0 and alloc.missed_mw == 0.0
+
+
+def test_zone_intent_with_no_call_never_charges_a_grid_down_zone():
+    p = policy(intent="charge")
+    p.zone_intent = {"Houston": "charge", "North": "charge"}
+    homes = [home("a", 10.0), home("b", 10.0, zone="North")]
+    down = TapeFrame(1, "2026-09-25T12:00:00-05:00", 0.0, "synthetic", 40.0, "synthetic",
+                     events={"grid_down": ["Houston"]})
+    alloc = allocate(homes, down, p, "AUTO", settings())
+    assert alloc.per_home_kw == {"b": -100.0}
+    assert alloc.reasons == ["charging", "grid_down:Houston"]
+
+
 def test_zone_intent_missing_zone_holds_while_others_charge():
     p = policy(intent="discharge")
     p.zone_intent = {"Houston": "charge"}
