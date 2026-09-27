@@ -18,11 +18,27 @@ const riskTick: TickPart = {
   zone_reasons: { Houston: "storm_risk_high", North: "storm_risk_high", South: "storm_risk_high", West: "storm_risk_high" },
   grid_down_zones: [],
 }
-// heather-thaw tick 3, after the Harris hard-freeze warning was sent at tick 2: only Houston rises.
+// beryl-landfall tick 2, after the Beryl tropical storm warning was sent at tick 1 (merged engine with #47, seed 42,
+// HOME_MAX_KW=11.4, HOME_KWH=25): JEV said yes for Harris, so only Houston rises. Since #47 the zone floor is its highest
+// county floor. (This was a heather-thaw freeze-alert tick; since #47 JEV says no to that alert and Houston stays at 30%.)
 const alertTick: TickPart = {
-  tick: 3, risk_level: "LOW", reasons: ["homes_stale:1", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
+  tick: 2, risk_level: "LOW", reasons: ["charging", "reserve_refill", "homes_stale:1"],
   zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
+  grid_down_zones: [],
+}
+type CountyTickPart = TickPart & Pick<FlowTick, "county_reserve_pct" | "county_reasons">
+// heather tick 2, after both hard-freeze warnings (Harris and Dallas) were sent at tick 1 (same run settings): JEV said no
+// for all nine named counties, so every zone keeps the 30% base floor with reason normal.
+const jevNoTick: CountyTickPart = {
+  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:2"],
+  zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
+  zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
+  county_reserve_pct: { 48201: 30, 48157: 30, 48039: 30, 48167: 30, 48339: 30, 48113: 30, 48439: 30, 48085: 30, 48121: 30 },
+  county_reasons: {
+    48201: "jev_no", 48157: "jev_no", 48039: "jev_no", 48167: "jev_no", 48339: "jev_no",
+    48113: "jev_no", 48439: "jev_no", 48085: "jev_no", 48121: "jev_no",
+  },
   grid_down_zones: [],
 }
 // storm-rule-high tick 1 (02:00 CT): LOW, every zone at the base floor.
@@ -103,6 +119,12 @@ describe("zone weather at the playhead's tick", () => {
     for (const zone of ZONES) expect(weather[zone]).toEqual({ floorRaised: true, weather: false, gridDown: false })
     // The zone rows alone (no tick) say the same.
     expect(zoneWeather("North", null, signalMissingRows.North as never, 30)).toEqual({ floorRaised: true, weather: false, gridDown: false })
+  })
+
+  it("shows no weather where JEV said no to the alert: the base floor was kept (#47)", () => {
+    const weather = fleetWeather(ZONES, jevNoTick as never, {}, 30)
+    for (const zone of ZONES) expect(weather[zone]).toEqual(CALM)
+    expect(zoneWeather("Houston", jevNoTick as never, undefined, 30)).toMatchObject({ weather: false, floorRaised: false })
   })
 
   it("raises nothing on a calm tick", () => {

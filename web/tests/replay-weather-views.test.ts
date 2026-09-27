@@ -7,9 +7,10 @@ import { MapStage } from "../src/features/replay/MapStage"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 
-// Real engine ticks (server/engine/scenario.py Session, seed 1, base floor 30%); see replay-weather.test.ts.
+// Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts.
+// beryl-landfall tick 2 after the Beryl alert (JEV yes for Harris; merged engine with #47, seed 42).
 const alertTick = {
-  tick: 3, risk_level: "LOW", reasons: ["homes_stale:1"],
+  tick: 2, risk_level: "LOW", reasons: ["charging", "reserve_refill", "homes_stale:1"],
   zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
