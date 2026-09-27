@@ -1,24 +1,11 @@
 import { TopBar } from "./TopBar"
 
 function ReplaySlot() {
-  return (
-    <>
-      <span>Scenario</span>
-      <span className="rg-pill">Network chaos</span>
-      <span>Tick 1 of 4</span>
-    </>
-  )
+  return <span className="rg-pill">No scenario loaded</span>
 }
 
 function LiveSlot() {
-  return (
-    <span className="rg-pill">
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-        <circle cx="5" cy="5" r="4" fill="#2F8A55" />
-      </svg>
-      Live from ERCOT, updated 2 min ago
-    </span>
-  )
+  return <span className="rg-pill">Live feed not connected yet</span>
 }
 
 type PlaceholderProps = {

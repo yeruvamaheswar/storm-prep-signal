@@ -17,12 +17,12 @@ const navItems: Array<{ page: ShellPage; label: string; href: string }> = [
 function BrandMark() {
   return (
     <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-      <rect x="3" y="9" width="20" height="14" rx="3" fill="none" stroke="#17201C" strokeWidth="2" />
-      <path d="M8 9 L13 3 L18 9" fill="none" stroke="#17201C" strokeWidth="2" strokeLinejoin="round" />
+      <rect x="3" y="9" width="20" height="14" rx="3" fill="none" stroke="var(--rg-ink)" strokeWidth="2" />
+      <path d="M8 9 L13 3 L18 9" fill="none" stroke="var(--rg-ink)" strokeWidth="2" strokeLinejoin="round" />
       <path
         d="M12 12 L10 16.5 H14 L12 21"
         fill="none"
-        stroke="#1FA9B5"
+        stroke="var(--rg-order-way)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

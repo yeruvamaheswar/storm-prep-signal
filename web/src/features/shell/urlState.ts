@@ -52,11 +52,17 @@ export function writeUrlState(
 
 export function zoomToZone(zone: string, target?: UrlStateTarget): string {
   const base = readUrlState(target?.location.search)
+  if (base.zone === zone && base.home === null) {
+    return hrefForUrlState(target?.location.pathname ?? window.location.pathname, base)
+  }
   return writeUrlState({ ...base, zone, home: null }, { target, push: true })
 }
 
 export function zoomToHome(home: string, target?: UrlStateTarget): string {
   const base = readUrlState(target?.location.search)
+  if (base.home === home) {
+    return hrefForUrlState(target?.location.pathname ?? window.location.pathname, base)
+  }
   return writeUrlState({ ...base, home }, { target, push: true })
 }
 

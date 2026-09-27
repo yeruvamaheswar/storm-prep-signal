@@ -63,6 +63,18 @@ describe("shell url state", () => {
     expect(fake.history.pushState).toHaveBeenCalledTimes(2)
   })
 
+  it("does not push a history entry when zoom is already current", () => {
+    const zone = target("?scenario=storm&zone=Houston&tick=2")
+    expect(zoomToZone("Houston", zone)).toBe("/?scenario=storm&zone=Houston&tick=2")
+    expect(zone.history.pushState).not.toHaveBeenCalled()
+    expect(zone.history.replaceState).not.toHaveBeenCalled()
+
+    const home = target("?scenario=storm&zone=Houston&home=home-012&tick=2")
+    expect(zoomToHome("home-012", home)).toBe("/?scenario=storm&zone=Houston&home=home-012&tick=2")
+    expect(home.history.pushState).not.toHaveBeenCalled()
+    expect(home.history.replaceState).not.toHaveBeenCalled()
+  })
+
   it("notifies listeners when browser history pops", () => {
     const seen: Array<ReturnType<typeof readUrlState>> = []
     window.history.replaceState(null, "", "/?scenario=chaos&zone=North&tick=2")

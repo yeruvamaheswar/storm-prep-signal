@@ -5,7 +5,7 @@ import { FleetApp } from "../features/fleet/FleetApp"
 import { FlowApp } from "../features/flow/FlowApp"
 import { FleetGridApp, LiveApp, ReplayApp } from "../features/shell/ShellPages"
 import { loadRun } from "../loadRun"
-import { isFleetPath, isFlowPath, isLivePath, isReplayPath, isWallPath } from "./route"
+import { isFleetPath, isFleetTablePath, isFlowPath, isLivePath, isWallPath } from "./route"
 
 function WallApp() {
   const [run, setRun] = useState<RunFile | null>(null)
@@ -33,7 +33,7 @@ export function App() {
   if (isLivePath(window.location.pathname)) {
     return <LiveApp />
   }
-  if (window.location.pathname.replace(/\/+$/, "") === "/fleet/table") {
+  if (isFleetTablePath(window.location.pathname)) {
     return <FleetApp />
   }
   if (isFleetPath(window.location.pathname)) {
@@ -44,9 +44,6 @@ export function App() {
   }
   if (isWallPath(window.location.pathname)) {
     return <WallApp />
-  }
-  if (isReplayPath(window.location.pathname)) {
-    return <ReplayApp />
   }
   return <ReplayApp />
 }
