@@ -56,6 +56,21 @@ def test_runs_table_row_with_result_is_a_run():
     ] == "table-run"
 
 
+def test_runs_table_chooses_newest_tick_not_largest_run_id():
+    old_probe = {
+        "run_id": "persist-probe-20260926",
+        "source": "live",
+        "result": [{**TABLE_RUN["ticks"][0], "ts": "2026-09-26T12:00:00-05:00"}],
+    }
+    fresh = {
+        "run_id": "20260927-041000-000000",
+        "source": "live",
+        "result": [{**TABLE_RUN["ticks"][0], "ts": "2026-09-27T04:10:00-05:00"}],
+        "summary": {"settings": {"fleet_size": 100, "tick_minutes": 5}},
+    }
+    assert run_from_table_rows([old_probe, fresh])["run_id"] == fresh["run_id"]
+
+
 def test_load_latest_run_keeps_file_when_table_is_empty(tmp_path, monkeypatch):
     latest = tmp_path / "latest.json"
     latest.write_text(json.dumps(ENGINE), encoding="utf-8")
@@ -130,6 +145,7 @@ def test_fetch_runs_table_asks_for_the_summary_too():
 
     fetch_runs_table(get=get, url="https://example.test", key="k")
     assert "summary" in seen["select"].split(",")
+    assert seen["limit"] == "25"
 
 
 def test_get_latest_run_keeps_file_when_postgrest_is_empty(tmp_path, monkeypatch):

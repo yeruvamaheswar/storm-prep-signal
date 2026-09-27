@@ -6,8 +6,8 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    # The /flow session worker shares var/scenario/ with the API, so both run in this one instance.
-    startCommand: python scripts/scenario_session.py & exec uvicorn server.app:app --host 0.0.0.0 --port $PORT
+    # The /flow session worker and live ERCOT worker share var/ with the API, so all three run in this one instance.
+    startCommand: python scripts/scenario_session.py & python scripts/live_cycle.py --loop & exec uvicorn server.app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
     envVars:
