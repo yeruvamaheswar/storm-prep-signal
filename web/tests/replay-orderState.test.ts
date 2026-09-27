@@ -54,9 +54,32 @@ describe("homeOrderState", () => {
       [8, "exec", -3],
       [13, "conf", -3],
     ]
+    // A charge order never "gave" energy: gave stays false, charging is true.
     const state = homeOrderState(chargeOrder, 13)
-    expect(state).toMatchObject({ s: "ok", gave: true, charging: true })
-    expect(stateLabel(state, -3)).toBe("Confirmed, counted")
+    expect(state).toMatchObject({ s: "ok", gave: false, charging: true })
+    expect(stateLabel(state, -3)).toBe("Charge confirmed")
+  })
+
+  test("a charge exec leaves state wait with gave false, labelled as charging", () => {
+    const chargeOrder: OrderTimelineEntry[] = [
+      [0, "sent", -3],
+      [8, "exec", -3],
+    ]
+    const state = homeOrderState(chargeOrder, 10)
+    expect(state).toMatchObject({ s: "wait", gave: false, charging: true })
+    expect(stateLabel(state)).toBe("Charging, waiting for its report")
+    expect(stateLabel(state)).not.toContain("Gave")
+  })
+
+  test("a charge ok reads 'Charge confirmed' from the state alone", () => {
+    const state = homeOrderState([[0, "sent", -2], [5, "exec", -2], [9, "conf", -2]], 20)
+    expect(stateLabel(state)).toBe("Charge confirmed")
+  })
+
+  test("a charge nc reads 'Charge not confirmed, not counted' from the state alone", () => {
+    const state = homeOrderState([[0, "sent", -2], [5, "exec", -2]], 120)
+    expect(state).toMatchObject({ s: "nc", gave: false, charging: true })
+    expect(stateLabel(state)).toBe("Charge not confirmed, not counted")
   })
 
   test("splits own and reassigned order keys, defaulting missing keys to own", () => {

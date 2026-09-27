@@ -172,7 +172,9 @@ describe("feedLines", () => {
     const noKw = { "home-203": [[0, "sent", null], [5, "exec", null]] satisfies OrderTimelineEntry[] }
     const lines = feedLines(noKw, 20, { "home-203": { kw: 10 } })
     expect(lines).toContainEqual(expect.objectContaining({ x: "home-203 gave energy." }))
-    expect(lines).toContainEqual(expect.objectContaining({ x: "Orders sent to 1 homes for 0.0 kW." }))
+    // No order in the group has a known kW, so the kW clause is left out (never "0.0 kW").
+    expect(lines).toContainEqual(expect.objectContaining({ x: "Orders sent to 1 home." }))
+    expect(lines.some((l) => l.x.includes("0.0 kW"))).toBe(false)
   })
 
   test("the 0 s aggregate counts only sent entries at t === 0, and reports charge kW separately", () => {
@@ -182,7 +184,7 @@ describe("feedLines", () => {
     }
     const lines = feedLines(mixed, 0, { "home-300": { kw: 10 }, "home-301": { kw: -6 } })
     expect(lines).toContainEqual(expect.objectContaining({
-      x: "Orders sent to 1 homes for 10.0 kW and 1 homes to charge 6.0 kW.",
+      x: "Orders sent to 1 home for 10.0 kW and 1 home to charge 6.0 kW.",
     }))
   })
 
@@ -195,8 +197,8 @@ describe("feedLines", () => {
     }
     const homes = Object.fromEntries(Object.keys(timelines).map((id) => [id, { kw: 5 }]))
     const lines = feedLines(timelines, 61, homes, { breaches: 0 })
-    expect(lines).toContainEqual(expect.objectContaining({ x: "1 orders were lost on the way." }))
-    expect(lines).toContainEqual(expect.objectContaining({ x: "1 homes had not answered. Each got one retry." }))
+    expect(lines).toContainEqual(expect.objectContaining({ x: "1 order was lost on the way." }))
+    expect(lines).toContainEqual(expect.objectContaining({ x: "1 home had not answered. Each got one retry." }))
   })
 })
 
@@ -283,5 +285,46 @@ describe("keyMoments", () => {
       close: 120,
       mismatch: 87,
     })
+  })
+
+})
+
+describe("feedLines kW honesty and plurals", () => {
+  test("aggregate kW sums include only known values; unknown kW is never counted as 0", () => {
+    const partialKw = {
+      "home-500": [[0, "sent", 4]] satisfies OrderTimelineEntry[],
+      "home-501": [[0, "sent", null]] satisfies OrderTimelineEntry[],
+    }
+    const lines = feedLines(partialKw, 0, {})
+    expect(lines).toContainEqual(expect.objectContaining({ x: "Orders sent to 2 homes for 4.0 kW." }))
+  })
+
+  test("with only charge orders, the discharge clause is omitted", () => {
+    const chargeOnly = {
+      "home-600": [[0, "sent", -3]] satisfies OrderTimelineEntry[],
+      "home-601": [[0, "sent", -6]] satisfies OrderTimelineEntry[],
+    }
+    expect(feedLines(chargeOnly, 0, {})).toContainEqual(expect.objectContaining({ x: "Charge orders sent to 2 homes for 9.0 kW." }))
+    const oneChargeNoKw = { "home-602": [[0, "sent", null], [5, "exec", -2]] satisfies OrderTimelineEntry[] }
+    expect(feedLines(oneChargeNoKw, 0, {})).toContainEqual(expect.objectContaining({ x: "Charge orders sent to 1 home for 2.0 kW." }))
+  })
+
+  test("an unknown-kW home counts as a home but adds nothing to the discharge kW sum", () => {
+    const mixed = {
+      "home-700": [[0, "sent", 5]] satisfies OrderTimelineEntry[],
+      "home-701": [[0, "sent", -1], [3, "exec", null]] satisfies OrderTimelineEntry[],
+      "home-702": [[0, "sent", null]] satisfies OrderTimelineEntry[],
+    }
+    // home-702 has no known kW: it counts as a discharge home but adds nothing to the kW sum.
+    expect(feedLines(mixed, 0, {})).toContainEqual(expect.objectContaining({
+      x: "Orders sent to 2 homes for 5.0 kW and 1 home to charge 1.0 kW.",
+    }))
+  })
+
+  test("Books closed uses singular for one home and omits kW when none is known", () => {
+    const one = { "home-800": [[0, "sent", null]] satisfies OrderTimelineEntry[] }
+    expect(feedLines(one, 120, {}, { breaches: 1 })[0].x).toBe("Books closed. 1 home not counted. Backup breaches: 1.")
+    const known = { "home-801": [[0, "sent", 2.5]] satisfies OrderTimelineEntry[], "home-802": [[0, "sent", null]] satisfies OrderTimelineEntry[] }
+    expect(feedLines(known, 120, {}, { breaches: 0 })[0].x).toBe("Books closed. 2 homes not counted, 2.5 kW. Backup breaches: 0.")
   })
 })

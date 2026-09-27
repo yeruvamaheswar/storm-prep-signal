@@ -34,11 +34,26 @@ function orderUnits(orders: Record<string, OrderTimelineEntry[]>): OrderUnit[] {
   return units
 }
 
-/** The planned (sent) magnitude, used for aggregate sums. Never falls back to a home's current kw:
- * an order with no planned kW contributes 0 kW rather than inventing one. */
-function plannedKw(unit: OrderUnit): number {
+/** The planned (sent) magnitude, used for aggregate sums. Never falls back to a home's current kw,
+ * and never invents 0: an order with no known kW stays undefined. */
+function plannedKw(unit: OrderUnit): number | undefined {
   const value = unit.sentKw ?? unit.execKw ?? unit.confKw
-  return value === undefined ? 0 : Math.abs(value)
+  return value === undefined ? undefined : Math.abs(value)
+}
+
+/** Sum of the known planned kW across units. Undefined when no unit has a known kW, so the caller
+ * leaves the kW out of the sentence instead of printing an invented "0.0 kW". */
+function knownKwSum(units: OrderUnit[]): number | undefined {
+  let sum: number | undefined
+  for (const unit of units) {
+    const kw = plannedKw(unit)
+    if (kw !== undefined) sum = (sum ?? 0) + kw
+  }
+  return sum
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`
 }
 
 /** The kW the "gave"/"charged" line reports: the exec extra, falling back to the planned (sent) kW
@@ -68,24 +83,30 @@ export function feedLines(
     const dischargeSent = initialSent.filter((unit) => !unit.isCharge)
     const chargeSent = initialSent.filter((unit) => unit.isCharge)
     const dischargeHomes = new Set(dischargeSent.map((unit) => unit.id)).size
-    const dischargeKw = dischargeSent.reduce((sum, unit) => sum + plannedKw(unit), 0)
-    let sentence = `Orders sent to ${dischargeHomes} homes for ${dischargeKw.toFixed(1)} kW.`
-    if (chargeSent.length) {
-      const chargeHomes = new Set(chargeSent.map((unit) => unit.id)).size
-      const chargeKw = chargeSent.reduce((sum, unit) => sum + plannedKw(unit), 0)
-      sentence = `Orders sent to ${dischargeHomes} homes for ${dischargeKw.toFixed(1)} kW and ${chargeHomes} homes to charge ${chargeKw.toFixed(1)} kW.`
+    const chargeHomes = new Set(chargeSent.map((unit) => unit.id)).size
+    const dischargeKw = knownKwSum(dischargeSent)
+    const chargeKw = knownKwSum(chargeSent)
+    const forKw = (kw: number | undefined) => (kw === undefined ? "" : ` for ${kw.toFixed(1)} kW`)
+    let sentence: string
+    if (!chargeHomes) {
+      sentence = `Orders sent to ${plural(dischargeHomes, "home", "homes")}${forKw(dischargeKw)}.`
+    } else if (!dischargeHomes) {
+      sentence = `Charge orders sent to ${plural(chargeHomes, "home", "homes")}${forKw(chargeKw)}.`
+    } else {
+      const chargeClause = chargeKw === undefined ? " to charge" : ` to charge ${chargeKw.toFixed(1)} kW`
+      sentence = `Orders sent to ${plural(dischargeHomes, "home", "homes")}${forKw(dischargeKw)} and ${plural(chargeHomes, "home", "homes")}${chargeClause}.`
     }
     add(lines, 0, sentence, FEED_COLORS.out)
   }
 
   const initialDrops = units.filter((unit) => unit.timeline.some(([at, kind]) => at < 1 && kind === "drop")).length
-  if (initialDrops) add(lines, 0, `${initialDrops} orders were lost on the way.`, FEED_COLORS.lost)
+  if (initialDrops) add(lines, 0, `${plural(initialDrops, "order was", "orders were")} lost on the way.`, FEED_COLORS.lost)
 
   const retryCount = units.filter((unit) => unit.timeline.some(([at, kind]) => at >= 60 && at < 61 && kind === "retry")).length
   const hasReassignFailure = units.some((unit) => unit.timeline.some(([, kind]) => kind === "reassign_failed"))
   if (retryCount) {
     const suffix = hasReassignFailure ? " No spare home could take an order over." : ""
-    add(lines, 60, `${retryCount} homes had not answered. Each got one retry.${suffix}`, FEED_COLORS.charging)
+    add(lines, 60, `${plural(retryCount, "home", "homes")} had not answered. Each got one retry.${suffix}`, FEED_COLORS.charging)
   }
 
   for (const unit of units) {
@@ -109,11 +130,12 @@ export function feedLines(
 
   if (tSeconds >= 120 && typeof tickFacts.breaches === "number") {
     const notCounted = units.filter((unit) => homeOrderState(unit.timeline, 120).s !== "ok")
-    const notCountedKw = notCounted.reduce((sum, unit) => sum + plannedKw(unit), 0)
+    const notCountedKw = knownKwSum(notCounted)
+    const kwPart = notCountedKw === undefined ? "" : `, ${notCountedKw.toFixed(1)} kW`
     add(
       lines,
       120,
-      `Books closed. ${notCounted.length} homes not counted, ${notCountedKw.toFixed(1)} kW. Backup breaches: ${tickFacts.breaches}.`,
+      `Books closed. ${plural(notCounted.length, "home", "homes")} not counted${kwPart}. Backup breaches: ${tickFacts.breaches}.`,
       FEED_COLORS.muted,
     )
   }

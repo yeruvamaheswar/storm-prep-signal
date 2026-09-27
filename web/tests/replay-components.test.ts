@@ -68,3 +68,31 @@ describe("Replay worker state", () => {
     expect(html).toContain("scripts/scenario_session.py")
   })
 })
+
+describe("Replay promise tick merge", () => {
+  const baseSession = {
+    status: "paused", error: null, updated_at: "2024-01-15T13:05:00-06:00", scenario: null, seed: null,
+    speed: 60, speeds: [15, 60, 300], step_seconds: 2, tick_minutes: 5, tick_index: 1, tick_count: 4,
+    start: {}, homes: [], orders: {}, zones: {}, charging_mw: 0, provenance: null, alerts: [], grid_down_zones: [],
+    totals: null, log: [], honest_limits: [], history,
+  }
+  const tickFields = { target_mw: 0.4, delivered_mw: 0.25, missed_mw: 0.1, breaches: 0, reserve_pct: 60, reasons: ["storm_risk_high"] }
+
+  it("merges history's unconfirmed_mw only when the last history point is the current tick", () => {
+    const html = renderToStaticMarkup(createElement(ReplayPage, {
+      scenarios: null,
+      state: { ...baseSession, tick: { ...tickFields, tick: 2 } } as never,
+      nowMs: 0,
+    }))
+    expect(html).toContain("Sent, not counted")
+  })
+
+  it("does not merge a stale history point's unconfirmed_mw onto a different tick", () => {
+    const html = renderToStaticMarkup(createElement(ReplayPage, {
+      scenarios: null,
+      state: { ...baseSession, tick: { ...tickFields, tick: 3 } } as never,
+      nowMs: 0,
+    }))
+    expect(html).not.toContain("Sent, not counted")
+  })
+})

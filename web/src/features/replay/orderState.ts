@@ -63,7 +63,8 @@ export function homeOrderState(timeline: OrderTimelineEntry[] = [], tSeconds: nu
       s = gave ? "wait" : "retry"
     }
     if (kind === "exec") {
-      gave = true
+      // A charge order takes energy in; it never "gave" energy.
+      if (!charging) gave = true
       s = "wait"
     }
     if (kind === "rdrop") s = "rlost"
@@ -80,11 +81,12 @@ export function stateLabel(state: Pick<ReplayOrderState, "s" | "gave"> & Partial
   if (state.s === "out") return "Order on its way"
   if (state.s === "retry") return "Retrying"
   if (state.s === "lost") return "Order lost"
-  if (state.s === "wait") return "Gave energy, waiting for its report"
-  if (state.s === "rlost") return "Gave energy, report lost"
-  if (state.s === "ok") return "Confirmed, counted"
+  const isCharge = state.charging === true || (typeof kw === "number" && kw < 0)
+  if (state.s === "wait") return isCharge ? "Charging, waiting for its report" : "Gave energy, waiting for its report"
+  if (state.s === "rlost") return isCharge ? "Charging, report lost" : "Gave energy, report lost"
+  if (state.s === "ok") return isCharge ? "Charge confirmed" : "Confirmed, counted"
   if (state.s === "nc") {
-    if (typeof kw === "number" && kw < 0) return "Charge not confirmed, not counted"
+    if (isCharge) return "Charge not confirmed, not counted"
     return state.gave ? "Gave energy, not counted" : "No answer, not counted"
   }
   return "Holding at its floor"

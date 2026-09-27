@@ -29,6 +29,14 @@ function sessionOrNull(state: StateReply | null): SessionState | null {
   return state && !isWorkerDown(state) ? state : null
 }
 
+/** The tick for the promise panel. `unconfirmed_mw` lives on history points, so it is merged in only when
+ * the last history point is this same tick; a stale point's value is never shown against a different tick. */
+function promiseTick(session: SessionState | null) {
+  if (!session?.tick) return null
+  const last = session.history.at(-1)
+  return last && last.tick === session.tick.tick ? { ...session.tick, unconfirmed_mw: last.unconfirmed_mw } : { ...session.tick }
+}
+
 export function ReplayPage({ scenarios, state, nowMs, tickArrivedAtMs, selectedZone, onZone, onBack, onSend = noopSend }: Props) {
   const [lens, setLens] = useState<Lens>("send")
   const [ledgerOpen, setLedgerOpen] = useState(false)
@@ -62,7 +70,7 @@ export function ReplayPage({ scenarios, state, nowMs, tickArrivedAtMs, selectedZ
         </section>
       ) : null}
       <ScenarioRail scenarios={scenarios} state={session} lens={lens} onLens={setLens} onSend={onSend} />
-      <PromisePanel tick={session?.tick ? { ...session.tick, unconfirmed_mw: session.history.at(-1)?.unconfirmed_mw } : null}
+      <PromisePanel tick={promiseTick(session)}
         onOpenLedger={() => setLedgerOpen(true)} onOpenData={() => setDataOpen(true)} />
       {ledgerOpen ? (
         <LedgerDrawer title={`Ledger, ${session?.scenario?.name ?? "scenario"}`} history={session?.history ?? []} onClose={() => setLedgerOpen(false)} />
