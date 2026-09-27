@@ -5,8 +5,9 @@ import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomTo
 import { fetchScenarios, fetchState, sendRequest, type FlowRequest } from "../flow/api"
 import { isWorkerDown, type ScenarioList, type SessionState, type StateReply } from "../flow/types"
 import {
-  advanceDayHead, canSeek, dayPlayheadMs, dayStops, dayWindow, emptyArrivals, initialDayHead, observedSecondsPerTick,
-  ordersViewSpeed, runKey, seekClock, settleSeek, trackArrivals, viewPlaySpeed, type SeekPending,
+  advanceDayHead, canSeek, dayPlayheadMs, dayStops, dayWindow, emptyArrivals, freshReply, initialDayHead,
+  observedSecondsPerTick, ordersViewSpeed, replyUpdatedMs, runKey, seekClock, seekLanding, settleSeek, trackArrivals,
+  viewPlaySpeed, type PollMark, type SeekPending,
 } from "./dayModel"
 import { canStep, type ReplayView } from "./PlaybackBar"
 import { ReplayPage } from "./ReplayPage"
@@ -50,6 +51,9 @@ export function ReplayRoot() {
   const [url, setUrl] = useState(safeUrlState)
   // The last speed sent (slider or keys), so [ and ] nudge from it before the next poll reports it.
   const sentSpeed = useRef<SentSpeed | null>(null)
+  // Poll order (fix round 2): each poll is numbered; a reply older than the last one applied is dropped.
+  const pollCount = useRef(0)
+  const lastApplied = useRef<PollMark | null>(null)
 
   useEffect(() => subscribeUrlState(setUrl), [])
 
@@ -71,9 +75,11 @@ export function ReplayRoot() {
   useEffect(() => {
     let cancelled = false
     async function poll() {
+      const id = ++pollCount.current
       try {
         const next = await fetchState(fetch, base)
-        if (cancelled) return
+        if (cancelled || !freshReply(lastApplied.current, id, next)) return
+        lastApplied.current = { id, updatedMs: replyUpdatedMs(next) ?? lastApplied.current?.updatedMs ?? null }
         setApiDown(false)
         setState(next)
         if (!isWorkerDown(next)) {
@@ -93,12 +99,13 @@ export function ReplayRoot() {
           // marks and playhead are read from this state, so they follow it.
           const key = runKey(next)
           setArrivals((prev) => trackArrivals(prev, { key, tickIndex: next.tick_index, playing, speed: next.speed, atMs: now }))
-          setSeekPending((prev) => settleSeek(prev, {
-            seeking: next.seeking, tickIndex: next.tick_index, key, lastSeekSeq: next.last_seek?.seq ?? null,
-          }, now))
+          // `last_seek` present (even null) means this worker answers seeks by seq; absent means an older worker.
+          const lastSeekSeq = "last_seek" in next ? (next.last_seek?.seq ?? null) : undefined
+          setSeekPending((prev) => settleSeek(prev, { seeking: next.seeking, tickIndex: next.tick_index, key, lastSeekSeq }, now))
         }
       } catch {
-        if (!cancelled) setApiDown(true)
+        // A failed poll older than a reply already applied says nothing about now.
+        if (!cancelled && id > (lastApplied.current?.id ?? 0)) setApiDown(true)
       }
     }
     void poll()
@@ -139,8 +146,10 @@ export function ReplayRoot() {
     if (request.kind === "seek") {
       const win = live ? dayWindow(live) : null
       const atMs = Date.now()
+      // The label and ghost show the expected landing: the tick, or for a delta the reported tick plus the delta.
+      const tick = live ? seekLanding(live, request.body) : "tick" in request.body ? request.body.tick : 0
       setSeekPending({
-        tick: request.body.tick, label: win && live ? seekClock(win, request.body.tick, live.tick_minutes) : null,
+        tick, label: win && live ? seekClock(win, tick, live.tick_minutes) : null,
         atMs, key: runKey(live), sawSeeking: false, seq: null, fromIndex: live?.tick_index,
       })
       send(request, atMs)

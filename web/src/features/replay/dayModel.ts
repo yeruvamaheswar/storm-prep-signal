@@ -1,5 +1,5 @@
-import type { FlowRequest } from "../flow/api"
-import type { ActiveAlert, HistoryPoint, SessionState } from "../flow/types"
+import type { FlowRequest, SeekBody } from "../flow/api"
+import type { ActiveAlert, HistoryPoint, SessionState, StateReply } from "../flow/types"
 import { isOperatorHold } from "./reasonCodes"
 import type { SpeedStop } from "./tickClock"
 
@@ -466,19 +466,30 @@ export function canSeek(state: SeekState | null | undefined): boolean {
 }
 
 /** A seek `delta` ticks from here, or null when none can be sent, it would not move, or the clamp would turn it
- * around (Forward at the end of a finished run, index tick_count, would otherwise land one tick back). */
+ * around (Forward at the end of a finished run, index tick_count, would otherwise land one tick back).
+ *
+ * While playing it is sent as `{delta}` (Task 14B fix round 2): the reported tick is up to one poll old, and at 1 min
+ * per day (0.21 s per tick) the worker is already a tick or two past it, so an absolute "one past what I saw" would
+ * land behind the worker, and a seek behind it rebuilds the run from the seed. The worker resolves a delta against its
+ * live index when it applies it. Paused or finished, the reported tick is where the worker is, so it stays a tick. */
 export function seekBy(state: SeekState | null | undefined, delta: number): FlowRequest | null {
   if (!state || !canSeek(state) || delta === 0) return null
-  const request = seekTo(state, state.tick_index + delta)
-  if (request?.kind !== "seek") return null
-  const moved = request.body.tick - state.tick_index
-  return Math.sign(moved) === Math.sign(delta) ? request : null
+  const tick = clampSeek(state.tick_index + delta, state.tick_count)
+  if (tick === state.tick_index || Math.sign(tick - state.tick_index) !== Math.sign(delta)) return null
+  return { kind: "seek", body: state.status === "playing" ? { delta } : { tick } }
 }
 
 /** A seek to tick index N (clamped), or null when it would not move. */
 export function seekTo(state: Pick<SessionState, "tick_index" | "tick_count">, index: number): FlowRequest | null {
   const tick = clampSeek(index, state.tick_count)
   return tick === state.tick_index ? null : { kind: "seek", body: { tick } }
+}
+
+/** Where a seek is expected to land, for the "Seeking to HH:MM" label and the ghost head: its tick, or for a delta the
+ * reported tick plus the delta, clamped (the worker counts from its live tick, so this can be a tick or two short while
+ * playing; `last_seek.to` has the real landing). */
+export function seekLanding(state: Pick<SessionState, "tick_index" | "tick_count">, body: SeekBody): number {
+  return "tick" in body ? body.tick : clampSeek(state.tick_index + body.delta, state.tick_count)
 }
 
 /** A seek the page sent and has not seen land. `seq` is the request seq the API accepted it as (null until the reply
@@ -505,16 +516,45 @@ export type SeekObservation = {
 }
 
 /** Keeps a sent seek until the worker answers it. The answer is `last_seek.seq` at or past the seq this page sent (Task
- * 14B: at day pace the one `seeking` write and the landing tick can both fall between two polls). For an older worker
- * without it: landing on tick N, or `seeking` going true then false. A run change, a restart to tick 0, or waiting too
- * long also lets go. */
+ * 14B: at day pace the one `seeking` write and the landing tick can both fall between two polls). A worker that
+ * reports `last_seek` (the key present, even null) is answered ONLY that way (fix round 2): passing tick N on the way,
+ * or an earlier seek's `seeking` flag, is not this seek's answer, and while the POST reply has not named the seq yet
+ * the page keeps waiting. For an older worker without it: landing on tick N, or `seeking` going true then false. A run
+ * change, a restart to tick 0, or waiting too long always lets go. */
 export function settleSeek(pending: SeekPending | null, obs: SeekObservation, nowMs: number): SeekPending | null {
   if (!pending) return null
   if (obs.key !== pending.key || nowMs - pending.atMs > SEEK_WAIT_MS) return null
-  if (typeof pending.seq === "number" && typeof obs.lastSeekSeq === "number" && obs.lastSeekSeq >= pending.seq) return null
   // A same-seed restart keeps the run key; the index falling to 0 (not the seek's own target) gives it away.
   if (obs.tickIndex === 0 && pending.tick !== 0 && (pending.fromIndex ?? 1) > 0) return null
+  if (obs.lastSeekSeq !== undefined) {
+    const answered = typeof pending.seq === "number" && typeof obs.lastSeekSeq === "number" && obs.lastSeekSeq >= pending.seq
+    return answered ? null : pending
+  }
   if (obs.seeking === true) return pending.sawSeeking ? pending : { ...pending, sawSeeking: true }
   if (obs.tickIndex === pending.tick || pending.sawSeeking) return null
   return pending
+}
+
+// --- poll order (Task 14B fix round 2) ---
+
+/** The last poll reply applied: its poll number, and its state's `updated_at` in ms (null when it had none). */
+export type PollMark = { id: number; updatedMs: number | null }
+
+/** True when poll `id`'s reply should be applied. Polls go out every 250 ms with no wait for the last one, so on a slow
+ * API an older reply can land after a newer one; applying it would jerk the playhead back, reset the pace measure and
+ * re-disable seeking. A reply is dropped when a later poll's reply is already applied, or when its state's
+ * `updated_at` is older than the one on screen (same second is not older: the worker writes whole seconds). A
+ * worker-down reply has no `updated_at` and is judged by poll order only. */
+export function freshReply(last: PollMark | null, id: number, reply: StateReply): boolean {
+  if (!last) return true
+  if (id < last.id) return false
+  const updated = replyUpdatedMs(reply)
+  return !(updated !== null && last.updatedMs !== null && updated < last.updatedMs)
+}
+
+/** A poll reply's `updated_at` in ms, or null when it has none. */
+export function replyUpdatedMs(reply: StateReply): number | null {
+  const raw = (reply as { updated_at?: unknown }).updated_at
+  const ms = typeof raw === "string" ? Date.parse(raw) : NaN
+  return Number.isFinite(ms) ? ms : null
 }

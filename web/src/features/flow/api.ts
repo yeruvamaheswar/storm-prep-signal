@@ -13,8 +13,12 @@ export type FlowRequest =
   | { kind: "alert"; body: { alert_id: string } }
   | { kind: "grid-down"; body: { zone: string; down: boolean } }
   | { kind: "step"; body: Record<string, never> }
-  /** Task 16: go to tick index N (ticks played) by re-running the engine; the worker clamps N. */
-  | { kind: "seek"; body: { tick: number } }
+  /** Task 16: go to tick index N (ticks played) by re-running the engine; the worker clamps N. Task 14B fix round 2:
+   * or `delta` ticks from the worker's live index, resolved when it applies it (key steps and 1-hour buttons while
+   * playing). */
+  | { kind: "seek"; body: SeekBody }
+
+export type SeekBody = { tick: number } | { delta: number }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)

@@ -174,14 +174,16 @@ describe("Day view keys", () => {
     expect(replayKeyRequest(key("]"), ctx({ speed: 12, stops: SPEED_STOPS }), 0)).toEqual({ kind: "speed", body: { x: 30 } })
   })
 
-  it("seeks one tick with , and . and one hour with Shift", () => {
-    expect(replayKeyRequest(key(","), ctx(), 0)).toEqual({ kind: "seek", body: { tick: 21 } })
-    expect(replayKeyRequest(key("."), ctx(), 0)).toEqual({ kind: "seek", body: { tick: 23 } })
-    expect(replayKeyRequest(key("<", { shiftKey: true }), ctx(), 0)).toEqual({ kind: "seek", body: { tick: 10 } })
-    expect(replayKeyRequest(key(">", { shiftKey: true }), ctx(), 0)).toEqual({ kind: "seek", body: { tick: 34 } })
+  // Paused, the reported tick is the worker's tick, so these are absolute; while playing they are deltas (fix round 2,
+  // replay-seek-fix2.test.ts). canStep is false here, so . seeks rather than stepping.
+  it("seeks one tick with , and . and one hour with Shift (paused: to a tick)", () => {
+    expect(replayKeyRequest(key(","), ctx({ status: "paused" }), 0)).toEqual({ kind: "seek", body: { tick: 21 } })
+    expect(replayKeyRequest(key("."), ctx({ status: "paused" }), 0)).toEqual({ kind: "seek", body: { tick: 23 } })
+    expect(replayKeyRequest(key("<", { shiftKey: true }), ctx({ status: "paused" }), 0)).toEqual({ kind: "seek", body: { tick: 10 } })
+    expect(replayKeyRequest(key(">", { shiftKey: true }), ctx({ status: "paused" }), 0)).toEqual({ kind: "seek", body: { tick: 34 } })
     // Layouts where Shift keeps the , and . key names.
-    expect(replayKeyRequest(key(",", { shiftKey: true }), ctx(), 0)).toEqual({ kind: "seek", body: { tick: 10 } })
-    expect(replayKeyRequest(key(".", { shiftKey: true }), ctx(), 0)).toEqual({ kind: "seek", body: { tick: 34 } })
+    expect(replayKeyRequest(key(",", { shiftKey: true }), ctx({ status: "paused" }), 0)).toEqual({ kind: "seek", body: { tick: 10 } })
+    expect(replayKeyRequest(key(".", { shiftKey: true }), ctx({ status: "paused" }), 0)).toEqual({ kind: "seek", body: { tick: 34 } })
   })
 
   it("keeps . as Next tick while paused", () => {

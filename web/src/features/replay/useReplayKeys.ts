@@ -61,10 +61,15 @@ export function rememberSpeed(sent: { current: SentSpeed | null }, request: Flow
   if (request.kind === "speed") sent.current = { x: request.body.x, from: reported, atMs: nowMs }
 }
 
-/** A seek `ticks` from where the session is, or null when a seek cannot be sent (or would not move). */
+const SEEK_STATUSES = ["playing", "paused", "finished"] as const
+
+/** A seek `ticks` from where the session is, or null when a seek cannot be sent (or would not move). While playing it
+ * goes as a delta the worker resolves against its live tick (dayModel.seekBy). */
 function seekKey(ctx: ReplayKeyContext, ticks: number): FlowRequest | null {
   if (!ctx.canSeek || typeof ctx.tickIndex !== "number" || typeof ctx.tickCount !== "number") return null
-  return seekBy({ status: "paused", tick_index: ctx.tickIndex, tick_count: ctx.tickCount, tick_minutes: ctx.tickMinutes ?? 5 }, ticks)
+  const status = SEEK_STATUSES.find((s) => s === ctx.status)
+  if (!status) return null
+  return seekBy({ status, tick_index: ctx.tickIndex, tick_count: ctx.tickCount, tick_minutes: ctx.tickMinutes ?? 5 }, ticks)
 }
 
 /** Space = play or pause, [ = one stop slower, ] = one stop faster, . = next tick while paused (else forward one tick),
