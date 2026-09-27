@@ -158,7 +158,7 @@ export function FleetPage({
                     className="fleet-row"
                     onClick={() => onOpenHome(home.home_id)}
                   >
-                    <th scope="row">
+                    <th scope="row" data-label="Home">
                       <button
                         type="button"
                         className="fleet-open"
@@ -170,27 +170,27 @@ export function FleetPage({
                         {homeName(home)}
                       </button>
                     </th>
-                    <td>{zoneLabel(home.zone)}</td>
-                    <td className={statusClass(home.status)}>{home.status}</td>
-                    <td className={chargeClass(home.soc_kwh, home.floor_kwh)}>
+                    <td data-label="Zone">{zoneLabel(home.zone)}</td>
+                    <td data-label="Status" className={statusClass(home.status)}>{home.status}</td>
+                    <td data-label="State of charge" className={chargeClass(home.soc_kwh, home.floor_kwh)}>
                       {quantity(home.soc_kwh)}
                       <span className="fleet-unit">kWh</span>
                     </td>
-                    <td>
+                    <td data-label="Floor">
                       {quantity(home.floor_kwh)}
                       <span className="fleet-unit">kWh</span>
                     </td>
-                    <td>
+                    <td data-label="Kilowatts assigned this tick">
                       {quantity(home.assigned_kw)}
                       <span className="fleet-unit">kW</span>
                     </td>
-                    <td className={chargeStateClass(home.charge_state)}>{chargeStateText(home.charge_state)}</td>
-                    <td className={home.power_kw === null ? "fleet-tone-muted" : undefined}>
+                    <td data-label="Charge state" className={chargeStateClass(home.charge_state)}>{chargeStateText(home.charge_state)}</td>
+                    <td data-label="Power" className={home.power_kw === null ? "fleet-tone-muted" : undefined}>
                       {powerText(home.power_kw)}
                       {home.power_kw === null ? null : <span className="fleet-unit">kW</span>}
                     </td>
-                    <td>{formatSeen(home.last_seen)}</td>
-                    <td className={ackClass(ack)}>{ackText(ack)}</td>
+                    <td data-label="Last seen">{formatSeen(home.last_seen)}</td>
+                    <td data-label="Last ack" className={ackClass(ack)}>{ackText(ack)}</td>
                   </tr>
                 )
               })

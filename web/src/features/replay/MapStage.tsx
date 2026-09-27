@@ -90,9 +90,11 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
       if (!el) return
       const L = await import("leaflet")
       if (cancelled || !leafletRef.current) return
+      // Phone portrait only: pan and pinch. Desktop stays click-to-select with locked map chrome.
+      const phone = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 720px)").matches
       const m = L.map(el, {
-        zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false,
-        doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0.1,
+        zoomControl: false, attributionControl: false, dragging: phone, scrollWheelZoom: false,
+        doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: phone, zoomSnap: 0.1,
       })
       map = m
 

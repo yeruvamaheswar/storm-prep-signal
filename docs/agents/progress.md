@@ -2,6 +2,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Mobile portrait parity + judge README
+
+- Named gap: all routed pages usable in phone portrait with desktop feature parity; desktop layout unchanged; README judge-ready.
+- Phone CSS only under `max-width: 720px` (and fleet-grid 640px extensions): shell TopBar, Replay/Live rails and drawers, wall stress/feeds, fleet table stacked cards, fleetgrid tiles, flow controls. MapStage enables touch pan/zoom only when the phone media query matches.
+- Docs: `docs/agents/mobile-layout.md`, `docs/humans/mobile.md`, index row; root `README.md` rewritten for judges.
+- Verification: `cd web && npm test && npm run build`, `pytest -q`.
+
 ## 2026-09-27: Task 4 Replay Texas view
 
 - Built the redesigned Replay page at `/` from the approved `Main.dc.html` look, driven by the scenario session APIs and existing Replay logic.

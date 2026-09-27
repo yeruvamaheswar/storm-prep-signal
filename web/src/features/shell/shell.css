@@ -129,3 +129,61 @@
   font-size: 15px;
   line-height: 1.45;
 }
+
+/* Phone portrait only. Desktop rules above stay as written. */
+@media (max-width: 720px) {
+  .rg-bar {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+
+  .rg-brand {
+    font-size: 16px;
+  }
+
+  .rg-nav {
+    order: 3;
+    flex: 1 1 100%;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .rg-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rg-nav a {
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    white-space: nowrap;
+  }
+
+  .rg-top-slot {
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  .rg-pill {
+    padding: 12px 14px;
+  }
+
+  .rg-stage {
+    min-height: calc(100dvh - 56px);
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rg-placeholder {
+    padding: 20px;
+  }
+
+  .rg-placeholder h1 {
+    font-size: 24px;
+  }
+}
