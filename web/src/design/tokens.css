@@ -60,4 +60,16 @@
   --text-label: 11px;
   /* Task 7 */
   --rg-window-lit: #efb866;
+  /* Task 8: fleet battery cells (mockup/Fleet.dc.html). */
+  --rg-fleet-under: #9aa19c;
+  --rg-fleet-shell: #f4f5f2;
+  --rg-fleet-edge: #5a625d;
+  --rg-fleet-off-shell: #3e4440;
+  --rg-fleet-off-well: #2b302d;
+  --rg-fleet-off-word: #6b726d;
+  --rg-fleet-word-edge: #4a544f;
+  --rg-fleet-stale-edge: #b97a12;
+  --rg-fleet-bank: #c9cdc5;
+  --rg-islanded: #2f5f8f;
+  --rg-fleet-reserved: #7e62a8;
 }
