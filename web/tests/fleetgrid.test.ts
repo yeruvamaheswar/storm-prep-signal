@@ -77,7 +77,7 @@ describe("fromScenarioHomes", () => {
   it("reads soc_pct, floor_pct and the engine state", () => {
     const flow: FlowHome[] = [
       { id: "home-010", zone: "North", soc_pct: 64, kw: 4, state: "selling", status: "live", floor_pct: 30 },
-      { id: "home-011", zone: "South", soc_pct: 40, kw: -2.2, state: "charging", status: "live", floor_pct: 60 },
+      { id: "home-011", zone: "South", soc_pct: 40, kw: -2.2, state: "charging", status: "live", floor_pct: 60, under_floor_why: "floor_raised" },
       { id: "home-012", zone: "West", soc_pct: 30, kw: 0, state: "at_floor", status: "live", floor_pct: 30 },
       { id: "home-013", zone: "Houston", soc_pct: 50, kw: 0, state: "dead", status: "dead", floor_pct: 30 },
       { id: "home-014", zone: "Houston", soc_pct: 50, kw: 0, state: "stale", status: "stale", floor_pct: 30 },

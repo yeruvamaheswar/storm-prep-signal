@@ -153,7 +153,8 @@ describe("order path classes follow the real timeline at the playhead", () => {
 
 describe("charge orders", () => {
   it("draw amber paths and say Charging X kW", () => {
-    const homes: FlowHome[] = [{ id: "home-010", zone: "West", soc_pct: 20, kw: -3.2, state: "charging", status: "live", floor_pct: 30 }]
+    // A charging home still under its floor: the engine names why (scenario.py under_floor_why, set since #41).
+    const homes: FlowHome[] = [{ id: "home-010", zone: "West", soc_pct: 20, kw: -3.2, state: "charging", status: "live", floor_pct: 30, under_floor_why: "started_under" }]
     const lots = zoneLots(homes, "West")
     const [path] = zonePaths(lots.slots, { "home-010": chargeOrder }, 5)
     expect(path.cls).toBe("p-out p-charge")
@@ -383,17 +384,27 @@ describe("fix round 1", () => {
     expect(html.match(/stroke-dasharray="3 4"/g)).toHaveLength(3)
   })
 
-  it("counts a home with both a sell and a charge order as asked to sell", () => {
-    const homes: FlowHome[] = [{ ...live, id: "home-002", state: "selling" }, { ...live, id: "home-006", state: "charging" }]
+  it("counts a home with its own and a reassigned-in sell once, and keeps charge homes apart", () => {
+    // Real heather tick 1, North (engine in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25): a mixed zone.
+    // Charge orders are sent once and never reassigned (policy-intent.md), so a home's second unit is always a sell.
+    const homes: FlowHome[] = [
+      { ...live, id: "home-002", state: "charging", under_floor_why: "started_under" },
+      { ...live, id: "home-006", state: "selling" },
+      { ...live, id: "home-010", state: "charging", under_floor_why: "started_under" },
+    ]
     const orders: Record<string, OrderTimelineEntry[]> = {
-      "home-002": [[0, "sent", 2, "own"], [60, "sent", -1, "r"]],
-      "home-006": [[0, "sent", -3, "own"]],
+      "home-002": [[0, "sent", -11.4, "own"], [21, "exec", -11.4, "own"], [23.3, "conf", -11.4, "own"]],
+      "home-006": [
+        [0, "sent", 2.8650702804190176, "own"], [33.4, "exec", 2.8650702804190176, "own"], [50.2, "conf", 2.8650702804190176, "own"],
+        [60, "sent", 2.86507, "r"], [92.4, "exec", 2.86507, "r"], [95.6, "conf", 2.86507, "r"],
+      ],
+      "home-010": [[0, "sent", -11.4, "own"], [30.9, "exec", -11.4, "own"], [38.6, "conf", -11.4, "own"]],
     }
-    const s = zoneSummary("North", homes, orders, 90, 2)
+    const s = zoneSummary("North", homes, orders, 100, 3)
     expect(s.sellHomes).toBe(1)
     expect(s.chargeHomes).toBe(2)
-    expect(s.sellKw).toBe(2)
-    expect(s.chargeKw).toBe(4)
+    expect(s.sellKw).toBeCloseTo(5.73014, 5)
+    expect(s.chargeKw).toBeCloseTo(22.8, 9)
   })
 
   it("does not show an asked kW before the order is sent", () => {
