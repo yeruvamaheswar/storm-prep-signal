@@ -17,7 +17,7 @@ from pathlib import Path
 
 from server.engine.baseline import load_baseline
 from server.engine.brief import write_brief
-from server.engine.events import start_run
+from server.engine.events import log_event, start_run
 from server.engine.fleet import STATUSES, assign_county, county_name, home_label, new_fleet, zone_counties
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
 from server.engine.order_log import order_timelines
@@ -459,6 +459,8 @@ class Session:
         if target == self.index:
             return
         playing = self.playing
+        # Mark the run's event log first, so a reader can tell the tick events after it are a re-run.
+        log_event("scenario", "seek", **{"from": self.index, "to": target})
         if target < self.index:
             self.rebuild(self.seed)
             self.apply_logged_actions()
@@ -466,9 +468,11 @@ class Session:
             while self.index < target:
                 self.step()
         except Exception as exc:
-            # Same as a crashed tick in the worker loop: named on the page, never raised.
+            # Same as a crashed tick in the worker loop: playback stops, and the page names where and why.
+            self.playing = False
             self.error = f"{type(exc).__name__}: {exc}"
-            self.note(f"tick failed: {self.error}")
+            self.note(f"seek to tick {target} stopped at tick {self.index}: {self.error}")
+            return
         self.playing = playing
         self.note(f"moved to tick {self.index} of {len(self.frames)}")
 
@@ -705,7 +709,7 @@ class Session:
             # Task 16: the operator actions a seek re-runs (for marks), and whether a seek is running. The worker
             # writes one state with seeking true before it runs a seek; this ordinary state is never mid-seek.
             "actions": [dict(action) for action in self.actions], "seeking": False,
-            "counties":[{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
+            "counties": [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
             "history": self.history, "totals": self.board, "log": self.messages,
             "honest_limits": list(HONEST_LIMITS),
         }

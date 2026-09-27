@@ -302,15 +302,85 @@ def test_worker_says_seeking_before_a_seek_then_writes_the_new_tick(tmp_path):
     assert after and after[0]["seeking"] is False
 
 
-def test_worker_restarts_the_tick_window_after_a_seek_while_playing(tmp_path):
-    # Tick 3 is due at 50 s; a seek at 30 s to tick 1 plays tick 2 at once, then tick 3 a full step later.
-    written = run_worker(tmp_path, {30.0: [("seek", {"tick": 1})]}, until=60.0)
-    first_seen = {}
+def first_seen_after(written, since):
+    """The fake time each tick index was first written (not a seeking state) after `since`. A request appended at
+    `since` is read on the next loop, so a heartbeat written at exactly `since` is still the old state."""
+    seen = {}
     for t, state in written:
-        if not state.get("seeking"):
-            first_seen.setdefault((t >= 30.0, state["tick_index"]), t)
-    assert first_seen[(True, 2)] == pytest.approx(30.0, abs=0.1)
-    assert first_seen[(True, 3)] == pytest.approx(55.0, abs=0.1)
+        if t > since + 0.001 and not state.get("seeking"):  # the fake clock drifts by float round-off
+            seen.setdefault(state["tick_index"], t)
+    return seen
+
+
+def test_worker_lands_on_the_seek_tick_for_a_full_tick_window_while_playing(tmp_path):
+    # Ruling (fix round 1): the page lands ON tick N. A seek at 30 s to tick 1 shows tick 1 from 30 s, and tick 2
+    # plays one full window (25 s at 12x) later, at 55 s.
+    written = run_worker(tmp_path, {30.0: [("seek", {"tick": 1})]}, until=60.0)
+    seen = first_seen_after(written, 30.0)
+    assert seen[1] == pytest.approx(30.0, abs=0.1)
+    assert seen[2] == pytest.approx(55.0, abs=0.1)
+    assert [s["tick_left_s"] for t, s in written if t == seen[1] and s["tick_index"] == 1][-1] == pytest.approx(25.0, abs=0.1)
+
+
+def test_a_no_op_or_refused_seek_does_not_cut_the_current_tick_short(tmp_path):
+    # Tick 2 played at 25 s and tick 3 is due at 50 s. A seek to the current tick (2) and a refused seek change
+    # nothing, so tick 3 still plays at 50 s.
+    written = run_worker(tmp_path, {30.0: [("seek", {"tick": 2})], 35.0: [("seek", {"tick": "x"})]}, until=52.0)
+    seen = first_seen_after(written, 30.0)
+    assert seen[2] == pytest.approx(30.0, abs=0.1)
+    assert seen[3] == pytest.approx(50.0, abs=0.1)
+    assert "refused seek" in written[-1][1]["log"][-1]["text"] or any(
+        "refused seek" in line["text"] for line in written[-1][1]["log"])
+
+
+def test_several_seeks_in_one_poll_run_only_the_last(tmp_path):
+    written = run_worker(tmp_path, {30.0: [("seek", {"tick": 1}), ("seek", {"tick": 0}), ("seek", {"tick": 1})]},
+                         until=31.0)
+    assert len([s for t, s in written if s.get("seeking")]) == 1
+    last = written[-1][1]
+    assert last["tick_index"] == 1
+    assert sum("moved to tick" in line["text"] for line in last["log"]) == 1
+
+
+def test_a_tick_that_crashes_mid_seek_stops_playback_and_says_where(tmp_path, monkeypatch):
+    s = session(tmp_path)
+    s.start("operator-hold", 1)
+    for _ in range(10):
+        s.step()
+    assert s.playing is True
+    real_step = Session.step
+    calls = []
+
+    def crash_on_the_fourth(self):
+        calls.append(1)
+        if len(calls) == 4:
+            raise RuntimeError("test crash")
+        return real_step(self)
+
+    monkeypatch.setattr(Session, "step", crash_on_the_fourth)
+    s.seek(5)
+    assert s.playing is False
+    assert s.error == "RuntimeError: test crash"
+    assert s.index == 3
+    text = s.messages[-1]["text"]
+    assert "moved to tick" not in text
+    assert "stopped at tick 3" in text and "test crash" in text
+
+
+def test_a_seek_marks_the_event_log_before_the_re_run(tmp_path):
+    s = session(tmp_path)
+    s.start("operator-hold", 1)
+    for _ in range(12):
+        s.step()
+    s.seek(4)
+    events = [json.loads(line) for path in sorted((tmp_path / "logs").glob("*.jsonl"))
+              for line in path.read_text().splitlines()]
+    marks = [e for e in events if e["event"] == "seek"]
+    assert len(marks) == 1
+    assert marks[0]["stage"] == "scenario" and marks[0]["data"] == {"from": 12, "to": 4}
+    # A tape run writes no per-tick events today (only live fetches log), so the marker is the only line; any event
+    # a later tick writes lands after it.
+    assert events[-1] == marks[0]
 
 
 def test_worker_clears_a_paused_tick_after_a_seek(tmp_path):
