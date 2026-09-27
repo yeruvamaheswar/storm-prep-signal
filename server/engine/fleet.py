@@ -325,9 +325,13 @@ def discharge(homes, alloc, policy, settings):
         home = by_id[home_id]
         if home.status != "live":
             continue
+        # Headroom <= 0 means the home is already at or under its floor. Skip it.
+        # That is not a breach: breaches counts a discharge that crosses the floor.
+        if safe_kw(home, policy, settings) <= 0:
+            continue
         actual_kw = min(kw, safe_kw(home, policy, settings))
         if actual_kw <= 0:
-            continue  # already at or under its floor: it gives nothing, and that is not a breach
+            continue
         home.soc_kwh -= actual_kw * settings["tick_minutes"] / 60
         if home.soc_kwh < floor_kwh(home, policy) - 1e-9:
             breaches += 1  # only possible if the clamp above is removed (the mutation demo)

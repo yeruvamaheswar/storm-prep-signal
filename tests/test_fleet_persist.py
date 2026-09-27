@@ -87,13 +87,13 @@ def test_demo_fleet_stays_100_when_fleet_size_is_100(tmp_path, monkeypatch):
     assert loaded[-1].home_id == "home-100"
 
 
-def test_live_run_saves_homes_once_after_the_last_tick(tmp_path, monkeypatch):
+def test_live_run_saves_homes_after_each_tick(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     calls = []
     monkeypatch.setattr(loop, "persist_discharged_homes", lambda homes, path: calls.append(len(homes)))
     record = _play(tmp_path)
     assert len(record["ticks"]) == 3
-    assert calls == [SETTINGS["fleet_size"]]
+    assert calls == [SETTINGS["fleet_size"]] * len(record["ticks"])
 
 
 def test_tape_run_never_reads_or_writes_homes_json(tmp_path, monkeypatch):
