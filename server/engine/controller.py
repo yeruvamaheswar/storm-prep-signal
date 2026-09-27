@@ -20,10 +20,12 @@ def allocate(homes, frame, policy, mode, settings):
     """Plan how many kW each home gives this tick. See PRD K2 and the reason-code precedence.
 
     The price bands in `reserve_policy` set `Policy.intent`. HOLD mode wins over everything.
-    Discharge and hold both serve `target_mw` from headroom: hold is a label for the wall,
-    not a dispatch stop (CONSTRAINTS allocation rule). Charge serves the call from the
+    Discharge and hold both serve `target_mw` from headroom: a hold price is not a
+    dispatch stop (CONSTRAINTS allocation rule). Charge serves the call from the
     fewest homes first, then every other home with room absorbs (negative kW); with no
     call, cheap power still charges. `delivered_mw` counts discharge only.
+    The tick's label comes from this plan via `acted_intent`, so a served call on a hold
+    price reads discharge.
     Homes in a zone named by the frame's `grid_down` event get 0 kW both ways (they back up
     their own homes); each such zone adds reason `grid_down:<zone>` after the other codes.
     """
@@ -53,6 +55,52 @@ def allocate(homes, frame, policy, mode, settings):
         return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
     alloc.reasons += [f"grid_down:{zone}" for zone in sorted(down)]
     return alloc
+
+
+def acted_intent(alloc, policy, mode):
+    """The tick's (intent, intent_reason): what the fleet was ordered to do this tick, not the price band.
+
+    It is the order, not the result: if every discharge order times out, the label is still
+    discharge and `delivered_mw` shows the shortfall.
+
+    `Policy.intent` is the price band and is what `allocate` reads. Hold and discharge both
+    serve the call, so a hold price can still sell. The wall and run file show this instead.
+    Pure: reads the planned allocation and the policy, returns a pair.
+
+    Net flow picks the label: sold = the positive kW, charged = the negative kW, as sizes.
+
+        mode HOLD                        -> hold, operator_hold
+        charged > sold                   -> charge; grid_call_served if anything sold (the
+                                            call was met while the fleet mostly charged),
+                                            else policy reason
+        sold >= charged, sold > 0        -> discharge, policy reason if policy said discharge
+                                            else grid_call (the grid called, not the price)
+        nothing moved, policy said hold  -> hold, policy reason (e.g. price_unavailable)
+        nothing moved, charge/discharge  -> hold, no_grid_call when the target was 0,
+                                            else policy reason (a call nobody could serve)
+
+    Sizes within MISSED_TOLERANCE_MW (as kW) are float noise: a noise-sized kW is not
+    movement, and charge wins only by more than that. An exact tie reads discharge: the call was served. A discharge-winning mixed tick shows
+    its charge through the `charging` reason code on the allocation.
+    A cheap tick with no call charges every home with room, so it reads charge; the
+    charge-band no_grid_call row only happens when every home is full.
+    """
+    if mode == "HOLD":
+        return "hold", "operator_hold"
+    planned = alloc.per_home_kw.values()
+    sold_kw = sum(kw for kw in planned if kw > 0)
+    charged_kw = -sum(kw for kw in planned if kw < 0)
+    # Split noise must not flip a tie to charge or count as movement.
+    noise_kw = MISSED_TOLERANCE_MW * 1000
+    sold = sold_kw > noise_kw
+    if charged_kw > noise_kw and charged_kw - sold_kw > noise_kw:
+        return "charge", "grid_call_served" if sold else policy.intent_reason
+    if sold:
+        return "discharge", policy.intent_reason if policy.intent == "discharge" else "grid_call"
+    target_mw = alloc.delivered_mw + alloc.missed_mw
+    if policy.intent in ("charge", "discharge") and target_mw <= 0:
+        return "hold", "no_grid_call"
+    return "hold", policy.intent_reason
 
 
 def grid_down_zones(frame):

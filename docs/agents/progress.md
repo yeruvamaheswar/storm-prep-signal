@@ -1110,3 +1110,14 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - The wall masthead gets a "Grid flow" link to `/flow` beside "Fleet" (`TopStrip.tsx`, test in `web/tests/topStrip.test.ts`).
 - Verified locally: the combined start command on port 8765 accepted `start` and `play` through the API and reported `status: playing`; about 30 MB each for API and worker. Web: vitest 280 passed, build clean.
 - Docs: `grid-flow.md`, `system-design.md` (section 9 diagram), `code-flow.md`, `backend.md`, `docs/humans/grid-flow.md`.
+
+## 2026-09-26: Intent label shows what the fleet did (Rajat)
+
+- Bug: `TickResult.intent` copied the price band, but hold and discharge both serve the call. HIGH $80 with a 0.2 MW call sold 0.2 MW labelled hold; LOW $80 with no call was labelled discharge with nothing sold.
+- Fix: `controller.acted_intent(alloc, policy, mode)` (pure) labels the tick from the planned `cycle.allocation`; `loop.play_frame` uses it. New reasons `grid_call` (sold on a non-discharge band) and `no_grid_call` (charge/discharge band, target 0). `Policy.intent` and `policy.py` unchanged. Table: `docs/agents/policy-intent.md`.
+- Files: `server/engine/controller.py`, `server/engine/loop.py`, `server/engine/contracts.py` (comment), `CONSTRAINTS.md`, `docs/agents/policy-intent.md`, `docs/humans/policy-intent.md`. No web or API change: the wall banner reads `delivered_mw`, `/flow` prints the string, snapshot's `operator_hold` rewrite still applies.
+- Tests: 11 `acted_intent` cases in `tests/test_controller.py`; paths 21 to 23 in `tests/test_tick_paths.py`. Updated old-label assertions in `test_engine.py` (tiny tape) and `test_tick_paths.py` paths 1 and 4; they now also assert the policy band.
+- The label is the order, not the result: a discharge order that times out still reads discharge; `delivered_mw` shows the shortfall.
+- Test leak fixed: `read_settings()` calls bare `load_dotenv()`, which walks up and, in a git worktree, loads the main clone's `.env`. `SUPABASE_*` then stayed in `os.environ`, and with no `var/runs/latest.json` `load_latest_run` called the real `/runs` through the `requests.get` fake in `tests/test_homes_api.py`. New `tests/conftest.py` restores `os.environ` after every test.
+- Merged main (#41, serve the call then charge; idle charging). Net flow now picks the label: a mixed charge-heavy tick reads charge / `grid_call_served`; sold >= charged (an exact tie too) reads discharge. A cheap no-call tick charges and reads charge. Paths 3, 6 and 20 (first tick) now assert charge / `grid_call_served` with `charging` in reasons and the call met; path 23 asserts idle charging. Unit tests add a charge-heavy mixed case and an exact tie.
+- `pytest -q` with the local `.env` as-is: 682 passed, 2 failed (the fleet-cap meta tests, same as main). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

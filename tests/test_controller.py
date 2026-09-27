@@ -3,8 +3,8 @@ import copy
 
 import pytest
 
-from server.engine.contracts import Home, Policy, TapeFrame
-from server.engine.controller import allocate
+from server.engine.contracts import Allocation, Home, Policy, TapeFrame
+from server.engine.controller import acted_intent, allocate
 from server.engine.fleet import discharge, floor_kwh, new_fleet
 
 ZONES = {"Houston": "48201", "North": "48113", "South": "48355", "West": "48329"}
@@ -542,3 +542,94 @@ def test_zone_intent_leaves_dead_and_stale_at_zero():
     assert set(alloc.per_home_kw) == {"m"}
     assert alloc.per_home_kw["m"] > 0
     assert_real_reasons(alloc)
+
+
+# --- acted_intent: the tick's label says what the fleet was ordered to do --------------
+
+def labelled(intent, reason=""):
+    p = policy(intent=intent)
+    p.intent_reason = reason
+    return p
+
+
+def test_acted_intent_operator_hold_is_hold():
+    alloc = Allocation({}, 0.0, 0.2, ["operator_hold"])
+    assert acted_intent(alloc, labelled("hold", "operator_hold"), "HOLD") == ("hold", "operator_hold")
+
+
+def test_acted_intent_selling_on_a_hold_price_is_a_grid_call_discharge():
+    # HIGH risk at $80 (or LOW at a mid-band $40): the policy says hold, the fleet serves the call.
+    alloc = Allocation({"a": 5.0, "b": 3.0}, 0.008, 0.0, [])
+    assert acted_intent(alloc, labelled("hold"), "AUTO") == ("discharge", "grid_call")
+
+
+def test_acted_intent_selling_with_no_price_is_a_grid_call_discharge():
+    alloc = Allocation({"a": 5.0}, 0.005, 0.0, [])
+    assert acted_intent(alloc, labelled("hold", "price_unavailable"), "AUTO") == ("discharge", "grid_call")
+
+
+def test_acted_intent_discharge_price_that_sells_keeps_the_policy_reason():
+    alloc = Allocation({"a": 5.0}, 0.005, 0.0, [])
+    assert acted_intent(alloc, labelled("discharge"), "AUTO") == ("discharge", "")
+
+
+def test_acted_intent_charge_keeps_the_policy_reason():
+    alloc = Allocation({"a": -5.0, "b": -2.0}, 0.0, 0.2, ["charging"])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("charge", "")
+
+
+def test_acted_intent_sell_heavy_mixed_tick_is_discharge():
+    # Net flow out: the `charging` reason on the allocation shows the smaller charge.
+    alloc = Allocation({"a": 5.0, "b": -2.0}, 0.005, 0.0, ["charging"])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("discharge", "grid_call")
+
+
+def test_acted_intent_charge_heavy_mixed_tick_is_charge_with_the_call_served():
+    # Cheap power: 1 home sells 2 kW for the call while 3 homes charge 15 kW.
+    alloc = Allocation({"a": 2.0, "b": -5.0, "c": -5.0, "d": -5.0}, 0.002, 0.0, ["charging"])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("charge", "grid_call_served")
+
+
+def test_acted_intent_exact_tie_is_discharge():
+    alloc = Allocation({"a": 4.0, "b": -4.0}, 0.004, 0.0, ["charging"])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("discharge", "grid_call")
+
+
+def test_acted_intent_float_noise_tie_is_discharge():
+    # 0.1 + 0.2 charged is 0.30000000000000004 kW: noise over the 0.3 kW sold, still a tie.
+    alloc = Allocation({"a": 0.3, "b": -0.1, "c": -0.2}, 0.0003, 0.0, ["charging"])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("discharge", "grid_call")
+
+
+def test_acted_intent_noise_sized_kw_is_not_movement():
+    alloc = Allocation({"a": 1e-9, "b": -1e-9}, 0.0, 0.0, [])
+    assert acted_intent(alloc, labelled("discharge"), "AUTO") == ("hold", "no_grid_call")
+
+
+def test_acted_intent_discharge_price_with_no_call_is_hold():
+    alloc = Allocation({}, 0.0, 0.0, [])
+    assert acted_intent(alloc, labelled("discharge"), "AUTO") == ("hold", "no_grid_call")
+
+
+def test_acted_intent_charge_price_with_no_call_is_hold():
+    # With idle charging this only happens when every home is already full.
+    alloc = Allocation({}, 0.0, 0.0, [])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("hold", "no_grid_call")
+
+
+def test_acted_intent_call_nobody_could_serve_keeps_the_policy_reason():
+    # A call came but every home sat at its floor: nothing moved, and not for lack of a call.
+    alloc = Allocation({}, 0.0, 0.2, ["storm_reserve"])
+    assert acted_intent(alloc, labelled("discharge"), "AUTO") == ("hold", "")
+
+
+def test_acted_intent_hold_with_nothing_moved_keeps_price_unavailable():
+    alloc = Allocation({}, 0.0, 0.0, [])
+    assert acted_intent(alloc, labelled("hold", "price_unavailable"), "AUTO") == ("hold", "price_unavailable")
+
+
+def test_acted_intent_reads_what_allocate_planned():
+    p = policy(intent="hold")
+    alloc = allocate([home("a", 15.0), home("b", 15.0)], frame(0.004), p, "AUTO", settings())
+    assert sum(alloc.per_home_kw.values()) > 0
+    assert acted_intent(alloc, p, "AUTO") == ("discharge", "grid_call")

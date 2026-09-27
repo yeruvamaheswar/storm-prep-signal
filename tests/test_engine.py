@@ -73,8 +73,11 @@ def test_tiny_tape_calm_then_storm_then_missing_signal(tmp_path, monkeypatch):
     assert [t["tick"] for t in ticks] == [1, 2, 3]
     assert [t["reserve_pct"] for t in ticks] == [30, 60, 60]
     assert [t["policy_reason"] for t in ticks] == ["normal", "storm_risk_high", "signal_unavailable"]
-    # Mid-band LOW, HIGH+expensive, and fail-safe+expensive all hold. Allocate still discharges.
-    assert [t["intent"] for t in ticks] == ["hold", "hold", "hold"]
+    # Mid-band LOW, HIGH+expensive, and fail-safe+expensive are hold prices, but every tick
+    # serves the call, so the label says discharge because the grid called.
+    assert [t["intent"] for t in ticks] == ["discharge", "discharge", "discharge"]
+    assert [t["intent_reason"] for t in ticks] == ["grid_call", "grid_call", "grid_call"]
+    assert all(t["delivered_mw"] > 0 for t in ticks)
     assert [t["price_usd_mwh"] for t in ticks] == [35.0, 250.0, 250.0]
     assert ticks[0]["delivered_mw"] > 0
     assert all(t["breaches"] == 0 for t in ticks)

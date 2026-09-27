@@ -10,7 +10,7 @@ from server.engine.baseline import BASELINE_PATH, load_baseline
 from server.engine.brief import write_brief
 from server.engine.cli import read_settings
 from server.engine.contracts import TapeFrame, TickResult
-from server.engine.controller import grid_down_zones
+from server.engine.controller import acted_intent, grid_down_zones
 from server.engine.events import log_event, start_run
 from server.engine.fleet import (
     apply_events,
@@ -255,6 +255,8 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
                              int(settings.get("seed", 1)) * 100_000 + frame.tick,
                              telemetry=telemetry)
     alloc = cycle.allocation
+    # The label is what the fleet was ordered to do this tick; policy.intent is only the price band.
+    intent, intent_reason = acted_intent(alloc, policy, mode)
     result = TickResult(
         tick=frame.tick, ts=frame.ts, mode=mode,
         target_mw=target_mw, target_label=frame.target_label,
@@ -269,8 +271,8 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
         zone_delivered_mw=dict(cycle.zone_delivered_mw),
         price_as_of=priced["price_as_of"],
         zone_acks=zone_acks(homes, cycle),
-        intent=policy.intent,
-        intent_reason=policy.intent_reason,
+        intent=intent,
+        intent_reason=intent_reason,
         zone_prices=zone_prices,
         zone_price_label=zone_price_label,
         # plant["zones"] repeats zone_telemetry, so the tick keeps one copy.
