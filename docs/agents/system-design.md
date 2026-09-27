@@ -121,7 +121,7 @@ flowchart TB
 | `scripts/` | Pulls ERCOT history into Supabase and writes tapes, baselines, and evidence files. | Runs during a tick. |
 | `server/engine/` | Rates risk, picks floors, splits the target, simulates the homes, scores the run, writes the run file. | Calls Supabase. Uses an LLM to decide. |
 | `scripts/live_cycle.py` | Fetches the newest ERCOT posting, saves it to Supabase as `event=live`, and runs one engine tick with it. | Deletes archived history. |
-| `scripts/stream_telemetry.py` | Writes a synthetic last-reading snapshot for the 10k homes and merge-upserts it onto `public.homes`. `--loop` keeps the feed moving. | Imports into the engine. Touches zone, status, or assigned_kw. |
+| `scripts/stream_telemetry.py` | Writes a last-reading snapshot for the `FLEET_SIZE` homes (the emit file sizes it) and merge-upserts it onto `public.homes`. `--loop` keeps the feed moving. | Imports into the engine. Touches zone, status, or assigned_kw. |
 | `scripts/scenario_session.py` | Plays one archive scenario for `/flow` a tick at a time with a seeded random fleet, applies operator requests (start, reset, alert, grid down), and writes `var/scenario/state.json`. Laptop, or beside uvicorn on Render. | Reads the network. Writes the run file or `var/fleet/`. |
 | `server/api/` | Reads the run file, ERCOT, and Supabase, re-rates the posting with the engine's own functions, and serves `/v1` to the wall. Records `/flow` requests and reads the scenario state. | Allocates, writes a second risk rule, or runs a scenario tick. |
 | `web/` | Shows the tick, the floors, the zones, data quality, and the brief. Sends HOLD and AUTO. `/`, `/live`, and `/fleet` mount the redesigned ReserveGate shell; `/flow` animates a scenario and sends its requests. | Calls ERCOT. Decides anything. |
@@ -205,7 +205,7 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | Supabase `ercot_postings` | One row per ERCOT posting (archive weeks and `event=live`). | Remote, optional |
 | Supabase `ercot_prices` | Zone prices, one row per zone per 15 minutes. | Remote, optional |
 | Supabase `runs` | Copies of run files. | Remote, optional |
-| Supabase `homes` | One current-state row per home (10k). Row level security on, no policies: only the service role key reaches it. | Remote, optional |
+| Supabase `homes` | One current-state row per home (10k seeded; the API and Live use only the first `FLEET_SIZE`, see [demo-fleet.md](demo-fleet.md)). Row level security on, no policies: only the service role key reaches it. | Remote, optional |
 
 Who reads and writes each file, step by step: [code-flow.md, Data files per step](code-flow.md#4-data-files-per-step). Supabase rules: [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
 
@@ -282,7 +282,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (10k last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
 
 ### Settings
 
