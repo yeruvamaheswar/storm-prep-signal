@@ -110,9 +110,9 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
   })
 
   it("carries the tick's own intent label, and none when the point has no intent", () => {
-    expect(ledgerRow(heather74).intent).toBe("Fleet did: Charge — refilled batteries under their floor")
-    expect(ledgerRow(beryl1).intent).toBe("Fleet did: Charge — served the call, then charged")
-    expect(ledgerRow(hold4).intent).toBe("Fleet did: Hold — operator hold")
+    expect(ledgerRow(heather74).intent).toBe("Fleet did: Charge, refilled batteries under their floor")
+    expect(ledgerRow(beryl1).intent).toBe("Fleet did: Charge, served the call, then charged")
+    expect(ledgerRow(hold4).intent).toBe("Fleet did: Hold, operator hold")
     expect(ledgerRow(history[0]).intent).toBeUndefined()
   })
 
@@ -124,7 +124,7 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
       intent: "charge", intent_reason: "grid_call_served",
     }
     const row = ledgerRow(heather1)
-    expect(row.intent).toBe("Fleet did: Charge — served the call, then charged")
+    expect(row.intent).toBe("Fleet did: Charge, served the call, then charged")
     expect(row.charged).toBe(0.246587997)
     expect(row.why).not.toContain("Not sent")
     expect(row.why).not.toContain("Not sold")
@@ -144,7 +144,7 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
     // Asked 0.768 and sold 0.020 over the run; the 2.037 bought never enters either.
     expect(html).toMatch(/Asked over 3 ticks<\/p><b>0\.768 MW<\/b>/)
     expect(html).toMatch(/Sold and confirmed<\/p><b class="is-confirmed">0\.020 MW<\/b>/)
-    expect(html).toContain("Fleet did: Hold — operator hold")
+    expect(html).toContain("Fleet did: Hold, operator hold")
   })
 })
 

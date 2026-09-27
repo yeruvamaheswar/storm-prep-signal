@@ -386,17 +386,17 @@ describe("promiseBreakdown on post-#41 ticks (B1, B3)", () => {
 
 describe("intentLine (B1, B2 shared copy)", () => {
   test("maps the six engine intent reasons to plain words", () => {
-    expect(intentLine("charge", "grid_call_served")).toBe("Fleet did: Charge — served the call, then charged")
-    expect(intentLine("charge", "reserve_refill")).toBe("Fleet did: Charge — refilled batteries under their floor")
-    expect(intentLine("discharge", "grid_call")).toBe("Fleet did: Sell — sold for the grid call")
-    expect(intentLine("charge", "zone_price")).toBe("Fleet did: Charge — charged on a cheap zone price")
-    expect(intentLine("hold", "no_grid_call")).toBe("Fleet did: Hold — no call")
-    expect(intentLine("hold", "operator_hold")).toBe("Fleet did: Hold — operator hold")
+    expect(intentLine("charge", "grid_call_served")).toBe("Fleet did: Charge, served the call, then charged")
+    expect(intentLine("charge", "reserve_refill")).toBe("Fleet did: Charge, refilled batteries under their floor")
+    expect(intentLine("discharge", "grid_call")).toBe("Fleet did: Sell, sold for the grid call")
+    expect(intentLine("charge", "zone_price")).toBe("Fleet did: Charge, charged on a cheap zone price")
+    expect(intentLine("hold", "no_grid_call")).toBe("Fleet did: Hold, no call")
+    expect(intentLine("hold", "operator_hold")).toBe("Fleet did: Hold, operator hold")
   })
 
   test("an empty reason gives the verb only; an unknown code is the code in words; no intent gives no line", () => {
     expect(intentLine("discharge", "")).toBe("Fleet did: Sell")
-    expect(intentLine("hold", "price_unavailable")).toBe("Fleet did: Hold — price unavailable")
+    expect(intentLine("hold", "price_unavailable")).toBe("Fleet did: Hold, price unavailable")
     expect(intentLine("idle_mode", undefined)).toBe("Fleet did: Idle mode")
     expect(intentLine(undefined, "grid_call")).toBeNull()
     expect(intentLine("", "")).toBeNull()

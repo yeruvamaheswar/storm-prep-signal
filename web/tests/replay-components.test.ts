@@ -37,7 +37,7 @@ describe("Replay promise panel", () => {
       onOpenLedger: () => {},
       onOpenData: () => {},
     }))
-    expect(html).toContain("Fleet did: Charge — refilled batteries under their floor")
+    expect(html).toContain("Fleet did: Charge, refilled batteries under their floor")
     expect(html).toMatch(/<span class="is-charge">Charged from the grid<\/span><b class="is-charge">1\.129 MW<\/b>/)
     expect(html).toContain("Kept for backup, floor raised")
     expect(html).not.toContain("Not sent")
@@ -53,7 +53,7 @@ describe("Replay promise panel", () => {
       onOpenData: () => {},
     }))
     expect(html).toContain("Not sent, operator hold")
-    expect(html).toContain("Fleet did: Hold — operator hold")
+    expect(html).toContain("Fleet did: Hold, operator hold")
     expect(html).not.toContain("no spare energy")
   })
 
@@ -148,7 +148,7 @@ describe("Replay promise panel on a mixed charging tick (Task 12: S3, deferred m
       onOpenLedger: () => {},
       onOpenData: () => {},
     }))
-    expect(html).toContain("Fleet did: Charge — served the call, then charged")
+    expect(html).toContain("Fleet did: Charge, served the call, then charged")
     expect(html).toMatch(/<span class="is-charge">Charged from the grid<\/span><b class="is-charge">0\.247 MW<\/b>/)
     expect(html).toMatch(/<span>Not sold<\/span><b>0\.000 MW<\/b>/)
     expect(html).not.toContain("Not sent")

@@ -21,12 +21,13 @@ function words(code: string): string {
   return code.replace(/_/g, " ")
 }
 
-/** "Fleet did: Charge — refilled batteries under their floor". An empty reason gives the verb only;
+/** "Fleet did: Charge, refilled batteries under their floor". An empty reason gives the verb only;
  * an unknown code reads as the code in words; no intent gives no line (null). */
 export function intentLine(intent: string | null | undefined, reason: string | null | undefined): string | null {
   if (!intent) return null
   const plain = words(intent)
   const verb = VERBS[intent] ?? plain.charAt(0).toUpperCase() + plain.slice(1)
   const why = reason ? REASONS[reason] ?? words(reason) : ""
-  return why ? `Fleet did: ${verb} — ${why}` : `Fleet did: ${verb}`
+  // A comma, not a dash: the copy rule allows no em dashes (global-constraints.md).
+  return why ? `Fleet did: ${verb}, ${why}` : `Fleet did: ${verb}`
 }
