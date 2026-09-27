@@ -229,7 +229,7 @@ const REASON_LINES: Record<string, string> = {
   signal_unavailable: "Storm signal could not be read",
   holding_spare_energy: "Holding spare energy",
   reserve_refill: "Refilling batteries under their reserve floor",
-  charging: "Charging on cheap power",
+  charging: "Charging on price: day-ahead plan or charge band",
 }
 
 export type ReasonCopy = {

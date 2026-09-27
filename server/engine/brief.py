@@ -11,7 +11,9 @@ REASON_LINES = {
     "signal_unavailable": "Storm signal could not be read",
     "holding_spare_energy": "Holding spare energy",
     "reserve_refill": "Refilling batteries under their reserve floor",
-    "charging": "Charging on cheap power",
+    # `charging`: a zone's band said charge, from its cheapest day-ahead (DAM) hours or a real-time dip
+    # when it has a DAM day, else from a price at or under the charge band. Not always under $25.
+    "charging": "Charging on price: day-ahead plan or charge band",
 }
 
 # Why a county's floor was raised (policy.py _county_floor), in the words /flow's REASON_LABEL uses.

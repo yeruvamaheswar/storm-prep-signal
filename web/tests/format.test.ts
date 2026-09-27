@@ -25,7 +25,7 @@ describe("reason text", () => {
   })
 
   it("names the charging code the way the engine brief does (brief.py REASON_LINES)", () => {
-    expect(reasonText("charging")).toBe("Charging on cheap power")
+    expect(reasonText("charging")).toBe("Charging on price: day-ahead plan or charge band")
     expect(reasonText("reserve_refill")).toBe("Refilling batteries under their reserve floor")
   })
 

@@ -93,7 +93,8 @@ describe("fromScenarioHomes", () => {
 })
 
 describe("a home the planner treated as stale does not read as live (Task 12: W5)", () => {
-  // Real heather tick 74 row (merged engine, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25): the engine's home is live,
+  // Real heather tick 74 row (merged engine, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25; re-checked on c19119c, post-#52,
+  // with and without the freeze alerts: unchanged): the engine's home is live,
   // but the reading the planner used was stale, so it got no refill order.
   const row: FlowHome = {
     id: "home-012", name: "West-TomGreen-012", zone: "West", county: "48451", county_name: "Tom Green", soc_pct: 52.0, soc_before_pct: 52.0,
@@ -137,10 +138,12 @@ describe("a battery charging back to its floor says so (Task 12: W4)", () => {
 })
 
 describe("a scenario home shows its display name and county (Task 12 / #47: C1)", () => {
-  // beryl tick 22 row (merged engine, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25).
+  // beryl tick 22 row, Beryl alert sent after tick 1 (Session in-process at c19119c: origin/main 162bd0a merged into
+  // Task 15; seed 42, HOME_MAX_KW=11.4, HOME_KWH=25). Post-#50 Houston sells toward its floor while it waits for its
+  // cheaper DAM hour, so this home sells.
   const row: FlowHome = {
-    id: "home-005", name: "Houston-FortBend-005", zone: "Houston", county: "48157", county_name: "Fort Bend", soc_pct: 100.0,
-    soc_before_pct: 100.0, kw: 0.0, state: "holding", status: "live", floor_pct: 30.0, floor_reason: "not_in_alert", under_floor_why: null,
+    id: "home-005", name: "Houston-FortBend-005", zone: "Houston", county: "48157", county_name: "Fort Bend", soc_pct: 69.55,
+    soc_before_pct: 69.66, kw: 0.338, state: "selling", status: "live", floor_pct: 30.0, floor_reason: "not_in_alert", under_floor_why: null,
     plan_status: "live",
   }
 

@@ -10,16 +10,17 @@ import { homeFloorRaised } from "../src/features/replay/reasonCodes"
 import { berylHoustonHomes22, berylHoustonOrders22, counties } from "./fixtures/beryl22"
 import { beryl as berylDay, heatherFreeze as heatherDay } from "./fixtures/day14"
 
-// Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts.
-// beryl-landfall tick 2 after the Beryl alert (it names Harris; merged engine with #47, seed 42).
+// Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts for the runs
+// (re-run on c19119c, post-#50/#52: floors unchanged, reasons lists are the re-run's).
+// beryl-landfall tick 2 after the Beryl alert (it names Harris; seed 42).
 const alertTick = {
-  tick: 2, risk_level: "LOW", reasons: ["charging", "reserve_refill", "homes_stale:1"],
+  tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "timed_out:1", "duplicates_ignored:1", "over_delivery:1"],
   zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "weather_alert", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
 } as unknown as FlowTick
 const gridDownTick = {
-  tick: 3, risk_level: "LOW", reasons: ["charging", "homes_stale:1", "grid_down:Houston"],
+  tick: 3, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:1", "grid_down:Houston"],
   zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: ["Houston"],
@@ -37,15 +38,16 @@ const namedTick = {
   },
   grid_down_zones: [],
 } as unknown as FlowTick
+// storm-rule-high tick 1 (seed 1): every zone at the base floor.
 const calmTick = {
-  tick: 1, risk_level: "LOW", reasons: [],
+  tick: 1, risk_level: "LOW", reasons: ["reserve_refill"],
   zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
 } as unknown as FlowTick
-// feed-failure tick 73: no ERCOT signal, every zone at the 60% storm floor with reason signal_unavailable.
+// feed-failure tick 73 (seed 1): no ERCOT signal, every zone at the 60% storm floor with reason signal_unavailable.
 const signalMissingTick = {
-  tick: 73, risk_level: null, reasons: ["homes_stale:1", "timed_out:6", "duplicates_ignored:6", "over_delivery:6"],
+  tick: 73, risk_level: null, reasons: ["reserve_refill", "homes_stale:1", "timed_out:5", "duplicates_ignored:5", "over_delivery:5"],
   zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
   zone_reasons: { Houston: "signal_unavailable", North: "signal_unavailable", South: "signal_unavailable", West: "signal_unavailable" },
   grid_down_zones: [],

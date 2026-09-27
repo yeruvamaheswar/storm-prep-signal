@@ -135,7 +135,7 @@ def test_live_brief_names_a_zone_floor_from_the_tick_dict():
     assert stamped["brief"] == "Delivered 0.40 of 0.40 MW. Floor 30% (Houston 60%: weather_alert)."
 
 
-def test_charging_code_reads_as_charging_on_cheap_power():
+def test_charging_code_reads_as_charging_on_price():
     # calm-charge tick 1 used to print a bare "charging." after the delivered sentence.
     text = write_brief(
         tick(
@@ -148,7 +148,7 @@ def test_charging_code_reads_as_charging_on_cheap_power():
             reasons=["charging"],
         )
     )
-    assert text == "Delivered 0.02 of 0.02 MW. Charging on cheap power."
+    assert text == "Delivered 0.02 of 0.02 MW. Charging on price: day-ahead plan or charge band."
 
 
 # Engine ticks (scenario Session in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25). BERYL_22 is from the merged
@@ -177,7 +177,7 @@ def test_a_zone_whose_counties_keep_different_floors_names_the_range_and_the_rai
     # beryl tick 22: the alert names only Harris, so Harris keeps 60%; the other four Houston counties keep 30%.
     text = write_brief(tick(**BERYL_22))
     assert text == ("Delivered 0.02 of 0.02 MW. Floor 30% (Houston 30–60% by county: Harris raised, NWS weather alert); "
-                    "charging on cheap power; 1 home is stale.")
+                    "charging on price: day-ahead plan or charge band; 1 home is stale.")
     assert "Houston 60%: weather_alert" not in text
 
 
@@ -199,7 +199,8 @@ def test_counties_the_alert_does_not_name_are_not_called_raised():
         county_reasons={"48329": "weather_alert", "48135": "weather_alert", "48451": "not_in_alert", "48441": "not_in_alert"},
     ))
     assert text == ("Delivered 0.02 of 0.02 MW. Floor 30% (West 30–60% by county: Midland and Ector raised, NWS weather alert); "
-                    "charging on cheap power; refilling batteries under their reserve floor; 2 homes are stale.")
+                    "charging on price: day-ahead plan or charge band; refilling batteries under their reserve floor; "
+                    "2 homes are stale.")
 
 
 def test_live_brief_reads_the_county_floors_from_the_tick_dict():

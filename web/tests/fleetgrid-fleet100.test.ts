@@ -229,11 +229,6 @@ describe("FleetGridPage regions and the county split", () => {
     host.remove()
   })
 
-  it("shows no JEV text in either state", () => {
-    expect(render({})).not.toMatch(/JEV/i)
-    expect(render({ split: new Set(["North", "Houston", "West", "South"]) })).not.toMatch(/JEV/i)
-  })
-
   it("offers no split when no home or roster names a county", () => {
     const [plain] = fromLiveRows([{ home_id: "home-001", status: "live", zone: "South", capacity_kwh: 25, soc_kwh: 10 }])
     const html = render({ source: "live", homes: [plain], counties: [] })

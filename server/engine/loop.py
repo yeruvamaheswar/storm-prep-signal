@@ -205,9 +205,14 @@ def read_live_dam(settings, now, id_token=None, cache_dir=DAM_CACHE_DIR):
     return bodies
 
 
-@lru_cache(maxsize=64)
 def _recorded_dam(path):
-    return json.loads(Path(path).read_text())
+    """A saved NP4-190-CD day file, cached by its resolved path (a relative path depends on the cwd)."""
+    return _recorded_dam_at(str(Path(path).resolve()))
+
+
+@lru_cache(maxsize=64)
+def _recorded_dam_at(resolved):
+    return json.loads(Path(resolved).read_text())
 
 
 def frame_dam(frame, live=False, live_dam=None):
@@ -407,6 +412,9 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
     if live and live_dam is _UNSET:
         # The first frame's clock picks which days are published (the live worker passes "now").
         clock = datetime.fromisoformat(frames[0].ts) if frames else datetime.now(CENTRAL)
+        # When the outage fetch failed, DAM is skipped too, even a day already cached in var/dam/:
+        # the tick fails safe on signal_unavailable and every zone runs on the price bands
+        # (docs/agents/dam-forecast.md, "Failure").
         live_dam = read_live_dam(settings, clock) if live_risk is not None else []
     if live:
         fleet_path = fleet_homes_path(runs_dir)

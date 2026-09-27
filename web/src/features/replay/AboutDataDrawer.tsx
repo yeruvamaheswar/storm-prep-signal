@@ -1,6 +1,9 @@
 import { Fragment } from "react"
 import { VerifyArchive } from "../flow/VerifyArchive"
-import { FLOW_ZONES, type FlowCounty, type FlowTick, type Provenance, type SessionState, type StartSummary } from "../flow/types"
+import {
+  FLOW_ZONES, type ArchiveRows, type ArchiveRowsDam, type FlowCounty, type FlowTick, type FlowTickDam, type Provenance,
+  type SessionState, type StartSummary,
+} from "../flow/types"
 import { fmtScenarioTime, fmtUsd, reasonLabel } from "../flow/flowMath"
 import { AlertDetail } from "./AlertDetail"
 import { DataRow as Row } from "./DataRow"
@@ -49,9 +52,33 @@ function zonePrice(price: number | undefined): string {
   return typeof price === "number" && Number.isFinite(price) ? fmtUsd(price) : NOT_REPORTED
 }
 
-function ProvenanceRows({ provenance }: { provenance: Provenance }) {
+/** The tick's day-ahead source: "recorded:ERCOT NP4-190-CD · 2024-07-07,2024-07-08", or the price bands when the
+ * scenario has no saved DAM day (dam_label "none"). Not reported by an older worker. */
+function damSource(tick: (FlowTick & FlowTickDam) | null): string {
+  const label = tick?.dam_label
+  if (!label) return NOT_REPORTED
+  if (label === "none") return "None: price bands"
+  return tick.dam_as_of ? `${label} · ${tick.dam_as_of}` : label
+}
+
+/** Each zone's DAM decision (policy.dam_charge `zone_charge_why`) in words. An unknown code shows in words. */
+const CHARGE_WHY_WORDS: Record<string, string> = {
+  dam_cheap_hour: "charging in its cheapest day-ahead hours",
+  before_spike: "charging in its cheapest day-ahead hours before the next sell-band hour",
+  rt_dip: "charging on a real-time dip below the day-ahead plan",
+  cheaper_hour_later: "waiting for a cheaper day-ahead hour",
+  no_payback: "not charging: no later hour pays back",
+  full: "not charging: full",
+  sell_band: "real-time price is in the sell band",
+}
+
+function chargeWhy(code: string): string {
+  return CHARGE_WHY_WORDS[code] ?? code.replace(/_/g, " ")
+}
+
+function ProvenanceRows({ provenance, tick }: { provenance: Provenance; tick: (FlowTick & FlowTickDam) | null }) {
   const posting = provenance.posting
-  const archive = provenance.archive_rows
+  const archive: (ArchiveRows & ArchiveRowsDam) | null = provenance.archive_rows
   return (
     <dl>
       <Row k="Tick clock" v={`Tick ${provenance.tick} · ${fmtScenarioTime(provenance.ts)}`} />
@@ -71,6 +98,12 @@ function ProvenanceRows({ provenance }: { provenance: Provenance }) {
       {FLOW_ZONES.map((zone) => <Row key={zone} k={`${zone} price`} v={zonePrice(provenance.zone_prices.zones[zone])} />)}
       {archive?.prices?.length ? (
         <Row k="Price rows" v={archive.prices.map((row) => `${row.settlement_point} ${row.interval_ending}`).join(" · ")} />
+      ) : null}
+      <Row k="Day-ahead (DAM)" v={damSource(tick)} />
+      {archive?.dam?.length ? (
+        <Row k="DAM files" v={archive.dam.map((row) => (
+          <Fragment key={row.file}>{`${row.report} ${row.delivery_date} · `}<code>{row.file}</code><br /></Fragment>
+        ))} />
       ) : null}
       <Row k="Target" v={`${mw(provenance.target.mw)} · ${provenance.target.label}`} />
       <Row k="Baseline file" v={<code>{provenance.baseline.file}</code>} />
@@ -103,8 +136,9 @@ function fleetDid(tick: FlowTick): string {
   return intentLine(tick.intent, tick.intent_reason)?.replace(/^Fleet did: /, "") ?? NOT_REPORTED
 }
 
-function EngineDecision({ tick, counties }: { tick: FlowTick; counties: FlowCounty[] }) {
+function EngineDecision({ tick, counties }: { tick: FlowTick & FlowTickDam; counties: FlowCounty[] }) {
   const reasons = tick.county_reasons ?? {}
+  const whys = tick.zone_charge_why ?? {}
   const countyRow = (county: CountyFloor) => (
     <Row key={county.fips} sub k={county.label} v={`${county.pct}% · ${reasonLabel(reasons[county.fips])}`} />
   )
@@ -119,6 +153,9 @@ function EngineDecision({ tick, counties }: { tick: FlowTick; counties: FlowCoun
           </Fragment>
         ))}
         {unplacedCountyFloors(tick, counties).map(countyRow)}
+        {FLOW_ZONES.filter((zone) => whys[zone]).map((zone) => (
+          <Row key={`${zone}-charge`} k={`${zone} charge`} v={chargeWhy(whys[zone] ?? "")} />
+        ))}
         <Row k="Fleet did" v={fleetDid(tick)} />
         <Row k="Mode" v={MODE_WORDS[tick.mode] ?? tick.mode} />
         <Row k="Reasons" v={tick.reasons.length ? tick.reasons.map(plainReason).join(", ") : "None"} />
@@ -160,7 +197,7 @@ export function AboutDataDrawer({ state, onClose }: Props) {
       </section>
       <section>
         <h3>Provenance</h3>
-        {provenance ? <ProvenanceRows provenance={provenance} /> : <p className="replay-note">No provenance reported yet.</p>}
+        {provenance ? <ProvenanceRows provenance={provenance} tick={state.tick} /> : <p className="replay-note">No provenance reported yet.</p>}
         <VerifyArchive state={state} />
       </section>
       <section>
