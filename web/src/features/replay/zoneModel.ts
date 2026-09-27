@@ -185,6 +185,9 @@ export type LotLook = {
   aria: string
   label: string
   charging: boolean
+  /** Energy is on the service cable: the order ran and waits for its report, or is confirmed. The one cable rule
+   * for the flat art (`cable`) and the 3D house (house3dModel.cableMode). */
+  flowing: boolean
   tookOver: boolean
 }
 
@@ -236,6 +239,7 @@ export function lotLook(home: FlowHome, timeline: OrderTimelineEntry[] | undefin
     aria: `${home.id}, ${label}${suffix}`,
     label,
     charging,
+    flowing,
     tookOver,
   }
 }

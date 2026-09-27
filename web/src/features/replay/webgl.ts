@@ -1,8 +1,18 @@
-/** True when `make()` gives a canvas that can open a WebGL2 or WebGL context. Never throws. */
+type ProbeContext = { getExtension?: (name: string) => { loseContext?: () => void } | null } | null
+
+/** True when `make()` gives a canvas that can open a WebGL2 or WebGL context. Never throws. The probe's context is
+ * released at once (WEBGL_lose_context), so it does not count against the browser's live-context limit. */
 export function probeWebGL(make: () => HTMLCanvasElement): boolean {
   try {
     const canvas = make()
-    return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"))
+    const gl = (canvas.getContext("webgl2") || canvas.getContext("webgl")) as ProbeContext
+    if (!gl) return false
+    try {
+      gl.getExtension?.("WEBGL_lose_context")?.loseContext?.()
+    } catch {
+      // Releasing is best effort; the probe already answered.
+    }
+    return true
   } catch {
     return false
   }

@@ -190,7 +190,8 @@ export function HouseScene({ model, cableColor, fillColor, animate }: Props) {
       {model.fill !== null && model.fill > 0 ? (
         <mesh position={[BATTERY.x, gaugeBottom + (GAUGE.h * model.fill) / 2, face + 0.003]}>
           <planeGeometry args={[GAUGE.w - 0.06, Math.max(0.005, GAUGE.h * model.fill - 0.02)]} />
-          <meshStandardMaterial color={fillColor} emissive={fillColor} emissiveIntensity={0.35} roughness={0.6} />
+          {/* Lit only when the battery ran this tick; an idle battery shows its level in the idle colour. */}
+          <meshStandardMaterial color={fillColor} emissive={model.fillLook.glow ? fillColor : "#000000"} emissiveIntensity={model.fillLook.glow ? 0.35 : 0} roughness={0.6} />
         </mesh>
       ) : null}
       {model.floor !== null ? (

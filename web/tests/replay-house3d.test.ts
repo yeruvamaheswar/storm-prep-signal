@@ -18,7 +18,11 @@ vi.mock("../src/features/replay/webgl", async (importOriginal) => {
   return { ...real, hasWebGL: () => webgl.ok }
 })
 // jsdom has no WebGL; stand in for the lazy 3D chunk so the test never loads three.js.
-vi.mock("../src/features/replay/House3D", () => ({ default: () => createElement("div", { className: "house3d" }) }))
+// The marker carries the model HomePanel passed, so the 3D branch is provable in the DOM.
+vi.mock("../src/features/replay/House3D", () => ({
+  default: ({ model }: { model: { cable: string; fillLook: { token: string } } }) =>
+    createElement("div", { className: "house3d-marker", "data-cable": model.cable, "data-fill": model.fillLook.token }),
+}))
 
 // Real tick-3 timelines (failures tape, seed 1), the same as tests/replay-zone.test.ts.
 const orders: Record<string, OrderTimelineEntry[]> = {
@@ -100,6 +104,45 @@ describe("house3dModel battery", () => {
   })
 })
 
+describe("house3dModel battery fill colour", () => {
+  const fillAt = (id: string, t: number, timeline = orders[id]) => houseModel(home(id), lotLook(home(id), timeline, t, false)).fillLook
+
+  it("stays the idle colour, unlit, for a home that has not run", () => {
+    expect(fillAt("home-002", 60, undefined)).toEqual({ token: "--rg-batt-idle", glow: false }) // not asked
+    expect(fillAt("home-066", 30)).toEqual({ token: "--rg-batt-idle", glow: false }) // lost, not run yet
+    expect(houseModel(home("a"), null).fillLook).toEqual({ token: "--rg-batt-idle", glow: false })
+  })
+
+  it("glows the battery colour once a sell order ran", () => {
+    expect(fillAt("home-066", 81)).toEqual({ token: "--rg-battery-glow", glow: true })
+    expect(fillAt("home-054", 30)).toEqual({ token: "--rg-battery-glow", glow: true }) // ran, report lost
+  })
+
+  it("glows amber for a charge that ran, never the sell colour", () => {
+    expect(fillAt("home-010", 10)).toEqual({ token: "--rg-charging", glow: true })
+    expect(fillAt("home-010", 20)).toEqual({ token: "--rg-charging", glow: true })
+  })
+
+  it("names the same token the flat art paints (lotLook.batt)", () => {
+    for (const [id, t] of [["home-002", 60], ["home-066", 81], ["home-010", 10]] as const) {
+      const look = lotLook(home(id), orders[id], t, false)
+      expect(`var(${houseModel(home(id), look).fillLook.token})`).toBe(look.batt)
+    }
+  })
+})
+
+describe("cable rule has one source", () => {
+  it("follows lotLook.flowing and the flat cable exactly", () => {
+    for (const id of Object.keys(orders)) {
+      for (const t of [0, 10, 30, 60, 81, 90, 125]) {
+        const look = lotLook(home(id), orders[id], t, false)
+        expect(cableMode(look) !== "off").toBe(look.flowing)
+        expect(look.cable !== "rgba(0,0,0,0)").toBe(look.flowing)
+      }
+    }
+  })
+})
+
 describe("cable geometry", () => {
   it("aligns a unit cylinder with the segment it spans", () => {
     const a: Vec3 = [1, 2, 3]
@@ -145,32 +188,87 @@ describe("webgl probe", () => {
     expect(probeWebGL(() => gl)).toBe(true)
     expect(probeWebGL(() => throws)).toBe(false)
   })
+
+  it("releases the probe's context once it has answered", () => {
+    const loseContext = vi.fn()
+    const getExtension = vi.fn((name: string) => (name === "WEBGL_lose_context" ? { loseContext } : null))
+    const canvas = { getContext: (kind: string) => (kind === "webgl" ? { getExtension } : null) } as unknown as HTMLCanvasElement
+    expect(probeWebGL(() => canvas)).toBe(true)
+    expect(getExtension).toHaveBeenCalledWith("WEBGL_lose_context")
+    expect(loseContext).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("home panel art", () => {
-  const panel = (t: number) =>
-    renderToStaticMarkup(createElement(HomePanel, { homeId: "home-066", home: home("home-066"), orders, tSeconds: t, onClose: () => {} }))
+  const panelEl = (t: number) => createElement(HomePanel, { homeId: "home-066", home: home("home-066"), orders, tSeconds: t, onClose: () => {} })
 
-  it("shows the flat house when WebGL is unavailable", () => {
+  let host: HTMLDivElement
+  let root: Root
+  beforeEach(() => {
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    host = document.createElement("div")
+    document.body.appendChild(host)
+    root = createRoot(host)
+  })
+  afterEach(() => {
+    act(() => root.unmount())
+    host.remove()
     webgl.ok = false
-    const html = panel(90)
-    expect(html).toContain('class="zone-house-art"')
-    expect(html).not.toContain("house3d")
   })
 
-  it("keeps the flat house as the loading fallback while the 3D chunk loads", () => {
+  async function mount(t: number) {
+    await act(async () => {
+      root.render(panelEl(t))
+    })
+    // Let the lazy chunk resolve and commit.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    return host.querySelector(".zone-home-art") as HTMLElement
+  }
+
+  function chipCheck(art: HTMLElement, label: string) {
+    const chips = host.querySelectorAll(".zone-chip")
+    expect(chips).toHaveLength(1)
+    expect(art.contains(chips[0])).toBe(true)
+    expect(chips[0].textContent).toBe(label)
+    expect(host.textContent).not.toContain("Running on grid")
+  }
+
+  it("shows the flat house when WebGL is unavailable", async () => {
+    webgl.ok = false
+    const art = await mount(90)
+    expect(art.querySelector(".zone-house-art")).not.toBeNull()
+    expect(art.querySelector(".house3d-marker")).toBeNull()
+    chipCheck(art, "Confirmed, counted")
+  })
+
+  it("takes the 3D branch when WebGL is available, with the model from the playhead", async () => {
     webgl.ok = true
-    const html = panel(90)
-    expect(html).toContain('class="zone-house-art"')
-    webgl.ok = false
+    const art = await mount(90)
+    const marker = art.querySelector(".house3d-marker")
+    expect(marker).not.toBeNull()
+    expect(marker?.getAttribute("data-cable")).toBe("confirmed")
+    expect(marker?.getAttribute("data-fill")).toBe("--rg-battery-glow")
+    expect(art.querySelector(".zone-house-art")).toBeNull()
+    chipCheck(art, "Confirmed, counted")
   })
 
-  it("renders the status chip once, over the art, with the real state label", () => {
-    const html = panel(90)
-    expect(html.match(/class="zone-chip"/g)).toHaveLength(1)
-    expect(html).toMatch(/class="zone-home-art"[^]*class="zone-chip"[^>]*>.*Confirmed, counted/)
-    expect(html).not.toContain("Running on grid")
-    expect(panel(81).match(/Gave energy, waiting for its report/g)).toHaveLength(1)
+  it("keeps the chip on the 3D path while the order is still waiting", async () => {
+    webgl.ok = true
+    const art = await mount(81)
+    expect(art.querySelector(".house3d-marker")?.getAttribute("data-cable")).toBe("selling")
+    chipCheck(art, "Gave energy, waiting for its report")
+  })
+
+  it("shows the flat house as the fallback while the 3D chunk loads", async () => {
+    webgl.ok = true
+    // A fresh HomePanel module has a fresh React.lazy that has not resolved yet (the tests above resolved theirs).
+    vi.resetModules()
+    const fresh = await import("../src/features/replay/HomePanel")
+    const html = renderToStaticMarkup(createElement(fresh.HomePanel, { homeId: "home-066", home: home("home-066"), orders, tSeconds: 90, onClose: () => {} }))
+    expect(html).toContain('class="zone-house-art"')
+    expect(html).not.toContain("house3d-marker")
   })
 })
 

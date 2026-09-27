@@ -1,6 +1,6 @@
 import type { FlowHome } from "../flow/types"
 import { NOT_REPORTED } from "./format"
-import { keepGauge, type LotLook } from "./zoneModel"
+import { BATT_IDLE, keepGauge, type LotLook } from "./zoneModel"
 
 /** Pure numbers for the 3D house (House3D.tsx turns them into meshes). Everything here comes from the
  * home's reported fields and the order state HomePanel already derived with lotLook. Nothing is invented. */
@@ -10,14 +10,30 @@ export type CableMode = "selling" | "confirmed" | "charging" | "off"
 /** The brief's literal cable colour, used only when `--rg-gave-energy` cannot be read. */
 export const CABLE_FALLBACK = "#35C3CE"
 
-/** Cable mode from the lot look at the playhead. Same rule as the flat art's cable (lotLook.cable): energy flows
- * while the order ran and waits for its report, or is confirmed. A lost report, a lost order or a closed
- * unconfirmed order draws no flow. */
-export function cableMode(look: Pick<LotLook, "state" | "charging"> | null): CableMode {
-  const s = look?.state?.s
-  if (s !== "wait" && s !== "ok") return "off"
-  if (look?.charging) return "charging"
-  return s === "ok" ? "confirmed" : "selling"
+/** Cable mode from the lot look at the playhead. Whether energy flows is lotLook's own `flowing` (the rule the
+ * flat art's cable uses), so the 3D and flat views cannot drift. */
+export function cableMode(look: Pick<LotLook, "state" | "charging" | "flowing"> | null): CableMode {
+  if (!look?.flowing) return "off"
+  if (look.charging) return "charging"
+  return look.state?.s === "ok" ? "confirmed" : "selling"
+}
+
+export type FillLook = {
+  /** The token lotLook.batt names: --rg-batt-idle, --rg-battery-glow or --rg-charging. */
+  token: string
+  /** Lit only when the battery actually ran this tick (batt is not the idle colour). */
+  glow: boolean
+}
+
+/** The battery fill colour, from the same `look.batt` the flat art paints the battery top with. */
+export function fillLook(look: Pick<LotLook, "batt"> | null): FillLook {
+  const batt = look?.batt ?? BATT_IDLE
+  const token = tokenName(batt) ?? tokenName(BATT_IDLE) ?? "--rg-batt-idle"
+  return { token, glow: batt !== BATT_IDLE }
+}
+
+function tokenName(value: string): string | null {
+  return /^var\((--[\w-]+)\)$/.exec(value.trim())?.[1] ?? null
 }
 
 export type CableLook = {
@@ -52,6 +68,8 @@ export type HouseModel = {
   cable: CableMode
   /** Battery fill as a fraction of the front face, or null when soc_pct is not reported. */
   fill: number | null
+  /** Fill colour: the battery-state token from lotLook.batt, lit only when the battery ran. */
+  fillLook: FillLook
   /** "Not reported" when there is no fill to draw, else null. */
   fillLabel: string | null
   /** Floor line as a fraction of the front face, or null when floor_pct is not reported. */
@@ -64,7 +82,10 @@ function pct(fraction: number): string {
   return `${Math.round(fraction * 100)}%`
 }
 
-export function houseModel(home: Pick<FlowHome, "soc_pct" | "floor_pct"> | null, look: Pick<LotLook, "state" | "charging"> | null): HouseModel {
+export function houseModel(
+  home: Pick<FlowHome, "soc_pct" | "floor_pct"> | null,
+  look: Pick<LotLook, "state" | "charging" | "flowing" | "batt"> | null,
+): HouseModel {
   const gauge = home ? keepGauge(home) : { charge: null, floor: null }
   const cable = cableMode(look)
   const charge = gauge.charge === null ? "battery charge not reported" : `Battery charge ${pct(gauge.charge)}`
@@ -72,6 +93,7 @@ export function houseModel(home: Pick<FlowHome, "soc_pct" | "floor_pct"> | null,
   return {
     cable,
     fill: gauge.charge,
+    fillLook: fillLook(look),
     fillLabel: gauge.charge === null ? NOT_REPORTED : null,
     floor: gauge.floor,
     label: `House, battery and power line. ${charge[0].toUpperCase()}${charge.slice(1)}, ${floor}. ${MODE_WORDS[cable]}`,
