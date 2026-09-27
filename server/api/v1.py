@@ -19,7 +19,7 @@ from server.api.fixtures import LIVE_SCENES, FixtureStore
 from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, read_home_history, table_rollups
 from server.api.operator_settings import persist_mode, table_config
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
-from server.engine.fleet import current_rollups
+from server.engine.fleet import FLEET_DIR, current_rollups
 from server.engine.fleet_state import write_fleet_mode
 
 router = APIRouter(prefix="/v1")
@@ -241,6 +241,21 @@ def get_live_stream(request: Request):
         yield _sse("home", home_rollup(rollup_src))
 
     return StreamingResponse(frames(), media_type="text/event-stream")
+
+
+# Written by server.engine.loop after every tick, beside tick_emit.json.
+TICK_ORDERS_PATH = FLEET_DIR / "tick_orders.json"
+
+
+@router.get("/live/orders")
+def get_live_orders():
+    # The last tick's logged order timelines, as the engine wrote them. Nothing is recomputed here.
+    try:
+        return json.loads(TICK_ORDERS_PATH.read_text())
+    except FileNotFoundError:
+        raise ApiError(404, "no_tick_orders", "No tick has written its orders yet.")
+    except ValueError:
+        raise ApiError(404, "no_tick_orders", "The tick orders file could not be read.")
 
 
 @router.get("/fleet/rollups")

@@ -21,6 +21,7 @@ from server.engine.fleet import (
     scale_target_mw,
 )
 from server.engine.fleet_state import STATE_PATH, load_fleet_mode, write_fleet_mode
+from server.engine.order_log import order_timelines
 from server.engine.orchestration import cycle_rollups, orchestrate_tick, plant_line, zone_acks
 from server.engine.policy import reserve_policy
 from server.engine.risk import compute_risk
@@ -85,6 +86,11 @@ def fleet_homes_path(runs_dir):
 def fleet_emit_path(runs_dir):
     """Per-tick controller emit beside homes.json. Whole fleet, every tick."""
     return Path(runs_dir) / ".." / "fleet" / "tick_emit.json"
+
+
+def fleet_orders_path(runs_dir):
+    """Per-tick order timelines beside tick_emit.json. /v1/live/orders serves this file."""
+    return Path(runs_dir) / ".." / "fleet" / "tick_orders.json"
 
 
 def load_or_seed_homes(settings, path):
@@ -355,6 +361,11 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         emit_path = fleet_emit_path(runs_dir)
         emit_path.parent.mkdir(parents=True, exist_ok=True)
         emit_path.write_text(json.dumps(build_tick_emit(frame, homes, cycle, policy)))
+        # This tick's logged orders, so Live can replay them. Same events as the orchestrator log.
+        fleet_orders_path(runs_dir).write_text(json.dumps({
+            "tick": frame.tick, "ts": frame.ts,
+            "orders": order_timelines(cycle.events, cycle.allocation.per_home_kw),
+        }))
         record = {
             "run_id": run_id,
             "tape": str(tape_path) if tape_path else "synthetic",

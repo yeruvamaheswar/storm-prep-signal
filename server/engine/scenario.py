@@ -18,11 +18,12 @@ from pathlib import Path
 from server.engine.baseline import load_baseline
 from server.engine.brief import write_brief
 from server.engine.events import start_run
-from server.engine.fleet import assign_county, county_name, home_label, new_fleet, zone_counties
+from server.engine.fleet import STATUSES, assign_county, county_name, home_label, new_fleet, zone_counties
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
+from server.engine.order_log import order_timelines
 from server.engine.policy import JEV_YES_AT
 from server.engine.score import new_board, update
-from server.engine.telemetry import TelemetryState
+from server.engine.telemetry import TelemetryState, data_status, plan_status
 from server.engine.tick_emit import build_tick_emit
 
 SCENARIO_DIR = Path("var") / "scenario"
@@ -34,8 +35,10 @@ SCENARIO_FLEET_SIZE = 100
 # Wide on purpose: some batteries start under the 30% floor, some near full.
 SOC_RANGE_PCT = (10.0, 95.0)
 # Time-lapse factors: scenario seconds per wall second. 300 plays one 5-minute tick per second.
-SPEEDS = (60, 150, 300, 600)
-DEFAULT_SPEED = 300
+# 2.4 is real time for the Replay page: one 5-minute tick plays its 125 s order window at true speed.
+SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 300, 600)
+# About 25 s per 5-minute tick, slow enough to follow each order.
+DEFAULT_SPEED = 12
 # The page calls the worker gone when state.json has not been rewritten for this long.
 STALE_AFTER_S = 10
 HIST_BINS = 10
@@ -44,7 +47,7 @@ LOG_LINES = 12
 KW_EPS = 1e-6
 # A battery within this many percent of its floor is "at floor", not holding spare charge.
 FLOOR_BAND_PCT = 0.5
-REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down")
+REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down", "step")
 HONEST_LIMITS = (
     "The fleet is simulated. Each battery's starting charge is a seeded random draw.",
     "The grid ask (target MW) is synthetic; no public dispatch target exists.",
@@ -301,6 +304,8 @@ class Session:
                 self.send_alert(body.get("alert_id"))
             elif kind == "grid_down":
                 self.set_grid_down(body.get("zone"), bool(body.get("down", True)))
+            elif kind == "step":
+                self.step_paused()
             else:
                 raise ValueError(f"unknown request {kind!r}")
         except ValueError as exc:
@@ -344,8 +349,24 @@ class Session:
             self.reset(self.seed)
         self.playing = playing
 
+    def step_paused(self):
+        """Play exactly one frame while paused (the Replay page's Next tick). Playback stays paused."""
+        if self.scenario is None:
+            raise ValueError("pick a scenario first")
+        if self.playing:
+            raise ValueError("pause first")
+        if self.index >= len(self.frames):
+            raise ValueError("scenario finished")
+        try:
+            self.step()
+        except Exception as exc:
+            # Same as a crashed tick in the worker loop: named on the page, never raised.
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.note(f"tick failed: {self.error}")
+        self.playing = False
+
     def set_speed(self, x):
-        if x not in SPEEDS:
+        if isinstance(x, bool) or x not in SPEEDS:
             raise ValueError(f"speed must be one of {SPEEDS}")
         self.speed = x
 
@@ -434,14 +455,20 @@ class Session:
             return False
         frame = self.overlay(self.frames[self.index])
         self.mode = frame.events.get("operator", self.mode)
+        soc_before = {home.home_id: round(100 * home.soc_kwh / home.capacity_kwh, 2) for home in self.homes}
+        planned = self.plan_statuses(frame)
         result, cycle, policy, scaled, risk = play_frame(
             frame, self.homes, self.settings, self.baseline, self.mode, telemetry=self.telemetry)
         self.board = update(self.board, result, self.homes)
         emit = build_tick_emit(scaled, self.homes, cycle)
-        self.last = self.describe_tick(result, emit, policy, scaled, risk)
+        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before, planned_status=planned)
         self.history = (self.history + [{
             "tick": result.tick, "ts": result.ts, "target_mw": result.target_mw,
             "delivered_mw": result.delivered_mw, "charging_mw": self.last["charging_mw"],
+            "missed_mw": result.missed_mw, "unconfirmed_mw": cycle.unconfirmed_mw,
+            "reserve_pct": result.reserve_pct, "risk_level": result.risk_level,
+            "reasons": list(result.reasons), "breaches": result.breaches,
+            "intent": result.intent, "intent_reason": result.intent_reason,
         }])[-HISTORY_POINTS:]
         self.index += 1
         if self.index >= len(self.frames):
@@ -449,7 +476,37 @@ class Session:
             self.note("scenario finished")
         return True
 
-    def describe_tick(self, result, emit, policy, frame, risk):
+    def feed_statuses(self):
+        """Each home's data status as the next plan will read it, or None without a feed.
+
+        orchestrate_tick plans from telemetry.reported_homes before any reading of the new tick
+        arrives, so the age of the newest accepted reading is the same now as at plan time.
+        The feed moves its clock on when the tick finishes, so this is taken before play_frame.
+        """
+        if self.telemetry is None:
+            return None
+        return {home_id: data_status(hs, self.telemetry.base_s, self.telemetry.settings)
+                for home_id, hs in self.telemetry.homes.items()}
+
+    def plan_statuses(self, frame):
+        """Each home's status as the planner will read it this tick, taken before play_frame.
+
+        play_frame applies the frame's status events first (fleet.apply_events), then plans; with the feed
+        on it plans from telemetry.reported_homes, which combines that status with the report age. A home
+        can then die mid-tick (orchestration worker_error) after it got its order, so the end-of-tick
+        status is not what the planner saw. This works on the frame's events only; no home is changed.
+        """
+        feed = self.feed_statuses()
+        planned = {}
+        for home in self.homes:
+            status = home.status
+            for event_status in STATUSES:  # apply_events order: a later list wins
+                if home.home_id in frame.events.get(event_status, []):
+                    status = event_status
+            planned[home.home_id] = status if feed is None else plan_status(status, feed[home.home_id])
+        return planned
+
+    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before, feed_status=None, planned_status=None):
         tick = {**asdict(result), "brief": write_brief(result)}
         grid_down = set(frame.events.get("grid_down", []))
         homes, zones = [], {}
@@ -461,9 +518,14 @@ class Session:
             state = home_state(home, home_emit, floor_pct, floor_reason, home.zone in grid_down)
             kw = home_emit["power_kw"]
             homes.append({**home_row(home), "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
+                          "soc_before_pct": soc_before.get(home.home_id),
                           "kw": round(kw, 3), "state": state, "status": home.status, "floor_pct": floor_pct,
                           "floor_reason": floor_reason,
-                          "under_floor_why": self.under_floor_why(home, state, floor_pct)})
+                          "under_floor_why": self.under_floor_why(home, state, floor_pct),
+                          # What allocate saw: the reported status with the feed, else the home's own.
+                          "plan_status": (planned_status[home.home_id] if planned_status is not None
+                                          else home.status if feed_status is None
+                                          else plan_status(home.status, feed_status[home.home_id]))})
             row = zones.setdefault(home.zone, {
                 "selling_mw": result.zone_delivered_mw.get(home.zone, 0.0),
                 "charging_mw": result.zone_charging_mw.get(home.zone, 0.0),
@@ -474,7 +536,9 @@ class Session:
             row["homes"] += 1
             row["states"][state] = row["states"].get(state, 0) + 1
             row["soc_mwh"] += home.soc_kwh / 1000
-        return {"result": tick, "homes": homes, "zones": zones, "charging_mw": result.charging_mw,
+        return {"result": tick, "homes": homes, "zones": zones,
+                "orders": order_timelines(cycle.events, cycle.allocation.per_home_kw),
+                "charging_mw": result.charging_mw,
                 "provenance": self.provenance(frame, risk)}
 
     # what the page shows
@@ -566,6 +630,7 @@ class Session:
             "start": self.start_summary,
             "tick": self.last["result"] if self.last else None,
             "homes": live_homes,
+            "orders": self.last["orders"] if self.last else {},
             "zones": self.last["zones"] if self.last else {},
             "charging_mw": self.last["charging_mw"] if self.last else 0.0,
             "provenance": self.last["provenance"] if self.last else None,

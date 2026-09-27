@@ -87,11 +87,14 @@ export type FlowHome = {
   county_name?: string
   floor_reason?: string
   soc_pct: number
+  soc_before_pct?: number
   kw: number
   state: BatteryState
   status: string
   floor_pct: number
   under_floor_why?: "started_under" | "floor_raised" | null
+  /** The status the planner used (telemetry reports). Not "live" means no order this tick. */
+  plan_status?: string
 }
 
 export type FlowZoneRow = {
@@ -186,7 +189,32 @@ export type HistoryPoint = {
   target_mw: number
   delivered_mw: number
   charging_mw: number
+  missed_mw?: number
+  unconfirmed_mw?: number
+  reserve_pct?: number
+  risk_level?: string | null
+  reasons?: string[]
+  breaches?: number
+  /** Copied from the tick (controller.acted_intent); never re-derived. */
+  intent?: string
+  intent_reason?: string
 }
+
+export type OrderKind =
+  | "sent"
+  | "drop"
+  | "exec"
+  | "rdrop"
+  | "retry"
+  | "reassigned"
+  | "reassign_failed"
+  | "dup"
+  | "conf"
+  | "timeout"
+  | "mismatch"
+  | "late"
+
+export type OrderTimelineEntry = [number, OrderKind, number | string | null | undefined, ("own" | "r")?]
 
 export type SessionState = {
   status: "idle" | "playing" | "paused" | "finished" | "error"
@@ -197,12 +225,15 @@ export type SessionState = {
   speed: number
   speeds: number[]
   step_seconds: number
+  /** Real seconds left in the tick (worker's clock); null when none is running or frozen. Absent from older workers. */
+  tick_left_s?: number | null
   tick_minutes: number
   tick_index: number
   tick_count: number
   start: StartSummary | Record<string, never>
   tick: FlowTick | null
   homes: FlowHome[]
+  orders?: Record<string, OrderTimelineEntry[]>
   zones: Partial<Record<string, FlowZoneRow>>
   charging_mw: number
   provenance: Provenance | null

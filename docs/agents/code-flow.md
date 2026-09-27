@@ -26,7 +26,7 @@ Then try it. `python -m server.engine --tape tapes/demo.json` plays 12 ticks and
 4. **Who gives how much?** `orchestration.orchestrate_tick` first calls `controller.allocate`, which gives work only to live homes, and only from energy above their floor. If there is not enough, the target is missed and a reason code says why.
 5. **Send the orders and move the energy.** Each order goes over a simulated network that can lose messages. A home's worker checks its floor again, lowers its battery, and reports back. Orders with no answer are retried at 60 seconds; the books close at 120 seconds. Only answered orders count as delivered. The count of homes that crossed a floor is `breaches`, and it must be 0.
 6. **Did the homes answer?** `orchestration.zone_acks` counts per zone which homes acked, held, stayed silent, were dead, or never answered.
-7. **Write it down.** `contracts.TickResult` holds the decision and its reasons. `brief.write_brief` adds one sentence. `score.update` adds the tick to the run totals. `loop.py` writes the run file, the JSONL log, the zone rollups, and `var/fleet/tick_emit.json` (whole fleet: `assigned_kw` from the plan, `power_kw`/`charge_state` from confirmed kW only, except a home already at or under its floor is `HOLDING` with assigned 0 and power 0, `command` null when unsent). A live run also saves `var/fleet/homes.json` after every tick.
+7. **Write it down.** `contracts.TickResult` holds the decision and its reasons. `brief.write_brief` adds one sentence. `score.update` adds the tick to the run totals. `loop.py` writes the run file, the JSONL log, the zone rollups, and `var/fleet/tick_emit.json` (whole fleet: `assigned_kw` from the plan, `power_kw`/`charge_state` from confirmed kW only, except a home already at or under its floor is `HOLDING` with assigned 0 and power 0, `command` null when unsent). For `/flow`, `server/engine/order_log.py` filters the same orchestration events into compact per-home order timelines for Replay. `loop.py` also writes that tick's timelines to `var/fleet/tick_orders.json` (`{tick, ts, orders}`) beside `tick_emit.json`, and `GET /v1/live/orders` serves it (404 `{error, brief}` before any tick). A live run also saves `var/fleet/homes.json` after every tick.
 
 The API (`server/api/snapshot.py`) then reads that run file, re-checks the newest ERCOT posting with the same `compute_risk` and `reserve_policy`, and hands the wall one tick. The wall never decides anything.
 
@@ -166,7 +166,7 @@ flowchart LR
   SCAPI -.->|"/scenario/verify"| ARCHR
 
   subgraph web["5. Wall, web/"]
-    WALL["App.tsx → OperatorWall"]
+    WALL["App.tsx → Replay shell, Live shell, Fleet grid, or /wall OperatorWall"]
     LAYOUT["fixtures/layout-run.json<br/>Demo tape"]
     FLOWP["App.tsx → FlowApp at /flow"]
   end
@@ -415,14 +415,18 @@ flowchart TD
     LAYOUT["web/src/fixtures/layout-run.json, Demo tape"]
     LOADRUN["web/src/loadRun.ts, loadRun, loadMeta"]
     STAMP["web/src/liveStamp.ts, polls /v1/snapshot"]
-    APP["web/index.html, App.tsx: / wall, /fleet list"]
+    APP["web/index.html, App.tsx: / replay shell, /live, /fleet grid, /wall old wall, /fleet/table old table"]
     CLIENT["web/src/api/client.ts, POST /v1/fleet/mode, GET /v1/homes"]
     FEEDTS["web/src/reportFeeds.ts, GET /v1/feeds"]
     ROLLTS["web/src/api/rollups.ts, GET /v1/fleet/rollups"]
+    SHELL["web/src/features/shell: TopBar, placeholders, URL state"]
+    REPLAYLOGIC["web/src/features/replay: pure order state, clock, narration, promise math"]
     FLOWAPP["web/src/features/flow/FlowApp.tsx at /flow"]
     TELLINE["web/src/components/organisms/telemetryLine.ts, battery line under Worker acks"]
   end
 
+  APP --> SHELL
+  SHELL --> REPLAYLOGIC
   FLOWAPP -->|"GET /v1/scenario/state every 500 ms, POST /v1/scenario/*, GET /v1/scenario/verify"| SCAPI
 
   LAYOUT --> LOADRUN
@@ -506,7 +510,7 @@ Engine and API (`server/`):
 - `server/api/archive.py`: reads `ercot_postings` and `ercot_prices` for Demo with an archive event. `ArchiveUnavailable` on a missing config or failed call.
 - `server/api/homes.py`: PostgREST reader for `public.homes`. Pages `GET /v1/homes` and aggregates zone rollups. Console Home JSON is add-only and may include `zone`, `charge_state`, and `power_kw`. Missing config or a failed GET falls back; never 500.
 - `server/api/prices.py`: binds NP6-905-CD rows to the four load zones. `fetch_archive_prices` fills the three zones live NP6 does not return.
-- `server/api/scenario.py`: the `/flow` routes. `GET /v1/scenarios` (catalog), `GET /v1/scenario/state` (reads `var/scenario/state.json`; `worker_not_running` when missing or older than 10 s), `GET /v1/scenario/verify?event=&clock=` (reads the posting and zone prices at that clock through `archive.py`; 503 `archive_<quality>` on failure), and `POST /v1/scenario/start`, `reset`, `play`, `speed`, `alert`, `grid-down`, which only append to `var/scenario/requests.json`. Never runs the engine.
+- `server/api/scenario.py`: the `/flow` routes. `GET /v1/scenarios` (catalog), `GET /v1/scenario/state` (reads `var/scenario/state.json`; `worker_not_running` when missing or older than 10 s), `GET /v1/scenario/verify?event=&clock=` (reads the posting and zone prices at that clock through `archive.py`; 503 `archive_<quality>` on failure), and `POST /v1/scenario/start`, `reset`, `play`, `speed`, `step`, `alert`, `grid-down`, which only append to `var/scenario/requests.json`. `speed` takes the new slow speeds (default 12); `step` is accepted only while paused (409 `worker_not_running` or `not_paused`). Pace detail: [grid-flow.md, Playback pace](grid-flow.md#playback-pace). Never runs the engine.
 - `server/api/fixtures.py`: `FixtureStore`. Reads `web/src/fixtures/console/<name>.json` on every call (`CONSOLE_FIXTURES_DIR` overrides the folder).
 - `server/engine/__main__.py`: `python -m server.engine` calls `loop.main`, then `persist_after_run` only with `--persist`.
 - `server/engine/loop.py`: the tick loop. `play_frame` runs one tick (apply_events → risk → policy → orchestrate_tick → TickResult) and writes no files; `run` plays a whole tape through it and `scripts/scenario_session.py` calls it one tick at a time. Parses arguments, holds the TEMP `load_tape`, writes `var/fleet/tick_emit.json` every tick, and writes the run record every tick. A live run loads or seeds the fleet from `var/fleet/homes.json` and saves it after every tick; a tape or synthetic run uses a fresh `new_fleet` and never touches that file.
@@ -549,7 +553,7 @@ Scripts (`scripts/`):
 - `scripts/jev_shadow.py`: asks TypeSafe Jev one question about an NWS alert and one county. With no arguments it writes `data/fixtures/jev_harris.json`. `--alert <id>` reads `data/fixtures/nws/<id>.json` and writes `data/fixtures/jev/<id>/<fips>.json` for the anchor county of the alert's one zone; `--county <fips>` picks one roster county the alert names; `--all-counties` records every named roster county with no file yet (`--out` overrides the path for one reading). The scenario session reads these files per county, and each P(yes) gates that county's alert floor (`docs/agents/grid-flow.md`, "JEV county gate").
 - `scripts/build_scenarios.py`: builds the `/flow` scenarios from Supabase `ercot_postings` and `ercot_prices`. Writes `tapes/scenarios/<id>.json`, `<id>.provenance.json`, posting fixtures and a baseline under `data/fixtures/<event>/`, and rewrites `tapes/scenarios/catalog.json` (keeping each entry's `alerts`). Reuses `build_tape` and `check_margin`. `--only <id>` builds one. A Supabase failure prints `build_scenarios_skipped: <reason>`, writes nothing, and exits 0.
 - `scripts/fetch_nws_alerts.py`: fetches the archived NWS products named in its spec list from the Iowa Environmental Mesonet and writes `data/fixtures/nws/<id>.json` (verbatim text, county FIPS from the NWS zone-county file, `source_url`). `--only <id>` fetches one.
-- `scripts/scenario_session.py`: the `/flow` worker. On Render, `render.yaml` starts it beside uvicorn. Reads `var/scenario/requests.json`, applies each request to a `scenario.Session`, plays one tick when the time-lapse clock says so, and rewrites `var/scenario/state.json`. `--scenario`, `--seed`, `--steps N` (play N ticks and exit).
+- `scripts/scenario_session.py`: the `/flow` worker. On Render, `render.yaml` starts it beside uvicorn. Reads `var/scenario/requests.json`, applies each request to a `scenario.Session`, plays one tick when the time-lapse clock says so, and rewrites `var/scenario/state.json`. A speed change mid-tick rescales the time left; pause keeps the time left and Play resumes it; a `step` request (`POST /v1/scenario/step`) plays one tick while paused. Detail: [grid-flow.md, Playback pace](grid-flow.md#playback-pace). `--scenario`, `--seed`, `--steps N` (play N ticks and exit).
 
 Wall (`web/src/`, top-level folders):
 
@@ -557,9 +561,9 @@ Wall (`web/src/`, top-level folders):
 - `web/src/components/`: atoms, molecules, organisms, and templates. `templates/OperatorWall.tsx` is the wall.
 - `web/src/design/`: design tokens (`tokens.css`) and the design notes.
 - `web/src/domain/`: `/v1` types, parsers, and helpers for the console pages.
-- `web/src/features/`: fleet list at `/fleet` (same `index.html` as the wall). The wall mast **Fleet** link opens `/fleet` (`?zone=` when a load zone is selected). Fleet pages `GET /v1/homes?zone=&status=&q=&limit=&offset=` (50 rows). `wall/` and `history/` page components remain; they are not separate HTML entries. `web/src/features/flow/` is the `/flow` page: `FlowApp.tsx` polls `GET /v1/scenario/state` every 500 ms and sends requests through `api.ts`; `GridFlow.tsx` draws the grid node and four zone flow lines, `ZoneContribution.tsx` one bar per zone (its homes selling, charging, keeping backup, idle, or grid down, with labeled MW and share of fleet delivery), `ZoneBatteries.tsx` the 25 battery cells of a selected zone, `HistoryStrip.tsx` the recent ticks, `DataPanel.tsx` the data in use (scenario rows, batteries, alert, JEV, overlays), `VerifyArchive.tsx` calls `GET /v1/scenario/verify`, and `flowMath.ts` holds the pure helpers the tests cover.
+- `web/src/features/`: the redesigned shell lives in `shell/`: `TopBar.tsx` ports the approved brand/nav/pill frame, `ShellPages.tsx` mounts placeholder Replay, Live, and Fleet screens, and `urlState.ts` reads/writes `scenario`, `zone`, `home`, and `tick` with push-state zoom. `web/src/features/fleetgrid/` is the `/fleet` battery grid (`FleetGridApp` mounts `FleetGridRoot.tsx`): every home as a Base battery cell in four zone banks, from `GET /v1/homes?limit=200` (floor = `floor_kwh / capacity_kwh`) or the scenario session's `homes`; `fleetModel.ts` holds the pure filters, counts, labels and cell geometry, and a missing charge or floor shows "Not reported" with no fill or floor line. The old fleet table lives at `/fleet/table` through `fleet/FleetApp.tsx`; it still pages `GET /v1/homes?zone=&status=&q=&limit=&offset=` (50 rows). `wall/` and `history/` page components remain; they are not separate HTML entries. `web/src/features/replay/` is the pure logic behind the Replay animation: order timeline state, tick clock mapping, newest-first narration, promise math, and key moments, with no React. `web/src/features/flow/` is the `/flow` page: `FlowApp.tsx` polls `GET /v1/scenario/state` every 500 ms and sends requests through `api.ts`; `GridFlow.tsx` draws the grid node and four zone flow lines, `ZoneContribution.tsx` one bar per zone (its homes selling, charging, keeping backup, idle, or grid down, with labeled MW and share of fleet delivery), `ZoneBatteries.tsx` the 25 battery cells of a selected zone, `HistoryStrip.tsx` the recent ticks, `DataPanel.tsx` the data in use (scenario rows, batteries, alert, JEV, overlays), `VerifyArchive.tsx` calls `GET /v1/scenario/verify`, and `flowMath.ts` holds the pure helpers the tests cover.
 - `web/src/fixtures/`: `console/*.json` (read by `server/api/fixtures.py` and the web tests), `layout-run.json` (the Demo tape, and the API's last fallback run), and `scenes.ts`.
-- `web/src/pages/`: `App.tsx`, mounted by `web/index.html` through `web/src/main.tsx`. `/` loads a run and renders `OperatorWall`. `/fleet` renders `FleetApp`. `/flow` renders `FlowApp` (`route.ts` decides which).
+- `web/src/pages/`: `App.tsx`, mounted by `web/index.html` through `web/src/main.tsx`. `/` renders `ReplayApp`, `/live` renders `LiveApp`, `/fleet` renders `FleetGridApp`, `/fleet/table` renders the old `FleetApp`, `/wall` loads a run and renders `OperatorWall`, and `/flow` renders `FlowApp` (`route.ts` decides which).
 
 Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` returns `fixtures/layout-run.json`; `loadMeta` reads `GET /v1/meta`), `liveStamp.ts` (polls `GET /v1/snapshot` and keeps `calmSamples` for the calm meter), `calmStreak.ts` (`wallCalm`: Demo counts the tape prefix, Live and archive count those samples), `reportFeeds.ts` (reads `GET /v1/feeds`), `fleetAggregate.ts` and `zoneLens.ts` (paint LZ counts from `GET /v1/fleet/rollups` or `index % 4`), `runtimeMode.ts` and `wallOrigin.ts` (Demo, archive, or Live), `contracts.ts` (TypeScript copy of the run-file fields; `contracts.py` wins if they disagree), and `main.tsx`.
 
@@ -587,9 +591,9 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 | `python -m server.engine.orchestration` | `.env`, `--tape` file | `var/orchestration/<seed>.json` |
 | `python -m server.engine.cli` | `.env`, `tests/fixtures/np3_233_cd.json` or `--file` or the ERCOT API, `data/baseline_by_lead.json` | `var/logs/<run_id>.jsonl`; `--live`: `var/signal/latest_np3.json` |
 | `uvicorn server.app:app` | `server/.env`, `var/runs/latest.json` (else Supabase `runs`, else `layout-run.json`), `var/fleet/rollups.json`, `var/state.json`, `data/events/<event>/replay.csv`, ERCOT API, Supabase `ercot_postings`, `ercot_prices`, `homes`, and `operator_settings`, `web/src/fixtures/console/*.json` | `var/signal/latest_np3.json`, `latest_np6.json`, `var/state.json`, Supabase `operator_settings` |
-| flow (`/flow`) | `GET /v1/scenarios`, `/v1/scenario/state`, `/v1/scenario/verify`, `/geo/ercot-load-zones.json` (repo `geo/`) | `POST /v1/scenario/start`, `reset`, `play`, `speed`, `alert`, `grid-down` (the API appends to `var/scenario/requests.json`) |
+| flow (`/flow`) | `GET /v1/scenarios`, `/v1/scenario/state`, `/v1/scenario/verify`, `/geo/ercot-load-zones.json` (repo `geo/`) | `POST /v1/scenario/start`, `reset`, `play`, `speed`, `step`, `alert`, `grid-down` (the API appends to `var/scenario/requests.json`) |
 | wall (`web/index.html`) | `web/src/fixtures/layout-run.json`; `GET /v1/meta`, `/v1/snapshot`, `/v1/feeds`, `/health` | `POST /v1/fleet/mode` |
-| fleet (`/fleet`) | `GET /v1/homes?zone=&status=&q=&limit=&offset=` | none |
+| old fleet table (`/fleet/table`) | `GET /v1/homes?zone=&status=&q=&limit=&offset=` | none |
 
 `var/` is gitignored. `data/events/*/raw/` and all of `data/events/heather/` are gitignored too.
 
@@ -598,7 +602,7 @@ Top-level files in `web/src/` that matter for the flow: `loadRun.ts` (`loadRun` 
 - **`load_tape` is still TEMP in `server/engine/loop.py`.** A plain JSON read that does not check labels, offsets, or a naive `ts`. It waits on Sunny's `server/engine/tape.py`, which does not exist. The promised signature is in [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
 - **One ack model.** The tick loop runs `orchestration.orchestrate_tick` (lossy channel, retry, deadline) and reads acks from `orchestration.zone_acks`. `supervisor.simulate_zone_acks` is unused by the engine.
 - **Some `/v1` routes still read fixtures.** `/live`, `/zone`, `/ticks`, `/tapes`, and the `/live/stream` tick event come from `web/src/fixtures/console/*.json`. `/homes` and `/fleet/rollups` read `public.homes` when configured. `/fleet/mode` reaches the engine through `var/state.json` and `public.operator_settings`; attention and playback writes stay in memory.
-- **The `features/` wall and history page components are not routed.** `/` is the operator wall. `/fleet` pages `GET /v1/homes`.
+- **The `features/` wall and history page components are not routed.** `/wall` is the old operator wall. `/fleet/table` pages `GET /v1/homes`; `/fleet` is the new grid shell.
 - **Weather comes only from the tape, or from an operator-sent archived alert on `/flow`.** A frame's `events["weather"]` list reaches `reserve_policy` as `alerted`; the scenario session instead adds a sent alert's roster counties, with their recorded JEV P(yes), to `events["weather_counties"]` until the alert expires. `loop.py` still never reads `TapeFrame.weather_fixture` or a live alert feed, so `weather_label` stays `"none"`.
 - **`/flow` Verify needs `server/.env`.** `server/env.py` loads `server/.env`; the Supabase keys live in the root `.env`, so the API's archive reads (Verify included) return `archive_no_config` until the keys are in `server/.env` or the shell. See `grid-flow.md`.
 - **Battery feed resets each live cycle.** The live worker calls `loop.run` once per cycle, so each call builds a fresh `TelemetryState`: battery report history does not carry between live cycles. Tape runs keep it for the whole run. `/v1/snapshot` sends `plant` and `feed` as `telemetry`, and the wall shows one line of it under Worker acks ([wall-snapshot.md](wall-snapshot.md#battery-telemetry-line)); `zone_telemetry` is not shown yet.

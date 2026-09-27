@@ -28,13 +28,43 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 
 ## How one step flows
 
-1. The page POSTs `start`, `reset`, `play`, `speed`, `alert`, or `grid-down` with `X-Operator-Id`. `server/api/scenario.py` appends it to `var/scenario/requests.json` and returns 202.
-2. The worker reads new requests (by `seq`), applies them to its `Session` (`server/engine/scenario.py`), and when the time-lapse clock says so, plays one frame through `loop.play_frame` with the session's own fleet.
+1. The page POSTs `start`, `reset`, `play`, `speed`, `step`, `alert`, or `grid-down` with `X-Operator-Id`. `server/api/scenario.py` appends it to `var/scenario/requests.json` and returns 202. `POST /v1/scenario/step` (Replay's Next tick) is recorded only while `state.json` reports `paused`: a missing or stale worker gets 409 `worker_not_running` first, any other status 409 `not_paused`.
+2. The worker reads new requests (by `seq`), applies them to its `Session` (`server/engine/scenario.py`), and when the time-lapse clock says so, plays one frame through `loop.play_frame` with the session's own fleet. A `step` request plays exactly one frame and leaves the session paused (`Session.step_paused`; refused with no scenario, while playing, or after the last tick). Pace: see "Playback pace" below.
 3. Each active alert adds its named roster counties, with their JEV P(yes) or null, to that frame's `events["weather_counties"]` (never whole zones to `events["weather"]`, so JEV gates each floor); grid-down zones go to `events["grid_down"]`. The engine then decides the tick with the usual rules.
 4. The worker writes `var/scenario/state.json`: the tick (with `county_reserve_pct` and `county_reasons`), each home's `{id, name, zone, county, county_name, soc_pct, kw, state, floor_pct, floor_reason}` (`floor_reason` is the county's reason when it has one this tick, else the zone's), zone MW selling and charging, floors and reasons, that tick's provenance rows, active alerts with `jev` (the anchor county's reading) and `jev_by_county`, `counties` (the roster: `{zone, fips, name}`), overlays, the seed and starting-charge histogram, and a short history.
+   - Each home row also carries `status` (the engine's own view) and `plan_status` (added 2026-09-26, Task 12): the status the planner used, taken at plan time (after the frame's status events, before orders go out), so a home that crashes mid-tick after its order reads `status "dead"` but `plan_status "live"`. With the telemetry feed on, the plan reads the batteries' reports (`telemetry.reported_homes`), so a home can be `status "live"` but `plan_status "stale"`; the planner gave it no order, and the tick's `homes_stale:N` counts it. Without the feed both are the same.
+   - Each history point carries the tick's `intent` and `intent_reason` (added 2026-09-26, Task 12), copied from the tick, never re-derived. See `docs/agents/policy-intent.md` for the values.
 5. The page polls `GET /v1/scenario/state` every 500 ms. A state file older than 10 s reads as `worker_not_running`.
 
 Requests left over from an earlier worker are not replayed; the page asks again.
+
+## Playback pace
+
+Decision (Rajat): pause freezes the playhead where it is, and Play resumes the rest of that tick. Control follows the operator's orders; the clock never runs on behind a pause.
+
+- One tick waits `tick_minutes*60 / speed` real seconds. `SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 300, 600)`, `DEFAULT_SPEED = 12` (25 s per 5-minute tick). 2.4 is real time: the 125 s order window plays at true speed. `POST /v1/scenario/speed` takes a float and returns 422 `bad_speed` for anything not in `SPEEDS`.
+- Worker (`scripts/scenario_session.py`, `run`): a speed change mid-tick rescales only the time left (`rescale_next_step`), so the share already played is kept. Pause stores the time left in the tick; Play waits that remainder (rescaled if the speed changed while paused), so a pause never skips or shortens a tick and is never counted as play time. A `step` starts the stepped tick's full step at the step itself; Play during it waits only what is left of that step, and Play after it ran out goes straight on. This holds even when Next tick and Play land in the same worker poll: the stepped tick always gets a fresh step. A reset or new scenario forgets the remainder.
+- `state.json` carries `tick_left_s` (add-only, written by the worker, not `Session.state()`): real seconds left in the tick while playing, the kept remainder while paused mid-tick, and null when no tick is running or frozen (idle, finished, after Next tick).
+- Replay's playhead (`web/src/features/replay/tickClock.ts`, `advancePlayhead`) matches the worker: a speed change, a pause and a resume all re-anchor at the current position. Pause freezes the playhead (mode `frozen`); Play resumes from there. After Next tick the stepped tick's window plays once at the slider speed and holds at 2:00 (mode `step`); any forward move while paused counts as a step, so two quick steps in one poll do not jump to 2:00. The last tick of a finished scenario plays its window once the same way. A tick that lands just before a pause freezes where `tick_left_s` puts it; if `tick_left_s` is null (a Next tick pressed right after the pause) it plays as a step. A page opened mid-tick starts where `tick_left_s` puts it, and one resting at 2:00 follows it on Play, so the playhead can jump back from 2:00 to the worker's real position. `tick_left_s` is as of the state file's `updated_at`: while playing it can be up to 1 s old (the worker rewrites on a change or its 1 s heartbeat). With a worker that does not publish `tick_left_s`, those cases fall back to 0:00 and 2:00.
+- Keys (`useReplayKeys.ts`): Space play/pause, `[` / `]` one stop slower/faster, `.` Next tick. They work with the speed slider focused (only text-entry fields block them), ignore key auto-repeat, and nudge from the speed just sent until the session reports it.
+
+## Order timelines
+
+`state.json` carries `orders` at the top level for Replay. It is a compact per-tick map:
+`{home_id: [[t, kind, extra, key], ...]}`. `t` is virtual seconds inside the engine cycle,
+rounded to 0.1. The first `sent` entry carries the signed planned kW as `extra` (negative means
+charge). Confirmed and executed entries carry actual kW. A `mismatch` entry carries the
+`reported_kwh` extra in kWh, not kW. Reassignments are logged on the original home with the new
+home id as `extra`, and the new home has its own timeline starting with `sent`.
+
+The fourth item, `key`, separates two command lifecycles that can belong to the same displayed
+home in one tick. It is `"own"` for the home's own command id (`home:tick`) and `"r"` for a
+reassigned-in command id (`home:tick:r`). Older readers may ignore it because the first three
+items keep their original meaning.
+
+The only order kinds in this UI contract are `sent`, `drop`, `exec`, `rdrop`, `retry`,
+`reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`. Telemetry and
+transport-only noise stay out of `orders`; the raw orchestration log still lives on the cycle.
 
 ## Batteries
 
