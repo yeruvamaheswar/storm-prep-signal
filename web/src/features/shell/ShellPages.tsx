@@ -1,8 +1,5 @@
 import { TopBar } from "./TopBar"
-
-function ReplaySlot() {
-  return <span className="rg-pill">No scenario loaded</span>
-}
+import { ReplayRoot } from "../replay/ReplayRoot"
 
 function LiveSlot() {
   return <span className="rg-pill">Live feed not connected yet</span>
@@ -25,12 +22,7 @@ function Placeholder({ title, children }: PlaceholderProps) {
 }
 
 export function ReplayApp() {
-  return (
-    <div className="rg-shell">
-      <TopBar current="replay" rightSlot={<ReplaySlot />} />
-      <Placeholder title="Replay">The replay map, tick tape, scenarios, and drill-in panels will be here.</Placeholder>
-    </div>
-  )
+  return <ReplayRoot />
 }
 
 export function LiveApp() {

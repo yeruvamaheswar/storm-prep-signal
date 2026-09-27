@@ -2,6 +2,14 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Task 4 Replay Texas view
+
+- Built the redesigned Replay page at `/` from the approved `Main.dc.html` look, driven by the scenario session APIs and existing Replay logic.
+- Added focused Replay components under `web/src/features/replay/`: map stage, scenario rail, lens controls, promise panel, feed, playback, ledger, and About this data drawer.
+- The page polls `/v1/scenario/state`, lists `/v1/scenarios`, posts scenario/play/speed/weather requests through Uma's `/flow` API module, and keeps the full layout when the worker reports `worker_not_running`.
+- Added `web/tests/replay-components.test.ts` for the promise panel, ledger, and worker-not-running state.
+- Verification: `cd web && npm test`, `cd web && npm run build`, and `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` passed.
+
 ## 2026-09-25: Slice 0, research and plan (no application code)
 
 - Wrote `docs/research.md`. It covers NP3-233-CD access, auth (id_token as a Bearer token,
