@@ -49,6 +49,20 @@ def test_a_demo_home_has_the_same_zone_county_and_name_in_the_api_as_in_the_scen
     assert listed["home-001"]["zone"] == "Houston" and listed["home-001"]["name"] == "Houston-Harris-001"
 
 
+def test_a_demo_home_has_the_same_zone_in_the_api_as_in_the_live_engine(monkeypatch):
+    # The Live worker (scripts/live_cycle.py) seeds with read_settings() and loop.run -> new_fleet(settings).
+    from server.engine.cli import read_settings
+    from server.engine.loop import with_fleet_defaults
+
+    client = api(monkeypatch, seed_table())
+    live = with_fleet_defaults({**read_settings(), "fleet_size": 100})
+    engine = {home.home_id: home.zone for home in new_fleet(live)}
+    listed = {home["home_id"]: home for home in client.get("/v1/homes", params={"limit": 200}).json()}
+    assert {home_id: home["zone"] for home_id, home in listed.items()} == engine
+    for home_id in ("home-001", "home-002", "home-100"):
+        assert client.get(f"/v1/homes/{home_id}").json()["zone"] == engine[home_id]
+
+
 def test_zone_filter_follows_the_engine_zone():
     homes = list_homes(zone="Houston", limit=200, settings=SETTINGS, http_get=postgrest(seed_table()), fleet_size=100)
     ids = [home["home_id"] for home in homes]
