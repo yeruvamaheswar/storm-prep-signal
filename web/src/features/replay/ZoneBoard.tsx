@@ -58,7 +58,8 @@ const LEGEND: Array<{ label: string; stroke: string; width: number; dash?: strin
 
 /** The clay isometric neighbourhood of one zone's homes, ported from the approved Zone mockup. */
 export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/", weather }: Props) {
-  const raised = weather?.raised === true
+  // Weather only: a floor raised because the ERCOT signal is missing does not dim the board.
+  const raised = weather?.weather === true
   const islanded = weather?.gridDown === true
   const fitRef = useRef<HTMLDivElement | null>(null)
   const fit = useFit(fitRef)

@@ -3,6 +3,9 @@ import type { FlowTick, FlowZoneRow } from "../src/features/flow/types"
 import {
   ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, isWeatherReason, ringBox, zoneWeather,
 } from "../src/features/replay/weatherModel"
+import {
+  FLOOR_RAISING_REASONS, SIGNAL_MISSING_REASON, WEATHER_REASONS, isFloorRaisingReason,
+} from "../src/features/replay/reasonCodes"
 
 type TickPart = Pick<FlowTick, "tick" | "risk_level" | "reasons" | "zone_reserve_pct" | "zone_reasons" | "grid_down_zones">
 type RowPart = Pick<FlowZoneRow, "reserve_pct" | "reason" | "grid_down">
@@ -43,53 +46,85 @@ const gridDownRows: Record<string, RowPart> = {
   West: { reserve_pct: 30, reason: "normal", grid_down: false },
 }
 
-const ZONES = ["West", "North", "South", "Houston"] as const
+// feed-failure tick 73 (2026-09-12 18:00 CT): no NP3-233-CD signal, so the engine fails safe and every zone
+// keeps the 60% storm floor with reason signal_unavailable (server/engine/policy.py). A missing feed is not weather.
+const signalMissingTick: TickPart = {
+  tick: 73, risk_level: null, reasons: ["homes_stale:1", "timed_out:6", "duplicates_ignored:6", "over_delivery:6"],
+  zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
+  zone_reasons: { Houston: "signal_unavailable", North: "signal_unavailable", South: "signal_unavailable", West: "signal_unavailable" },
+  grid_down_zones: [],
+}
+const signalMissingRows: Record<string, RowPart> = Object.fromEntries(
+  ["Houston", "North", "South", "West"].map((zone) => [zone, { reserve_pct: 60, reason: "signal_unavailable", grid_down: false }]),
+)
 
-describe("weather reason codes", () => {
-  it("treats storm, weather and alert reasons as weather, and normal as calm", () => {
+const ZONES = ["West", "North", "South", "Houston"] as const
+const CALM = { floorRaised: false, weather: false, gridDown: false }
+
+describe("reason codes", () => {
+  it("treats the storm rule and weather alerts as weather, and normal or a missing signal as not", () => {
     expect(isWeatherReason("storm_risk_high")).toBe(true)
     expect(isWeatherReason("weather_alert")).toBe(true)
     expect(isWeatherReason("weather_alert:North")).toBe(true)
+    expect(isWeatherReason("signal_unavailable")).toBe(false)
+    expect(isWeatherReason("storm_reserve")).toBe(false)
+    expect(isWeatherReason("some_alert")).toBe(false)
     expect(isWeatherReason("normal")).toBe(false)
     expect(isWeatherReason("")).toBe(false)
     expect(isWeatherReason(undefined)).toBe(false)
   })
+
+  it("keeps the promise panel's floor-raising codes and the weather codes in one module", () => {
+    expect([...FLOOR_RAISING_REASONS]).toEqual(["storm_reserve", "signal_unavailable", "weather_alert"])
+    expect([...WEATHER_REASONS]).toEqual(["storm_risk_high", "weather_alert"])
+    expect(SIGNAL_MISSING_REASON).toBe("signal_unavailable")
+    expect(isFloorRaisingReason("signal_unavailable")).toBe(true)
+    expect(isFloorRaisingReason("weather_alert:North")).toBe(true)
+    expect(isFloorRaisingReason("normal")).toBe(false)
+  })
 })
 
 describe("zone weather at the playhead's tick", () => {
-  it("raises every zone on a HIGH risk tick", () => {
+  it("raises every zone and shows weather on a HIGH risk tick", () => {
     const weather = fleetWeather(ZONES, riskTick as never, {}, 30)
-    for (const zone of ZONES) expect(weather[zone]).toEqual({ raised: true, gridDown: false })
+    for (const zone of ZONES) expect(weather[zone]).toEqual({ floorRaised: true, weather: true, gridDown: false })
   })
 
-  it("raises only the alerted zone on a weather-alert tick", () => {
+  it("shows weather only over the alerted zone on a weather-alert tick", () => {
     const weather = fleetWeather(ZONES, alertTick as never, {}, 30)
-    expect(weather.Houston.raised).toBe(true)
-    expect(weather.North.raised).toBe(false)
-    expect(weather.South.raised).toBe(false)
-    expect(weather.West.raised).toBe(false)
+    expect(weather.Houston).toEqual({ floorRaised: true, weather: true, gridDown: false })
+    expect(weather.North).toEqual(CALM)
+    expect(weather.South).toEqual(CALM)
+    expect(weather.West).toEqual(CALM)
+  })
+
+  it("keeps the raised floor but shows no weather when the ERCOT signal is missing", () => {
+    const weather = fleetWeather(ZONES, signalMissingTick as never, signalMissingRows as never, 30)
+    for (const zone of ZONES) expect(weather[zone]).toEqual({ floorRaised: true, weather: false, gridDown: false })
+    // The zone rows alone (no tick) say the same.
+    expect(zoneWeather("North", null, signalMissingRows.North as never, 30)).toEqual({ floorRaised: true, weather: false, gridDown: false })
   })
 
   it("raises nothing on a calm tick", () => {
     const weather = fleetWeather(ZONES, calmTick as never, {}, 30)
-    for (const zone of ZONES) expect(weather[zone]).toEqual({ raised: false, gridDown: false })
+    for (const zone of ZONES) expect(weather[zone]).toEqual(CALM)
   })
 
   it("reads the base floor from the data, never a fixed 30", () => {
     // Same 60% floors, but a fleet whose base floor is 60: no floor is above base and the reason is normal.
     const tick = { ...alertTick, zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" } }
-    expect(zoneWeather("Houston", tick as never, undefined, 60).raised).toBe(false)
-    expect(zoneWeather("Houston", tick as never, undefined, 30).raised).toBe(true)
+    expect(zoneWeather("Houston", tick as never, undefined, 60)).toEqual(CALM)
+    expect(zoneWeather("Houston", tick as never, undefined, 30)).toEqual({ floorRaised: true, weather: true, gridDown: false })
   })
 
-  it("marks a raising reason even when the base floor is missing", () => {
-    expect(zoneWeather("Houston", alertTick as never, undefined, undefined).raised).toBe(true)
-    expect(zoneWeather("North", alertTick as never, undefined, undefined).raised).toBe(false)
+  it("shows weather for a weather reason even when the base floor is missing", () => {
+    expect(zoneWeather("Houston", alertTick as never, undefined, undefined)).toEqual({ floorRaised: false, weather: true, gridDown: false })
+    expect(zoneWeather("North", alertTick as never, undefined, undefined)).toEqual(CALM)
   })
 
   it("marks only the reported grid-down zone as islanded", () => {
     const weather = fleetWeather(ZONES, gridDownTick as never, gridDownRows as never, 30)
-    expect(weather.Houston).toEqual({ raised: false, gridDown: true })
+    expect(weather.Houston).toEqual({ floorRaised: false, weather: false, gridDown: true })
     expect(weather.North.gridDown).toBe(false)
   })
 
@@ -101,13 +136,13 @@ describe("zone weather at the playhead's tick", () => {
 
   it("shows nothing when the data is missing", () => {
     const weather = fleetWeather(ZONES, null, {}, undefined)
-    for (const zone of ZONES) expect(weather[zone]).toEqual({ raised: false, gridDown: false })
-    expect(zoneWeather("Houston", { zone_reserve_pct: {}, zone_reasons: {} } as never, undefined, 30)).toEqual({ raised: false, gridDown: false })
+    for (const zone of ZONES) expect(weather[zone]).toEqual(CALM)
+    expect(zoneWeather("Houston", { zone_reserve_pct: {}, zone_reasons: {} } as never, undefined, 30)).toEqual(CALM)
   })
 
   it("uses the zone row when the tick has no floor for that zone", () => {
     const row = { reserve_pct: 60, reason: "weather_alert", grid_down: false }
-    expect(zoneWeather("Houston", null, row as never, 30).raised).toBe(true)
+    expect(zoneWeather("Houston", null, row as never, 30)).toEqual({ floorRaised: true, weather: true, gridDown: false })
   })
 
   it("names the islanded state in plain words", () => {

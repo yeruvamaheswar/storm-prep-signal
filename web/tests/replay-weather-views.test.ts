@@ -26,38 +26,53 @@ const calmTick = {
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: [],
 } as unknown as FlowTick
+// feed-failure tick 73: no ERCOT signal, every zone at the 60% storm floor with reason signal_unavailable.
+const signalMissingTick = {
+  tick: 73, risk_level: null, reasons: ["homes_stale:1", "timed_out:6", "duplicates_ignored:6", "over_delivery:6"],
+  zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
+  zone_reasons: { Houston: "signal_unavailable", North: "signal_unavailable", South: "signal_unavailable", West: "signal_unavailable" },
+  grid_down_zones: [],
+} as unknown as FlowTick
 
 const homes: FlowHome[] = ["West", "North", "South", "Houston"].flatMap((zone, z) =>
   Array.from({ length: 3 }, (_, k) => ({
     id: `home-${String(z * 10 + k).padStart(3, "0")}`, zone, soc_pct: 50, kw: 0, state: "holding", status: "live", floor_pct: 30,
   }) as FlowHome))
 
-function board(weather: { raised: boolean; gridDown: boolean } | undefined): string {
+type W = { floorRaised: boolean; weather: boolean; gridDown: boolean }
+const NONE: W = { floorRaised: false, weather: false, gridDown: false }
+
+function board(weather: W | undefined): string {
   return renderToStaticMarkup(createElement(ZoneBoard, {
     zone: "Houston", homes, tSeconds: 0, lens: "send", openHome: null, onHome: () => {}, onBack: () => {}, weather,
   }))
 }
 
 describe("zone board weather", () => {
-  it("dims the scene and lights the windows only when the zone's floor is raised", () => {
-    const raised = board({ raised: true, gridDown: false })
+  it("dims the scene and lights the windows only when the zone has weather", () => {
+    const raised = board({ floorRaised: true, weather: true, gridDown: false })
     expect(raised).toContain("zone-scene is-weather")
     expect(raised).toContain("var(--rg-window-lit)")
     expect(raised).not.toContain("#9AA8A3")
 
-    const calm = board({ raised: false, gridDown: false })
+    const calm = board(NONE)
     expect(calm).not.toContain("is-weather")
     expect(calm).not.toContain("var(--rg-window-lit)")
     expect(calm).toContain("#9AA8A3")
 
     expect(board(undefined)).not.toContain("is-weather")
+
+    // A floor raised only because the ERCOT signal is missing: no dim, no lit windows.
+    const feedDown = board({ floorRaised: true, weather: false, gridDown: false })
+    expect(feedDown).not.toContain("is-weather")
+    expect(feedDown).not.toContain("var(--rg-window-lit)")
   })
 
   it("tints an islanded zone and says so", () => {
-    const down = board({ raised: false, gridDown: true })
+    const down = board({ ...NONE, gridDown: true })
     expect(down).toContain("is-islanded")
     expect(down).toContain("Islanded: backing up its own homes")
-    const up = board({ raised: false, gridDown: false })
+    const up = board(NONE)
     expect(up).not.toContain("is-islanded")
     expect(up).not.toContain("Islanded")
   })
@@ -75,6 +90,8 @@ describe("zone board weather", () => {
     expect(page(alertTick, "North")).not.toContain("is-weather")
     expect(page(gridDownTick, "Houston")).toContain("Islanded: backing up its own homes")
     expect(page(gridDownTick, "North")).not.toContain("Islanded")
+    expect(page(signalMissingTick, "Houston")).not.toContain("is-weather")
+    expect(page(signalMissingTick, "Houston")).not.toContain("var(--rg-window-lit)")
   })
 })
 
@@ -131,12 +148,27 @@ describe("map weather", { timeout: 20_000 }, () => {
     expect(box?.style.clipPath).toMatch(/^polygon\(/)
   })
 
-  it("draws no weather on a calm tick or with no tick", async () => {
+  it("draws no weather on a calm tick", async () => {
     await mount(calmTick)
     expect(host.querySelector(".replay-wx-clouds")).toBeNull()
     expect(host.querySelector(".replay-wx-rain")).toBeNull()
+  })
+
+  it("draws no weather with no tick (a fresh root, projected before asserting)", async () => {
     await mount(null)
+    expect(host.querySelector(".replay-wx")).not.toBeNull()
     expect(host.querySelector(".replay-wx-clouds")).toBeNull()
+    expect(host.querySelector(".replay-wx-rain")).toBeNull()
+  })
+
+  it("keeps the amber raised floor but draws no weather when the ERCOT signal is missing", async () => {
+    await mount(signalMissingTick)
+    expect(host.querySelector(".replay-wx")).not.toBeNull()
+    expect(host.querySelector(".replay-wx-clouds")).toBeNull()
+    expect(host.querySelector(".replay-wx-rain")).toBeNull()
+    const zones = [...host.querySelectorAll(".replay-zone")]
+    expect(zones).toHaveLength(4)
+    expect(zones.every((el) => el.classList.contains("is-raised"))).toBe(true)
   })
 
   it("tints an islanded zone and names it on its chip", async () => {

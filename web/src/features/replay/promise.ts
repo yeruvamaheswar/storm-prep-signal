@@ -1,4 +1,5 @@
 import type { FlowTick } from "../flow/types"
+import { isFloorRaisingReason } from "./reasonCodes"
 
 export type ReplayPromiseResult = Partial<FlowTick> & {
   unconfirmed_mw?: number
@@ -8,18 +9,12 @@ export type PromiseRow =
   | { key: "asked" | "sold_confirmed" | "sent_not_counted" | "not_sold"; label: string; mw: number }
   | { key: "breaches"; label: string; count: number }
 
-/** Reason codes the engine emits that mean a floor was raised (so energy was deliberately kept back).
- * Any reason that merely starts with "weather" counts too (e.g. "weather_alert:North"). */
-const FLOOR_RAISING_REASONS = ["storm_reserve", "signal_unavailable", "weather_alert"]
-
 function hasNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value)
 }
 
 function floorRaised(result: ReplayPromiseResult): boolean {
-  return (result.reasons ?? []).some(
-    (reason) => FLOOR_RAISING_REASONS.includes(reason) || reason.startsWith("weather"),
-  )
+  return (result.reasons ?? []).some(isFloorRaisingReason)
 }
 
 export function promiseBreakdown(result: ReplayPromiseResult): PromiseRow[] {

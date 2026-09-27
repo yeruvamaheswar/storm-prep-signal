@@ -1,6 +1,9 @@
 import type { Point } from "../flow/flowMath"
 import type { FlowTick, FlowZoneRow } from "../flow/types"
 import { zoneRaised } from "./mapModel"
+import { SIGNAL_MISSING_REASON, isWeatherReason } from "./reasonCodes"
+
+export { isWeatherReason }
 
 /** Weather on the Replay views: the one rule the map and the zone board both read. Pure, and it reads the
  * playhead's tick only (the tick on screen), never a newer one. Nothing is guessed: missing data shows nothing. */
@@ -8,22 +11,17 @@ import { zoneRaised } from "./mapModel"
 export const ISLANDED_TEXT = "Islanded: backing up its own homes"
 
 export type ZoneWeather = {
-  /** The zone's floor is above the fleet's base floor this tick, or its reason is a storm, weather or alert code. */
-  raised: boolean
+  /** The zone's floor is above the fleet's base floor this tick, whatever the reason. Drives the amber map fill. */
+  floorRaised: boolean
+  /** Weather raised the zone this tick: its floor is raised or its reason is a storm or weather-alert code, and
+   * the reason is not a missing ERCOT signal (a dead feed is not weather). Drives clouds, rain, dim and windows. */
+  weather: boolean
   /** The data reports the zone's grid down this tick. False when the data says nothing. */
   gridDown: boolean
 }
 
 type WeatherTick = Partial<Pick<FlowTick, "zone_reserve_pct" | "zone_reasons" | "grid_down_zones">>
 type WeatherRow = Partial<Pick<FlowZoneRow, "reserve_pct" | "reason" | "grid_down">>
-
-/** Zone reason codes the engine's floor rule emits when it raises a zone (server/engine/policy.py). */
-const WEATHER_REASONS = ["storm_risk_high", "weather_alert"]
-
-export function isWeatherReason(reason: string | null | undefined): boolean {
-  if (!reason) return false
-  return WEATHER_REASONS.includes(reason) || reason.startsWith("weather") || reason.startsWith("storm") || reason.includes("alert")
-}
 
 function isNum(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v)
@@ -43,7 +41,8 @@ export function zoneWeather(
   const gridDown = Array.isArray(tick?.grid_down_zones)
     ? tick.grid_down_zones.includes(zone)
     : row?.grid_down === true
-  return { raised: floorRaised || isWeatherReason(reason), gridDown }
+  const weather = (floorRaised || isWeatherReason(reason)) && reason !== SIGNAL_MISSING_REASON
+  return { floorRaised, weather, gridDown }
 }
 
 export function fleetWeather(

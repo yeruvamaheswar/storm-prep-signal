@@ -69,7 +69,8 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
   }, [homes, orders, tSeconds])
   // Weather at the playhead's tick: the same rule the zone board reads (weatherModel).
   const weather = useMemo(() => fleetWeather(FLOW_ZONES, tick, zones, baseFloorPct), [tick, zones, baseFloorPct])
-  const raised = useMemo(() => Object.fromEntries(FLOW_ZONES.map((zone) => [zone, weather[zone].raised])), [weather])
+  // The amber fill shows any raised floor (a missing signal too); clouds and rain show weather only.
+  const raised = useMemo(() => Object.fromEntries(FLOW_ZONES.map((zone) => [zone, weather[zone].floorRaised])), [weather])
   const homeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const home of homes) counts[home.zone] = (counts[home.zone] ?? 0) + 1
@@ -250,7 +251,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
             const ring = projected.rings[zone]
             const box = ring ? ringBox(ring) : null
             const at = projected.zones[zone]
-            if (!weather[zone].raised || !box || !at) return null
+            if (!weather[zone].weather || !box || !at) return null
             return (
               <g key={zone} className="replay-wx-clouds" data-zone={zone} filter="url(#replay-cloud)">
                 {cloudBlobs(box, at).map((blob, k) => <ellipse key={k} cx={blob.cx} cy={blob.cy} rx={blob.rx} ry={blob.ry} />)}
@@ -262,7 +263,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
       {projected ? FLOW_ZONES.map((zone) => {
         const ring = projected.rings[zone]
         const box = ring ? ringBox(ring) : null
-        if (!weather[zone].raised || !box) return null
+        if (!weather[zone].weather || !box) return null
         return (
           <div key={`r-${zone}`} className="replay-wx-rain" data-zone={zone} aria-hidden="true"
             style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: clipPolygon(ring, box) }}>
