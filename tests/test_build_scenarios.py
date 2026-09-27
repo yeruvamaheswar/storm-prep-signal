@@ -218,7 +218,7 @@ def test_calm_day_charges_on_cheap_ticks_and_sells_at_the_peak(tmp_path):
     dear = [(t["zone_charge_why"].get(zone), mw) for t in ticks for zone, mw in t["zone_charging_mw"].items()
             if t["zone_prices"].get(zone, t["price_usd_mwh"]) > 25]
     assert any(mw > 0 for _, mw in dear)
-    assert {why for why, mw in dear if mw > 0} <= {"dam_cheap_hour", "rt_dip"}
+    assert {why for why, mw in dear if mw > 0} <= {"dam_cheap_hour", "before_spike", "rt_dip"}
     assert all(t["dam_label"] == "recorded:ERCOT NP4-190-CD" for t in ticks)
     assert max(t["delivered_mw"] for t in ticks if t["price_usd_mwh"] >= 60) > 0.2
     assert sum(t["breaches"] for t in ticks) == 0

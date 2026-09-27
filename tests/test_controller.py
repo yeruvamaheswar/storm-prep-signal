@@ -878,7 +878,7 @@ def test_dam_waiting_zone_still_refills_a_home_under_its_floor():
 
 
 def test_acted_intent_names_the_dam_rule_when_it_set_a_charging_zone():
-    for why in ("dam_cheap_hour", "rt_dip"):
+    for why in ("dam_cheap_hour", "before_spike", "rt_dip"):
         p = zone_priced({z: "hold" for z in ZONES} | {"North": "charge"})
         p.zone_charge_why = {"North": why, "Houston": "cheaper_hour_later"}
         alloc = allocate([home("n", 10.0, zone="North")], frame(0.0), p, "AUTO", settings())

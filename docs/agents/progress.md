@@ -1243,3 +1243,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests (`tests/test_live_cycle.py`): a restarted worker that finds the day in `var/dam/` makes no DAM GET; a DAM 429 is one GET per cycle, not cached, and tried once more next cycle. Existing: a second cycle makes no DAM GET; a DAM failure falls back to the bands.
 - Docs: `docs/agents/live-ingest.md`, `dam-forecast.md`, `system-design.md`.
 - `pytest -q`: 833 passed.
+
+## 2026-09-27: DAM charge hours stop at the next price spike (epic 7)
+
+- Gap: the `heather-spike` finding above. Decided by the user: the look-ahead window for choosing charge hours ends at the first later DAM hour at or above `discharge_threshold_usd_mwh`. Choices recorded in `docs/agents/policy-intent.md` "Cheapest DAM hours": the current hour never ends the window; payback still reads the whole window, spike included; storm zones cut too; new why `before_spike` (add-only) when the cut changed the chosen hours.
+- Engine: `policy.dam_charge`, new `policy._cheapest`; `controller.acted_intent` reads `before_spike` after `dam_cheap_hour`. Web: `damForecast.ts` line "N cheapest hours before the next sell-band hour". `CONSTRAINTS.md` `reserve_policy`, `acted_intent` and `Policy.zone_charge_why` got dated add-only sentences. `HONEST_LIMITS`: the "wait past a real dip beyond a spike" line is replaced by "fills up before a spike even when it already holds enough for the call".
+- Replays (seed 42, bands / first DAM / stop at spike, net $, 0 breaches in all): `calm-charge` 101.37 / 106.76 / 107.75, `heather-spike` 1041.08 / 842.68 / 1016.79, `heather-thaw` 34.53 / 47.87 / 34.91, `beryl-landfall` −13.46 / −10.07 / −10.07. Why each moved: `policy-intent.md` "Replay".
+- Tests: 5 new `test_dam_*` cases in `tests/test_policy.py`; `test_dam_charge_hours_follow_how_much_charge_the_zone_needs` now expects 5 hours, not 6 (its last hour is $60, which ends the window); `before_spike` added to the `acted_intent` DAM case in `tests/test_controller.py` and to the calm-day reason whitelist in `tests/test_build_scenarios.py`; `web/tests/damForecast.test.ts` 1 new case.
+- `pytest -q` (rebased on the DAM cache entry above): 838 passed. Web: `vitest` 648 passed, `tsc --noEmit` clean. `scripts/backtest_dam.py` not rerun (it scores DAM against real-time and does not call the policy).

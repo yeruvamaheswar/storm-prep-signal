@@ -9,7 +9,7 @@ The charging rule these numbers drive lives in [policy-intent.md, "Cheapest DAM 
 `web/src/components/organisms/DamForecast.tsx`, titled "Next 24 h price (ERCOT DAM, $/MWh)", under `IntervalStrip` in `web/src/components/organisms/ControlBar.tsx` ([interval-strip.md](interval-strip.md)). Its pure math is `web/src/damForecast.ts`. It shows in Live, or in Archive when the tick carries `dam_hours`. Tokens only from `DESIGN.md`.
 
 - One row per zone: one cell per hour, price as bar height. The chosen charge hours are Ink (charging is Ink, as on `/flow`). The current hour is outlined. A Muted hairline marks the zone's highest price.
-- One line per zone from `zone_charge_why`. The shape, for example: "Houston · charging now · 2 cheapest hours of the next 24 · $14.10/MWh ERCOT DAM", "North · waiting · cheaper hour 03:00 · $11.20/MWh ERCOT DAM", "West · not charging · no later hour pays back". The exact copy lives in `damForecast.ts`.
+- One line per zone from `zone_charge_why`. The shape, for example: "Houston · charging now · 2 cheapest hours of the next 24 · $14.10/MWh ERCOT DAM", "Houston · charging now · 2 cheapest hours before the next sell-band hour · $21.00/MWh ERCOT DAM", "North · waiting · cheaper hour 03:00 · $11.20/MWh ERCOT DAM", "West · not charging · no later hour pays back". The exact copy lives in `damForecast.ts`.
 - Every $/MWh carries its label (`CONSTRAINTS.md` invariant).
 
 ## Where each number comes from
@@ -21,7 +21,7 @@ The charging rule these numbers drive lives in [policy-intent.md, "Cheapest DAM 
 | Outlined cell | first entry of `dam_hours[zone]` | `signal.dam_window` starts at the hour holding the tick's clock |
 | Ink cells | `zone_charge_hours[zone]` | `policy.dam_charge`, the chosen hours |
 | "N cheapest hours" | `zone_hours_needed[zone]` | `fleet.zone_hours_needed` on the planner's view |
-| Why line | `zone_charge_why[zone]` | `policy._set_zone_intent`: `dam_cheap_hour`, `rt_dip`, `cheaper_hour_later`, `no_payback`, `full`, `sell_band` |
+| Why line | `zone_charge_why[zone]` | `policy._set_zone_intent`: `dam_cheap_hour`, `before_spike`, `rt_dip`, `cheaper_hour_later`, `no_payback`, `full`, `sell_band` |
 | Source label | `dam_label`, `dam_as_of` | `loop.frame_dam`: `ercot` on Live, `recorded:ERCOT NP4-190-CD` on tapes, `none` without DAM; `dam_as_of` lists the delivery dates read |
 
 **Window.** From the current hour up to 24 hours ahead, only hours already published at the tick. ERCOT posts the next day's DAM in the early afternoon; the engine treats it as out from 13:30 CT (`signal.DAM_POSTED_AT`, `dam_days_published`). So before 13:30 the window ends at midnight, and after it reaches into tomorrow. A zone missing the current hour is dropped from `dam_hours` and falls back to the $25/$60 bands.

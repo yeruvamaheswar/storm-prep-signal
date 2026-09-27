@@ -106,14 +106,17 @@ def _set_zone_intent(policy, settings, mode, price_label, zone_prices, dam_hours
 def dam_charge(hours, rt_usd, hours_needed, settings):
     """(chosen hour starts, why, charge?) for one zone from its next 24 DAM hours, current hour first.
 
-    Chosen: the hours_needed cheapest hours, ties to the earlier. Charge now when this hour is
+    Chosen: the hours_needed cheapest hours before the first later hour in the sell band (the
+    battery would sell into that hour first), ties to the earlier. Charge now when this hour is
     chosen, or the real-time price is at or below the dearest chosen hour (a dip the forecast
-    missed), and some later hour pays back: later DAM price x round trip > the price now.
+    missed), and some later hour in the whole window, spike included, pays back: later DAM
+    price x round trip > the price now. `before_spike` when the cut changed the chosen hours.
     """
     if hours_needed <= 0:
         return [], "full", False
-    ranked = sorted(range(len(hours)), key=lambda i: (hours[i]["usd_mwh"], i))[:hours_needed]
-    chosen = sorted(ranked)
+    sell_at = settings.get("discharge_threshold_usd_mwh", 60)
+    spike = next((i for i in range(1, len(hours)) if hours[i]["usd_mwh"] >= sell_at), len(hours))
+    chosen = _cheapest(hours[:spike], hours_needed)
     starts = [hours[i]["hour_start"] for i in chosen]
     dearest = max(hours[i]["usd_mwh"] for i in chosen)
     in_chosen = chosen[0] == 0
@@ -124,7 +127,14 @@ def dam_charge(hours, rt_usd, hours_needed, settings):
     keep = settings.get("round_trip_pct", 89) / 100
     if not any(hour["usd_mwh"] * keep > now_usd for hour in hours[1:]):
         return starts, "no_payback", False
-    return starts, "dam_cheap_hour" if in_chosen else "rt_dip", True
+    if not in_chosen:
+        return starts, "rt_dip", True
+    return starts, "dam_cheap_hour" if chosen == _cheapest(hours, hours_needed) else "before_spike", True
+
+
+def _cheapest(hours, count):
+    """Indexes of the count cheapest hours, ties to the earlier, in time order."""
+    return sorted(sorted(range(len(hours)), key=lambda i: (hours[i]["usd_mwh"], i))[:count])
 
 
 def price_band(usd, settings, storm):
