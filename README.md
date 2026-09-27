@@ -2,7 +2,11 @@
 
 **A safety-first controller for home batteries on the Texas grid.** It sells stored power when ERCOT prices spike, and it never drains a home below the backup that home needs in a blackout.
 
-[Live demo · `/flow`](https://storm-prep-signal.vercel.app/flow) · [Replay](https://storm-prep-signal.vercel.app/) · [Live](https://storm-prep-signal.vercel.app/live) · [Fleet](https://storm-prep-signal.vercel.app/fleet) · [Wall](https://storm-prep-signal.vercel.app/wall) · [Judges: start here](docs/humans/judges.md)
+Track: Open Grid Data (Texas grid data made useful), with an Orchestration angle: many independent homes coordinated safely when pieces fail.
+
+[Live demo · `/flow`](https://storm-prep-signal.vercel.app/flow) · [Replay](https://storm-prep-signal.vercel.app/) · [Live](https://storm-prep-signal.vercel.app/live) · [Judges: start here](docs/humans/judges.md)
+
+(preview, some panels use sample data) [Fleet](https://storm-prep-signal.vercel.app/fleet) · [Wall](https://storm-prep-signal.vercel.app/wall)
 
 > The API runs on Render’s free plan. After 15 minutes idle it sleeps, so the **first load can take about a minute**. Portrait phones are supported; desktop layout is unchanged.
 

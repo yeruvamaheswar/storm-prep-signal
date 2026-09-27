@@ -37,10 +37,10 @@ The 12 ticks of `tapes/demo.json`. Targets and prices on this tape are labeled `
 The last line:
 
 ```
-run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1
+run total: delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1
 ```
 
-The 51.9% is deliberate. On ticks 5–9 and 12 the engine keeps 60% of every battery for backup, and on tick 8 the operator held. It misses the target rather than drain a family's reserve. The rule is "we may miss the target; we never break a reserve."
+The 57.6% is deliberate. On ticks 5–9 and 12 the engine keeps 60% of every battery for backup, and on tick 8 the operator held. It misses the target rather than drain a family's reserve. The rule is "we may miss the target; we never break a reserve."
 
 ## 4. Failure handling
 
@@ -63,7 +63,7 @@ All test files are in `tests/`.
 |---|---|
 | 0 floor breaches on every tick | `test_invariants.py` (30 seeded random worlds, 12 ticks each, with lost, duplicated and late messages, dead zones, and crashing or lying homes), `test_failures.py`, `test_replay_offline.py` (every tick of the demo and Heather tapes) |
 | Delivered ≤ target, and missed = target − delivered | `test_invariants.py`, `test_failures.py`, `test_replay_offline.py` |
-| The same tape replays identically | `test_replay_offline.py`: two runs of the demo and Heather tapes match tick for tick, and two CLI runs in the same folder both give 0.164 of 0.317 MWh |
+| The same tape replays identically | `test_replay_offline.py`: two runs of the demo and Heather tapes match tick for tick, and two CLI runs in the same folder both give 0.182 of 0.317 MWh |
 | A tape run needs no network and writes nothing outside its own folder | `test_replay_offline.py` blocks every outbound connection, checks none was attempted, and checks the repo's `var/` is unchanged after CLI runs from other folders |
 
 ## 6. Honest limits

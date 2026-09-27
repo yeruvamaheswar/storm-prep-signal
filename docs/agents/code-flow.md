@@ -42,7 +42,7 @@ What the demo tape shows (numbers from a run on 2026-09-26; they move if the tap
 | 10 and 11 | Calm again, homes come back | Floor 30%, target met |
 | 12 | Posting file is missing | Risk `None`, floor 60%, reason `signal_unavailable` |
 
-The run ends with `run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`. The target was missed on purpose; no reserve was broken. Every replay ends on that line, even a second run in the same folder, because a tape run starts from a fresh fleet.
+The run ends with `run total: delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1`. The target was missed on purpose; no reserve was broken. Every replay ends on that line, even a second run in the same folder, because a tape run starts from a fresh fleet.
 
 The rest of this file is reference: diagrams first, then every step, file, and data file.
 

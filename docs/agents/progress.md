@@ -2,6 +2,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Docs — demo totals, track line, preview links
+
+- Named gap: judge-facing docs still showed the old demo tape total (0.164 / 51.9%) and a single top link row that mixed core and preview surfaces.
+- `README.md`: track/orchestration line under the hero paragraph; `/flow` · Replay · Live · Judges on the first link row; Fleet · Wall on a second line labeled preview/sample data. Defaults already `HOME_KWH=25` / `HOME_MAX_KW=11.4`, so no offline env override line.
+- Demo total updated to `delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1` in `docs/humans/judges.md`, `docs/agents/code-flow.md`, and remaining `docs/` mentions of 0.164 / 51.9.
+- Verification: `python3 -m pytest -q`.
+
 ## 2026-09-27: Phone Replay/Live sheets + less lag
 
 - Named gap: phone Replay/Live menus and lag — dual overlay rails made the map hard to use; 250 ms UI clock was heavy.
@@ -821,13 +828,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `server/engine/loop.py`: `run()` starts `score.new_board(settings)` and calls `score.update(board, result, homes)` after every tick; the run file's `totals` is that board (also on a zero-tick run). `loop.main` prints one `run total: delivered X of Y MWh (Z%) | floor breaches N | hold ticks N` line.
 - `server/engine/score.py`: two add-only board fields, `delivery_pct` (cumulative delivered / target x 100, None until a target is asked for) and `hold_ticks` (ticks with `mode == "HOLD"`). Existing names kept: `ticks`, `target_mwh`, `delivered_mwh`, `breaches`. Totals are MWh, not MW.
 - Tests: `tests/test_score.py` covers the two new fields; `tests/test_replay_offline.py` asserts totals are identical across two runs and adds `test_demo_run_writes_scoreboard_totals` (demo tape: non-empty, 0 breaches, delivered <= target, 1 hold tick, file matches return).
-- `policy.py`, `controller.py`, and reserve logic untouched. Demo tape: `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`.
+- `policy.py`, `controller.py`, and reserve logic untouched. Demo tape: `delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1`.
 - Docs: `docs/agents/code-flow.md` (both diagrams, steps 8 and 9, file map, stubs), `docs/humans/code-flow.md`, `docs/agents/epic-3-controller.md`. `CONSTRAINTS.md` line "`totals` stays `{}` until `score.py` fills it in" left as is (frozen). `pytest -q`: 396 passed.
 
 ## 2026-09-26: System design doc and newcomer path (Uma)
 
 - New `docs/agents/system-design.md`: plain-English problem, glossary, context and parts diagrams, design decisions and why, the risk, floor, and allocation rules with a worked example, data shapes and stores, run modes, a failure-handling table, deploy diagram, settings, dependencies, security, testing, and a "which change updates which doc" table. Links to `code-flow.md`, `CONSTRAINTS.md`, and `team-manifest.md` instead of copying them.
-- New `docs/humans/system-design.md` (one-minute page). `docs/agents/code-flow.md` gained a "New here? One tick in plain words" section with the demo-tape story (from a real run: 0 breaches, 51.9% delivered). Pointers added to `docs/agents/index.md`, `docs/humans/start-here.md`, `docs/agents/working-rules.md`.
+- New `docs/humans/system-design.md` (one-minute page). `docs/agents/code-flow.md` gained a "New here? One tick in plain words" section with the demo-tape story (from a real run: 0 breaches, 57.6% delivered). Pointers added to `docs/agents/index.md`, `docs/humans/start-here.md`, `docs/agents/working-rules.md`.
 - Keep-current: `.cursor/rules/system-design.mdc`, and `tests/test_system_design.py` fails when a `.env.example` setting, a Python or web runtime dependency, a `contracts.py` dataclass, or a Render service is missing from the doc, or a diagram is deleted. Checked that an undocumented setting fails the test.
 - All 4 new Mermaid blocks rendered with `@mermaid-js/mermaid-cli`. `pytest -q`: 398 passed. No application code changed.
 - Seen, not fixed: on demo tick 4 (Houston at 60%) the brief still says "Floor 30%"; `write_brief` reports the fleet floor only.
@@ -845,7 +852,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 - `server/engine/loop.py`: every tick runs `orchestrate_tick`, and the scoreboard (`new_board`, `update`, `totals` in both run-file writes, `run total:` line) is kept. The unused `supervisor` import is gone.
 - Docs: `docs/agents/code-flow.md` diagrams and steps now show `orchestrate_tick` then `score.update`; the "New here?" steps 4 to 6 describe the orchestrator. `docs/agents/system-design.md`: the second floor guard is the orchestration worker's `safe_kw` clamp, a failure row for lost orders, a "Confirmed MW" glossary line.
-- Demo tape: all 12 tick lines and `run total: delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1` are byte-identical to the pre-merge branch. `pytest -q`: 405 passed. `policy.py`, `controller.py`, and `fleet.py` untouched.
+- Demo tape: all 12 tick lines and `run total: delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1` are byte-identical to the pre-merge branch. `pytest -q`: 405 passed. `policy.py`, `controller.py`, and `fleet.py` untouched.
 
 ## 2026-09-26: Open epics listed against the end state
 
@@ -981,7 +988,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 ## 2026-09-26: A tape run writes nothing under the repo's var/
 
-- `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked, each run with cwd set to its own fresh folder under `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.164 of 0.317 MWh, 0 breaches, 1 hold tick.
+- `tests/test_replay_offline.py::test_cli_tape_replay_writes_nothing_under_repo_var` runs `tapes/demo.json` twice through `server.engine.__main__.run_then_persist` (the `python3 -m server.engine --tape` entry) with sockets blocked, each run with cwd set to its own fresh folder under `tmp_path`. Repo `var/` files and mtimes are unchanged; both runs give the same totals; demo total is 0.182 of 0.317 MWh, 0 breaches, 1 hold tick.
 - Superseded: see "Tape replays start fresh; only live runs carry fleet SOC" below. Both runs now share one folder.
 - The tape's `risk_fixture` paths are relative to cwd. Without copies, every tick fails safe and the demo delivers 0.076 MWh. The test copies the fixture files that exist into each folder.
 - Settings the demo reads, including the `CHANNEL_*` rates, are pinned in the test, because `read_settings()` loads the repo `.env` whatever the cwd.
@@ -989,19 +996,19 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 ## 2026-09-26: Tape replays start fresh; only live runs carry fleet SOC
 
-- Superseded the carry-over note above. PR #22 made every run load and save `var/fleet/homes.json`, so a second `--tape tapes/demo.json` in one folder started drained (51.9%, then 40.4%).
+- Superseded the carry-over note above. PR #22 made every run load and save `var/fleet/homes.json`, so a second `--tape tapes/demo.json` in one folder started drained (57.6%, then 40.4%).
 - `loop.run`: with `live=True`, `load_or_seed_homes` at the start and `persist_discharged_homes` once after the tick loop (was every tick). With `live=False` (tape or synthetic), `new_fleet(settings)` and no read or write of `homes.json`. `rollups.json` still written every tick; only the API reads it.
 - `tests/test_fleet_persist.py`: reload tests pass `live=True` (with `live_risk=None, live_price=None`, so no fetch). New: a live run saves once; a tape run leaves an existing drained `homes.json` byte-identical and matches a fresh run's totals.
-- `tests/test_replay_offline.py`: the CLI test now runs the demo tape twice in the same `tmp_path`, no cleanup, and asserts 0.164 of 0.317 MWh, 51.9%, 0 breaches, 1 hold tick both times, and no `var/fleet/homes.json`. It fails on the PR #22 `loop.py`.
+- `tests/test_replay_offline.py`: the CLI test now runs the demo tape twice in the same `tmp_path`, no cleanup, and asserts 0.182 of 0.317 MWh, 57.6%, 0 breaches, 1 hold tick both times, and no `var/fleet/homes.json`. It fails on the PR #22 `loop.py`.
 - `supabase/migrations/20260926_homes.sql`: `ENABLE ROW LEVEL SECURITY` on `public.homes`, no policies. `server/api/homes.py` and the scripts use `SUPABASE_SECRET_KEY`, which bypasses RLS; the web app never calls Supabase. `tests/test_seed_homes.py` now requires RLS on and no `CREATE POLICY`.
 - Docs: `docs/agents/fleet-rollups.md` (Persist), `docs/agents/code-flow.md` (text, three diagrams, file map, data table), `docs/agents/system-design.md` (decision 11, data table, security), `docs/humans/fleet-rollups.md`.
-- `pytest -q`: 488 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root both print `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`.
+- `pytest -q`: 488 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root both print `delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1`.
 
 ## 2026-09-26: Battery telemetry feed runs in the tick loop
 
 - `loop.run` builds one `TelemetryState` per run when `settings["telemetry_feed"]` is on and passes it to every `orchestrate_tick`, so `allocate` plans from what the batteries reported (stale, dead and suspect homes get no work). Each `TickResult` gains `plant`, `feed`, `zone_telemetry` (added fields, empty when off). The console prints a `plant:` line per tick.
 - `read_settings()` turns it on (`TELEMETRY_FEED=1`, plus `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S` in `.env.example`). Bare settings dicts, as most tests pass, leave it off.
-- Demo tape with the feed on: delivered 0.164 of 0.317 MWh (51.9%), identical to feed off; 0 breaches; the planted lying battery is `suspect` from tick 1; live homes drop to 69/100 in the storm frames. All numbers synthetic.
+- Demo tape with the feed on: delivered 0.182 of 0.317 MWh (57.6%), identical to feed off; 0 breaches; the planted lying battery is `suspect` from tick 1; live homes drop to 69/100 in the storm frames. All numbers synthetic.
 - `tests/test_tracer.py`: its stand-in `orchestrate_tick` now passes extra arguments through (no assertion changed); the tracer checks now run with the feed on.
 - Limit: the live worker calls `loop.run` once per cycle, so report history resets each live cycle. `/v1` and the wall do not show the new fields yet.
 - Tests: 7 in `tests/test_loop_telemetry.py`. `pytest -q`: 493 passed after merging main.
@@ -1010,7 +1017,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 - `loop.run` keeps both: `live=True` loads or seeds `homes.json` at the start and saves it once after the last tick; tape and synthetic runs use `new_fleet(settings)`. The one `TelemetryState` per run is built from whichever fleet that gives. The feed reads and writes no file, so tape runs still never touch `homes.json`.
 - Docs: `code-flow.md` step 7 (feed plus "nothing saved per tick"); `system-design.md` parts diagram (feed label, live-only `homes.json` edge) and the one-tick paragraph.
-- `pytest -q`: 495 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root, feed on (`plant:` line every tick), both print `delivered 0.164 of 0.317 MWh (51.9%) | floor breaches 0 | hold ticks 1`; no `var/fleet/homes.json` created.
+- `pytest -q`: 495 passed. Two `python3 -m server.engine --tape tapes/demo.json` runs from the repo root, feed on (`plant:` line every tick), both print `delivered 0.182 of 0.317 MWh (57.6%) | floor breaches 0 | hold ticks 1`; no `var/fleet/homes.json` created.
 
 ## 2026-09-26: Rollups count confirmed work, not the plan (Rajat's lane)
 
@@ -1100,7 +1107,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `fleet.room_kw` (room to full, capped by `max_kw`). `HomeWorker.run` caps charge at it (second guard, logs `clamped`); breaches count discharge only, so charging a home under a newly raised floor is not a breach.
 - `orchestration.py`: charge commands sit in `ZoneSupervisor.charges`, sent once, never timed out, retried or reassigned; a home with a charge order is never picked for reassigned work. Reports log `charge_confirmed`. The charge-drop check books the amount nearer zero. Add-only `CycleResult.charged_mw` (positive MW absorbed). Charge stays out of planned, confirmed, credited, `home_confirmed_kw` and rollups; telemetry gets it as negative confirmed kW, so a charging battery is not flagged suspect.
 - Docs: `docs/agents/policy-intent.md` ("How a charge tick runs").
-- Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.164/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q` after merging main: 573 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+- Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.182/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q` after merging main: 573 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
 
 ## 2026-09-26: Homes under the floor show HOLDING
 
@@ -1192,7 +1199,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Files: `server/engine/policy.py`, `controller.py`, `loop.py`, `contracts.py`; docs `docs/agents/policy-intent.md` (new "Each zone decides" section), `price-live.md`, `code-flow.md`, `team-manifest.md` (honest limit on over_delivery), `docs/humans/policy-intent.md`, `CONSTRAINTS.md` (`reserve_policy` row, allocation step 9, contract field).
 - Tests: 6 zone-band cases in `test_policy.py`; 7 `allocate_zoned` cases in `test_controller.py` (proportional split over discharge+hold, charge zone covers only the remainder); path 24 in `test_tick_paths.py`; `test_invariants.py` also asserts planned delivery <= target. Changed (approved behaviour change): `test_zone_intent_splits_discharge_charge_and_hold_by_zone` (a 1 MW call now sells from every zone), `test_zone_intent_missing_zone_holds_while_others_charge` (call 0.2 -> 0.04, the no-row zone sells it, Houston charges), `test_build_scenarios.py::test_calm_day...` (no charging above $25 is now checked per zone, not on the headline), `test_orchestration.py::test_zone_intent_books_discharge_and_charge_apart` (South and West have no row, so they share the call with Houston).
 - `pytest -q` with the local `.env`: 697 passed, 2 failed (the fleet-cap meta tests, same as main). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
-- Tapes (delivered %, origin/main -> branch, 0 breaches all): demo 51.9 -> 51.9, calm-charge 76.9 -> 80.8, price-spike 18.5 -> 18.5, operator-hold 18.3 -> 18.3, beryl-landfall 100 -> 100, feed-failure 100 -> 100, heather-spike 44.3 -> 44.3, heather 24.4 -> 35.5, heather-thaw 80.5 -> 92.8, faults 47.2 -> 47.0, storm-rule-high 32.6 -> 32.5, storm-rule-night 35.3 -> 29.2. Review fixes: an alerted zone with no price holds instead of taking a headline `discharge`; a tick that charges only on zone prices (e.g. headline missing) is labelled `zone_price`, not `price_unavailable`; a near-exact cover no longer makes a cheap home sell float noise (`MISSED_TOLERANCE_MW`). Tests: 2 in `test_policy.py`, 3 in `test_controller.py`; 702 passed, 2 fleet-cap failures; fuzz 0 breaches. Why storm-rule-night drops (correct, not a bug): at 16:00-16:25 North is $22-23 but Houston is $67-80 and South $158-303. origin/main charged every zone on the North price (237 kWh over the run); per-zone charges only the cheap zones (92 kWh). The 145 kWh not bought is the 0.143 MWh delivered less: both runs drain every home to the floor by 20:40, so delivery equals energy stored. Deliveries first differ at tick 43 (19:30). storm-rule-high: South at $25.49 (just above $25) at 08:45-08:55 does not charge; 30 kWh less stored, 0.002 MWh less delivered.
+- Tapes (delivered %, origin/main -> branch, 0 breaches all): demo 57.6 -> 57.6, calm-charge 76.9 -> 80.8, price-spike 18.5 -> 18.5, operator-hold 18.3 -> 18.3, beryl-landfall 100 -> 100, feed-failure 100 -> 100, heather-spike 44.3 -> 44.3, heather 24.4 -> 35.5, heather-thaw 80.5 -> 92.8, faults 47.2 -> 47.0, storm-rule-high 32.6 -> 32.5, storm-rule-night 35.3 -> 29.2. Review fixes: an alerted zone with no price holds instead of taking a headline `discharge`; a tick that charges only on zone prices (e.g. headline missing) is labelled `zone_price`, not `price_unavailable`; a near-exact cover no longer makes a cheap home sell float noise (`MISSED_TOLERANCE_MW`). Tests: 2 in `test_policy.py`, 3 in `test_controller.py`; 702 passed, 2 fleet-cap failures; fuzz 0 breaches. Why storm-rule-night drops (correct, not a bug): at 16:00-16:25 North is $22-23 but Houston is $67-80 and South $158-303. origin/main charged every zone on the North price (237 kWh over the run); per-zone charges only the cheap zones (92 kWh). The 145 kWh not bought is the 0.143 MWh delivered less: both runs drain every home to the floor by 20:40, so delivery equals energy stored. Deliveries first differ at tick 43 (19:30). storm-rule-high: South at $25.49 (just above $25) at 08:45-08:55 does not charge; 30 kWh less stored, 0.002 MWh less delivered.
 
 ## 2026-09-26: Render pins the non-secret settings (Rajat)
 
