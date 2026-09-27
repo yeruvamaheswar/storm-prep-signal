@@ -8,7 +8,7 @@ import { canStep, PlaybackBar } from "../src/features/replay/PlaybackBar"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
 import {
   advancePlayhead, availableStops, initialPlayhead, nudgeSpeed, playheadSeconds, SPEED_STOPS, speedLabel,
-  type Playhead,
+  type Playhead, type PlayheadObservation,
 } from "../src/features/replay/tickClock"
 import {
   rememberSpeed, replayKeyRequest, useReplayKeys, type ReplayKeyContext, type SentSpeed,
@@ -247,94 +247,145 @@ describe("keyboard shortcuts", () => {
 })
 
 describe("playhead", () => {
-  const observe = (p: Playhead, nowMs: number, tickIndex: number, stepSeconds: number, playing = true) =>
-    advancePlayhead(p, { nowMs, tickIndex, stepSeconds, playing })
+  const observe = (p: Playhead, nowMs: number, tickIndex: number, stepSeconds: number, playing = true,
+    extra: Partial<PlayheadObservation> = {}) =>
+    advancePlayhead(p, { nowMs, tickIndex, stepSeconds, playing, ...extra })
+
+  it("plays the last tick's window once and holds at 2:00 when the scenario finishes", () => {
+    let p = observe(initialPlayhead(0), 0, 143, 25)
+    p = observe(p, 25_000, 144, 25, false, { finished: true })
+    expect(playheadSeconds(p, 25_000)).toBe(0)
+    expect(playheadSeconds(p, 35_000)).toBe(50)
+    expect(playheadSeconds(p, 90_000)).toBe(120)
+    // Same from a worker that publishes the time left: a finished tick has none.
+    let q = observe(initialPlayhead(0), 0, 143, 25)
+    q = observe(q, 25_000, 144, 25, false, { finished: true, tickLeft: null })
+    expect(playheadSeconds(q, 35_000)).toBe(50)
+  })
+
+  it("opens mid-tick where the worker says the tick is, playing or paused", () => {
+    const playing = observe(initialPlayhead(0), 0, 3, 25, true, { tickLeft: 20 })
+    expect(playheadSeconds(playing, 0)).toBe(25)
+    expect(playheadSeconds(playing, 10_000)).toBe(75)
+    let paused = observe(initialPlayhead(0), 0, 3, 25, false, { tickLeft: 12.5 })
+    expect(playheadSeconds(paused, 0)).toBe(62.5)
+    expect(playheadSeconds(paused, 60_000)).toBe(62.5)
+    // Play then resumes from there, not from 2:00.
+    paused = observe(paused, 60_000, 3, 25, true, { tickLeft: 12.5 })
+    expect(playheadSeconds(paused, 60_000)).toBe(62.5)
+    expect(playheadSeconds(paused, 72_500)).toBe(125)
+  })
+
+  it("leaves 2:00 on Play once the worker says how much of the tick is left", () => {
+    // Opened while paused after a Next tick: nothing is frozen, so the head rests at 2:00.
+    let p = observe(initialPlayhead(0), 0, 3, 25, false, { tickLeft: null })
+    expect(playheadSeconds(p, 1_000)).toBe(120)
+    p = observe(p, 5_000, 3, 25, true, { tickLeft: 10 })
+    expect(playheadSeconds(p, 5_000)).toBe(75)
+    expect(playheadSeconds(p, 15_000)).toBe(125)
+  })
+
+  it("plays a tick stepped right after a pause as a step, since the worker keeps no remainder for it", () => {
+    // Space then . within one page poll: the page sees the next tick, paused, while it was playing.
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    p = observe(p, 10_000, 4, 25, false, { tickLeft: null })
+    expect(playheadSeconds(p, 10_000)).toBe(0)
+    expect(playheadSeconds(p, 20_000)).toBe(50)
+    expect(playheadSeconds(p, 60_000)).toBe(120)
+  })
+
+  it("freezes a tick that played just before a pause where the worker's remainder puts it", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    p = observe(p, 26_000, 4, 25, false, { tickLeft: 24 })
+    expect(playheadSeconds(p, 26_000)).toBe(5)
+    expect(playheadSeconds(p, 40_000)).toBe(5)
+  })
 
   it("plays each tick's 125 s window across one step while playing", () => {
     const p = observe(initialPlayhead(0), 0, 3, 25)
-    expect(playheadSeconds(p, 0, true)).toBe(0)
-    expect(playheadSeconds(p, 12_500, true)).toBe(62.5)
-    expect(playheadSeconds(p, 40_000, true)).toBe(125)
+    expect(playheadSeconds(p, 0)).toBe(0)
+    expect(playheadSeconds(p, 12_500)).toBe(62.5)
+    expect(playheadSeconds(p, 40_000)).toBe(125)
   })
 
   it("keeps the playhead monotonic when the speed changes mid-tick", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
     const samples: number[] = []
-    for (let ms = 0; ms <= 12_500; ms += 250) samples.push(playheadSeconds(p, ms, true))
+    for (let ms = 0; ms <= 12_500; ms += 250) samples.push(playheadSeconds(p, ms))
     // Faster: 1 s per tick from halfway. The rest of the window takes 0.5 s.
     p = observe(p, 12_500, 3, 1)
-    for (let ms = 12_500; ms <= 13_500; ms += 100) samples.push(playheadSeconds(p, ms, true))
+    for (let ms = 12_500; ms <= 13_500; ms += 100) samples.push(playheadSeconds(p, ms))
     for (let i = 1; i < samples.length; i += 1) expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
-    expect(playheadSeconds(p, 12_500, true)).toBe(62.5)
-    expect(playheadSeconds(p, 13_000, true)).toBe(125)
+    expect(playheadSeconds(p, 12_500)).toBe(62.5)
+    expect(playheadSeconds(p, 13_000)).toBe(125)
   })
 
   it("slows down from where it is instead of jumping back", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
     p = observe(p, 12_500, 3, 125)
-    expect(playheadSeconds(p, 12_500, true)).toBe(62.5)
-    expect(playheadSeconds(p, 12_500 + 31_250, true)).toBe(93.75)
-    expect(playheadSeconds(p, 12_500 + 62_500, true)).toBe(125)
+    expect(playheadSeconds(p, 12_500)).toBe(62.5)
+    expect(playheadSeconds(p, 12_500 + 31_250)).toBe(93.75)
+    expect(playheadSeconds(p, 12_500 + 62_500)).toBe(125)
   })
 
   it("after a step while paused, plays that tick's window once and then holds at 2:00", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25, false)
-    expect(playheadSeconds(p, 5_000, false)).toBe(120)
+    expect(playheadSeconds(p, 5_000)).toBe(120)
     p = observe(p, 10_000, 4, 25, false)
-    expect(playheadSeconds(p, 10_000, false)).toBe(0)
-    expect(playheadSeconds(p, 20_000, false)).toBe(50)
-    expect(playheadSeconds(p, 34_000, false)).toBe(120)
-    expect(playheadSeconds(p, 90_000, false)).toBe(120)
+    expect(playheadSeconds(p, 10_000)).toBe(0)
+    expect(playheadSeconds(p, 20_000)).toBe(50)
+    expect(playheadSeconds(p, 34_000)).toBe(120)
+    expect(playheadSeconds(p, 90_000)).toBe(120)
   })
 
   it("freezes where it is when paused mid-tick", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
     p = observe(p, 12_500, 3, 25, false)
-    expect(playheadSeconds(p, 12_500, false)).toBe(62.5)
-    expect(playheadSeconds(p, 60_000, false)).toBe(62.5)
+    expect(playheadSeconds(p, 12_500)).toBe(62.5)
+    expect(playheadSeconds(p, 60_000)).toBe(62.5)
     // A speed change while frozen keeps the frozen position.
     p = observe(p, 70_000, 3, 1, false)
-    expect(playheadSeconds(p, 71_000, false)).toBe(62.5)
+    expect(playheadSeconds(p, 71_000)).toBe(62.5)
   })
 
   it("resumes from the frozen position on play, without skipping the paused time", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
     p = observe(p, 12_500, 3, 25, false)
     p = observe(p, 72_500, 3, 25, true)
-    expect(playheadSeconds(p, 72_500, true)).toBe(62.5)
-    expect(playheadSeconds(p, 72_500 + 6_250, true)).toBe(93.75)
-    expect(playheadSeconds(p, 72_500 + 12_500, true)).toBe(125)
+    expect(playheadSeconds(p, 72_500)).toBe(62.5)
+    expect(playheadSeconds(p, 72_500 + 6_250)).toBe(93.75)
+    expect(playheadSeconds(p, 72_500 + 12_500)).toBe(125)
   })
 
   it("freezes at the start of a tick that arrived just before a pause, instead of playing it as a step", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
     p = observe(p, 25_000, 4, 25, false)
-    expect(playheadSeconds(p, 25_000, false)).toBe(0)
-    expect(playheadSeconds(p, 40_000, false)).toBe(0)
+    expect(playheadSeconds(p, 25_000)).toBe(0)
+    expect(playheadSeconds(p, 40_000)).toBe(0)
   })
 
   it("holds at 2:00 after a reset while paused", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
     p = observe(p, 6_000, 0, 25, false)
-    expect(playheadSeconds(p, 7_000, false)).toBe(120)
+    expect(playheadSeconds(p, 7_000)).toBe(120)
   })
 
   it("does not cut a stepped tick short when play is pressed during it", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25, false)
     p = observe(p, 10_000, 4, 25, false)
-    expect(playheadSeconds(p, 20_000, false)).toBe(50)
+    expect(playheadSeconds(p, 20_000)).toBe(50)
     p = observe(p, 20_000, 4, 25, true)
-    expect(playheadSeconds(p, 20_000, true)).toBe(50)
-    expect(playheadSeconds(p, 20_000 + 12_500, true)).toBe(112.5)
+    expect(playheadSeconds(p, 20_000)).toBe(50)
+    expect(playheadSeconds(p, 20_000 + 12_500)).toBe(112.5)
     // The worker's next tick is due 25 s after the step (35 s): the head reaches the end of the window then.
-    expect(playheadSeconds(p, 35_000, true)).toBe(125)
+    expect(playheadSeconds(p, 35_000)).toBe(125)
   })
 
   it("treats two steps landing in one poll as a step, not a jump to 2:00", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25, false)
     p = observe(p, 10_000, 5, 25, false)
-    expect(playheadSeconds(p, 10_000, false)).toBe(0)
-    expect(playheadSeconds(p, 20_000, false)).toBe(50)
+    expect(playheadSeconds(p, 10_000)).toBe(0)
+    expect(playheadSeconds(p, 20_000)).toBe(50)
   })
 })
 

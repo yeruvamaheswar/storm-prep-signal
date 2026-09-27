@@ -97,7 +97,19 @@ export type Playhead = {
   mode: "play" | "step" | "frozen" | "hold"
 }
 
-export type PlayheadObservation = { tickIndex: number; playing: boolean; stepSeconds: number; nowMs: number }
+export type PlayheadObservation = {
+  tickIndex: number
+  playing: boolean
+  stepSeconds: number
+  nowMs: number
+  /** The scenario played its last tick. */
+  finished?: boolean
+  /**
+   * The worker's `tick_left_s`: real seconds left in the tick, or null when no tick is running or frozen
+   * (after Next tick, when finished). Undefined from a worker that does not publish it.
+   */
+  tickLeft?: number | null
+}
 
 export function initialPlayhead(nowMs: number): Playhead {
   return { tickIndex: null, atMs: nowMs, fromT: 0, stepSeconds: 0, mode: "hold" }
@@ -111,20 +123,35 @@ function runningT(p: Playhead, nowMs: number): number {
   return Math.min(cap, Math.max(0, p.fromT + (elapsedSeconds / p.stepSeconds) * WINDOW_T))
 }
 
-/** The playhead now. Pause and play are read from the playhead's mode (set by `advancePlayhead`), so `_playing` is unused. */
-export function playheadSeconds(p: Playhead, nowMs: number, _playing?: boolean): number {
+/** The playhead now. Pause and play are read from the playhead's mode, which `advancePlayhead` sets. */
+export function playheadSeconds(p: Playhead, nowMs: number): number {
   if (p.mode === "step" && !(p.stepSeconds > 0)) return HOLD_T
   return runningT(p, nowMs)
 }
 
+/** Where the worker's time left puts the playhead in the window, or null when it did not say. */
+function tFromLeft(obs: PlayheadObservation): number | null {
+  if (typeof obs.tickLeft !== "number" || !(obs.stepSeconds > 0)) return null
+  return Math.min(WINDOW_T, Math.max(0, (WINDOW_T * (obs.stepSeconds - obs.tickLeft)) / obs.stepSeconds))
+}
+
 export function advancePlayhead(p: Playhead, obs: PlayheadObservation): Playhead {
+  const known = tFromLeft(obs)
   if (obs.tickIndex !== p.tickIndex) {
+    const at = { tickIndex: obs.tickIndex, atMs: obs.nowMs, stepSeconds: obs.stepSeconds }
+    // Opened mid-tick: start where the worker says the tick is.
+    if (p.tickIndex === null && known !== null) return { ...at, fromT: known, mode: obs.playing ? "play" : "frozen" }
     const forward = p.tickIndex !== null && obs.tickIndex > p.tickIndex && !obs.playing
-    // A tick that played just before a pause freezes at its start, as the worker keeps its whole step.
-    const pausedAfterPlay = forward && p.mode === "play"
+    // A tick that played just before a pause freezes, as the worker keeps its remainder. A finish keeps none, and
+    // neither does a Next tick right after a pause (the worker says null), so those windows play once.
+    const pausedAfterPlay = forward && p.mode === "play" && !obs.finished && obs.tickLeft !== null
     // Any other forward move while paused is Next tick (two quick presses can land in one poll).
     const mode = obs.playing ? "play" : pausedAfterPlay ? "frozen" : forward ? "step" : "hold"
-    return { tickIndex: obs.tickIndex, atMs: obs.nowMs, fromT: 0, stepSeconds: obs.stepSeconds, mode }
+    return { ...at, fromT: pausedAfterPlay && known !== null ? known : 0, mode }
+  }
+  if (obs.playing && p.mode === "hold" && known !== null) {
+    // Resting at 2:00 on a tick the page never saw start: Play follows the worker's time left.
+    return { ...p, atMs: obs.nowMs, fromT: known, stepSeconds: obs.stepSeconds, mode: "play" }
   }
   if (p.mode === "play" && !obs.playing) {
     // Pause freezes the playhead where it is.

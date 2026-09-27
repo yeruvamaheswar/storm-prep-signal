@@ -200,6 +200,8 @@ export type SessionState = {
   speed: number
   speeds: number[]
   step_seconds: number
+  /** Real seconds left in the tick (worker's clock); null when none is running or frozen. Absent from older workers. */
+  tick_left_s?: number | null
   tick_minutes: number
   tick_index: number
   tick_count: number

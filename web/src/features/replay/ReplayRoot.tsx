@@ -58,7 +58,10 @@ export function ReplayRoot() {
         setApiDown(false)
         setState(next)
         if (!isWorkerDown(next)) {
-          const observed = { tickIndex: next.tick_index, playing: next.status === "playing", stepSeconds: next.step_seconds, nowMs: Date.now() }
+          const observed = {
+            tickIndex: next.tick_index, playing: next.status === "playing", stepSeconds: next.step_seconds, nowMs: Date.now(),
+            finished: next.status === "finished", tickLeft: next.tick_left_s,
+          }
           setPlayhead((prev) => advancePlayhead(prev, observed))
         }
       } catch {
