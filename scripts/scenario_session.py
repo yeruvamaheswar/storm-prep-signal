@@ -51,15 +51,34 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
     if scenario:
         session.start(scenario, seed)
     played, next_step, last_write = 0, clock(), None
+    # Seconds left in the tick a pause froze; None when no tick is frozen.
+    paused_left = None
     while True:
         changed = False
         step_before = session.step_seconds()
+        playing_before, index_before = session.playing, session.index
         for request in read_requests(last_seq, scenario_dir):
             session.apply(request)
             last_seq, changed = request["seq"], True
         now = clock()
+        step_after = session.step_seconds()
         # A speed change mid-tick keeps the share of the tick already played; only the rest changes pace.
-        next_step = rescale_next_step(next_step, now, step_before, session.step_seconds())
+        next_step = rescale_next_step(next_step, now, step_before, step_after)
+        if paused_left is not None and step_before > 0 and step_after != step_before:
+            paused_left = paused_left * step_after / step_before
+        if playing_before and not session.playing:
+            # Pause keeps the time left in this tick instead of letting the clock run on.
+            paused_left = max(0.0, next_step - now)
+        if session.index < index_before:
+            # A reset or a new scenario: nothing is left of the old tick.
+            next_step, paused_left = now, None
+        elif not session.playing and session.index > index_before:
+            # Next tick: the page plays the stepped tick from now, so its window runs from now too.
+            next_step, paused_left = now + step_after, None
+        if not playing_before and session.playing:
+            # Play resumes the frozen tick, or the rest of a stepped tick (none left if it ran out).
+            next_step = now + paused_left if paused_left is not None else max(next_step, now)
+            paused_left = None
         # --steps runs as fast as it can; the page run waits for the time-lapse clock.
         if session.playing and (steps is not None or now >= next_step):
             try:

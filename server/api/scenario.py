@@ -133,7 +133,11 @@ def post_speed(body: SpeedBody, x_operator_id: Optional[str] = Header(None)):
 def post_step(x_operator_id: Optional[str] = Header(None)):
     """Next tick while paused: the worker plays exactly one frame and stays paused."""
     operator = _require_operator(x_operator_id)
-    if store.read_state(store.SCENARIO_DIR).get("status") != "paused":
+    state = store.read_state(store.SCENARIO_DIR)
+    # A stopped worker is named first: "pause first" would send the operator the wrong way.
+    if state.get("status") == "worker_not_running":
+        raise ApiError(409, "worker_not_running", f"Next tick needs the session worker. {state.get('brief', '')}".strip())
+    if state.get("status") != "paused":
         raise ApiError(409, "not_paused", "Next tick works only while a scenario is paused.")
     return _record("step", {}, operator)
 

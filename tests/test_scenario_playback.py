@@ -193,3 +193,63 @@ def test_worker_step_request_plays_one_tick_while_paused(tmp_path):
     assert first_time_at(seen, 2) == 2.0
     assert max(index for _, index, _ in seen) == 2
     assert seen[-1][2] == "paused"
+
+
+# --- pause and resume keep the rest of the tick ---
+
+def test_pause_mid_tick_then_play_resumes_the_rest_of_the_tick(tmp_path):
+    # Tick 2 is due at 25 s. Pause at 12.5 s for 60 s: 12.5 s are left, so tick 2 plays at 12.5 + 60 + 12.5.
+    seen = drive(tmp_path, {12.5: [("play", {"playing": False})], 72.5: [("play", {"playing": True})]}, until=90)
+    assert max(index for t, index, _ in seen if t < 85.0) == 1
+    assert first_time_at(seen, 2) == 85.0
+
+
+def test_a_short_pause_is_not_counted_as_play_time(tmp_path):
+    # Pause at 10 s for 5 s: tick 2 plays at 30 s, not 25 s.
+    seen = drive(tmp_path, {10.0: [("play", {"playing": False})], 15.0: [("play", {"playing": True})]}, until=35)
+    assert first_time_at(seen, 2) == 30.0
+
+
+def test_a_speed_change_while_paused_rescales_the_rest_of_the_tick(tmp_path):
+    # Paused halfway through a 25 s tick, switch to 1 s per tick: the other half takes 0.5 s after play.
+    seen = drive(tmp_path, {12.5: [("play", {"playing": False})], 20.0: [("speed", {"x": 300})],
+                            30.0: [("play", {"playing": True})]}, until=35)
+    assert first_time_at(seen, 2) == 30.5
+
+
+def test_play_during_a_stepped_tick_lets_that_tick_finish(tmp_path):
+    # Paused at 1 s, step at 2 s (tick 2), play at 10 s. The page plays the stepped tick from 2 s, so tick 3
+    # waits until that tick's 25 s are up (27 s): not cut short at 10 s, and no dead wait after it either.
+    seen = drive(tmp_path, {1.0: [("play", {"playing": False})], 2.0: [("step", {})],
+                            10.0: [("play", {"playing": True})]}, until=40)
+    assert first_time_at(seen, 2) == 2.0
+    assert max(index for t, index, _ in seen if t < 27.0) == 2
+    assert first_time_at(seen, 3) == 27.0
+
+
+def test_play_long_after_a_step_plays_the_next_tick_at_once(tmp_path):
+    # The stepped tick's 25 s ran out while paused; Play goes straight on.
+    seen = drive(tmp_path, {1.0: [("play", {"playing": False})], 2.0: [("step", {})],
+                            60.0: [("play", {"playing": True})]}, until=62)
+    assert max(index for t, index, _ in seen if t < 60.0) == 2
+    assert first_time_at(seen, 3) == 60.0
+
+
+def test_reset_while_paused_mid_tick_does_not_carry_the_old_tick_over(tmp_path):
+    # Paused halfway through tick 2; reset; Play starts the new run with its first tick right away.
+    seen = drive(tmp_path, {12.5: [("play", {"playing": False})], 20.0: [("reset", {"seed": 7})],
+                            30.0: [("play", {"playing": True})]}, until=31)
+    assert {index for t, index, _ in seen if 20.0 <= t < 30.0} == {0}
+    assert first_time_at([s for s in seen if s[0] >= 30.0], 1) == 30.0
+
+
+def test_step_route_names_a_stopped_worker_before_asking_for_a_pause(client, tmp_path):
+    reply = client.post("/v1/scenario/step", json={}, headers=OPERATOR)
+    assert reply.status_code == 409
+    assert reply.json()["error"] == "worker_not_running"
+    stale = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    store.write_state({"status": "paused", "updated_at": stale}, tmp_path)
+    reply = client.post("/v1/scenario/step", json={}, headers=OPERATOR)
+    assert reply.status_code == 409
+    assert reply.json()["error"] == "worker_not_running"
+    assert not (tmp_path / "requests.json").exists()
