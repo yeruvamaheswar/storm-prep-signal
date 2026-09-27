@@ -111,7 +111,7 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
 
   it("carries the tick's own intent label, and none when the point has no intent", () => {
     expect(ledgerRow(heather74).intent).toBe("Fleet did: Charge, refilled batteries under their floor")
-    expect(ledgerRow(beryl1).intent).toBe("Fleet did: Charge, served the call, then charged")
+    expect(ledgerRow(beryl1).intent).toBe("Fleet did: Charge, sold toward the call, then charged")
     expect(ledgerRow(hold4).intent).toBe("Fleet did: Hold, operator hold")
     expect(ledgerRow(history[0]).intent).toBeUndefined()
   })
@@ -124,11 +124,24 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
       intent: "charge", intent_reason: "grid_call_served",
     }
     const row = ledgerRow(heather1)
-    expect(row.intent).toBe("Fleet did: Charge, served the call, then charged")
+    expect(row.intent).toBe("Fleet did: Charge, sold toward the call, then charged")
     expect(row.charged).toBe(0.246587997)
     expect(row.why).not.toContain("Not sent")
     expect(row.why).not.toContain("Not sold")
     expect(row.why).toContain("Refilling batteries under their reserve floor")
+  })
+
+  it("storm-rule-high tick 30 (merged engine, HOME_KWH=25): 94% unsold, so the intent never says the call was served", () => {
+    const srh30: HistoryPoint = {
+      tick: 30, ts: "2026-09-16T04:25:00-05:00", target_mw: 0.1444, delivered_mw: 0.008605048, charging_mw: 0.7532094040000002,
+      missed_mw: 0.135794952, unconfirmed_mw: 0, reserve_pct: 60, risk_level: "HIGH",
+      reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0, intent: "charge", intent_reason: "grid_call_served",
+    }
+    const row = ledgerRow(srh30)
+    expect(row.intent).toBe("Fleet did: Charge, sold toward the call, then charged")
+    expect(row.intent).not.toContain("served")
+    expect(row.why).toContain("Kept for backup, floor raised")
+    expect(row.notSold).toBeCloseTo(0.135794952, 9)
   })
 
   it("leaves charged unreported when charging_mw is not a finite number", () => {

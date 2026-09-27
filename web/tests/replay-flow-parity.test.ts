@@ -679,7 +679,7 @@ describe("About this data: engine decision (gap 17)", () => {
     expect(html).toContain("Engine decision this tick")
     expect(html).toMatch(/Houston floor<\/dt><dd>60% · NWS weather alert/)
     expect(html).toMatch(/North floor<\/dt><dd>30% · Base floor/)
-    expect(html).toMatch(/Fleet did<\/dt><dd>Charge, served the call, then charged/)
+    expect(html).toMatch(/Fleet did<\/dt><dd>Charge, sold toward the call, then charged/)
     expect(html).not.toContain("grid_call_served")
     expect(html).toContain("Automatic: the engine decides")
     expect(html).toContain("Charging, Homes stale:1")
@@ -719,6 +719,17 @@ describe("About this data: engine decision (gap 17)", () => {
     expect(html).not.toContain("paused selling")
     expect(html).toMatch(/Fleet did<\/dt><dd>Hold, operator hold/)
     expect(html).toContain("Operator hold")
+  })
+
+  it("never says the call was served when most of it went unsold (Task 12 fix 1: I1, storm-rule-high tick 30)", () => {
+    const base = session().tick as NonNullable<SessionState["tick"]>
+    const srh30 = {
+      ...base, tick: 30, target_mw: 0.1444, delivered_mw: 0.008605048, missed_mw: 0.135794952, charging_mw: 0.7532094040000002,
+      intent: "charge", intent_reason: "grid_call_served", reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"],
+    }
+    const html = drawer(session({ tick: srh30, alerts: [] }))
+    expect(html).toMatch(/Fleet did<\/dt><dd>Charge, sold toward the call, then charged/)
+    expect(html).not.toContain("served the call")
   })
 
   it("names a real automatic sale for the grid call in words", () => {

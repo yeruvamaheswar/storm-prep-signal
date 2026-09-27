@@ -9,7 +9,9 @@ const VERBS: Record<string, string> = {
 }
 
 const REASONS: Record<string, string> = {
-  grid_call_served: "served the call, then charged",
+  // controller.acted_intent: charged more than it sold, and sold something. Not "the call was met": on
+  // storm-rule-high tick 30 it sold 0.009 of a 0.144 MW call. So it says toward, never served.
+  grid_call_served: "sold toward the call, then charged",
   reserve_refill: "refilled batteries under their floor",
   grid_call: "sold for the grid call",
   zone_price: "charged on a cheap zone price",

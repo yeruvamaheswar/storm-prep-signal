@@ -386,7 +386,7 @@ describe("promiseBreakdown on post-#41 ticks (B1, B3)", () => {
 
 describe("intentLine (B1, B2 shared copy)", () => {
   test("maps the six engine intent reasons to plain words", () => {
-    expect(intentLine("charge", "grid_call_served")).toBe("Fleet did: Charge, served the call, then charged")
+    expect(intentLine("charge", "grid_call_served")).toBe("Fleet did: Charge, sold toward the call, then charged")
     expect(intentLine("charge", "reserve_refill")).toBe("Fleet did: Charge, refilled batteries under their floor")
     expect(intentLine("discharge", "grid_call")).toBe("Fleet did: Sell, sold for the grid call")
     expect(intentLine("charge", "zone_price")).toBe("Fleet did: Charge, charged on a cheap zone price")

@@ -98,7 +98,7 @@ function unplacedCountyFloors(tick: FlowTick, counties: FlowCounty[]): CountyFlo
     .map(([fips, pct]) => ({ fips, label: `County ${fips}`, pct }))
 }
 
-/** "Charge, served the call, then charged": the engine's acted intent in the ledger's words (intentCopy). */
+/** "Charge, sold toward the call, then charged": the engine's acted intent in the ledger's words (intentCopy). */
 function fleetDid(tick: FlowTick): string {
   return intentLine(tick.intent, tick.intent_reason)?.replace(/^Fleet did: /, "") ?? NOT_REPORTED
 }
