@@ -47,6 +47,7 @@ The homes are simulated. Why we build it, and the non-negotiable principles: [PR
 | Wall | The operator screen, a React app in `web/`. |
 | Snapshot | One tick prepared by the API for the wall (`GET /v1/snapshot`). |
 | Fail safe | On bad input, keep the higher floor and log a reason. Never crash into a lower floor. |
+| JEV | TypeSafe's yes/no model. Asked once per weather alert and county whether the alert threatens power there; on `/flow`, its answer decides whether that county's floor rises. Detail: [grid-flow.md](grid-flow.md#jev-county-gate). |
 
 ## 3. The big picture
 
@@ -155,7 +156,7 @@ The engine reads one NP3-233-CD posting. For each of the next 6 hours it adds up
 |---|---|---|
 | `None` (no usable reading) | 60% | `signal_unavailable` |
 | `HIGH` | 60% | `storm_risk_high` |
-| `LOW` | 30%, except 60% in a zone under a weather warning | `normal`, or `weather_alert` for that zone |
+| `LOW` | 30%, except 60% where a weather warning applies: a whole zone from a tape, or on `/flow` each county the alert names where JEV said yes or gave no reading | `normal`, or `weather_alert` for that zone; county reasons in [CONSTRAINTS.md](../../CONSTRAINTS.md#function-contracts) |
 
 The same function sets the intent from price: HOLD or a missing price is `hold`; HIGH or no signal may `charge` when cheap and never `discharge`; LOW charges below `CHARGE_BELOW_USD` and discharges above `DISCHARGE_ABOVE_USD`. Full contract: [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
 
@@ -179,11 +180,11 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 
 | Shape | What it is |
 |---|---|
-| `Home` | One battery: capacity, stored energy, max kW, status (`live`, `stale`, `dead`), zone. |
+| `Home` | One battery: capacity, stored energy, max kW, status (`live`, `stale`, `dead`), zone, and county (FIPS; set only on `/flow`). |
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
-| `Policy` | The floors (fleet and per zone), the reason, the risk level, the intent. |
+| `Policy` | The floors (fleet, per zone, and per county of an alerted zone), the reasons, the risk level, the intent. |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. `county_reserve_pct` and `county_reasons` give each county of an alerted zone its floor and reason (the JEV county gate). |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -192,7 +193,7 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | Place | What | Lifetime |
 |---|---|---|
 | `tapes/` | Replay tapes: `demo.json` (hand-written, synthetic), `heather.json` (built from Supabase), and `scenarios/` (the `/flow` tapes, their provenance sidecars, and `catalog.json`, built from Supabase). | Committed |
-| `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`, archived NWS alerts (`fixtures/nws/`) and their JEV shadow readings (`fixtures/jev/`). | Committed, except raw zips |
+| `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`, archived NWS alerts (`fixtures/nws/`) and their JEV readings, one per alert and county (`fixtures/jev/<alert_id>/<fips>.json`). | Committed, except raw zips |
 | `var/runs/` | Run files. The source of truth. | Local, gitignored |
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
 | `var/state.json` | Operator mode, `AUTO` or `HOLD`, local cache for this process. | Local, gitignored |
@@ -292,7 +293,7 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 | `ERCOT_USERNAME`, `ERCOT_PASSWORD`, `ERCOT_SUBSCRIPTION_KEY` | ERCOT API login. Server side only. |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Optional history. Server side only. |
 | `SUPABASE_DB_PASSWORD` | Optional. DDL only (CREATE TABLE). Not the Data API secret. |
-| `JEV_API_KEY` | Optional shadow weather question in `scripts/jev_shadow.py`. Nothing decides on it. |
+| `JEV_API_KEY` | Optional. Only `scripts/jev_shadow.py` uses it, to record JEV readings. The engine never calls JEV; `/flow` reads the recorded files. |
 | `RISK_MARGIN_PCT`, `LOOKAHEAD_HOURS` | The storm rule: margin over baseline, hours ahead. |
 | `FETCH_TIMEOUT_S`, `STALE_AFTER_MIN` | Network timeout, and when a posting counts as too old. |
 | `FLEET_SIZE`, `HOME_KWH`, `HOME_MAX_KW`, `HOME_START_SOC_MIN_PCT`, `HOME_START_SOC_MAX_PCT` | The simulated fleet. Example values, not Base specs. |

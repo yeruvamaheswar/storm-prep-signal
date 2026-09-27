@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { fmtMw, fmtScenarioTime, fmtUsd, reasonLabel } from "./flowMath"
-import type { ActiveAlert, SessionState, StartSummary } from "./types"
+import { alertCountyRows, fmtMw, fmtScenarioTime, fmtUsd, jevFloorText, reasonLabel } from "./flowMath"
+import type { ActiveAlert, FlowCounty, FlowTick, SessionState, StartSummary } from "./types"
 import { FLOW_ZONES } from "./types"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -61,7 +61,8 @@ function StartBlock({ start }: { start: StartSummary }) {
   )
 }
 
-function AlertBlock({ alert }: { alert: ActiveAlert }) {
+function AlertBlock({ alert, counties, tick }: { alert: ActiveAlert; counties: FlowCounty[]; tick: FlowTick | null }) {
+  const rows = alertCountyRows(alert, counties)
   return (
     <div className="flow-alert">
       <p className="flow-alert-event">{alert.event}</p>
@@ -78,7 +79,7 @@ function AlertBlock({ alert }: { alert: ActiveAlert }) {
           : "n/a"} />
       </dl>
       <div className="flow-jev">
-        <p className="flow-jev-title">JEV System One (TypeSafe) · shadow only</p>
+        <p className="flow-jev-title">JEV System One (TypeSafe) · county floor gate</p>
         {alert.jev ? (
           <dl>
             <Row k="Question" v={alert.jev.question} />
@@ -90,7 +91,27 @@ function AlertBlock({ alert }: { alert: ActiveAlert }) {
         ) : (
           <p className="flow-muted">No recorded JEV reading for this alert.</p>
         )}
-        <p className="flow-muted">Rules decide the floor. JEV never dispatches; its reading is shown next to the rule.</p>
+        {rows.length ? (
+          <table className="flow-county-table">
+            <thead>
+              <tr><th>County</th><th>FIPS</th><th>P(yes)</th><th>Floor</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.fips}>
+                  <td>{row.county_name}</td>
+                  <td>{row.fips}</td>
+                  <td>{row.reading ? row.reading.probability.toFixed(2) : "no reading"}</td>
+                  <td>{jevFloorText(row.decision, tick?.county_reserve_pct?.[row.fips])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+        <p className="flow-muted">
+          JEV gates the alert floor per county: yes (P ≥ 0.5) raises it to the storm reserve, no keeps the base floor,
+          a missing reading keeps the storm reserve (fail safe). ERCOT HIGH still raises every county.
+        </p>
       </div>
     </div>
   )
@@ -171,7 +192,9 @@ export function DataPanel({ state, verify }: Props) {
       </Section>
 
       <Section title="Weather alerts sent">
-        {state.alerts.length ? state.alerts.map((alert) => <AlertBlock key={alert.id} alert={alert} />)
+        {state.alerts.length ? state.alerts.map((alert) => (
+          <AlertBlock key={alert.id} alert={alert} counties={state.counties ?? []} tick={tick} />
+        ))
           : <p className="flow-muted">None. Use Send alert to push an archived NWS alert into the next tick.</p>}
       </Section>
 

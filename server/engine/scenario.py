@@ -18,8 +18,9 @@ from pathlib import Path
 from server.engine.baseline import load_baseline
 from server.engine.brief import write_brief
 from server.engine.events import start_run
-from server.engine.fleet import new_fleet
+from server.engine.fleet import assign_county, county_name, home_label, new_fleet, zone_counties
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
+from server.engine.policy import JEV_YES_AT
 from server.engine.score import new_board, update
 from server.engine.telemetry import TelemetryState
 from server.engine.tick_emit import build_tick_emit
@@ -51,7 +52,8 @@ HONEST_LIMITS = (
     "Weather alerts are real archived NWS text; the operator chooses when to send them.",
     "Hand-placed overlays are labeled as overlays.",
     "Pack: 25 kWh, 11.4 kW (example settings, not Base specs), shown in time-lapse.",
-    "Rules make every decision. JEV is a shadow reading and never dispatches.",
+    "JEV readings are recorded once per alert and county. A county's alert floor rises only when JEV "
+    "says yes; no reading keeps the storm reserve.",
 )
 
 
@@ -105,24 +107,44 @@ def alert_summary(alert):
     return {key: alert.get(key) for key in keys if key in alert}
 
 
-def alert_zones(alert, settings):
-    """Load zones named by the alert's county FIPS codes, and codes that match no zone.
+def alert_counties(alert, settings):
+    """Roster counties named by the alert as (zone, fips, name) in roster order, and codes that match none.
 
-    The NWS SAME code is 0 + state + county ("048201"); ZONES holds "48201".
+    The NWS SAME code is 0 + state + county ("048201"); the roster holds "48201".
     """
-    fips_to_zone = {fips: zone for zone, fips in settings["zones"].items()}
-    zones, unknown = set(), []
+    named, unknown = set(), []
+    roster = {fips for _, fips, _ in zone_counties(settings)}
     for code in alert.get("counties", []):
         fips = str(code)[-5:]
-        if fips in fips_to_zone:
-            zones.add(fips_to_zone[fips])
+        if fips in roster:
+            named.add(fips)
         else:
             unknown.append(str(code))
-    return sorted(zones), unknown
+    return [row for row in zone_counties(settings) if row[1] in named], unknown
 
 
-def load_jev(alert_id, jev_dir=JEV_DIR):
-    return read_json(Path(jev_dir) / f"{alert_id}.json", None)
+def alert_zones(alert, settings):
+    """Load zones named by the alert's roster counties, and codes that match no county."""
+    counties, unknown = alert_counties(alert, settings)
+    return sorted({zone for zone, _, _ in counties}), unknown
+
+
+def load_jev(alert_id, fips, jev_dir=JEV_DIR):
+    return read_json(Path(jev_dir) / alert_id / f"{fips}.json", None)
+
+
+def jev_probability(reading):
+    """P(yes) from a recorded reading, or None when there is no usable reading."""
+    probability = (reading or {}).get("probability")
+    return float(probability) if isinstance(probability, (int, float)) else None
+
+
+def jev_decision(reading):
+    """What the reading alone asks of the county's floor, before any fleet-wide reason."""
+    probability = jev_probability(reading)
+    if probability is None:
+        return "raise_no_reading"
+    return "raise" if probability >= JEV_YES_AT else "keep_base"
 
 
 # --- request inbox (the API writes, the worker reads) ---
@@ -179,12 +201,20 @@ def read_state(scenario_dir=SCENARIO_DIR, now=None):
 # --- the session ---
 
 def seed_fleet(settings, seed):
-    """new_fleet ids, zones and pack size, with each starting charge drawn from SOC_RANGE_PCT."""
+    """new_fleet ids, zones and pack size, with each starting charge drawn from SOC_RANGE_PCT.
+
+    Each home also gets a roster county, round-robin by its place within its zone.
+    """
     homes = new_fleet(settings)
     rng = random.Random(seed)
     low, high = SOC_RANGE_PCT
+    counties, in_zone = {}, {}
+    for zone, fips, _ in zone_counties(settings):
+        counties.setdefault(zone, []).append(fips)
     for home in homes:
         home.soc_kwh = round(home.capacity_kwh * rng.uniform(low, high) / 100, 3)
+        in_zone[home.zone] = in_zone.get(home.zone, 0) + 1
+        home.county = assign_county(in_zone[home.zone], counties[home.zone])
     return homes
 
 
@@ -196,11 +226,18 @@ def soc_histogram(homes, bins=HIST_BINS):
     return counts
 
 
-def floor_pct_for(home, policy_view):
-    return policy_view["zone_reserve_pct"].get(home.zone, policy_view["reserve_pct"])
+def floor_pct_for(home, policy):
+    """Same order as fleet.floor_kwh: county, then zone, then fleet."""
+    return policy.county_reserve_pct.get(home.county, policy.zone_reserve_pct.get(home.zone, policy.reserve_pct))
 
 
-def home_state(home, emit, floor_pct, zone_reason, grid_down):
+def home_row(home):
+    """Who the battery is: id, display name, zone and county."""
+    return {"id": home.home_id, "name": home_label(home), "zone": home.zone, "county": home.county,
+            "county_name": county_name(home.county)}
+
+
+def home_state(home, emit, floor_pct, floor_reason, grid_down):
     """One word for how the battery is behaving this tick, from confirmed kW and its status."""
     if home.status in ("dead", "stale"):
         return home.status
@@ -220,7 +257,8 @@ def home_state(home, emit, floor_pct, zone_reason, grid_down):
     # Drained to its floor: everything above it was sold, so there is nothing left to give.
     if soc_pct <= floor_pct + FLOOR_BAND_PCT:
         return "at_floor"
-    if zone_reason not in ("normal", "", None):
+    # jev_no and not_in_alert keep the base floor, so nothing is reserved beyond normal.
+    if floor_reason not in ("normal", "jev_no", "not_in_alert", "", None):
         return "reserved"
     return "holding"
 
@@ -319,7 +357,8 @@ class Session:
         alert = load_alert(alert_id, self.alert_dir)
         if alert is None:
             raise ValueError(f"alert fixture {alert_id!r} is missing")
-        zones, unknown = alert_zones(alert, self.settings)
+        counties, unknown = alert_counties(alert, self.settings)
+        zones = sorted({zone for zone, _, _ in counties})
         if unknown:
             self.note(f"alert counties with no load zone ignored: {', '.join(unknown)}")
         if not zones:
@@ -327,8 +366,15 @@ class Session:
         if any(a["id"] == alert_id for a in self.active_alerts):
             raise ValueError("alert already sent")
         sent_tick = self.frames[self.index].tick if self.index < len(self.frames) else None
+        jev_by_county = {}
+        for zone, fips, name in counties:
+            reading = load_jev(alert_id, fips, self.jev_dir)
+            jev_by_county[fips] = {"county_name": name, "zone": zone, "reading": reading,
+                                   "decision": jev_decision(reading)}
+        anchor = next((fips for zone, fips, _ in counties if fips == self.settings["zones"][zone]), None)
         self.active_alerts.append({**alert_summary(alert), "zones": zones, "sent_at_tick": sent_tick,
-                                   "jev": load_jev(alert_id, self.jev_dir)})
+                                   "jev": jev_by_county[anchor]["reading"] if anchor else None,
+                                   "jev_by_county": jev_by_county})
         self.note(f"alert sent: {alert.get('event')} for {', '.join(zones)}, applies from the next tick")
 
     def set_grid_down(self, zone, down):
@@ -359,14 +405,24 @@ class Session:
         return datetime.fromisoformat(ts) <= datetime.fromisoformat(expires)
 
     def overlay(self, frame):
-        """This frame with the operator's overlays added to its events."""
+        """This frame with the operator's overlays added to its events.
+
+        Alerts go in as counties with their JEV P(yes), never as whole zones, so JEV gates each floor.
+        """
         events = dict(frame.events)
-        zones = set(events.get("weather", []))
+        counties = dict(events.get("weather_counties", {}))
         for alert in self.active_alerts:
-            if self.alert_active(alert, frame.ts):
-                zones.update(alert["zones"])
-        if zones:
-            events["weather"] = sorted(zones)
+            if not self.alert_active(alert, frame.ts):
+                continue
+            for fips, row in alert["jev_by_county"].items():
+                probability = jev_probability(row["reading"])
+                # Two alerts on one county: keep the more cautious; no reading is the most cautious.
+                if fips in counties:
+                    probability = None if probability is None or counties[fips] is None \
+                        else max(probability, counties[fips])
+                counties[fips] = probability
+        if counties:
+            events["weather_counties"] = counties
         if self.grid_down_zones:
             events["grid_down"] = sorted(set(events.get("grid_down", [])) | set(self.grid_down_zones))
         return replace(frame, events=events)
@@ -395,22 +451,24 @@ class Session:
 
     def describe_tick(self, result, emit, policy, frame, risk):
         tick = {**asdict(result), "brief": write_brief(result)}
-        policy_view = {"reserve_pct": policy.reserve_pct, "zone_reserve_pct": policy.zone_reserve_pct}
         grid_down = set(frame.events.get("grid_down", []))
         homes, zones = [], {}
         for home in self.homes:
             home_emit = emit["homes"][home.home_id]
-            floor_pct = floor_pct_for(home, policy_view)
+            floor_pct = floor_pct_for(home, policy)
             reason = policy.zone_reasons.get(home.zone, policy.reason)
-            state = home_state(home, home_emit, floor_pct, reason, home.zone in grid_down)
+            floor_reason = policy.county_reasons.get(home.county, reason)
+            state = home_state(home, home_emit, floor_pct, floor_reason, home.zone in grid_down)
             kw = home_emit["power_kw"]
-            homes.append({"id": home.home_id, "zone": home.zone, "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
+            homes.append({**home_row(home), "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
                           "kw": round(kw, 3), "state": state, "status": home.status, "floor_pct": floor_pct,
+                          "floor_reason": floor_reason,
                           "under_floor_why": self.under_floor_why(home, state, floor_pct)})
             row = zones.setdefault(home.zone, {
                 "selling_mw": result.zone_delivered_mw.get(home.zone, 0.0),
                 "charging_mw": result.zone_charging_mw.get(home.zone, 0.0),
-                "reserve_pct": floor_pct, "reason": reason, "price_usd_mwh": result.zone_prices.get(home.zone),
+                "reserve_pct": policy.zone_reserve_pct.get(home.zone, policy.reserve_pct), "reason": reason,
+                "price_usd_mwh": result.zone_prices.get(home.zone),
                 "grid_down": home.zone in grid_down, "homes": 0, "states": {}, "soc_mwh": 0.0,
             })
             row["homes"] += 1
@@ -496,8 +554,9 @@ class Session:
             scenario["alerts"] = [{**alert_summary(a), "zones": alert_zones(a, self.settings)[0]} for a in
                                   (load_alert(i, self.alert_dir) for i in self.scenario.get("alerts", [])) if a]
         live_homes = self.last["homes"] if self.last else [
-            {"id": h.home_id, "zone": h.zone, "soc_pct": round(100 * h.soc_kwh / h.capacity_kwh, 2), "kw": 0.0,
-             "state": "holding", "status": h.status, "floor_pct": self.settings["base_reserve_pct"]}
+            {**home_row(h), "soc_pct": round(100 * h.soc_kwh / h.capacity_kwh, 2), "kw": 0.0,
+             "state": "holding", "status": h.status, "floor_pct": self.settings["base_reserve_pct"],
+             "floor_reason": "normal"}
             for h in self.homes]
         return {
             "status": self.status(), "error": self.error, "updated_at": utc_now(), "pid": os.getpid(),
@@ -512,6 +571,7 @@ class Session:
             "provenance": self.last["provenance"] if self.last else None,
             "alerts": self.active_alerts,
             "grid_down_zones": self.grid_down_zones,
+            "counties": [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
             "history": self.history, "totals": self.board, "log": self.messages,
             "honest_limits": list(HONEST_LIMITS),
         }

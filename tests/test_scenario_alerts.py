@@ -1,12 +1,14 @@
-"""Archived NWS alerts and shadow JEV readings on the /flow page. Offline: reads committed fixtures only."""
+"""Archived NWS alerts and recorded per-county JEV readings on the /flow page. Offline: reads committed fixtures only."""
 import json
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
+from server.engine.fleet import zone_counties
 from server.engine.loop import with_fleet_defaults
-from server.engine.scenario import ALERT_DIR, JEV_DIR, Session, alert_zones, load_alert, load_catalog
+from server.engine.scenario import (ALERT_DIR, JEV_DIR, Session, alert_counties, alert_zones, load_alert,
+                                    load_catalog)
 
 ROOT = Path(__file__).resolve().parent.parent
 ALERTS = ROOT / ALERT_DIR
@@ -53,11 +55,19 @@ def test_alert_counties_map_to_the_expected_zone(alert_id, zones):
     assert mapped == zones
 
 
-@pytest.mark.parametrize("path", sorted(JEVS.glob("*.json")), ids=lambda p: p.stem)
-def test_recorded_jev_reading_matches_an_alert_and_the_page_shape(path):
+def test_readings_live_only_in_the_per_county_layout():
+    assert not list(JEVS.glob("*.json"))
+
+
+@pytest.mark.parametrize("path", sorted(JEVS.glob("*/*.json")), ids=lambda p: f"{p.parent.name}/{p.stem}")
+def test_recorded_jev_reading_matches_an_alert_county_and_the_page_shape(path):
     reading = json.loads(path.read_text())
-    assert path.stem in EXPECTED_ZONES
-    assert reading["recorded"] is True and reading["alert_id"] == path.stem
+    alert_id, fips = path.parent.name, path.stem
+    assert alert_id in EXPECTED_ZONES
+    counties, _ = alert_counties(load_alert(alert_id, ALERTS), with_fleet_defaults(SETTINGS))
+    assert fips in {f for _, f, _ in counties}
+    assert reading.get("county_fips", fips) == fips and f"county {fips}" in reading["input_label"]
+    assert reading["recorded"] is True and reading["alert_id"] == alert_id
     assert reading["answer"] == ("yes" if reading["probability"] >= 0.5 else "no")
     assert 0.0 <= reading["probability"] <= 1.0
     assert reading["model"] and reading["latency_ms"] > 0
@@ -65,7 +75,10 @@ def test_recorded_jev_reading_matches_an_alert_and_the_page_shape(path):
     assert reading["input_label"].startswith("archived NWS alert ")
 
 
-def heather_session(tmp_path, jev_dir=JEVS):
+def heather_session(tmp_path, jev_dir=None):
+    # No readings by default: every named county fails safe to the storm reserve, so a test sees the
+    # alert's timing alone. Pass JEVS for the recorded readings.
+    jev_dir = jev_dir or tmp_path / "no-jev"
     catalog_path = tmp_path / "catalog.json"
     catalog_path.write_text(json.dumps({"scenarios": [{
         "id": "heather-alerts", "name": "Heather with archived alerts (test catalog)",
@@ -121,22 +134,27 @@ def test_alert_stops_applying_after_its_archived_expiry(tmp_path):
     assert seen_before and seen_after
 
 
-def run_ticks(s, steps):
-    frames = []
-    for _ in range(steps):
-        s.step()
-        frames.append((floors(s), [(h["id"], h["kw"], h["soc_pct"]) for h in s.last["homes"]]))
-    return frames
+def expected_county_floor(reading):
+    if reading is None:
+        return 60.0, "weather_alert_no_jev"
+    return (60.0, "weather_alert_jev_yes") if reading["probability"] >= 0.5 else (30.0, "jev_no")
 
 
-def test_jev_reading_is_attached_and_never_changes_a_floor_or_kw(tmp_path):
-    reading = json.loads((JEVS / f"{HARRIS_FREEZE}.json").read_text())
-    with_jev = heather_session(tmp_path)
-    without_jev = heather_session(tmp_path, jev_dir=tmp_path / "no-jev")
-    for s in (with_jev, without_jev):
+def test_recorded_jev_readings_gate_each_county_floor(tmp_path):
+    s = heather_session(tmp_path, jev_dir=JEVS)
+    s.step()
+    s.send_alert(HARRIS_FREEZE)
+    alert = s.active_alerts[0]
+    readings = {fips: row["reading"] for fips, row in alert["jev_by_county"].items()}
+    assert set(readings) == {fips for zone, fips, _ in zone_counties(s.settings) if zone == "Houston"}
+    assert alert["jev"] == readings["48201"]
+    expected = {fips: expected_county_floor(reading) for fips, reading in readings.items()}
+    raised = any(reason != "jev_no" for _, reason in expected.values())
+    for _ in range(20):
         s.step()
-        s.send_alert(HARRIS_FREEZE)
-    assert with_jev.active_alerts[0]["jev"] == reading
-    assert without_jev.active_alerts[0]["jev"] is None
-    assert run_ticks(with_jev, 40) == run_ticks(without_jev, 40)
-    assert with_jev.history == without_jev.history
+        tick = s.last["result"]
+        assert tick["breaches"] == 0
+        assert {f: (tick["county_reserve_pct"][f], tick["county_reasons"][f]) for f in expected} == expected
+        assert floors(s)["Houston"] == ((60.0, "weather_alert") if raised else (30.0, "normal"))
+        assert all((h["floor_pct"], h["floor_reason"]) == expected[h["county"]]
+                   for h in s.last["homes"] if h["zone"] == "Houston")
