@@ -8,13 +8,14 @@
 
 ## Where it runs (checked 2026-09-27)
 
-Only on a laptop, started by hand. Nothing in production runs it:
+It now starts in the Render web service, beside the API:
 
-- `render.yaml` and the Render account have one service, `reservegate-api`. Its start command runs `scripts/scenario_session.py` and uvicorn, never `live_cycle.py`. There is no Render cron job or worker.
+- `render.yaml` runs `scripts/scenario_session.py`, `scripts/live_cycle.py --loop`, and uvicorn in the one `reservegate-api` service. They share the same `var/` folder while that Render instance is alive, so `/v1/runs/latest`, `/v1/live/orders`, fleet rollups, and the scenario worker see the same files.
+- The worker needs `ERCOT_USERNAME`, `ERCOT_PASSWORD`, `ERCOT_SUBSCRIPTION_KEY`, `SUPABASE_URL`, and `SUPABASE_SECRET_KEY` in the Render dashboard. If ERCOT keys are missing, `/v1/snapshot` reports `quality=auth`. If Supabase keys are missing, the local file still updates while the instance is alive, but `public.runs` and the archive rows are not persisted.
 - `.github/workflows/ci.yml` only runs tests. Supabase has no `pg_cron`, no `pg_net` and no Edge Functions.
-- Supabase `runs`: all 51 `source=live` rows fall between 2026-09-26 19:46 and 2026-09-27 00:34 UTC, one `--loop` session at the 5-minute cadence.
+- `GET /v1/runs/latest` still treats `var/runs/latest.json` as source of truth. When a Render instance has no local file yet and falls back to `public.runs`, it reads a page of rows and picks the one with the newest last tick timestamp. This keeps stale probe rows such as `persist-probe-20260926` from beating real timestamp run ids.
 
-So every `var/` file the worker keeps (`var/dam/`, `var/fleet/homes.json`, `var/state.json`) sits on the laptop disk and survives each cycle and a restart of `--loop`. Run it from the repo root: `var/` is relative to the working folder. If the worker ever moves to a host with a fresh filesystem per run (Render cron, GitHub Actions), those files reset every run. Before that move, keep the DAM days in a durable store that `live_cycle.py` reads and writes and passes to `loop.run(live_dam=...)`, so the tick still never imports Supabase; the fleet's charge needs the same treatment.
+Render free instances can restart or sleep, so every `var/` file the worker keeps (`var/dam/`, `var/fleet/homes.json`, `var/state.json`) is durable only for that running instance. `public.runs`, `ercot_postings`, `ercot_prices`, and `public.homes` are the cross-restart copies. Before moving the worker to a fresh filesystem per run (Render cron, GitHub Actions), keep DAM days and fleet charge in a durable store that `live_cycle.py` reads and writes and passes to `loop.run(live_dam=...)`, so the tick still never imports Supabase.
 
 ## Cycle
 

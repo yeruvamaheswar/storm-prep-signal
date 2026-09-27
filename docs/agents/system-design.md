@@ -253,7 +253,9 @@ flowchart LR
   subgraph render["Render, free plan"]
     RAPI["reservegate-api<br/>uvicorn on 0.0.0.0:$PORT<br/>health check /health"]
     RSESS["scripts/scenario_session.py<br/>same instance, background"]
+    RLIVE["scripts/live_cycle.py --loop<br/>same instance, background"]
     RSESS <-->|"var/scenario/"| RAPI
+    RLIVE -->|"var/runs, var/fleet"| RAPI
   end
   subgraph vercel["Vercel"]
     VWALL["Wall, static web/dist<br/>rewrites /health and /v1"]
@@ -265,6 +267,8 @@ flowchart LR
 
   ENG -.-> SB
   ENG --> ERCOT
+  RLIVE --> SB
+  RLIVE --> ERCOT
   RAPI --> SB
   RAPI --> ERCOT
   VWALL -->|"/health, /v1"| RAPI
@@ -283,7 +287,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/fetch_dam_prices.py` and `python scripts/backtest_dam.py` (save ERCOT DAM days, and score DAM against real-time; [dam-forecast.md, Scripts](dam-forecast.md#scripts)), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker; on Render it starts beside uvicorn in the same instance, see [live-ingest.md](live-ingest.md)), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/fetch_dam_prices.py` and `python scripts/backtest_dam.py` (save ERCOT DAM days, and score DAM against real-time; [dam-forecast.md, Scripts](dam-forecast.md#scripts)), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
 ### Settings
 
 Names and example values live in `.env.example`; `cli.read_settings()` and `server/env.py` read them. Values go in `.env` or `server/.env`, never in git.

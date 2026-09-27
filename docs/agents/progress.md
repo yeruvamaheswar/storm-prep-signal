@@ -2,6 +2,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Render starts the live worker for `/live`
+
+- Found from production: `/v1/snapshot` reached ERCOT with `quality: ok`, so ERCOT keys and routing were not the blocker. `/v1/runs/latest` returned the stale Supabase probe row `persist-probe-20260926`, with no `settings`, so the Live page correctly said the run could not be checked against the demo fleet.
+- `render.yaml` now starts `scripts/live_cycle.py --loop` beside `scripts/scenario_session.py` and uvicorn, so the Render API instance writes fresh `var/runs/latest.json`, `var/fleet/*`, and persisted `public.runs` rows.
+- `run_from_table_rows` reads a page of Supabase run rows and picks the one with the newest last tick timestamp, not the largest `run_id` string, so a stale probe row cannot beat real timestamp run ids.
+- Docs updated: `docs/agents/live-ingest.md`, `docs/agents/backend.md`, `docs/agents/system-design.md`.
+
 ## 2026-09-27: Task 4 Replay Texas view
 
 - Built the redesigned Replay page at `/` from the approved `Main.dc.html` look, driven by the scenario session APIs and existing Replay logic.

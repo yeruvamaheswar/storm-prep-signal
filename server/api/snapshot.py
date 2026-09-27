@@ -90,9 +90,14 @@ def run_from_table_rows(rows):
         rows = [rows]
     if not isinstance(rows, list) or not rows:
         return None
-    row = rows[0]
-    if not isinstance(row, dict):
+    runs = [_run_with_stored_settings(row) for row in rows if isinstance(row, dict)]
+    runs = [run for run in runs if run is not None]
+    if not runs:
         return None
+    return max(runs, key=_run_sort_key)
+
+
+def _run_with_stored_settings(row):
     run = _run_from_table_row(row)
     if run is None or isinstance(run.get("settings"), dict):
         return run
@@ -101,6 +106,23 @@ def run_from_table_rows(rows):
     if not isinstance(stored, dict):
         return run
     return {**run, "settings": dict(stored)}
+
+
+def _run_sort_key(run):
+    """Newest by last tick time, not by run_id text.
+
+    Probe rows such as "persist-probe-20260926" sort above timestamp-like run ids in PostgREST,
+    so the API reads a page and chooses the newest actual tick itself.
+    """
+    ticks = run.get("ticks")
+    last = ticks[-1] if isinstance(ticks, list) and ticks else {}
+    ts = last.get("ts") if isinstance(last, dict) else None
+    if isinstance(ts, str):
+        try:
+            return (1, datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp(), str(run.get("run_id", "")))
+        except ValueError:
+            pass
+    return (0, 0.0, str(run.get("run_id", "")))
 
 
 def _run_from_table_row(row):
@@ -138,7 +160,7 @@ def fetch_runs_table(get=None, url=None, key=None, timeout_s=None):
     except ValueError:
         timeout = 3.0
     endpoint = f"{host.rstrip('/')}/rest/v1/runs"
-    params = {"select": "run_id,source,result,summary", "order": "run_id.desc", "limit": "1"}
+    params = {"select": "run_id,source,result,summary", "order": "run_id.desc", "limit": "25"}
     caller = requests.get if get is None else get
     try:
         reply = caller(endpoint, params=params, headers={"apikey": secret}, timeout=timeout)
