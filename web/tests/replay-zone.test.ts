@@ -564,11 +564,11 @@ describe("a home says why its floor is what it is (Task 12 / #47: W3)", () => {
     const harris = renderToStaticMarkup(createElement(HomePanel, {
       homeId: "home-021", home: home("home-021"), orders: berylHoustonOrders22, tSeconds: 120, mode: "AUTO", onClose: () => {},
     }))
-    expect(harris).toContain("Backup floor 60% this tick. NWS alert, JEV yes.")
+    expect(harris).toContain("Backup floor 60% this tick. NWS weather alert.")
   })
 
   it("says what raised a reserved home's floor", () => {
-    expect(notAskedReason(home("home-021"), "AUTO")).toBe("Its floor was raised (NWS alert, JEV yes), so it keeps its energy for backup.")
+    expect(notAskedReason(home("home-021"), "AUTO")).toBe("Its floor was raised (NWS weather alert), so it keeps its energy for backup.")
     const { floor_reason: _r, ...old } = home("home-021")
     expect(notAskedReason(old, "AUTO")).toBe("Its floor was raised, so it keeps its energy for backup.")
   })

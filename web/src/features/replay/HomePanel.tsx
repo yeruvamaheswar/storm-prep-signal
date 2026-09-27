@@ -66,7 +66,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
           <p>
             {home ? `${home.zone} zone${home.county_name ? `, ${home.county_name} County` : ""}. ` : ""}
             {facts.floor === "Not reported" ? "Backup floor not reported." : `Backup floor ${facts.floor} this tick.`}
-            {/* #47: the county floor's reason, e.g. "NWS alert, JEV yes" or "County not named by the alert (base floor)". */}
+            {/* #47: the county floor's reason, e.g. "NWS weather alert" or "County not named by the alert (base floor)". */}
             {home?.floor_reason ? ` ${reasonLabel(home.floor_reason)}.` : ""}
           </p>
           {refill ? <p className="zone-refill">{refill}.</p> : null}

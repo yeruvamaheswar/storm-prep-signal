@@ -7,11 +7,10 @@ import { MapStage } from "../src/features/replay/MapStage"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { homeFloorRaised } from "../src/features/replay/reasonCodes"
-import { JEV_NO_TEXT } from "../src/features/replay/weatherModel"
 import { berylHoustonHomes22, berylHoustonOrders22, counties } from "./fixtures/beryl22"
 
 // Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts.
-// beryl-landfall tick 2 after the Beryl alert (JEV yes for Harris; merged engine with #47, seed 42).
+// beryl-landfall tick 2 after the Beryl alert (it names Harris; merged engine with #47, seed 42).
 const alertTick = {
   tick: 2, risk_level: "LOW", reasons: ["charging", "reserve_refill", "homes_stale:1"],
   zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 },
@@ -24,15 +23,16 @@ const gridDownTick = {
   zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
   grid_down_zones: ["Houston"],
 } as unknown as FlowTick
-// heather tick 2 after both hard-freeze warnings (merged engine with #47, seed 42): JEV said no in all nine named counties.
-const jevNoTick = {
+// heather tick 2 after both hard-freeze warnings (2026-09-27 named-county rule, seed 42): all nine named counties
+// keep the 60% storm reserve, so Houston and North rise; South and West stay at 30%.
+const namedTick = {
   tick: 2, risk_level: "LOW", reasons: ["reserve_refill", "homes_stale:2"],
-  zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 },
-  zone_reasons: { Houston: "normal", North: "normal", South: "normal", West: "normal" },
-  county_reserve_pct: { 48201: 30, 48157: 30, 48039: 30, 48167: 30, 48339: 30, 48113: 30, 48439: 30, 48085: 30, 48121: 30 },
+  zone_reserve_pct: { Houston: 60, North: 60, South: 30, West: 30 },
+  zone_reasons: { Houston: "weather_alert", North: "weather_alert", South: "normal", West: "normal" },
+  county_reserve_pct: { 48201: 60, 48157: 60, 48039: 60, 48167: 60, 48339: 60, 48113: 60, 48439: 60, 48085: 60, 48121: 60 },
   county_reasons: {
-    48201: "jev_no", 48157: "jev_no", 48039: "jev_no", 48167: "jev_no", 48339: "jev_no",
-    48113: "jev_no", 48439: "jev_no", 48085: "jev_no", 48121: "jev_no",
+    48201: "weather_alert", 48157: "weather_alert", 48039: "weather_alert", 48167: "weather_alert", 48339: "weather_alert",
+    48113: "weather_alert", 48439: "weather_alert", 48085: "weather_alert", 48121: "weather_alert",
   },
   grid_down_zones: [],
 } as unknown as FlowTick
@@ -125,11 +125,8 @@ describe("zone board weather", () => {
   })
 
   it("homeFloorRaised reads the home's floor reason, and trusts the zone when an older worker sends none", () => {
-    expect(homeFloorRaised({ floor_reason: "weather_alert_jev_yes" })).toBe(true)
-    expect(homeFloorRaised({ floor_reason: "weather_alert_no_jev" })).toBe(true)
     expect(homeFloorRaised({ floor_reason: "weather_alert" })).toBe(true)
     expect(homeFloorRaised({ floor_reason: "storm_risk_high" })).toBe(true)
-    expect(homeFloorRaised({ floor_reason: "jev_no" })).toBe(false)
     expect(homeFloorRaised({ floor_reason: "not_in_alert" })).toBe(false)
     expect(homeFloorRaised({ floor_reason: "normal" })).toBe(false)
     expect(homeFloorRaised({})).toBe(true)
@@ -223,34 +220,33 @@ describe("map weather", { timeout: 20_000 }, () => {
     expect(host.querySelector(".replay-wx-rain")).toBeNull()
   })
 
-  it("names an alert JEV said no to on the zone's chip, with no clouds (Task 12 / #47: W2)", async () => {
+  it("puts weather over every zone a named-county alert raised, and none elsewhere (Heather tick 2)", async () => {
     await act(async () => {
       root.render(createElement(MapStage, {
-        zones: {}, homes, tick: jevNoTick, counties, baseFloorPct: 30, tSeconds: 0, lens: "send", notice: null, onZone: () => {},
+        zones: {}, homes, tick: namedTick, baseFloorPct: 30, tSeconds: 0, lens: "send", notice: null, onZone: () => {},
       }))
     })
     for (let i = 0; i < 400 && !host.querySelector(".replay-chip"); i += 1) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
     }
+    const clouds = [...host.querySelectorAll<HTMLElement>(".replay-wx-clouds")].map((el) => el.dataset.zone)
+    expect(clouds.sort()).toEqual(["Houston", "North"])
     const chips = [...host.querySelectorAll<HTMLButtonElement>(".replay-chip")]
-    const noted = chips.filter((chip) => chip.textContent?.includes(JEV_NO_TEXT)).map((chip) => chip.querySelector("b")?.textContent)
-    expect(noted.sort()).toEqual(["Houston", "North"])
-    expect(host.querySelector(".replay-wx-clouds")).toBeNull()
-    expect(host.querySelector(".replay-wx-rain")).toBeNull()
+    expect(chips.some((chip) => /base floor kept/i.test(chip.textContent ?? ""))).toBe(false)
   })
 })
 
-describe("zone board after an alert JEV said no to (Task 12 / #47: W2)", () => {
-  it("says the base floor was kept, with no weather and no lit windows", () => {
+describe("zone board after a named-county alert (Heather tick 2)", () => {
+  it("shows weather in a zone the alert raised, and none in a zone it did not name", () => {
     const state = {
       status: "paused", error: null, updated_at: "", scenario: null, seed: 42, speed: 1, speeds: [1], step_seconds: 120, tick_minutes: 5,
-      tick_index: 2, tick_count: 145, start: { base_floor_pct: 30 }, tick: jevNoTick, homes, orders: {}, zones: {}, charging_mw: 0,
+      tick_index: 2, tick_count: 145, start: { base_floor_pct: 30 }, tick: namedTick, homes, orders: {}, zones: {}, charging_mw: 0,
       provenance: null, alerts: [], grid_down_zones: [], history: [], totals: null, log: [], honest_limits: [], counties,
     }
     const page = (zone: string) => renderToStaticMarkup(createElement(ReplayPage, { scenarios: null, state: state as never, nowMs: 0, selectedZone: zone }))
-    expect(page("Houston")).toContain(JEV_NO_TEXT)
-    expect(page("Houston")).not.toContain("is-weather")
-    expect(page("Houston")).not.toContain("var(--rg-window-lit)")
-    expect(page("West")).not.toContain(JEV_NO_TEXT)
+    expect(page("Houston")).toContain("zone-scene is-weather")
+    expect(page("North")).toContain("zone-scene is-weather")
+    expect(page("West")).not.toContain("is-weather")
+    expect(page("Houston")).not.toMatch(/base floor kept/i)
   })
 })

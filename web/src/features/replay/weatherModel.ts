@@ -1,5 +1,5 @@
 import type { Point } from "../flow/flowMath"
-import type { FlowCounty, FlowTick, FlowZoneRow } from "../flow/types"
+import type { FlowTick, FlowZoneRow } from "../flow/types"
 import { zoneRaised } from "./mapModel"
 import { SIGNAL_MISSING_REASON, isWeatherReason } from "./reasonCodes"
 
@@ -43,21 +43,6 @@ export function zoneWeather(
     : row?.grid_down === true
   const weather = (floorRaised || isWeatherReason(reason)) && reason !== SIGNAL_MISSING_REASON
   return { floorRaised, weather, gridDown }
-}
-
-/** Muted note for a zone where an NWS alert was sent but JEV said no, so the base floor was kept. */
-export const JEV_NO_TEXT = "NWS alert · JEV no · base floor kept"
-
-type CountyTick = Partial<Pick<FlowTick, "zone_reasons" | "county_reasons">>
-
-/** #47: an alert names counties; JEV said no for this zone's named counties, so its reason stays `normal` and
- * nothing on the map would change. True when the zone reason is normal and some county of this zone (from the
- * session's county roster) reads `jev_no`. False when the tick or roster carries nothing to read. */
-export function alertKeptBase(zone: string, tick: CountyTick | null | undefined, counties: readonly FlowCounty[] | null | undefined): boolean {
-  const reasons = tick?.county_reasons
-  if (!reasons || !counties?.length) return false
-  if (tick?.zone_reasons?.[zone] !== "normal") return false
-  return counties.some((county) => county.zone === zone && reasons[county.fips] === "jev_no")
 }
 
 export function fleetWeather(

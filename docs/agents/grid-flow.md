@@ -97,6 +97,7 @@ transport-only noise stay out of `orders`; the raw orchestration log still lives
 
 - **Roster.** `fleet.ZONE_COUNTIES` is a simulation roster, anchor county first: 5 Houston counties, 4 each in North, West and South. It is not ERCOT's county map. A zone missing from it gets one county, its `ZONES` anchor, named by its FIPS.
 - **State.** `alerts[].named_counties` lists the roster counties the alert names, in roster order. The page shows them in a "Counties named in this alert" table; each county note reads "named in alert · floor 60%" or "not named · floor 30%".
+- **Replay.** "About this data" shows the same table per sent alert (`AlertDetail.tsx`, through `flowMath.namedCountyRows`), with a Zone column and the county's floor and reason from the tick on screen ("60% · NWS weather alert"; "Alert not in force this tick" once it has expired). `web/tests/replay-flow-parity.test.ts` checks both screens list the same counties, zones and floors on one tick. Replay carries no JEV panel, JEV labels or "base floor kept" note (removed 2026-09-27).
 
 ### Why JEV was removed
 
@@ -160,4 +161,4 @@ The page prints them from `HONEST_LIMITS` in `server/engine/scenario.py`. That t
 
 ## Tests
 
-`tests/test_scenario_session.py`, `tests/test_scenario_alerts.py`, `tests/test_county_alert_floor.py`, `tests/test_build_scenarios.py`, `tests/test_grid_down.py`, the charge tests in `tests/test_orchestration.py` and `tests/test_invariants.py`, and `web/tests/flow.test.ts`.
+`tests/test_scenario_session.py`, `tests/test_scenario_alerts.py`, `tests/test_county_alert_floor.py`, `tests/test_build_scenarios.py`, `tests/test_grid_down.py`, the charge tests in `tests/test_orchestration.py` and `tests/test_invariants.py`, `web/tests/flow.test.ts`, and `web/tests/replay-flow-parity.test.ts`.
