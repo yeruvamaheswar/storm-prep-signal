@@ -26,7 +26,9 @@ The charging rule these numbers drive lives in [policy-intent.md, "Cheapest DAM 
 
 **Window.** From the current hour up to 24 hours ahead, only hours already published at the tick. ERCOT posts the next day's DAM in the early afternoon; the engine treats it as out from 13:30 CT (`signal.DAM_POSTED_AT`, `dam_days_published`). So before 13:30 the window ends at midnight, and after it reaches into tomorrow. A zone missing the current hour is dropped from `dam_hours` and falls back to the $25/$60 bands.
 
-**Stale.** On Live, `/v1/snapshot` passes the tick's DAM fields through and drops `dam_hours` when the tick is older than `stale_after_min` (90), so an old plan never reads as "the next 24 hours" and the panel hides. The other DAM fields stay. Detail: [wall-snapshot.md](wall-snapshot.md#day-ahead-fields).
+**Stale.** On Live, `/v1/snapshot` passes the tick's DAM fields through and drops `dam_hours` when the tick is older than `stale_after_min` (90), so an old plan never reads as "the next 24 hours" and the panel hides. The other DAM fields stay.
+
+**Replay.** "About this data" (`web/src/features/replay/AboutDataDrawer.tsx`) shows a "Day-ahead (DAM)" provenance row (`dam_label` · `dam_as_of`, or "None: price bands" when `dam_label` is `none`, as on heather), the saved DAM files from `provenance.archive_rows.dam`, and one "{Zone} charge: {why}" row per zone from `zone_charge_why`. The web types for these are `FlowTickDam` and `ArchiveRowsDam` in `web/src/features/flow/types.ts`. When nothing moved, there was no call, and every zone was held by the DAM rule, the tick's `intent_reason` is the wait code itself (`cheaper_hour_later`, else `no_payback`): `controller.dam_wait_reason`, table in [policy-intent.md](policy-intent.md). Detail: [wall-snapshot.md](wall-snapshot.md#day-ahead-fields).
 
 ## How the hours reach the tick
 
@@ -55,7 +57,8 @@ flowchart LR
 
 | What fails | What happens |
 |---|---|
-| Outage fetch failed on Live (risk None) | No DAM read that cycle; every zone uses the $25/$60 bands. |
+| Outage fetch failed on Live (risk None) | No DAM read that cycle, not even a day already cached in `var/dam/`; every zone uses the $25/$60 bands (`loop.run`, comment at the `read_live_dam` call). |
+| One load zone's DAM GET returns no rows | `fetch_dam_prices` raises `no DAM prices for <point> on <day>`, so a partial day is never saved to `var/dam/` for good (2026-09-27, Task 15). |
 | One day's DAM fetch fails (ERCOT down, tomorrow not posted yet) | Logs `fetch_dam_prices failed` with a secret-free reason, prints `live: DAM <day> unknown`, and leaves that day out. It is not cached, so the next cycle tries again. If ERCOT posts late, Live runs on today's hours until tomorrow's arrive. |
 | ERCOT rate-limits a DAM GET (HTTP 429) | `fetch_dam_prices` stops at that GET with `ERCOT DAM request failed (HTTP 429)`; it never retries. The day is not cached, so the next cycle (5 minutes later) makes one more attempt. |
 | A day file is broken, or a tape names a missing file | Logs `stage=dam` failed; the tick has no DAM hours and uses the bands. |
