@@ -1,0 +1,4869 @@
+{
+ "1": {
+  "posting": {
+   "id": 2533,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T04:04:12",
+   "file_name": "cdr.00013103.0000000000000000.20240117.040412.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 44.73
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 57.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 108.17
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": -1.23
+   }
+  ]
+ },
+ "2": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 44.73
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 57.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 108.17
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": -1.23
+   }
+  ]
+ },
+ "3": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 44.73
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 57.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": 108.17
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:15:00-06:00",
+    "price_usd_mwh": -1.23
+   }
+  ]
+ },
+ "4": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 41.36
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 50.6
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 124.54
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": -1.59
+   }
+  ]
+ },
+ "5": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 41.36
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 50.6
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 124.54
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": -1.59
+   }
+  ]
+ },
+ "6": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 41.36
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 50.6
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": 124.54
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:30:00-06:00",
+    "price_usd_mwh": -1.59
+   }
+  ]
+ },
+ "7": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 46.35
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 58.51
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 130.02
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": -1.63
+   }
+  ]
+ },
+ "8": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 46.35
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 58.51
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 130.02
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": -1.63
+   }
+  ]
+ },
+ "9": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 46.35
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 58.51
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": 130.02
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T05:45:00-06:00",
+    "price_usd_mwh": -1.63
+   }
+  ]
+ },
+ "10": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 50.62
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 64.42
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 163.42
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": -1.17
+   }
+  ]
+ },
+ "11": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 50.62
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 64.42
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 163.42
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": -1.17
+   }
+  ]
+ },
+ "12": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 50.62
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 64.42
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": 163.42
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:00:00-06:00",
+    "price_usd_mwh": -1.17
+   }
+  ]
+ },
+ "13": {
+  "posting": {
+   "id": 2534,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T05:04:54",
+   "file_name": "cdr.00013103.0000000000000000.20240117.050454.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 73.27
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 101.69
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 218.7
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": -2.2
+   }
+  ]
+ },
+ "14": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 73.27
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 101.69
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 218.7
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": -2.2
+   }
+  ]
+ },
+ "15": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 73.27
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 101.69
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": 218.7
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:15:00-06:00",
+    "price_usd_mwh": -2.2
+   }
+  ]
+ },
+ "16": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 80.92
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 126.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 294.54
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": -3.19
+   }
+  ]
+ },
+ "17": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 80.92
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 126.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 294.54
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": -3.19
+   }
+  ]
+ },
+ "18": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 80.92
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 126.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": 294.54
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:30:00-06:00",
+    "price_usd_mwh": -3.19
+   }
+  ]
+ },
+ "19": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 79.7
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 125.05
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 341.05
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": -2.47
+   }
+  ]
+ },
+ "20": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 79.7
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 125.05
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 341.05
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": -2.47
+   }
+  ]
+ },
+ "21": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 79.7
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 125.05
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": 341.05
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T06:45:00-06:00",
+    "price_usd_mwh": -2.47
+   }
+  ]
+ },
+ "22": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 86.78
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 125.27
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 350.2
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": -3.44
+   }
+  ]
+ },
+ "23": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 86.78
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 125.27
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 350.2
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": -3.44
+   }
+  ]
+ },
+ "24": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 86.78
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 125.27
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": 350.2
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:00:00-06:00",
+    "price_usd_mwh": -3.44
+   }
+  ]
+ },
+ "25": {
+  "posting": {
+   "id": 2535,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T06:03:06",
+   "file_name": "cdr.00013103.0000000000000000.20240117.060306.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 87.23
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 126.3
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 348.88
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": -4.68
+   }
+  ]
+ },
+ "26": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 87.23
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 126.3
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 348.88
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": -4.68
+   }
+  ]
+ },
+ "27": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 87.23
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 126.3
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": 348.88
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:15:00-06:00",
+    "price_usd_mwh": -4.68
+   }
+  ]
+ },
+ "28": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 81.35
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 120.8
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 344.22
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": -5.1
+   }
+  ]
+ },
+ "29": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 81.35
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 120.8
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 344.22
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": -5.1
+   }
+  ]
+ },
+ "30": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 81.35
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 120.8
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": 344.22
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:30:00-06:00",
+    "price_usd_mwh": -5.1
+   }
+  ]
+ },
+ "31": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 72.8
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 104.74
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 300.65
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": -2.49
+   }
+  ]
+ },
+ "32": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 72.8
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 104.74
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 300.65
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": -2.49
+   }
+  ]
+ },
+ "33": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 72.8
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 104.74
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": 300.65
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T07:45:00-06:00",
+    "price_usd_mwh": -2.49
+   }
+  ]
+ },
+ "34": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 69.41
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 91.94
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 192.11
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": -1.46
+   }
+  ]
+ },
+ "35": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 69.41
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 91.94
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 192.11
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": -1.46
+   }
+  ]
+ },
+ "36": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 69.41
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 91.94
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": 192.11
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:00:00-06:00",
+    "price_usd_mwh": -1.46
+   }
+  ]
+ },
+ "37": {
+  "posting": {
+   "id": 2536,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T07:04:11",
+   "file_name": "cdr.00013103.0000000000000000.20240117.070411.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 70.42
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 84.84
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 243.45
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 3.83
+   }
+  ]
+ },
+ "38": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 70.42
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 84.84
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 243.45
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 3.83
+   }
+  ]
+ },
+ "39": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 70.42
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 84.84
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 243.45
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:15:00-06:00",
+    "price_usd_mwh": 3.83
+   }
+  ]
+ },
+ "40": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 43.73
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 49.78
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 154.2
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 2.59
+   }
+  ]
+ },
+ "41": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 43.73
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 49.78
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 154.2
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 2.59
+   }
+  ]
+ },
+ "42": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 43.73
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 49.78
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 154.2
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:30:00-06:00",
+    "price_usd_mwh": 2.59
+   }
+  ]
+ },
+ "43": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 40.95
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 30.92
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 110.63
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 0.71
+   }
+  ]
+ },
+ "44": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 40.95
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 30.92
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 110.63
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 0.71
+   }
+  ]
+ },
+ "45": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 40.95
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 30.92
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 110.63
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T08:45:00-06:00",
+    "price_usd_mwh": 0.71
+   }
+  ]
+ },
+ "46": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 39.71
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 26.42
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 107.81
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": -4.34
+   }
+  ]
+ },
+ "47": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 39.71
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 26.42
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 107.81
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": -4.34
+   }
+  ]
+ },
+ "48": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 39.71
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 26.42
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": 107.81
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:00:00-06:00",
+    "price_usd_mwh": -4.34
+   }
+  ]
+ },
+ "49": {
+  "posting": {
+   "id": 2537,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T08:02:58",
+   "file_name": "cdr.00013103.0000000000000000.20240117.080258.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 30.64
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 22.25
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 72.36
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": -4.29
+   }
+  ]
+ },
+ "50": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 30.64
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 22.25
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 72.36
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": -4.29
+   }
+  ]
+ },
+ "51": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 30.64
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 22.25
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": 72.36
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:15:00-06:00",
+    "price_usd_mwh": -4.29
+   }
+  ]
+ },
+ "52": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 33.89
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 18.81
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 85.12
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": -6.38
+   }
+  ]
+ },
+ "53": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 33.89
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 18.81
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 85.12
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": -6.38
+   }
+  ]
+ },
+ "54": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 33.89
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 18.81
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": 85.12
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:30:00-06:00",
+    "price_usd_mwh": -6.38
+   }
+  ]
+ },
+ "55": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 32.87
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 18.54
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 88.29
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": -5.86
+   }
+  ]
+ },
+ "56": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 32.87
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 18.54
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 88.29
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": -5.86
+   }
+  ]
+ },
+ "57": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 32.87
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 18.54
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": 88.29
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T09:45:00-06:00",
+    "price_usd_mwh": -5.86
+   }
+  ]
+ },
+ "58": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 24.78
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 15.14
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 61.96
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": -4.8
+   }
+  ]
+ },
+ "59": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 24.78
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 15.14
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 61.96
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": -4.8
+   }
+  ]
+ },
+ "60": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 24.78
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 15.14
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": 61.96
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:00:00-06:00",
+    "price_usd_mwh": -4.8
+   }
+  ]
+ },
+ "61": {
+  "posting": {
+   "id": 2538,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T09:02:57",
+   "file_name": "cdr.00013103.0000000000000000.20240117.090257.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 21.31
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 15.4
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 38.8
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": -2.97
+   }
+  ]
+ },
+ "62": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 21.31
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 15.4
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 38.8
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": -2.97
+   }
+  ]
+ },
+ "63": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 21.31
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 15.4
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": 38.8
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:15:00-06:00",
+    "price_usd_mwh": -2.97
+   }
+  ]
+ },
+ "64": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 22.04
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 16.46
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 41.56
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": -3.03
+   }
+  ]
+ },
+ "65": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 22.04
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 16.46
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 41.56
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": -3.03
+   }
+  ]
+ },
+ "66": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 22.04
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 16.46
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": 41.56
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:30:00-06:00",
+    "price_usd_mwh": -3.03
+   }
+  ]
+ },
+ "67": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 21.1
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 15.61
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 40.72
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": -3.3
+   }
+  ]
+ },
+ "68": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 21.1
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 15.61
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 40.72
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": -3.3
+   }
+  ]
+ },
+ "69": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 21.1
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 15.61
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": 40.72
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T10:45:00-06:00",
+    "price_usd_mwh": -3.3
+   }
+  ]
+ },
+ "70": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 21.11
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 16.2
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 37.93
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": -2.73
+   }
+  ]
+ },
+ "71": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 21.11
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 16.2
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 37.93
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": -2.73
+   }
+  ]
+ },
+ "72": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 21.11
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 16.2
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": 37.93
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:00:00-06:00",
+    "price_usd_mwh": -2.73
+   }
+  ]
+ },
+ "73": {
+  "posting": {
+   "id": 2539,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T10:03:19",
+   "file_name": "cdr.00013103.0000000000000000.20240117.100319.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 19.55
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 15.98
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 30.3
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": -1.95
+   }
+  ]
+ },
+ "74": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 19.55
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 15.98
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 30.3
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": -1.95
+   }
+  ]
+ },
+ "75": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 19.55
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 15.98
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": 30.3
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:15:00-06:00",
+    "price_usd_mwh": -1.95
+   }
+  ]
+ },
+ "76": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 20.66
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 15.79
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 37.27
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": -1.34
+   }
+  ]
+ },
+ "77": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 20.66
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 15.79
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 37.27
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": -1.34
+   }
+  ]
+ },
+ "78": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 20.66
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 15.79
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": 37.27
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:30:00-06:00",
+    "price_usd_mwh": -1.34
+   }
+  ]
+ },
+ "79": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 19.54
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 15.21
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 33.86
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": -1.82
+   }
+  ]
+ },
+ "80": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 19.54
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 15.21
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 33.86
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": -1.82
+   }
+  ]
+ },
+ "81": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 19.54
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 15.21
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": 33.86
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T11:45:00-06:00",
+    "price_usd_mwh": -1.82
+   }
+  ]
+ },
+ "82": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 19.26
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 15.0
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 33.09
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": -2.7
+   }
+  ]
+ },
+ "83": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 19.26
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 15.0
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 33.09
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": -2.7
+   }
+  ]
+ },
+ "84": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 19.26
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 15.0
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": 33.09
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:00:00-06:00",
+    "price_usd_mwh": -2.7
+   }
+  ]
+ },
+ "85": {
+  "posting": {
+   "id": 2540,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T11:04:08",
+   "file_name": "cdr.00013103.0000000000000000.20240117.110408.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 19.47
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 16.25
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 29.03
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": -2.22
+   }
+  ]
+ },
+ "86": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 19.47
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 16.25
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 29.03
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": -2.22
+   }
+  ]
+ },
+ "87": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 19.47
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 16.25
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": 29.03
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:15:00-06:00",
+    "price_usd_mwh": -2.22
+   }
+  ]
+ },
+ "88": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 18.32
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 15.94
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 24.42
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": -2.98
+   }
+  ]
+ },
+ "89": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 18.32
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 15.94
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 24.42
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": -2.98
+   }
+  ]
+ },
+ "90": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 18.32
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 15.94
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": 24.42
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:30:00-06:00",
+    "price_usd_mwh": -2.98
+   }
+  ]
+ },
+ "91": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 16.69
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 14.12
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 22.78
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": -3.75
+   }
+  ]
+ },
+ "92": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 16.69
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 14.12
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 22.78
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": -3.75
+   }
+  ]
+ },
+ "93": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 16.69
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 14.12
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": 22.78
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T12:45:00-06:00",
+    "price_usd_mwh": -3.75
+   }
+  ]
+ },
+ "94": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 14.79
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 12.87
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 21.51
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": -4.23
+   }
+  ]
+ },
+ "95": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 14.79
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 12.87
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 21.51
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": -4.23
+   }
+  ]
+ },
+ "96": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 14.79
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 12.87
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": 21.51
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:00:00-06:00",
+    "price_usd_mwh": -4.23
+   }
+  ]
+ },
+ "97": {
+  "posting": {
+   "id": 2541,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T12:04:14",
+   "file_name": "cdr.00013103.0000000000000000.20240117.120414.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 15.42
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 12.58
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 21.57
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": -4.33
+   }
+  ]
+ },
+ "98": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 15.42
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 12.58
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 21.57
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": -4.33
+   }
+  ]
+ },
+ "99": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 15.42
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 12.58
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": 21.57
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:15:00-06:00",
+    "price_usd_mwh": -4.33
+   }
+  ]
+ },
+ "100": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 14.82
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 10.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 22.23
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": -3.8
+   }
+  ]
+ },
+ "101": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 14.82
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 10.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 22.23
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": -3.8
+   }
+  ]
+ },
+ "102": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 14.82
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 10.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": 22.23
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:30:00-06:00",
+    "price_usd_mwh": -3.8
+   }
+  ]
+ },
+ "103": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 14.9
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 11.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 20.97
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": -4.56
+   }
+  ]
+ },
+ "104": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 14.9
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 11.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 20.97
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": -4.56
+   }
+  ]
+ },
+ "105": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 14.9
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 11.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": 20.97
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T13:45:00-06:00",
+    "price_usd_mwh": -4.56
+   }
+  ]
+ },
+ "106": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 14.38
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 10.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 21.05
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": -5.18
+   }
+  ]
+ },
+ "107": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 14.38
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 10.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 21.05
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": -5.18
+   }
+  ]
+ },
+ "108": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 14.38
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 10.22
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": 21.05
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:00:00-06:00",
+    "price_usd_mwh": -5.18
+   }
+  ]
+ },
+ "109": {
+  "posting": {
+   "id": 2542,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T13:03:29",
+   "file_name": "cdr.00013103.0000000000000000.20240117.130329.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 10.72
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 6.16
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 18.4
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": -5.17
+   }
+  ]
+ },
+ "110": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 10.72
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 6.16
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 18.4
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": -5.17
+   }
+  ]
+ },
+ "111": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 10.72
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 6.16
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": 18.4
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:15:00-06:00",
+    "price_usd_mwh": -5.17
+   }
+  ]
+ },
+ "112": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 7.52
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 2.07
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 16.63
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": -5.16
+   }
+  ]
+ },
+ "113": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 7.52
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 2.07
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 16.63
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": -5.16
+   }
+  ]
+ },
+ "114": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 7.52
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 2.07
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": 16.63
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:30:00-06:00",
+    "price_usd_mwh": -5.16
+   }
+  ]
+ },
+ "115": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 9.89
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 4.64
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 18.95
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": -5.82
+   }
+  ]
+ },
+ "116": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 9.89
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 4.64
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 18.95
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": -5.82
+   }
+  ]
+ },
+ "117": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 9.89
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 4.64
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": 18.95
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T14:45:00-06:00",
+    "price_usd_mwh": -5.82
+   }
+  ]
+ },
+ "118": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 8.98
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 2.4
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 19.3
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": -5.81
+   }
+  ]
+ },
+ "119": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 8.98
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 2.4
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 19.3
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": -5.81
+   }
+  ]
+ },
+ "120": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 8.98
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 2.4
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": 19.3
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:00:00-06:00",
+    "price_usd_mwh": -5.81
+   }
+  ]
+ },
+ "121": {
+  "posting": {
+   "id": 2543,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T14:04:20",
+   "file_name": "cdr.00013103.0000000000000000.20240117.140420.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 6.83
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 0.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 16.49
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": -6.76
+   }
+  ]
+ },
+ "122": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 6.83
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 0.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 16.49
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": -6.76
+   }
+  ]
+ },
+ "123": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 6.83
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 0.47
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": 16.49
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:15:00-06:00",
+    "price_usd_mwh": -6.76
+   }
+  ]
+ },
+ "124": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 6.83
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 0.93
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 15.24
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": -6.21
+   }
+  ]
+ },
+ "125": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 6.83
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 0.93
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 15.24
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": -6.21
+   }
+  ]
+ },
+ "126": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 6.83
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 0.93
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": 15.24
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:30:00-06:00",
+    "price_usd_mwh": -6.21
+   }
+  ]
+ },
+ "127": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 6.39
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 2.44
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 10.93
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": -4.69
+   }
+  ]
+ },
+ "128": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 6.39
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 2.44
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 10.93
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": -4.69
+   }
+  ]
+ },
+ "129": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 6.39
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 2.44
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": 10.93
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T15:45:00-06:00",
+    "price_usd_mwh": -4.69
+   }
+  ]
+ },
+ "130": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 13.51
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 8.71
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 18.56
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": -5.17
+   }
+  ]
+ },
+ "131": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 13.51
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 8.71
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 18.56
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": -5.17
+   }
+  ]
+ },
+ "132": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 13.51
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 8.71
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": 18.56
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:00:00-06:00",
+    "price_usd_mwh": -5.17
+   }
+  ]
+ },
+ "133": {
+  "posting": {
+   "id": 2544,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T15:03:03",
+   "file_name": "cdr.00013103.0000000000000000.20240117.150303.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 14.71
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 10.16
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 18.76
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": -4.68
+   }
+  ]
+ },
+ "134": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 14.71
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 10.16
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 18.76
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": -4.68
+   }
+  ]
+ },
+ "135": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 14.71
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 10.16
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": 18.76
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:15:00-06:00",
+    "price_usd_mwh": -4.68
+   }
+  ]
+ },
+ "136": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 16.74
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 12.27
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 20.7
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": -4.51
+   }
+  ]
+ },
+ "137": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 16.74
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 12.27
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 20.7
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": -4.51
+   }
+  ]
+ },
+ "138": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 16.74
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 12.27
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": 20.7
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:30:00-06:00",
+    "price_usd_mwh": -4.51
+   }
+  ]
+ },
+ "139": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 20.01
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 16.38
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 23.14
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": -4.14
+   }
+  ]
+ },
+ "140": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 20.01
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 16.38
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 23.14
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": -4.14
+   }
+  ]
+ },
+ "141": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 20.01
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 16.38
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": 23.14
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T16:45:00-06:00",
+    "price_usd_mwh": -4.14
+   }
+  ]
+ },
+ "142": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 22.27
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 19.31
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 25.35
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": -4.49
+   }
+  ]
+ },
+ "143": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 22.27
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 19.31
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 25.35
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": -4.49
+   }
+  ]
+ },
+ "144": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 22.27
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 19.31
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": 25.35
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:00:00-06:00",
+    "price_usd_mwh": -4.49
+   }
+  ]
+ },
+ "145": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 22.68
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 20.37
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 24.86
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": -4.33
+   }
+  ]
+ },
+ "146": {
+  "posting": {
+   "id": 2545,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T16:03:10",
+   "file_name": "cdr.00013103.0000000000000000.20240117.160310.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 22.68
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 20.37
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 24.86
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": -4.33
+   }
+  ]
+ },
+ "147": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 22.68
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 20.37
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": 24.86
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:15:00-06:00",
+    "price_usd_mwh": -4.33
+   }
+  ]
+ },
+ "148": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 25.95
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 24.36
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 27.08
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": -3.69
+   }
+  ]
+ },
+ "149": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 25.95
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 24.36
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 27.08
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": -3.69
+   }
+  ]
+ },
+ "150": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 25.95
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 24.36
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": 27.08
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:30:00-06:00",
+    "price_usd_mwh": -3.69
+   }
+  ]
+ },
+ "151": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 26.46
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 24.57
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 27.83
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": -3.42
+   }
+  ]
+ },
+ "152": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 26.46
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 24.57
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 27.83
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": -3.42
+   }
+  ]
+ },
+ "153": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 26.46
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 24.57
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": 27.83
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T17:45:00-06:00",
+    "price_usd_mwh": -3.42
+   }
+  ]
+ },
+ "154": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 27.56
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 25.56
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 28.94
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": -2.45
+   }
+  ]
+ },
+ "155": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 27.56
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 25.56
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 28.94
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": -2.45
+   }
+  ]
+ },
+ "156": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 27.56
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 25.56
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": 28.94
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T18:00:00-06:00",
+    "price_usd_mwh": -2.45
+   }
+  ]
+ },
+ "157": {
+  "posting": {
+   "id": 2546,
+   "report": "NP3-233-CD",
+   "posted_at": "2024-01-17T17:05:55",
+   "file_name": "cdr.00013103.0000000000000000.20240117.170555.HRLYRESOUTCAPNP3233.csv",
+   "event": "heather"
+  },
+  "prices": [
+   {
+    "settlement_point": "LZ_HOUSTON",
+    "interval_ending": "2024-01-17T18:15:00-06:00",
+    "price_usd_mwh": 32.13
+   },
+   {
+    "settlement_point": "LZ_NORTH",
+    "interval_ending": "2024-01-17T18:15:00-06:00",
+    "price_usd_mwh": 28.03
+   },
+   {
+    "settlement_point": "LZ_SOUTH",
+    "interval_ending": "2024-01-17T18:15:00-06:00",
+    "price_usd_mwh": 37.61
+   },
+   {
+    "settlement_point": "LZ_WEST",
+    "interval_ending": "2024-01-17T18:15:00-06:00",
+    "price_usd_mwh": 1.83
+   }
+  ]
+ }
+}

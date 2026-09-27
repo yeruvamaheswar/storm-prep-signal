@@ -1,0 +1,2470 @@
+{
+ "label": "ERCOT replay, Storm rule turns HIGH mid-peak, 2026-09-22 16:00 to 2026-09-23 04:00 CT. Risk: recorded NP3-233-CD. Price: recorded NP6-905-CD LZ_NORTH; zone_prices: the four load zones. Target: synthetic:price-shaped (no public dispatch target exists).",
+ "frames": [
+  {
+   "tick": 1,
+   "ts": "2026-09-22T16:00:00-05:00",
+   "target_mw": 0.02,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 22.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T150049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 66.58,
+    "North": 22.35,
+    "South": 157.99,
+    "West": 24.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 2,
+   "ts": "2026-09-22T16:05:00-05:00",
+   "target_mw": 0.02,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 22.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 66.58,
+    "North": 22.35,
+    "South": 157.99,
+    "West": 24.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 3,
+   "ts": "2026-09-22T16:10:00-05:00",
+   "target_mw": 0.02,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 22.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 66.58,
+    "North": 22.35,
+    "South": 157.99,
+    "West": 24.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 4,
+   "ts": "2026-09-22T16:15:00-05:00",
+   "target_mw": 0.02,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 23.03,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 79.78,
+    "North": 23.03,
+    "South": 303.24,
+    "West": 28.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 5,
+   "ts": "2026-09-22T16:20:00-05:00",
+   "target_mw": 0.02,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 23.03,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 79.78,
+    "North": 23.03,
+    "South": 303.24,
+    "West": 28.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 6,
+   "ts": "2026-09-22T16:25:00-05:00",
+   "target_mw": 0.02,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 23.03,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 79.78,
+    "North": 23.03,
+    "South": 303.24,
+    "West": 28.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 7,
+   "ts": "2026-09-22T16:30:00-05:00",
+   "target_mw": 0.0338,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 27.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 71.81,
+    "North": 27.68,
+    "South": 522.19,
+    "West": 33.5
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 8,
+   "ts": "2026-09-22T16:35:00-05:00",
+   "target_mw": 0.0338,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 27.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 71.81,
+    "North": 27.68,
+    "South": 522.19,
+    "West": 33.5
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 9,
+   "ts": "2026-09-22T16:40:00-05:00",
+   "target_mw": 0.0338,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 27.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 71.81,
+    "North": 27.68,
+    "South": 522.19,
+    "West": 33.5
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 10,
+   "ts": "2026-09-22T16:45:00-05:00",
+   "target_mw": 0.1198,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 44.4,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 70.12,
+    "North": 44.4,
+    "South": 344.16,
+    "West": 48.36
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 11,
+   "ts": "2026-09-22T16:50:00-05:00",
+   "target_mw": 0.1198,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 44.4,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 70.12,
+    "North": 44.4,
+    "South": 344.16,
+    "West": 48.36
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 12,
+   "ts": "2026-09-22T16:55:00-05:00",
+   "target_mw": 0.1198,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 44.4,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 70.12,
+    "North": 44.4,
+    "South": 344.16,
+    "West": 48.36
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 13,
+   "ts": "2026-09-22T17:00:00-05:00",
+   "target_mw": 0.1165,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 43.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T160047.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 68.15,
+    "North": 43.76,
+    "South": 528.5,
+    "West": 49.16
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 14,
+   "ts": "2026-09-22T17:05:00-05:00",
+   "target_mw": 0.1165,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 43.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 68.15,
+    "North": 43.76,
+    "South": 528.5,
+    "West": 49.16
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 15,
+   "ts": "2026-09-22T17:10:00-05:00",
+   "target_mw": 0.1165,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 43.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 68.15,
+    "North": 43.76,
+    "South": 528.5,
+    "West": 49.16
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 16,
+   "ts": "2026-09-22T17:15:00-05:00",
+   "target_mw": 0.2059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 63.22,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.01,
+    "North": 63.22,
+    "South": 625.64,
+    "West": 65.89
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 17,
+   "ts": "2026-09-22T17:20:00-05:00",
+   "target_mw": 0.2059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 63.22,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.01,
+    "North": 63.22,
+    "South": 625.64,
+    "West": 65.89
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 18,
+   "ts": "2026-09-22T17:25:00-05:00",
+   "target_mw": 0.2059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 63.22,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.01,
+    "North": 63.22,
+    "South": 625.64,
+    "West": 65.89
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 19,
+   "ts": "2026-09-22T17:30:00-05:00",
+   "target_mw": 0.2088,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 64.85,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 58.92,
+    "North": 64.85,
+    "South": 643.01,
+    "West": 66.37
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 20,
+   "ts": "2026-09-22T17:35:00-05:00",
+   "target_mw": 0.2088,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 64.85,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 58.92,
+    "North": 64.85,
+    "South": 643.01,
+    "West": 66.37
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 21,
+   "ts": "2026-09-22T17:40:00-05:00",
+   "target_mw": 0.2088,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 64.85,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 58.92,
+    "North": 64.85,
+    "South": 643.01,
+    "West": 66.37
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 22,
+   "ts": "2026-09-22T17:45:00-05:00",
+   "target_mw": 0.2224,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 72.31,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.95,
+    "North": 72.31,
+    "South": 719.41,
+    "West": 73.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 23,
+   "ts": "2026-09-22T17:50:00-05:00",
+   "target_mw": 0.2224,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 72.31,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.95,
+    "North": 72.31,
+    "South": 719.41,
+    "West": 73.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 24,
+   "ts": "2026-09-22T17:55:00-05:00",
+   "target_mw": 0.2224,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 72.31,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.95,
+    "North": 72.31,
+    "South": 719.41,
+    "West": 73.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 25,
+   "ts": "2026-09-22T18:00:00-05:00",
+   "target_mw": 0.2098,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 65.38,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T170046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 55.46,
+    "North": 65.38,
+    "South": 720.54,
+    "West": 68.17
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 26,
+   "ts": "2026-09-22T18:05:00-05:00",
+   "target_mw": 0.2098,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 65.38,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 55.46,
+    "North": 65.38,
+    "South": 720.54,
+    "West": 68.17
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 27,
+   "ts": "2026-09-22T18:10:00-05:00",
+   "target_mw": 0.2098,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 65.38,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 55.46,
+    "North": 65.38,
+    "South": 720.54,
+    "West": 68.17
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 28,
+   "ts": "2026-09-22T18:15:00-05:00",
+   "target_mw": 0.2349,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 79.22,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 60.96,
+    "North": 79.22,
+    "South": 710.17,
+    "West": 81.5
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 29,
+   "ts": "2026-09-22T18:20:00-05:00",
+   "target_mw": 0.2349,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 79.22,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 60.96,
+    "North": 79.22,
+    "South": 710.17,
+    "West": 81.5
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 30,
+   "ts": "2026-09-22T18:25:00-05:00",
+   "target_mw": 0.2349,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 79.22,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 60.96,
+    "North": 79.22,
+    "South": 710.17,
+    "West": 81.5
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 31,
+   "ts": "2026-09-22T18:30:00-05:00",
+   "target_mw": 0.2488,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 86.82,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 66.61,
+    "North": 86.82,
+    "South": 705.82,
+    "West": 87.79
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 32,
+   "ts": "2026-09-22T18:35:00-05:00",
+   "target_mw": 0.2488,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 86.82,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 66.61,
+    "North": 86.82,
+    "South": 705.82,
+    "West": 87.79
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 33,
+   "ts": "2026-09-22T18:40:00-05:00",
+   "target_mw": 0.2488,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 86.82,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 66.61,
+    "North": 86.82,
+    "South": 705.82,
+    "West": 87.79
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 34,
+   "ts": "2026-09-22T18:45:00-05:00",
+   "target_mw": 0.2578,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 91.79,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 69.5,
+    "North": 91.79,
+    "South": 701.79,
+    "West": 92.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 35,
+   "ts": "2026-09-22T18:50:00-05:00",
+   "target_mw": 0.2578,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 91.79,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 69.5,
+    "North": 91.79,
+    "South": 701.79,
+    "West": 92.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 36,
+   "ts": "2026-09-22T18:55:00-05:00",
+   "target_mw": 0.2578,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 91.79,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 69.5,
+    "North": 91.79,
+    "South": 701.79,
+    "West": 92.02
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 37,
+   "ts": "2026-09-22T19:00:00-05:00",
+   "target_mw": 0.238,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T180046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.59,
+    "North": 80.91,
+    "South": 685.09,
+    "West": 81.2
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 38,
+   "ts": "2026-09-22T19:05:00-05:00",
+   "target_mw": 0.238,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.59,
+    "North": 80.91,
+    "South": 685.09,
+    "West": 81.2
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 39,
+   "ts": "2026-09-22T19:10:00-05:00",
+   "target_mw": 0.238,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.59,
+    "North": 80.91,
+    "South": 685.09,
+    "West": 81.2
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 40,
+   "ts": "2026-09-22T19:15:00-05:00",
+   "target_mw": 0.2398,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 81.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.62,
+    "North": 81.91,
+    "South": 683.63,
+    "West": 82.13
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 41,
+   "ts": "2026-09-22T19:20:00-05:00",
+   "target_mw": 0.2398,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 81.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.62,
+    "North": 81.91,
+    "South": 683.63,
+    "West": 82.13
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 42,
+   "ts": "2026-09-22T19:25:00-05:00",
+   "target_mw": 0.2398,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 81.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.62,
+    "North": 81.91,
+    "South": 683.63,
+    "West": 82.13
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 43,
+   "ts": "2026-09-22T19:30:00-05:00",
+   "target_mw": 0.2376,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.82,
+    "North": 80.7,
+    "South": 531.48,
+    "West": 80.35
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 44,
+   "ts": "2026-09-22T19:35:00-05:00",
+   "target_mw": 0.2376,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.82,
+    "North": 80.7,
+    "South": 531.48,
+    "West": 80.35
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 45,
+   "ts": "2026-09-22T19:40:00-05:00",
+   "target_mw": 0.2376,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 59.82,
+    "North": 80.7,
+    "South": 531.48,
+    "West": 80.35
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 46,
+   "ts": "2026-09-22T19:45:00-05:00",
+   "target_mw": 0.2436,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 83.99,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.64,
+    "North": 83.99,
+    "South": 445.02,
+    "West": 83.11
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 47,
+   "ts": "2026-09-22T19:50:00-05:00",
+   "target_mw": 0.2436,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 83.99,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.64,
+    "North": 83.99,
+    "South": 445.02,
+    "West": 83.11
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 48,
+   "ts": "2026-09-22T19:55:00-05:00",
+   "target_mw": 0.2436,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 83.99,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 63.64,
+    "North": 83.99,
+    "South": 445.02,
+    "West": 83.11
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 49,
+   "ts": "2026-09-22T20:00:00-05:00",
+   "target_mw": 0.2742,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 100.8,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T190048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 78.99,
+    "North": 100.8,
+    "South": 276.47,
+    "West": 98.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 50,
+   "ts": "2026-09-22T20:05:00-05:00",
+   "target_mw": 0.2742,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 100.8,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 78.99,
+    "North": 100.8,
+    "South": 276.47,
+    "West": 98.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 51,
+   "ts": "2026-09-22T20:10:00-05:00",
+   "target_mw": 0.2742,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 100.8,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 78.99,
+    "North": 100.8,
+    "South": 276.47,
+    "West": 98.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 52,
+   "ts": "2026-09-22T20:15:00-05:00",
+   "target_mw": 0.2914,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 110.27,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 89.44,
+    "North": 110.27,
+    "South": 345.29,
+    "West": 108.77
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 53,
+   "ts": "2026-09-22T20:20:00-05:00",
+   "target_mw": 0.2914,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 110.27,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 89.44,
+    "North": 110.27,
+    "South": 345.29,
+    "West": 108.77
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 54,
+   "ts": "2026-09-22T20:25:00-05:00",
+   "target_mw": 0.2914,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 110.27,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 89.44,
+    "North": 110.27,
+    "South": 345.29,
+    "West": 108.77
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 55,
+   "ts": "2026-09-22T20:30:00-05:00",
+   "target_mw": 0.3032,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 116.78,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 103.64,
+    "North": 116.78,
+    "South": 273.69,
+    "West": 114.92
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 56,
+   "ts": "2026-09-22T20:35:00-05:00",
+   "target_mw": 0.3032,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 116.78,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 103.64,
+    "North": 116.78,
+    "South": 273.69,
+    "West": 114.92
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 57,
+   "ts": "2026-09-22T20:40:00-05:00",
+   "target_mw": 0.3032,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 116.78,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 103.64,
+    "North": 116.78,
+    "South": 273.69,
+    "West": 114.92
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 58,
+   "ts": "2026-09-22T20:45:00-05:00",
+   "target_mw": 0.4773,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 212.53,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 194.59,
+    "North": 212.53,
+    "South": 191.96,
+    "West": 206.47
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 59,
+   "ts": "2026-09-22T20:50:00-05:00",
+   "target_mw": 0.4773,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 212.53,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 194.59,
+    "North": 212.53,
+    "South": 191.96,
+    "West": 206.47
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 60,
+   "ts": "2026-09-22T20:55:00-05:00",
+   "target_mw": 0.4773,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 212.53,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 194.59,
+    "North": 212.53,
+    "South": 191.96,
+    "West": 206.47
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 61,
+   "ts": "2026-09-22T21:00:00-05:00",
+   "target_mw": 0.4701,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 208.58,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T200048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 199.74,
+    "North": 208.58,
+    "South": 185.02,
+    "West": 204.39
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 62,
+   "ts": "2026-09-22T21:05:00-05:00",
+   "target_mw": 0.4701,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 208.58,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 199.74,
+    "North": 208.58,
+    "South": 185.02,
+    "West": 204.39
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 63,
+   "ts": "2026-09-22T21:10:00-05:00",
+   "target_mw": 0.4701,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 208.58,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 199.74,
+    "North": 208.58,
+    "South": 185.02,
+    "West": 204.39
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 64,
+   "ts": "2026-09-22T21:15:00-05:00",
+   "target_mw": 0.3071,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 118.9,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 115.97,
+    "North": 118.9,
+    "South": 111.29,
+    "West": 117.54
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 65,
+   "ts": "2026-09-22T21:20:00-05:00",
+   "target_mw": 0.3071,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 118.9,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 115.97,
+    "North": 118.9,
+    "South": 111.29,
+    "West": 117.54
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 66,
+   "ts": "2026-09-22T21:25:00-05:00",
+   "target_mw": 0.3071,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 118.9,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 115.97,
+    "North": 118.9,
+    "South": 111.29,
+    "West": 117.54
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 67,
+   "ts": "2026-09-22T21:30:00-05:00",
+   "target_mw": 0.2547,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 90.11,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 89.89,
+    "North": 90.11,
+    "South": 89.78,
+    "West": 90.05
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 68,
+   "ts": "2026-09-22T21:35:00-05:00",
+   "target_mw": 0.2547,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 90.11,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 89.89,
+    "North": 90.11,
+    "South": 89.78,
+    "West": 90.05
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 69,
+   "ts": "2026-09-22T21:40:00-05:00",
+   "target_mw": 0.2547,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 90.11,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 89.89,
+    "North": 90.11,
+    "South": 89.78,
+    "West": 90.05
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 70,
+   "ts": "2026-09-22T21:45:00-05:00",
+   "target_mw": 0.2563,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 90.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 90.82,
+    "North": 90.94,
+    "South": 90.93,
+    "West": 90.94
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 71,
+   "ts": "2026-09-22T21:50:00-05:00",
+   "target_mw": 0.2563,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 90.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 90.82,
+    "North": 90.94,
+    "South": 90.93,
+    "West": 90.94
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 72,
+   "ts": "2026-09-22T21:55:00-05:00",
+   "target_mw": 0.2563,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 90.94,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 90.82,
+    "North": 90.94,
+    "South": 90.93,
+    "West": 90.94
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 73,
+   "ts": "2026-09-22T22:00:00-05:00",
+   "target_mw": 0.3375,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 135.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T210048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 135.49,
+    "North": 135.65,
+    "South": 135.65,
+    "West": 135.65
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 74,
+   "ts": "2026-09-22T22:05:00-05:00",
+   "target_mw": 0.3375,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 135.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 135.49,
+    "North": 135.65,
+    "South": 135.65,
+    "West": 135.65
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 75,
+   "ts": "2026-09-22T22:10:00-05:00",
+   "target_mw": 0.3375,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 135.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 135.49,
+    "North": 135.65,
+    "South": 135.65,
+    "West": 135.65
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 76,
+   "ts": "2026-09-22T22:15:00-05:00",
+   "target_mw": 0.4053,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 172.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 172.68,
+    "North": 172.91,
+    "South": 172.91,
+    "West": 172.91
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 77,
+   "ts": "2026-09-22T22:20:00-05:00",
+   "target_mw": 0.4053,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 172.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 172.68,
+    "North": 172.91,
+    "South": 172.91,
+    "West": 172.91
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 78,
+   "ts": "2026-09-22T22:25:00-05:00",
+   "target_mw": 0.4053,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 172.91,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 172.68,
+    "North": 172.91,
+    "South": 172.91,
+    "West": 172.91
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 79,
+   "ts": "2026-09-22T22:30:00-05:00",
+   "target_mw": 0.2874,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 108.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 107.93,
+    "North": 108.07,
+    "South": 108.07,
+    "West": 108.07
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 80,
+   "ts": "2026-09-22T22:35:00-05:00",
+   "target_mw": 0.2874,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 108.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 107.93,
+    "North": 108.07,
+    "South": 108.07,
+    "West": 108.07
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 81,
+   "ts": "2026-09-22T22:40:00-05:00",
+   "target_mw": 0.2874,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 108.07,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 107.93,
+    "North": 108.07,
+    "South": 108.07,
+    "West": 108.07
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 82,
+   "ts": "2026-09-22T22:45:00-05:00",
+   "target_mw": 0.2431,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 83.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 83.57,
+    "North": 83.7,
+    "South": 83.57,
+    "West": 83.68
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 83,
+   "ts": "2026-09-22T22:50:00-05:00",
+   "target_mw": 0.2431,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 83.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 83.57,
+    "North": 83.7,
+    "South": 83.57,
+    "West": 83.68
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 84,
+   "ts": "2026-09-22T22:55:00-05:00",
+   "target_mw": 0.2431,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 83.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 83.57,
+    "North": 83.7,
+    "South": 83.57,
+    "West": 83.68
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 85,
+   "ts": "2026-09-22T23:00:00-05:00",
+   "target_mw": 0.3279,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 130.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T220049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 128.06,
+    "North": 130.35,
+    "South": 124.4,
+    "West": 129.28
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 86,
+   "ts": "2026-09-22T23:05:00-05:00",
+   "target_mw": 0.3279,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 130.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 128.06,
+    "North": 130.35,
+    "South": 124.4,
+    "West": 129.28
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 87,
+   "ts": "2026-09-22T23:10:00-05:00",
+   "target_mw": 0.3279,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 130.35,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 128.06,
+    "North": 130.35,
+    "South": 124.4,
+    "West": 129.28
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 88,
+   "ts": "2026-09-22T23:15:00-05:00",
+   "target_mw": 0.2664,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 96.5,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 94.65,
+    "North": 96.5,
+    "South": 91.66,
+    "West": 95.63
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 89,
+   "ts": "2026-09-22T23:20:00-05:00",
+   "target_mw": 0.2664,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 96.5,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 94.65,
+    "North": 96.5,
+    "South": 91.66,
+    "West": 95.63
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 90,
+   "ts": "2026-09-22T23:25:00-05:00",
+   "target_mw": 0.2664,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 96.5,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 94.65,
+    "North": 96.5,
+    "South": 91.66,
+    "West": 95.63
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 91,
+   "ts": "2026-09-22T23:30:00-05:00",
+   "target_mw": 0.2381,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.97,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 80.82,
+    "North": 80.97,
+    "South": 80.87,
+    "West": 80.95
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 92,
+   "ts": "2026-09-22T23:35:00-05:00",
+   "target_mw": 0.2381,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.97,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 80.82,
+    "North": 80.97,
+    "South": 80.87,
+    "West": 80.95
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 93,
+   "ts": "2026-09-22T23:40:00-05:00",
+   "target_mw": 0.2381,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 80.97,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 80.82,
+    "North": 80.97,
+    "South": 80.87,
+    "West": 80.95
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 94,
+   "ts": "2026-09-22T23:45:00-05:00",
+   "target_mw": 0.2012,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 60.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 60.6,
+    "North": 60.68,
+    "South": 60.68,
+    "West": 60.68
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 95,
+   "ts": "2026-09-22T23:50:00-05:00",
+   "target_mw": 0.2012,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 60.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 60.6,
+    "North": 60.68,
+    "South": 60.68,
+    "West": 60.68
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 96,
+   "ts": "2026-09-22T23:55:00-05:00",
+   "target_mw": 0.2012,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 60.68,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 60.6,
+    "North": 60.68,
+    "South": 60.68,
+    "West": 60.68
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 97,
+   "ts": "2026-09-23T00:00:00-05:00",
+   "target_mw": 0.2028,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 61.52,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260922T230048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 61.44,
+    "North": 61.52,
+    "South": 61.52,
+    "West": 61.52
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 98,
+   "ts": "2026-09-23T00:05:00-05:00",
+   "target_mw": 0.2028,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 61.52,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 61.44,
+    "North": 61.52,
+    "South": 61.52,
+    "West": 61.52
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 99,
+   "ts": "2026-09-23T00:10:00-05:00",
+   "target_mw": 0.2028,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 61.52,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 61.44,
+    "North": 61.52,
+    "South": 61.52,
+    "West": 61.52
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 100,
+   "ts": "2026-09-23T00:15:00-05:00",
+   "target_mw": 0.1824,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 56.58,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 56.52,
+    "North": 56.58,
+    "South": 56.58,
+    "West": 56.58
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 101,
+   "ts": "2026-09-23T00:20:00-05:00",
+   "target_mw": 0.1824,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 56.58,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 56.52,
+    "North": 56.58,
+    "South": 56.58,
+    "West": 56.58
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 102,
+   "ts": "2026-09-23T00:25:00-05:00",
+   "target_mw": 0.1824,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 56.58,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 56.52,
+    "North": 56.58,
+    "South": 56.58,
+    "West": 56.58
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 103,
+   "ts": "2026-09-23T00:30:00-05:00",
+   "target_mw": 0.1238,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 45.18,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 45.15,
+    "North": 45.18,
+    "South": 45.26,
+    "West": 45.18
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 104,
+   "ts": "2026-09-23T00:35:00-05:00",
+   "target_mw": 0.1238,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 45.18,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 45.15,
+    "North": 45.18,
+    "South": 45.26,
+    "West": 45.18
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 105,
+   "ts": "2026-09-23T00:40:00-05:00",
+   "target_mw": 0.1238,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 45.18,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 45.15,
+    "North": 45.18,
+    "South": 45.26,
+    "West": 45.18
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 106,
+   "ts": "2026-09-23T00:45:00-05:00",
+   "target_mw": 0.1007,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 40.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 40.66,
+    "North": 40.7,
+    "South": 40.7,
+    "West": 40.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 107,
+   "ts": "2026-09-23T00:50:00-05:00",
+   "target_mw": 0.1007,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 40.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 40.66,
+    "North": 40.7,
+    "South": 40.7,
+    "West": 40.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 108,
+   "ts": "2026-09-23T00:55:00-05:00",
+   "target_mw": 0.1007,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 40.7,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 40.66,
+    "North": 40.7,
+    "South": 40.7,
+    "West": 40.7
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 109,
+   "ts": "2026-09-23T01:00:00-05:00",
+   "target_mw": 0.1153,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 43.54,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T000049.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 43.5,
+    "North": 43.54,
+    "South": 43.54,
+    "West": 43.54
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 110,
+   "ts": "2026-09-23T01:05:00-05:00",
+   "target_mw": 0.1153,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 43.54,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 43.5,
+    "North": 43.54,
+    "South": 43.54,
+    "West": 43.54
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 111,
+   "ts": "2026-09-23T01:10:00-05:00",
+   "target_mw": 0.1153,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 43.54,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 43.5,
+    "North": 43.54,
+    "South": 43.54,
+    "West": 43.54
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 112,
+   "ts": "2026-09-23T01:15:00-05:00",
+   "target_mw": 0.1096,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 42.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 42.39,
+    "North": 42.43,
+    "South": 42.45,
+    "West": 42.43
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 113,
+   "ts": "2026-09-23T01:20:00-05:00",
+   "target_mw": 0.1096,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 42.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 42.39,
+    "North": 42.43,
+    "South": 42.45,
+    "West": 42.43
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 114,
+   "ts": "2026-09-23T01:25:00-05:00",
+   "target_mw": 0.1096,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 42.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 42.39,
+    "North": 42.43,
+    "South": 42.45,
+    "West": 42.43
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 115,
+   "ts": "2026-09-23T01:30:00-05:00",
+   "target_mw": 0.0959,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 39.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 39.72,
+    "North": 39.76,
+    "South": 39.76,
+    "West": 39.76
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 116,
+   "ts": "2026-09-23T01:35:00-05:00",
+   "target_mw": 0.0959,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 39.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 39.72,
+    "North": 39.76,
+    "South": 39.76,
+    "West": 39.76
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 117,
+   "ts": "2026-09-23T01:40:00-05:00",
+   "target_mw": 0.0959,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 39.76,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 39.72,
+    "North": 39.76,
+    "South": 39.76,
+    "West": 39.76
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 118,
+   "ts": "2026-09-23T01:45:00-05:00",
+   "target_mw": 0.0787,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 36.42,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 36.38,
+    "North": 36.42,
+    "South": 36.43,
+    "West": 36.42
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 119,
+   "ts": "2026-09-23T01:50:00-05:00",
+   "target_mw": 0.0787,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 36.42,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 36.38,
+    "North": 36.42,
+    "South": 36.43,
+    "West": 36.42
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 120,
+   "ts": "2026-09-23T01:55:00-05:00",
+   "target_mw": 0.0787,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 36.42,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 36.38,
+    "North": 36.42,
+    "South": 36.43,
+    "West": 36.42
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 121,
+   "ts": "2026-09-23T02:00:00-05:00",
+   "target_mw": 0.0757,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 35.84,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T010048.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 35.81,
+    "North": 35.84,
+    "South": 35.85,
+    "West": 35.84
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 122,
+   "ts": "2026-09-23T02:05:00-05:00",
+   "target_mw": 0.0757,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 35.84,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 35.81,
+    "North": 35.84,
+    "South": 35.85,
+    "West": 35.84
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 123,
+   "ts": "2026-09-23T02:10:00-05:00",
+   "target_mw": 0.0757,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 35.84,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 35.81,
+    "North": 35.84,
+    "South": 35.85,
+    "West": 35.84
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 124,
+   "ts": "2026-09-23T02:15:00-05:00",
+   "target_mw": 0.0691,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 34.54,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 34.95,
+    "North": 34.54,
+    "South": 35.02,
+    "West": 34.64
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 125,
+   "ts": "2026-09-23T02:20:00-05:00",
+   "target_mw": 0.0691,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 34.54,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 34.95,
+    "North": 34.54,
+    "South": 35.02,
+    "West": 34.64
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 126,
+   "ts": "2026-09-23T02:25:00-05:00",
+   "target_mw": 0.0691,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 34.54,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 34.95,
+    "North": 34.54,
+    "South": 35.02,
+    "West": 34.64
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 127,
+   "ts": "2026-09-23T02:30:00-05:00",
+   "target_mw": 0.0582,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 32.41,
+    "North": 32.43,
+    "South": 32.44,
+    "West": 32.43
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 128,
+   "ts": "2026-09-23T02:35:00-05:00",
+   "target_mw": 0.0582,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 32.41,
+    "North": 32.43,
+    "South": 32.44,
+    "West": 32.43
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 129,
+   "ts": "2026-09-23T02:40:00-05:00",
+   "target_mw": 0.0582,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.43,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 32.41,
+    "North": 32.43,
+    "South": 32.44,
+    "West": 32.43
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 130,
+   "ts": "2026-09-23T02:45:00-05:00",
+   "target_mw": 0.0525,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 31.32,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 31.64,
+    "North": 31.32,
+    "South": 31.88,
+    "West": 33.45
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 131,
+   "ts": "2026-09-23T02:50:00-05:00",
+   "target_mw": 0.0525,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 31.32,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 31.64,
+    "North": 31.32,
+    "South": 31.88,
+    "West": 33.45
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 132,
+   "ts": "2026-09-23T02:55:00-05:00",
+   "target_mw": 0.0525,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 31.32,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 31.64,
+    "North": 31.32,
+    "South": 31.88,
+    "West": 33.45
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 133,
+   "ts": "2026-09-23T03:00:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T020051.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.08,
+    "North": 32.59,
+    "South": 33.17,
+    "West": 33.11
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 134,
+   "ts": "2026-09-23T03:05:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.08,
+    "North": 32.59,
+    "South": 33.17,
+    "West": 33.11
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 135,
+   "ts": "2026-09-23T03:10:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.08,
+    "North": 32.59,
+    "South": 33.17,
+    "West": 33.11
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 136,
+   "ts": "2026-09-23T03:15:00-05:00",
+   "target_mw": 0.0593,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.32,
+    "North": 32.65,
+    "South": 33.42,
+    "West": 32.8
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 137,
+   "ts": "2026-09-23T03:20:00-05:00",
+   "target_mw": 0.0593,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.32,
+    "North": 32.65,
+    "South": 33.42,
+    "West": 32.8
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 138,
+   "ts": "2026-09-23T03:25:00-05:00",
+   "target_mw": 0.0593,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.32,
+    "North": 32.65,
+    "South": 33.42,
+    "West": 32.8
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 139,
+   "ts": "2026-09-23T03:30:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 32.89,
+    "North": 32.59,
+    "South": 32.97,
+    "West": 32.66
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 140,
+   "ts": "2026-09-23T03:35:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 32.89,
+    "North": 32.59,
+    "South": 32.97,
+    "West": 32.66
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 141,
+   "ts": "2026-09-23T03:40:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 32.89,
+    "North": 32.59,
+    "South": 32.97,
+    "West": 32.66
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 142,
+   "ts": "2026-09-23T03:45:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.15,
+    "North": 32.59,
+    "South": 33.24,
+    "West": 32.72
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 143,
+   "ts": "2026-09-23T03:50:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.15,
+    "North": 32.59,
+    "South": 33.24,
+    "West": 32.72
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 144,
+   "ts": "2026-09-23T03:55:00-05:00",
+   "target_mw": 0.059,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 32.59,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 33.15,
+    "North": 32.59,
+    "South": 33.24,
+    "West": 32.72
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  },
+  {
+   "tick": 145,
+   "ts": "2026-09-23T04:00:00-05:00",
+   "target_mw": 0.0388,
+   "target_label": "synthetic:price-shaped",
+   "price_usd_mwh": 28.65,
+   "price_label": "recorded:ERCOT NP6-905-CD LZ_NORTH",
+   "risk_fixture": "data/fixtures/tuning-2026/np3_233_cd_20260923T030046.json",
+   "events": {},
+   "zone_prices": {
+    "Houston": 28.65,
+    "North": 28.65,
+    "South": 28.67,
+    "West": 28.65
+   },
+   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+  }
+ ]
+}

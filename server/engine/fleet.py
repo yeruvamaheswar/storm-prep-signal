@@ -314,16 +314,18 @@ def discharge(homes, alloc, policy, settings):
 
     Second guard on the floor: each order is clamped to the home's safe kW (headroom under its
     current zone floor, and its max kW), so a clamp instead of a breach is the normal outcome
-    of a bad order. A home that is not live cannot act on an order, so it is left alone.
+    of a bad order. A negative order charges, clamped to `room_kw`, so it never fills past
+    capacity; charge is never a breach. A home that is not live cannot act on an order.
     Called once per tick; it sees no command ids, so duplicate protection lives in orchestrate_tick.
     """
     by_id = {h.home_id: h for h in homes}
     breaches = 0
     for home_id, kw in alloc.per_home_kw.items():
-        if kw <= 0:
-            continue
         home = by_id[home_id]
-        if home.status != "live":
+        if kw == 0 or home.status != "live":
+            continue
+        if kw < 0:
+            home.soc_kwh += min(-kw, room_kw(home, settings)) * settings["tick_minutes"] / 60
             continue
         # Headroom <= 0 means the home is already at or under its floor. Skip it.
         # That is not a breach: breaches counts a discharge that crosses the floor.

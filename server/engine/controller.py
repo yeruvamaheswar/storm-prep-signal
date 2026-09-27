@@ -7,7 +7,7 @@ changes a home, reads a file, looks at the clock, or uses randomness. The floor 
 import math
 
 from server.engine.contracts import Allocation
-from server.engine.fleet import has_unknown_zone, safe_kw
+from server.engine.fleet import has_unknown_zone, room_kw, safe_kw
 
 # Policy reasons that mean "we are keeping extra backup on purpose".
 STORM_REASONS = ("storm_risk_high", "signal_unavailable", "weather_alert")
@@ -24,10 +24,13 @@ def allocate(homes, frame, policy, mode, settings):
     headroom: hold is a label for the wall, not a dispatch stop (CONSTRAINTS
     allocation rule; contracts.py says allocate still only discharges).
     `delivered_mw` counts discharge only, so a charge tick delivers 0 and misses the call.
+    Homes in a zone named by the frame's `grid_down` event get 0 kW both ways (they back up
+    their own homes); each such zone adds reason `grid_down:<zone>` after the other codes.
     """
     target_mw = frame.target_mw
     if target_mw < 0:
         raise ValueError(f"target_mw must not be negative, got {target_mw}")
+    down = checked_grid_down(homes, frame, settings)
     # The operator's HOLD wins over everything, so the screen always shows why nothing ran.
     if mode == "HOLD":
         return Allocation({}, 0.0, target_mw, ["operator_hold"])
@@ -35,22 +38,39 @@ def allocate(homes, frame, policy, mode, settings):
         return Allocation({}, 0.0, 0.0, [])
 
     zone_intent = getattr(policy, "zone_intent", None)
-    if isinstance(zone_intent, dict) and zone_intent:
-        return allocate_zoned(homes, frame, policy, settings, zone_intent)
-
     intent = getattr(policy, "intent", "hold")
-    if intent == "charge":
-        return allocate_charge(homes, frame, policy, settings)
-    if intent in ("discharge", "hold"):
-        return allocate_discharge(homes, frame, policy, settings)
-    # Unknown intent holds rather than selling on a tick we do not understand.
-    return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
+    if isinstance(zone_intent, dict) and zone_intent:
+        alloc = allocate_zoned(homes, frame, policy, settings, zone_intent)
+    elif intent == "charge":
+        alloc = allocate_charge(homes, frame, policy, settings)
+    elif intent in ("discharge", "hold"):
+        alloc = allocate_discharge(homes, frame, policy, settings)
+    else:
+        # Unknown intent holds rather than selling on a tick we do not understand.
+        return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
+    alloc.reasons += [f"grid_down:{zone}" for zone in sorted(down)]
+    return alloc
+
+
+def grid_down_zones(frame):
+    """Zones the frame marks grid down. Their batteries back up their own homes: no sell, no charge."""
+    return set(frame.events.get("grid_down", []))
+
+
+def checked_grid_down(homes, frame, settings):
+    """grid_down_zones, refusing a zone name that is not in ZONES (or the fleet): a tape typo must not pass quietly."""
+    down = grid_down_zones(frame)
+    known = set(settings.get("zones") or {home.zone for home in homes})
+    unknown = sorted(down - known)
+    if unknown:
+        raise ValueError(f"grid_down event names zones not in ZONES: {unknown}")
+    return down
 
 
 def allocate_discharge(homes, frame, policy, settings):
     """Today's positive split of `target_mw` across live homes with headroom above the floor."""
     target_mw = frame.target_mw
-    caps = home_caps(homes, policy, settings)
+    caps = home_caps(homes, policy, settings, grid_down_zones(frame))
     per_home_kw = split_target(caps, target_mw * 1000)  # convert once: MW to kW
     # Clamp to the target so float noise in the split can never report over-delivery.
     delivered_mw = min(sum(per_home_kw.values()) / 1000, target_mw)
@@ -59,21 +79,20 @@ def allocate_discharge(homes, frame, policy, settings):
     return Allocation(per_home_kw, delivered_mw, missed_mw, reasons)
 
 
-def charge_caps(homes, policy, settings):
+def charge_caps(homes, policy, settings, down=frozenset()):
     """The most each live home in a known zone can absorb this tick, keyed by home_id.
 
     Room to capacity (`capacity_kwh - soc_kwh`) spread over the tick, capped by `max_kw`.
-    A full home has cap 0. Dead, stale, and unknown-zone homes are left out.
+    A full home has cap 0. Dead, stale, unknown-zone, and grid-down homes are left out.
     """
     caps = {}
     for home in homes:
         # Dead and stale homes get nothing: we don't send work to a home we can't hear from.
-        if home.status != "live" or has_unknown_zone(home, policy):
+        if home.status != "live" or has_unknown_zone(home, policy) or home.zone in down:
             continue
-        room_kwh = max(0.0, home.capacity_kwh - home.soc_kwh)
-        if room_kwh <= 0:
-            continue
-        caps[home.home_id] = round_down(min(home.max_kw, room_kwh * 60 / settings["tick_minutes"]))
+        cap = round_down(room_kw(home, settings))
+        if cap > 0:
+            caps[home.home_id] = cap
     return caps
 
 
@@ -81,11 +100,11 @@ def allocate_charge(homes, frame, policy, settings):
     """Charge only: every live home with room absorbs at its cap (negative kW).
 
     `delivered_mw` counts discharge only, so a charge tick delivers 0 and misses the call
-    with reason `charging`. Charge raises soc and is never a breach; `discharge` still
-    skips `kw <= 0` until the worker clamp lands.
+    with reason `charging`. Charge raises soc and is never a breach; the worker and
+    `discharge` clamp it to `room_kw`, so it never fills past capacity.
     """
     target_mw = frame.target_mw
-    caps = charge_caps(homes, policy, settings)
+    caps = charge_caps(homes, policy, settings, grid_down_zones(frame))
     per_home_kw = {home_id: -kw for home_id, kw in caps.items() if kw > 0}
     reasons = ["charging"] + status_suffixes(homes, policy)
     return Allocation(per_home_kw, 0.0, target_mw, reasons)
@@ -99,9 +118,10 @@ def allocate_zoned(homes, frame, policy, settings, zone_intent):
     `delivered_mw` counts the positive shares only; `missed_mw` is what was not delivered.
     """
     target_mw = frame.target_mw
+    down = grid_down_zones(frame)
     by_id = {home.home_id: home for home in homes}
-    discharge_caps = home_caps(homes, policy, settings)
-    room_caps = charge_caps(homes, policy, settings)
+    discharge_caps = home_caps(homes, policy, settings, down)
+    room_caps = charge_caps(homes, policy, settings, down)
     # Keep only the homes whose zone asks for that direction.
     discharge_caps = {
         home_id: cap for home_id, cap in discharge_caps.items()
@@ -124,6 +144,7 @@ def allocate_zoned(homes, frame, policy, settings, zone_intent):
     if missed_mw > MISSED_TOLERANCE_MW and any(
         home.status == "live"
         and not has_unknown_zone(home, policy)
+        and home.zone not in down
         and zone_intent.get(home.zone, "hold") == "hold"
         for home in homes
     ):
@@ -146,8 +167,8 @@ def status_suffixes(homes, policy):
     return reasons
 
 
-def home_caps(homes, policy, settings):
-    """The safe kW cap of every live home in a known zone that still has headroom.
+def home_caps(homes, policy, settings, down=frozenset()):
+    """The safe kW cap of every live home in a known zone whose grid is up and that still has headroom.
 
     A home at or under its floor is left out. Assigning it discharge kW would
     show DISCHARGING on the fleet table while the floor clamp gives it nothing
@@ -156,7 +177,7 @@ def home_caps(homes, policy, settings):
     caps = {}
     for home in homes:
         # Dead and stale homes get nothing: we don't send work to a home we can't hear from.
-        if home.status != "live" or has_unknown_zone(home, policy):
+        if home.status != "live" or has_unknown_zone(home, policy) or home.zone in down:
             continue
         cap = round_down(safe_kw(home, policy, settings))
         if cap <= 0:

@@ -3,7 +3,7 @@
 var/
 __pycache__/
 .pytest_cache/
-web/node_modules/
+node_modules/
 web/dist/
 web/.vite/
 web/public/runs/

@@ -142,12 +142,13 @@ def test_discharge_never_touches_a_dead_or_stale_home():
     assert (dead.soc_kwh, stale.soc_kwh) == before
 
 
-def test_discharge_ignores_zero_and_negative_orders():
+def test_discharge_ignores_zero_and_charges_on_a_negative_order():
+    """CONSTRAINTS `discharge`: a negative value raises soc by |kw| x tick / 60, never a breach."""
     homes = new_fleet(settings(fleet_size=4))
     before = [h.soc_kwh for h in homes]
     alloc = Allocation({homes[0].home_id: 0.0, homes[1].home_id: -3.0}, 0.0, 0.0)
     assert discharge(homes, alloc, normal_policy(), settings()) == 0
-    assert [h.soc_kwh for h in homes] == before
+    assert [h.soc_kwh for h in homes] == [before[0], before[1] + 3.0 * 5 / 60, before[2], before[3]]
 
 
 def test_discharge_leaves_homes_outside_the_allocation_alone():

@@ -73,13 +73,14 @@ def check_books(result, target_mw):
     assert result.confirmed_mw + result.unconfirmed_mw <= planned(result) + eps
     # Honest books: every kW a home reported before the close is either booked against its
     # share or shown as over-delivery. Nothing the batteries gave is silently dropped.
-    heard = sum(e["actual_kw"] for e in kinds(result, "confirmed")) / 1000
+    heard = sum(e["actual_kw"] for e in kinds(result, "confirmed") if e["actual_kw"] > 0) / 1000
     assert result.over_delivery_mw >= 0
     assert result.confirmed_mw + result.over_delivery_mw == pytest.approx(heard, abs=eps)
-    # No command is booked above what its battery actually gave.
+    assert result.charging_mw >= 0
+    # No command is booked above what its battery actually moved (either direction).
     ran = {e["command_id"]: e["actual_kw"] for e in kinds(result, "executed")}
     for e in kinds(result, "confirmed"):
-        assert e["actual_kw"] <= ran[e["command_id"]] + eps
+        assert abs(e["actual_kw"]) <= abs(ran[e["command_id"]]) + eps
 
 
 # --- determinism and the happy path ------------------------------------------
@@ -294,6 +295,99 @@ def test_hold_sends_nothing_and_still_closes():
     assert result.command_states == {} and result.credited_mw == 0
     assert result.allocation.reasons == ["operator_hold"]
     check_books(result, 0.2)
+
+
+# --- charge: negative kW absorbs, is clamped to room, and has its own book ----------
+
+def floored_charge_policy(pct=30.0, zone_intent=None):
+    p = policy(pct)
+    p.intent = "charge"
+    if zone_intent:
+        p.zone_intent = zone_intent
+    return p
+
+
+def test_a_charge_tick_raises_charge_and_books_it_apart_from_delivery():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    before = {h.home_id: h.soc_kwh for h in homes}
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
+    absorbed_kwh = sum(h.soc_kwh - before[h.home_id] for h in homes)
+    assert result.charging_mw * 1000 * s["tick_minutes"] / 60 == pytest.approx(absorbed_kwh)
+    assert result.charging_mw > 0
+    # Charge is never delivery: nothing confirmed, nothing credited, the whole call is missed.
+    assert result.confirmed_mw == 0 and result.credited_mw == 0
+    assert result.missed_mw == pytest.approx(0.2)
+    assert result.home_confirmed_kw == {}
+    assert all(result.home_charged_kw[h.home_id] > 0 for h in homes)
+    check_books(result, 0.2)
+
+
+def test_charge_never_fills_past_capacity():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    homes[0].soc_kwh = homes[0].capacity_kwh - 0.1   # room for 1.2 kW over 5 minutes, not 5 kW
+    homes[1].soc_kwh = homes[1].capacity_kwh          # full: gets no order at all
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
+    assert homes[0].soc_kwh == pytest.approx(homes[0].capacity_kwh)
+    assert result.home_charged_kw[homes[0].home_id] == pytest.approx(1.2, abs=1e-5)
+    assert homes[1].home_id not in result.allocation.per_home_kw
+    assert all(h.soc_kwh <= h.capacity_kwh + 1e-9 for h in homes)
+
+
+def test_a_worker_clamps_a_charge_order_bigger_than_its_room():
+    """Defense in depth: even if a plan asks for more, the battery stops at full."""
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    home = homes[0]
+    home.soc_kwh = home.capacity_kwh - 0.05
+    from server.engine.contracts import Allocation
+    import server.engine.orchestration as orch
+    real = orch.allocate
+    try:
+        orch.allocate = lambda *a, **k: Allocation({home.home_id: -5.0}, 0.0, 0.2, ["charging"])
+        result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
+    finally:
+        orch.allocate = real
+    assert home.soc_kwh == pytest.approx(home.capacity_kwh)
+    assert kinds(result, "clamped")[0]["room_kw"] == pytest.approx(0.6, abs=1e-9)
+
+
+def test_a_charging_home_under_its_floor_is_not_a_breach():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    for h in homes:
+        h.soc_kwh = 0.1 * h.capacity_kwh             # every home under a 60% floor
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(60.0), "AUTO", s, 1)
+    assert result.charging_mw > 0
+    assert result.breaches == 0
+    check_books(result, 0.2)
+
+
+def test_mixed_zones_sell_and_charge_in_one_tick_and_only_selling_is_credited():
+    s = settings(**FAST)
+    homes = new_fleet(s)
+    zi = {"Houston": "charge", "North": "discharge", "South": "discharge", "West": "discharge"}
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(zone_intent=zi), "AUTO", s, 1)
+    assert result.zone_charging_mw["Houston"] > 0
+    assert result.zone_delivered_mw["Houston"] == 0
+    assert result.credited_mw == pytest.approx(0.2)
+    assert all(result.zone_charging_mw[z] == 0 for z in ("North", "South", "West"))
+    check_books(result, 0.2)
+
+
+def test_fleet_discharge_charges_up_to_capacity_and_not_past_it():
+    from server.engine.contracts import Allocation
+    from server.engine.fleet import discharge
+    s = settings()
+    homes = new_fleet(s)[:2]
+    homes[0].soc_kwh = homes[0].capacity_kwh - 0.1
+    homes[1].soc_kwh = 5.0
+    breaches = discharge(homes, Allocation({homes[0].home_id: -5.0, homes[1].home_id: -2.4}, 0.0, 0.0, []),
+                         policy(60.0), s)
+    assert breaches == 0
+    assert homes[0].soc_kwh == pytest.approx(homes[0].capacity_kwh)
+    assert homes[1].soc_kwh == pytest.approx(5.0 + 2.4 * 5 / 60)
 
 
 # --- invariants across many faulty runs ------------------------------------------

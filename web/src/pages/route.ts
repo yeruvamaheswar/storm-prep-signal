@@ -1,6 +1,14 @@
 /** Pathnames the one Vite app owns. No router package. */
 
-export function isFleetPath(pathname: string): boolean {
+function owns(pathname: string, page: string): boolean {
   const path = pathname.replace(/\/+$/, "") || "/"
-  return path === "/fleet" || path.startsWith("/fleet/") || path === "/fleet.html"
+  return path === `/${page}` || path.startsWith(`/${page}/`) || path === `/${page}.html`
+}
+
+export function isFleetPath(pathname: string): boolean {
+  return owns(pathname, "fleet")
+}
+
+export function isFlowPath(pathname: string): boolean {
+  return owns(pathname, "flow")
 }

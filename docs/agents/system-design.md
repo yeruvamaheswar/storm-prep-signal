@@ -78,6 +78,7 @@ flowchart TB
     ENGINE["Tick loop<br/>python -m server.engine<br/>plans from the battery feed each tick"]
     WORKER["Live worker<br/>scripts/live_cycle.py"]
     STREAM["Telemetry stream<br/>scripts/stream_telemetry.py"]
+    SESSION["Scenario worker for /flow<br/>scripts/scenario_session.py"]
   end
 
   subgraph serve["Serving, server/api/"]
@@ -100,6 +101,9 @@ flowchart TB
   WORKER --> ENGINE
   STREAM --> SB
   STREAM --> FILES
+  FILES -->|"scenario tapes, archived alerts"| SESSION
+  SESSION -->|"one tick per step"| ENGINE
+  SESSION <-->|"var/scenario/: requests in, state out"| FILES
   ENGINE -->|"run file, every tick"| FILES
   ENGINE <-->|"var/fleet/homes.json, live runs only, save after every tick"| FILES
   ENGINE -.->|"--persist"| SB
@@ -117,8 +121,9 @@ flowchart TB
 | `server/engine/` | Rates risk, picks floors, splits the target, simulates the homes, scores the run, writes the run file. | Calls Supabase. Uses an LLM to decide. |
 | `scripts/live_cycle.py` | Fetches the newest ERCOT posting, saves it to Supabase as `event=live`, and runs one engine tick with it. | Deletes archived history. |
 | `scripts/stream_telemetry.py` | Writes a synthetic last-reading snapshot for the 10k homes and merge-upserts it onto `public.homes`. `--loop` keeps the feed moving. | Imports into the engine. Touches zone, status, or assigned_kw. |
-| `server/api/` | Reads the run file, ERCOT, and Supabase, re-rates the posting with the engine's own functions, and serves `/v1` to the wall. | Allocates or writes a second risk rule. |
-| `web/` | Shows the tick, the floors, the zones, data quality, and the brief. Sends HOLD and AUTO. | Calls ERCOT. Decides anything. |
+| `scripts/scenario_session.py` | Plays one archive scenario for `/flow` a tick at a time with a seeded random fleet, applies operator requests (start, reset, alert, grid down), and writes `var/scenario/state.json`. Laptop only. | Reads the network. Writes the run file or `var/fleet/`. |
+| `server/api/` | Reads the run file, ERCOT, and Supabase, re-rates the posting with the engine's own functions, and serves `/v1` to the wall. Records `/flow` requests and reads the scenario state. | Allocates, writes a second risk rule, or runs a scenario tick. |
+| `web/` | Shows the tick, the floors, the zones, data quality, and the brief. Sends HOLD and AUTO. `/flow` animates a scenario and sends its requests. | Calls ERCOT. Decides anything. |
 
 How each part connects, file by file: [code-flow.md](code-flow.md), "At a glance" and "File map".
 
@@ -178,7 +183,7 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
 | `Policy` | The floors (fleet and per zone), the reason, the risk level, the intent. |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -186,8 +191,8 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 
 | Place | What | Lifetime |
 |---|---|---|
-| `tapes/` | Replay tapes: `demo.json` (hand-written, synthetic), `heather.json` (built from Supabase). | Committed |
-| `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`. | Committed, except raw zips |
+| `tapes/` | Replay tapes: `demo.json` (hand-written, synthetic), `heather.json` (built from Supabase), and `scenarios/` (the `/flow` tapes, their provenance sidecars, and `catalog.json`, built from Supabase). | Committed |
+| `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`, archived NWS alerts (`fixtures/nws/`) and their JEV shadow readings (`fixtures/jev/`). | Committed, except raw zips |
 | `var/runs/` | Run files. The source of truth. | Local, gitignored |
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
 | `var/state.json` | Operator mode, `AUTO` or `HOLD`, local cache for this process. | Local, gitignored |
@@ -195,6 +200,7 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
 | `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
 | `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
+| `var/scenario/` | `/flow` inbox and output: `requests.json` (appended by the API), `state.json` (rewritten by the scenario worker), `logs/`. | Local, gitignored |
 | Supabase `ercot_postings` | One row per ERCOT posting (archive weeks and `event=live`). | Remote, optional |
 | Supabase `ercot_prices` | Zone prices, one row per zone per 15 minutes. | Remote, optional |
 | Supabase `runs` | Copies of run files. | Remote, optional |
@@ -226,6 +232,8 @@ How the mode is chosen and what each shows: [runtime-mode.md](runtime-mode.md).
 | An order or a home's answer is lost on the simulated network | Retry at 60 s with the same id, reassign the work to another home, close at 120 s. An order never answered is `unconfirmed` and not counted as delivered; reasons such as `timed_out:n`. | `orchestration.py`, `channel.py` |
 | Operator presses HOLD | 0 kW to every home, reason `operator_hold`. The wall writes `var/state.json` and `public.operator_settings`; the live worker hydrates the table onto the local file before allocate. | `controller.py`, `fleet_state.py`, `operator_settings.py` |
 | Weather warning names an unknown zone | Ignored, reason `unknown_weather_zone`, logged | `loop.py` |
+| A zone's grid is down (`events["grid_down"]`) | Its homes get 0 kW both ways and back up their own homes; reason `grid_down:<zone>`. An unknown zone name stops the tick with `ValueError`. | `controller.py`, `orchestration.py` |
+| `/flow` scenario worker not running, or a tick fails | The page says the worker is not running (state older than 10 s), or names the failed tick and stops playback; the worker keeps serving. | `scenario.py`, `scenario_session.py` |
 | Supabase down or unset | Engine unaffected. Writes print `..._skipped`. Live falls back to ERCOT; archive Demo fails safe. Mode stays on the local `var/state.json` of the process that wrote it. | `persist_run.py`, `archive.py`, `operator_settings.py` |
 | API unreachable | Wall shows `api down · <reason>`. If Live never got a first snapshot, the wall falls back to Demo. | `web/src/api/health.ts`, `runtimeMode.ts` |
 | API restarts (Render free plan sleeps) | In-memory state resets. `var/` is empty on a fresh Render instance, so the API reads Supabase `runs`, then `layout-run.json`. | `snapshot.py` |
@@ -266,7 +274,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (10k last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall itself is not deployed yet.
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (10k last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/scenario_session.py` (the `/flow` scenario worker, laptop only; on Render the page says the worker is not running). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall itself is not deployed yet.
 
 ### Settings
 
