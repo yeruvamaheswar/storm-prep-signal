@@ -69,15 +69,26 @@ describe("ledger rows", () => {
   })
 })
 
-// Real post-#41 history points (engine in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25; main-impact-audit.md S3).
+// Real history points, re-run on c19119c (origin/main 162bd0a, post-#50/#52 DAM look-ahead, merged into Task 15):
+// Session in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25, no alert sent. heather 74 and operator-hold 4 are
+// unchanged from the post-#41 run (main-impact-audit.md S3). beryl 1 now waits for its cheaper DAM hour and only
+// refills; beryl 7 is the run's first tick with the `charging` code (North and South on a real-time dip).
 // History points carry no mode; intent and intent_reason are copied from the tick (scenario.py, Task 12).
 const heather74: HistoryPoint = {
   tick: 74, ts: "t74", target_mw: 0.2, delivered_mw: 0, charging_mw: 1.1286, missed_mw: 0.2, unconfirmed_mw: 0,
   reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0, intent: "charge", intent_reason: "reserve_refill",
 }
 const beryl1: HistoryPoint = {
-  tick: 1, ts: "t1", target_mw: 0.02, delivered_mw: 0.02, charging_mw: 0.9102599990000001, missed_mw: 0, unconfirmed_mw: 0,
-  reasons: ["charging", "reserve_refill"], breaches: 0, intent: "charge", intent_reason: "grid_call_served",
+  tick: 1, ts: "t1", target_mw: 0.02, delivered_mw: 0.019999999971958088, charging_mw: 0.246587997,
+  missed_mw: 2.8041912542020597e-11, unconfirmed_mw: 0,
+  reasons: ["reserve_refill", "timed_out:2", "duplicates_ignored:1", "over_delivery:1"], breaches: 0,
+  intent: "charge", intent_reason: "grid_call_served",
+}
+const beryl7: HistoryPoint = {
+  tick: 7, ts: "t7", target_mw: 0.02, delivered_mw: 0.01999999943149714, charging_mw: 0.5586000000000001,
+  missed_mw: 5.685028593716002e-10, unconfirmed_mw: 0,
+  reasons: ["charging", "homes_dead:1", "timed_out:2", "duplicates_ignored:1", "over_delivery:1"], breaches: 0,
+  intent: "charge", intent_reason: "grid_call_served",
 }
 const hold4: HistoryPoint = {
   tick: 4, ts: "t4", target_mw: 0.5477, delivered_mw: 0, charging_mw: 0, missed_mw: 0.5477, unconfirmed_mw: 0,
@@ -106,7 +117,7 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
     expect(why).toContain("Refilling batteries under their reserve floor")
     expect(why).toContain("1 home is stale")
     expect(why).not.toContain("Homes stale:1")
-    expect(ledgerRow(beryl1).why).toContain("Charging on cheap power")
+    expect(ledgerRow(beryl7).why).toContain("Charging on price: day-ahead plan or charge band")
   })
 
   it("carries the tick's own intent label, and none when the point has no intent", () => {
@@ -152,9 +163,9 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
     const html = renderToStaticMarkup(createElement(LedgerDrawer, { title: "Ledger", history: realHistory, onClose: () => {} }))
     expect(html).toContain(">Charged<")
     expect(html).toContain('<td class="n is-charge">1.129 MW</td>')
-    expect(html).toContain('<td class="n is-charge">0.910 MW</td>')
-    expect(html).toMatch(/Charged from the grid over 3 ticks<\/p><b class="is-charge">2\.039 MW<\/b>/)
-    // Asked 0.768 and sold 0.020 over the run; the 2.039 bought never enters either.
+    expect(html).toContain('<td class="n is-charge">0.247 MW</td>')
+    expect(html).toMatch(/Charged from the grid over 3 ticks<\/p><b class="is-charge">1\.375 MW<\/b>/)
+    // Asked 0.768 and sold 0.020 over the run; the 1.375 bought never enters either.
     expect(html).toMatch(/Asked over 3 ticks<\/p><b>0\.768 MW<\/b>/)
     expect(html).toMatch(/Sold and confirmed<\/p><b class="is-confirmed">0\.020 MW<\/b>/)
     expect(html).toContain("Fleet did: Hold, operator hold")
