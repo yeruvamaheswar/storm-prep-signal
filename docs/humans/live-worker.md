@@ -10,7 +10,7 @@ On Live, the wall reads the newest ERCOT posting from Supabase and the last engi
 
 If one cycle hits an error, the worker logs it and tries again next cycle.
 
-**Known gap: the free plan sleeps.** Render's free plan puts the service to sleep after about 15 minutes with no visitors. While asleep, no ticks run, and the Live page says the worker looks stopped or asleep. On wake, the local files (last tick, fleet charge, day-ahead cache) are gone. The fix, a paid plan or an outside ping, is Rajat's call.
+**The free plan sleeps, so we ping it.** Render's free plan puts the service to sleep after about 15 minutes with no visitors. While asleep, no ticks run, and the Live page says the worker looks stopped or asleep. On wake, the local files (last tick, fleet charge, day-ahead cache) are gone. A GitHub job now visits the service every 10 minutes to keep it awake. GitHub can run that job late, so a short nap can still happen.
 
 **Run it on a laptop**
 

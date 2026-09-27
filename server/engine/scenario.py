@@ -717,6 +717,10 @@ class Session:
              "state": "holding", "status": h.status, "floor_pct": self.settings["base_reserve_pct"],
              "floor_reason": "normal"}
             for h in self.homes]
+        # The pack line names this session's pack settings; matched by its "Pack:" prefix, not its position.
+        pack_line = (f"Pack: {self.settings['home_kwh']:g} kWh, {self.settings['home_max_kw']:g} kW "
+                     "(example settings, not Base specs), shown in time-lapse.")
+        honest_limits = [pack_line if line.startswith("Pack:") else line for line in HONEST_LIMITS]
         return {
             "status": self.status(), "error": self.error, "updated_at": utc_now(), "pid": os.getpid(),
             "scenario": scenario, "seed": self.seed, "speed": self.speed, "speeds": list(SPEEDS),
@@ -738,5 +742,5 @@ class Session:
             "last_seek": dict(self.last_seek) if self.last_seek else None,
             "counties": [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
             "history": self.history, "totals": self.board, "log": self.messages,
-            "honest_limits": list(HONEST_LIMITS),
+            "honest_limits": honest_limits,
         }

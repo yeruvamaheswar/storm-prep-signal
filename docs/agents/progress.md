@@ -1302,3 +1302,9 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Fix round 2: `POST /v1/scenario/seek` also takes `{delta}`, resolved against the worker's live index (`Session.seek_by`); the page sends it for key steps and 1-hour buttons while playing, so `.` at day pace no longer lands behind the worker and rebuilds the run. Two deltas in one poll add up. "Seeking" is held until `last_seek.seq` answers when the worker reports `last_seek`. The finished state is not a seek target (documented). Out-of-order poll replies are dropped (`dayModel.freshReply`).
 - Merged with main after #59 (Live), #61 (phone layout), #62 (engine fixes) and #63 (Live fixes): kept the Live `crumbHint` and the 720 px media queries with the Day view's sun, rain, sources note and measured bar height.
 - `pytest -q`: 942 passed; `FUZZ_SEEDS=50`: 942 passed. Web: `vitest` 856 passed (57 files), `tsc -b` clean, build ok.
+
+## 2026-09-27: Render keep-alive and the session pack line (Rajat)
+
+- `.github/workflows/keep-alive.yml` pings `https://reservegate-api.onrender.com/health` every 10 minutes so the free Render instance (API plus live and session workers) stays awake. Scheduled runs can start late; detail and limits in `docs/agents/live-ingest.md`.
+- `Session.state()["honest_limits"]` builds the "Pack:" line from the session's `home_kwh` / `home_max_kw` (matched by its prefix, not its position), replacing the hard-coded 25 kWh / 11.4 kW. From `rajat/pack-line` c01242b, made order-safe.
+- `pytest -q`: 943 passed; `FUZZ_SEEDS=50`: 943 passed.
