@@ -1055,3 +1055,35 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Seen: a charge tick draws the fleet's full 1.14 MW while the call asks 0.2 MW, storm or not (rules hold; a product question). With every report late, the fleet gives 0.2 MW and 0 is credited (honest books by design). The feed's planted liar (`home-042`, seed 1) is caught on a charge tick; no honest charging battery is flagged.
 - Not reachable end to end: per-zone `zone_intent` (no `Policy` field, `loop.py` never sets it); `TickResult` has no `charged_mw`.
 - `pytest -q`: 593 passed, 2 failed locally (the fleet-cap meta tests read a local `.env` pinned to the old pack). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Grid flow page (`/flow`), tracer
+
+- `scripts/scenario_session.py` (new laptop worker) and `server/engine/scenario.py` (`Session`): one tick per step through `loop.play_frame` with a seeded fleet (100 homes, starting charge uniform 10–95%). `server/api/scenario.py`: `GET /v1/scenarios`, `/v1/scenario/state`, POST `start`, `reset`, `play`, `speed`; POSTs only append to `var/scenario/requests.json`.
+- `web/src/features/flow/` (new): grid node, four zone flow lines, data panel. `/flow` route in `web/src/pages/route.ts` and `App.tsx`.
+- Checked in the browser: Heather tick 14 animated all four zones selling.
+
+## 2026-09-26: Charging lands (epic 7 done)
+
+- Worker clamps a charge order to `fleet.room_kw` = `min(max_kw, (capacity − soc) × 60 / tick)`; discharge still clamps to `safe_kw`. Charge is booked apart: `CycleResult.charging_mw`, `zone_charging_mw`, `home_charged_kw`; `TickResult.charging_mw`, `zone_charging_mw` (add-only). The consistency check is sign-aware. Charge orders retry but are never reassigned. `fleet.discharge` follows the contract for negative orders. Telemetry reports `CHARGING`.
+- Decided with the user: refill is price-only (at or below `CHARGE_BELOW_USD`); no refill at any price. On `/flow`, a battery within 0.5% of its floor reads "at floor", and a below-floor battery says why (started under, or floor raised).
+- Tests: 7 in `tests/test_orchestration.py`, charge cases in `tests/test_invariants.py`, `tests/test_fleet.py` updated to the contract.
+
+## 2026-09-26: Scenario tapes from the archive
+
+- `scripts/build_scenarios.py` (new) builds 10 tapes plus provenance sidecars and `tapes/scenarios/catalog.json` from Supabase: `heather-spike`, `heather-thaw`, `calm-charge`, `storm-rule-high`, `price-spike`, `storm-rule-night`, `feed-failure`, `faults`, `operator-hold`, `beryl-landfall`. Heather reuses `tapes/heather.json` with a new sidecar. Grid ask `synthetic:price-shaped`. Overlays (withheld postings, faults, HOLD) are labeled.
+- New fixtures: `data/fixtures/tuning-2026/`, `data/fixtures/beryl/`, 25 more under `data/fixtures/heather/`. Tests: `tests/test_build_scenarios.py`.
+
+## 2026-09-26: Zone drill-in, grid down, archived alerts, JEV, Verify
+
+- Drill-in: 25 battery cells per zone, fill moving at real kW in time-lapse, Supercharger caption.
+- Grid down: `allocate` gives zones named by `events["grid_down"]` 0 kW both ways with reason `grid_down:<zone>`; worker guard; telemetry `grid: "down"`; `TickResult.grid_down_zones`; unknown zone raises. Beryl offers a "Weather step" control (none / alert / alert plus grid down). Tests: `tests/test_grid_down.py` (15).
+- Alerts: four real archived NWS products from the Iowa Environmental Mesonet (`scripts/fetch_nws_alerts.py`, `data/fixtures/nws/`). Beryl has no Harris Hurricane Warning and Heather no Winter Storm Warning in the anchor counties, so the real Tropical Storm and Hard Freeze Warnings are used. Each has a recorded JEV reading (`scripts/jev_shadow.py --alert`, `data/fixtures/jev/`). Tests: `tests/test_scenario_alerts.py`.
+- Verify: `GET /v1/scenario/verify` reads the posting and zone prices at the tick's clock; the page shows match or differs. Known gap: the API loads `server/.env`, which is missing, so Verify returns `archive_no_config` until the keys are there.
+- Contracts: `CONSTRAINTS.md` (allocation step 7, `grid_down` tape key, three `TickResult` fields, scenario routes) and `DESIGN.md` section 7 (`/flow` motion).
+- Docs: `docs/agents/grid-flow.md`, `docs/humans/grid-flow.md`, index row, `code-flow.md`, `system-design.md`, `epics.md` (agents and humans).
+- `pytest -q`: 613 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches. Web: `tsc --noEmit` clean, vitest 267 passed.
+- Plan audit afterwards found two gaps, now filled. The per-zone contribution bar was missing: `ZoneContribution.tsx` shows each zone's homes selling, charging, keeping backup, idle, or grid down, with labeled MW and its share of fleet delivery. And the "Overlays (hand-placed)" panel said "None" during withheld postings, faults, and HOLD; it now shows the tick's overlay text from the sidecar. Web: `tsc` clean, vitest 272 passed.
+
+## 2026-09-26: Grid flow merged with main
+
+- Merged `origin/main` (#32–#37) into `feature/grid-flow`. Charge orders follow main #34: sent once, never retried or reassigned (the user chose this; the branch's retry test was dropped). Charges live in `ZoneSupervisor.charges`; `close()` books `home_charged_kw` from that list. `CycleResult.charged_mw` (main) and `charging_mw` (this branch) are set from the same number. `home_caps` keeps both the grid-down skip and main's zero-headroom skip. The invariant check on per-home charge books now reads `charge_confirmed` events.

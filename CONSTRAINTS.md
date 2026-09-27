@@ -36,6 +36,7 @@ There is no screen module in the engine. The operator wall is a Vite + React + T
 - HTTP routes in `server/api/` do not allocate, rate risk, or set a reserve floor. Those stay in `server/engine/`. Routes only read their output and record operator writes.
 - No write returns the fleet to `AUTO` or normal selling over a bad reading.
 - Every `POST` needs `X-Operator-Id`. A refused write is `{ "error", "brief" }`.
+- Scenario routes for `/flow` (added 2026-09-26, `server/api/scenario.py`): `GET /v1/scenarios`, `GET /v1/scenario/state`, `GET /v1/scenario/verify?event=&clock=`, and `POST /v1/scenario/start`, `reset`, `play`, `speed`, `alert`, `grid-down`. Each POST only appends a request to `var/scenario/requests.json`; `scripts/scenario_session.py` is the only process that runs the engine for a scenario. Detail: `docs/agents/grid-flow.md`.
 - Details for agents: `docs/agents/backend.md`.
 
 How they connect:
@@ -71,6 +72,7 @@ DESIGN.md                   how the wall looks
 4. If the sum of caps is at or below the target, every home runs at its cap. Otherwise each home gets `cap × target / sum_caps` (proportional).
 5. `missed = target − delivered`. Add reason codes whenever missed is above 0.
 6. `per_home_kw` is signed on one field (not `per_home_charge_kw` / `per_home_discharge_kw`). A positive value is discharge (sell). A negative value is charge (absorb). Charge raises `soc_kwh` by `|kw| × tick_minutes / 60` and must not fill past `capacity_kwh`. Discharge still never crosses the floor. Charge is not a breach. `breaches == 0` on every tick.
+7. A home in a zone named by the frame's `grid_down` event gets 0 kW in both directions; it backs up its own home. Add reason `grid_down:<zone>` for each such zone, after the other codes. The worker runs 0 for any order that reaches such a home, and reassignment never picks one. `missed = target − delivered` still applies. A zone name not in `ZONES` is an error, not a quiet skip. (Added 2026-09-26.)
 
 ## Invariants (the tests and `CONSTRAINTS.md` both state these)
 
@@ -95,6 +97,7 @@ New contract fields, all with defaults:
 - `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)
 - `TickResult.zone_reserve_pct`, `zone_reasons`, `zone_delivered_mw: dict` (all `default_factory=dict`) and `weather_label: str = "none"`
 - `TickResult.plant`, `feed`, `zone_telemetry: dict` (all `default_factory=dict`; empty when `TELEMETRY_FEED=0`). Shapes: `docs/agents/telemetry-vpp.md`.
+- `TickResult.charging_mw: float = 0.0` and `zone_charging_mw: dict` (confirmed MW absorbed from the grid; never counted in `delivered_mw`), and `TickResult.grid_down_zones: list` (sorted zone names from the frame's `grid_down` event). Added 2026-09-26.
 
 Rule: zones react only to weather alerts; there is no per-zone ERCOT threshold.
 
@@ -128,6 +131,7 @@ A tape is one JSON object with a `label` and a list of `frames`. Each frame hold
 ```
 
 - `risk_fixture`, `weather_fixture` and `events` are optional in a frame; every other `TapeFrame` field is required.
+- `events` keys are listed on `TapeFrame` in `server/engine/contracts.py`. `"grid_down": ["Houston"]` (added 2026-09-26) names zones whose batteries only back up their own homes that tick: no sell, no charge (allocation step 7).
 - `load_tape` still returns `list[TapeFrame]` (the frames only).
 - Fields may be added, never renamed.
 

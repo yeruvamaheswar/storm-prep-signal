@@ -1,0 +1,27 @@
+{
+  "event": "Flash Flood Warning",
+  "headline": "Flash Flood Warning, National Weather Service Midland/Odessa TX, 231 PM CDT Tue Sep 22 2026",
+  "description": "The National Weather Service in Midland/Odessa has issued a\n\n* Flash Flood Warning for...\n  Southeastern Ector County in western Texas...\n  Midland County in western Texas...\n\n* Until 530 PM CDT.\n\n* At 231 PM CDT, Doppler radar indicated thunderstorms producing\n  heavy rain across the warned area. Between 0.5 and 1 inch of rain\n  has fallen. Additional rainfall amounts up to 1 inch are possible\n  in the warned area. Flash flooding is ongoing or expected to begin\n  shortly.\n\n  HAZARD...Flash flooding caused by thunderstorms.\n\n  SOURCE...Radar indicated.\n\n  IMPACT...Flash flooding of small creeks and streams, urban areas,\n           highways, streets and underpasses as well as other poor\n           drainage and low-lying areas.\n\n* Some locations that will experience flash flooding include...\n  Midland, Odessa, Midland International Air and Space Port, West\n  Odessa, Warfield, Odessa Schlemeyer Field, Skywest Airport, Cotton\n  Flat, Midland Airpark and Penwell.\n\nPRECAUTIONARY/PREPAREDNESS ACTIONS...\n\nTurn around, don't drown when encountering flooded roads. Most flood\ndeaths occur in vehicles.\n\nBe aware of your surroundings and do not drive on flooded roads.",
+  "areaDesc": "Ector; Midland",
+  "ugc": [
+    "TXC135",
+    "TXC329"
+  ],
+  "counties": [
+    "048135",
+    "048329"
+  ],
+  "counties_source": "County UGCs converted to SAME; zone UGCs mapped with the NWS zone-county correlation file https://www.weather.gov/source/gis/Shapefiles/County/bp16ap26.dbx",
+  "sent": "2026-09-22T14:31:00-05:00",
+  "onset": "2026-09-22T14:31:00-05:00",
+  "expires": "2026-09-22T17:30:00-05:00",
+  "times_source": "onset and expires are when the warning began and ended for TXC329 in the IEM VTEC event record; sent is when this product was issued",
+  "sender": "National Weather Service Midland/Odessa TX",
+  "vtec": "MAF FF.W 198 (2026)",
+  "product_id": "202609221931-KMAF-WGUS54-FFWMAF",
+  "source_url": "https://mesonet.agron.iastate.edu/p.php?pid=202609221931-KMAF-WGUS54-FFWMAF",
+  "text_url": "https://mesonet.agron.iastate.edu/api/1/nwstext/202609221931-KMAF-WGUS54-FFWMAF",
+  "vtec_url": "https://mesonet.agron.iastate.edu/json/vtec_event.py?wfo=MAF&year=2026&phenomena=FF&significance=W&etn=198",
+  "source_label": "Iowa Environmental Mesonet NWS archive",
+  "retrieved_at": "2026-09-27T00:56:22+00:00"
+}

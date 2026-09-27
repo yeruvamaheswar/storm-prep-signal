@@ -13,6 +13,7 @@ Checked against the code on 2026-09-26. The code-level list of stubs is `docs/ag
 - Wall: Live / Demo / archive modes, one snapshot for the header, Quality and Reports drawer, zone drill-in, ack rollup bars, interval strip, Hold/Auto writing `var/state.json`.
 - Supabase archive of Beryl, Heather and tuning-2026; archive snapshots rated by `compute_risk`; `persist_run.py` behind `--persist`.
 - Heather replay tape: the floor rises to 60% only after the 13:03 posting (`tapes/heather.json`, `scripts/build_tape.py`).
+- Epic 7, charging (done 2026-09-26). Signed charge per `CONSTRAINTS.md` allocation step 6: the worker clamps to room below capacity, charge is booked in `charging_mw` apart from delivery, and `breaches == 0` holds (`FUZZ_SEEDS=50`). Refill is price-only (at or below `CHARGE_BELOW_USD`). Grid-down zones neither sell nor charge (allocation step 7). Shown on `/flow`: `grid-flow.md`.
 
 ## Open epics
 
@@ -42,15 +43,15 @@ Order is rough value toward the one-minute judge story, not a required sequence.
 - Gap: at +15% the rule rated LOW on every Beryl posting and HIGH on one Heather posting (`scripts/check_margin.py`). The per-zone weather path exists in `reserve_policy(..., alerted=)`, but `loop.py` never passes `alerted` or reads `TapeFrame.weather_fixture`.
 - Filled: a weather-alert source feeds `alerted` on a tick, and a Beryl replay raises at least the Houston floor. Any margin change is an engine decision recorded in `progress.md`.
 - End state: Honesty section (threshold is a placeholder until backtested).
+- Partly filled (2026-09-26): on `/flow` an operator can send a real archived NWS alert (for Beryl, the Harris Tropical Storm Warning) and the Houston floor rises from the next tick (`grid-flow.md`). The main tick loop still has no alert source of its own.
 
 ### 6. Every screen reads the engine
 - Gap: `/live`, `/zone`, `/homes`, `/ticks`, `/tapes`, and the `/live/stream` tick event still read `web/src/fixtures/console/*.json`. The `features/` console pages render preview data. The run record has no `decision_line`.
 - Filled: those routes serve the latest run or snapshot, and no operator-facing number comes from a console fixture.
 - End state: Core flow 1 (Watch).
 
-### 7. Charging (decide first)
-- Gap: `Policy.intent` can say `charge` (`policy-intent.md`), but `discharge` skips `kw <= 0`, so nothing charges. Charging is not in the end-state Outcome.
-- Filled: either a recorded decision that charging stays out, or signed charge per `CONSTRAINTS.md` allocation step 6 with `breaches == 0` still asserted.
+### 7. Charging: done 2026-09-26
+- See "Already built" above.
 
 ### 8. Demo that runs without wifi
 - Gap: no `demo.sh`. `load_tape` in `loop.py` is still TEMP and does not check labels or offsets. `tapes/` is untracked in git. No fault frames (dead zone, straggler, duplicate, split floors).

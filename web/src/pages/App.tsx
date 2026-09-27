@@ -2,8 +2,9 @@ import { useEffect, useState } from "react"
 import type { RunFile } from "../contracts"
 import { OperatorWall } from "../components/templates/OperatorWall"
 import { FleetApp } from "../features/fleet/FleetApp"
+import { FlowApp } from "../features/flow/FlowApp"
 import { loadRun } from "../loadRun"
-import { isFleetPath } from "./route"
+import { isFleetPath, isFlowPath } from "./route"
 
 function WallApp() {
   const [run, setRun] = useState<RunFile | null>(null)
@@ -30,6 +31,9 @@ function WallApp() {
 export function App() {
   if (isFleetPath(window.location.pathname)) {
     return <FleetApp />
+  }
+  if (isFlowPath(window.location.pathname)) {
+    return <FlowApp />
   }
   return <WallApp />
 }

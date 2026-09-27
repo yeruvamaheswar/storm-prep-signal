@@ -7,6 +7,7 @@ We still work one gap at a time (`docs/humans/gap-work.md`). This page groups th
 - The storm rule reads real ERCOT outage data and raises the backup floor.
 - The fleet splits a target without draining any home below its floor. 50 random runs, 0 breaches.
 - The wall shows Live, Demo, and saved storm weeks. Hold and Auto work.
+- Batteries charge when power is cheap and never fill past full. The `/flow` page shows it (`docs/humans/grid-flow.md`).
 
 ## Left to do
 
@@ -14,8 +15,8 @@ We still work one gap at a time (`docs/humans/gap-work.md`). This page groups th
 2. **Ask a person when data is bad.** Approve, retry once, or skip. The buttons exist, but the engine never asks.
 3. **Keep score.** Show delivered versus target, money, and breaches for the whole run.
 4. **Count only confirmed power.** The engine should use the code that handles slow and silent homes.
-5. **Catch a real storm.** Our rule missed Hurricane Beryl. Weather alerts should raise the floor in the zone they hit.
+5. **Catch a real storm.** Our rule missed Hurricane Beryl. On `/flow` you can now send the real Beryl alert and Houston keeps more backup. The main engine still needs its own alert feed.
 6. **Show real numbers everywhere.** Some screens still show sample data.
-7. **Decide on charging.** The plan can say "charge", but no battery charges yet. Build it or say no.
+7. **Charging.** Done.
 8. **Run the demo with no wifi.** Add one laptop command that plays a saved storm.
 9. **Ship.** Put it online, write the README with our honest limits, and record the video.
