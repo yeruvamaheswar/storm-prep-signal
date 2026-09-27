@@ -36,36 +36,11 @@ export type NamedCounty = {
   zone: string
 }
 
-/** Retired JEV shapes, kept only for Replay's AlertDetail; the server no longer sends them. */
-export type JevReading = {
-  question: string
-  answer: string
-  probability: number
-  model: string
-  called_at: string
-  latency_ms: number
-  input_label: string
-  recorded?: boolean
-  county_fips?: string
-}
-
-/** raise: JEV yes. keep_base: JEV no. raise_no_reading: no recorded reading, fail safe. */
-export type JevDecision = "raise" | "keep_base" | "raise_no_reading"
-
-export type CountyJev = {
-  county_name: string
-  zone: string
-  reading: JevReading | null
-  decision: JevDecision
-}
-
 export type ActiveAlert = AlertSummary & {
   zones: string[]
   sent_at_tick: number | null
   /** Roster order. */
   named_counties?: NamedCounty[]
-  jev: JevReading | null
-  jev_by_county?: Record<string, CountyJev>
 }
 
 export type FlowCounty = { zone: string; fips: string; name: string }

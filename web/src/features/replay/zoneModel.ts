@@ -228,7 +228,7 @@ export function notAskedReason(
   if (planNotLive(home)) return `${NO_FRESH_READING}.`
   if (home.state === "at_floor") return "Its charge is at its floor, so it keeps it all for backup."
   if (home.state === "reserved") {
-    // #47: what raised it (e.g. "NWS alert, JEV yes"), from the home's own county floor reason.
+    // #47: what raised it (e.g. "NWS weather alert"), from the home's own county floor reason.
     const by = home.floor_reason ? ` (${reasonLabel(home.floor_reason)})` : ""
     return `Its floor was raised${by}, so it keeps its energy for backup.`
   }

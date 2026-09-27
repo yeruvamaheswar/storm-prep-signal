@@ -12,7 +12,7 @@ import { PromisePanel } from "./PromisePanel"
 import { ScenarioRail, type Lens } from "./ScenarioRail"
 import { ZoneBoard } from "./ZoneBoard"
 import { ZonePanel } from "./ZonePanel"
-import { alertKeptBase, zoneWeather } from "./weatherModel"
+import { zoneWeather } from "./weatherModel"
 
 type Props = {
   scenarios: ScenarioList | null
@@ -109,7 +109,6 @@ export function ReplayPage({
           onBack={onBack ?? (() => {})}
           backHref={backHref}
           weather={zoneWeather(zoneView, session?.tick, session?.zones?.[zoneView], baseFloor(session))}
-          alertKeptBase={alertKeptBase(zoneView, session?.tick, session?.counties)}
         />
       ) : (
         <MapStage
@@ -117,7 +116,6 @@ export function ReplayPage({
           homes={session?.homes ?? []}
           orders={session?.orders}
           tick={session?.tick ?? null}
-          counties={session?.counties}
           baseFloorPct={baseFloor(session)}
           tSeconds={tSeconds}
           lens={lens}

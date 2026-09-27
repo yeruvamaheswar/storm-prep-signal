@@ -16,8 +16,6 @@ REASON_LINES = {
 
 # Why a county's floor was raised (policy.py _county_floor), in the words /flow's REASON_LABEL uses.
 COUNTY_REASON_WORDS = {
-    "weather_alert_jev_yes": "JEV yes",
-    "weather_alert_no_jev": "no JEV reading (fail safe)",
     "weather_alert": "NWS weather alert",
     "storm_risk_high": "ERCOT outage rule HIGH",
     "signal_unavailable": "outage report unreadable (fail safe)",
@@ -66,7 +64,7 @@ def _zone_counties(result, zone):
 
 
 def _raised_by(result, counties):
-    """ "Harris raised, JEV yes" for the counties above the zone's lowest county floor, grouped by reason."""
+    """ "Harris raised, NWS weather alert" for the counties above the zone's lowest county floor, grouped by reason."""
     floors = result.county_reserve_pct
     reasons = getattr(result, "county_reasons", None) or {}
     low = min(floors[fips] for fips, _ in counties)
@@ -85,7 +83,7 @@ def zone_floor_notes(result):
     """Zones whose floor differs from the fleet floor, as "Houston 60%: weather_alert".
 
     Since #47 a zone's floor is its highest county floor, so when its counties keep different floors
-    the note names the range and the raised counties: "Houston 30–60% by county: Harris raised, JEV yes".
+    the note names the range and the raised counties: "Houston 30–60% by county: Harris raised, NWS weather alert".
     """
     notes = []
     floors = getattr(result, "county_reserve_pct", None) or {}
@@ -104,18 +102,6 @@ def zone_floor_notes(result):
     return notes
 
 
-def jev_no_zones(result):
-    """Zones an alert named whose named counties JEV all said no to, so the base floor was kept."""
-    reasons = getattr(result, "county_reasons", None) or {}
-    zones = []
-    for zone in result.zone_reserve_pct:
-        named = [reasons[fips] for fips, _ in _zone_counties(result, zone)
-                 if fips in reasons and reasons[fips] != "not_in_alert"]
-        if named and all(code == "jev_no" for code in named):
-            zones.append(zone)
-    return zones
-
-
 def write_brief(result):
     """One or two sentences from delivered MW, the floor, and the reason codes.
 
@@ -123,9 +109,6 @@ def write_brief(result):
     """
     delivered = f"Delivered {result.delivered_mw:.2f} of {result.target_mw:.2f} MW"
     lines = [reason_line(code) for code in brief_codes(result)]
-    kept = jev_no_zones(result)
-    if kept:
-        lines = [f"Base floor kept in {' and '.join(kept)}: NWS alert, JEV no", *lines]
     notes = zone_floor_notes(result)
     if notes:
         lines = [f"Floor {result.reserve_pct:g}% ({', '.join(notes)})", *lines]
