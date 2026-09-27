@@ -226,8 +226,9 @@ export function fillColor(h: GridHome): string {
   if (h.status !== "live") return "var(--rg-not-counted)"
   if (h.action === "selling") return "var(--rg-order-way)"
   if (h.action === "charging") return "var(--rg-charging)"
-  if (h.action === "islanded") return "var(--rg-lost)"
-  if (h.action === "reserved") return "var(--rg-raised-floor-stroke)"
+  // Islanded is a battery rightly backing up its own home in an outage: never the red "lost" colour.
+  if (h.action === "islanded") return "var(--rg-islanded)"
+  if (h.action === "reserved") return "var(--rg-fleet-reserved)"
   if (h.action === "unconfirmed") return "var(--rg-not-counted)"
   if (isUnderFloor(h)) return "var(--rg-fleet-under)"
   if (h.action === null) return "var(--rg-not-counted)"

@@ -14,8 +14,8 @@ export function FleetLegend({ floorText }: FleetLegendProps) {
       <span className="fg-lgi">{swatch("var(--rg-order-way)")}Selling to the grid</span>
       <span className="fg-lgi">{swatch("var(--rg-charging)")}Charging</span>
       <span className="fg-lgi">{swatch("var(--rg-fleet-under)")}Under its floor, holding</span>
-      <span className="fg-lgi">{swatch("var(--rg-raised-floor-stroke)")}Reserved for backup</span>
-      <span className="fg-lgi">{swatch("var(--rg-lost)")}Islanded: backing up its own home</span>
+      <span className="fg-lgi">{swatch("var(--rg-fleet-reserved)")}Reserved for backup</span>
+      <span className="fg-lgi">{swatch("var(--rg-islanded)")}Islanded: backing up its own home</span>
       <span className="fg-lgi">
         <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" stroke="var(--rg-ink)" strokeWidth="1.6" strokeDasharray="3 2" /></svg>
         {floorText}

@@ -305,11 +305,13 @@ describe("fix round 1", () => {
     expect(isl.action).toBe("islanded")
     expect(shortState(isl)).toBe("Islanded")
     expect(nowText(isl)).toBe("Islanded: backing up its own home")
-    expect(cellLook(isl).fill).toBe("var(--rg-lost)")
+    expect(cellLook(isl).fill).toBe("var(--rg-islanded)")
+    expect(cellLook(isl).fill).not.toBe("var(--rg-lost)")
     expect(res.action).toBe("reserved")
     expect(shortState(res)).toBe("Reserved")
     expect(nowText(res)).toBe("Reserved for backup")
-    expect(cellLook(res).fill).toBe("var(--rg-raised-floor-stroke)")
+    expect(cellLook(res).fill).toBe("var(--rg-fleet-reserved)")
+    expect(cellLook(res).fill).not.toBe(cellLook(fromScenarioHomes([{ ...flow("c", "charging"), kw: -2 }])[0]).fill)
   })
 
   it("maps at_floor, below_floor and holding to holding, with the under-floor rule", () => {
