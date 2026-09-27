@@ -368,6 +368,8 @@ describe("DayBar (unwired component)", () => {
     // Marks name themselves; they are not seek buttons.
     expect(html).toMatch(/aria-label="NWS Tropical Storm Warning[^"]*"/)
     expect(html).not.toMatch(/<button[^>]*replay-day-mark/)
+    // The labeled track is a group, so its aria-label is announced.
+    expect(html).toMatch(/<div class="replay-day-track" role="group" aria-label="Scenario day, 22:00 to 14:00 CDT"/)
   })
 
   it("offers the pace presets with the session's speed pressed", () => {

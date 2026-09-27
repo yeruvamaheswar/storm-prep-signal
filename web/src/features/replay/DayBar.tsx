@@ -52,8 +52,8 @@ function pct(value: number): string {
 
 /** The Replay Day view (Task 14): the scenario window by real ts, the marks that have played, and the pace presets. */
 export function DayBar({ state, playheadMs, observedStepSeconds, unavailable, onSend }: Props) {
-  const window = useMemo(() => dayWindow(state), [state])
-  const hours = useMemo(() => (window ? hourLabels(window) : []), [window])
+  const dayWin = useMemo(() => dayWindow(state), [state])
+  const hours = useMemo(() => (dayWin ? hourLabels(dayWin) : []), [dayWin])
   const marks = useMemo(() => dayMarks(state.history ?? [], state.alerts ?? []), [state.history, state.alerts])
   const stops = dayStops(unavailable ? null : state.speeds)
   const [pending, setPending] = useState<{ x: number; from: number } | null>(null)
@@ -68,27 +68,27 @@ export function DayBar({ state, playheadMs, observedStepSeconds, unavailable, on
   const tickTs = state.tick?.ts ?? null
   const tickMs = tickTs ? Date.parse(tickTs) : NaN
   const headMs = typeof playheadMs === "number" && Number.isFinite(playheadMs) ? playheadMs : Number.isFinite(tickMs) ? tickMs : null
-  const played = window && headMs !== null ? posOf(window, headMs) : 0
+  const played = dayWin && headMs !== null ? posOf(dayWin, headMs) : 0
   const tickText = typeof state.tick_index === "number" && typeof state.tick_count === "number"
     ? `Tick ${state.tick_index} of ${state.tick_count} · ${tickTs ? fmtScenarioTime(tickTs) : "no tick played yet"}`
     : "Tick not reported"
   const readout = state.status === "playing" ? paceReadout(state.speed, observedStepSeconds, state.tick_minutes) : null
-  const abbr = zoneAbbr(tickTs ?? window?.startTs)
+  const abbr = zoneAbbr(tickTs ?? dayWin?.startTs)
 
   return (
     <div className="replay-day">
       <div className="replay-day-main">
         <div className="replay-day-top">
           <b className="replay-day-now">{tickText}</b>
-          {window?.estimatedEnd ? <span className="replay-day-note">End estimated from the tick count</span> : null}
+          {dayWin?.estimatedEnd ? <span className="replay-day-note">End estimated from the tick count</span> : null}
           {readout ? <span className="replay-day-readout" role="status">{readout}</span> : null}
         </div>
-        {window ? (
-          <div className="replay-day-track" aria-label={`Scenario day, ${clockOf(window.startTs)} to ${window.endTs ? clockOf(window.endTs) : "an estimated end"} ${abbr}`.trim()}>
+        {dayWin ? (
+          <div className="replay-day-track" role="group" aria-label={`Scenario day, ${clockOf(dayWin.startTs)} to ${dayWin.endTs ? clockOf(dayWin.endTs) : "an estimated end"} ${abbr}`.trim()}>
             <div className="replay-day-marks" role="group" aria-label="Key moments so far">
               {marks.map((mark, k) => {
-                const start = posOf(window, mark.startMs)
-                const end = posOf(window, mark.endMs)
+                const start = posOf(dayWin, mark.startMs)
+                const end = posOf(dayWin, mark.endMs)
                 const when = mark.point ? `at ${clockOf(mark.startTs)}` : `${clockOf(mark.startTs)} to ${clockOf(mark.endTs)}`
                 const text = `${mark.label}, ${when}${abbr ? ` ${abbr}` : ""}`
                 return (
