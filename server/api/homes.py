@@ -9,7 +9,7 @@ import re
 
 import requests
 
-from server.engine.fleet import CLUSTER_CENTROIDS, ZONE_ORDER
+from server.engine.fleet import CLUSTER_CENTROIDS, ZONE_ORDER, new_fleet
 from server.env import load_env
 
 HOME_SELECT = (
@@ -26,6 +26,9 @@ HISTORY_MAX_LIMIT = 200
 READING_SELECT = "tick,seen_at,soc_kwh,charge_state,power_kw"
 COMMAND_SELECT = "command_id,tick,kw,actual_kw,ack,sent_at"
 SEARCH_SAFE = re.compile(r"[^A-Za-z0-9_-]")
+# Task 13: public.homes may hold the 10k seed. The API reads only the demo fleet's ids.
+# Above this many ids the in-list would make the URL too long, so no id filter is sent.
+FLEET_FILTER_MAX_IDS = 1000
 
 
 class HomesUnavailable(Exception):
@@ -46,6 +49,37 @@ def homes_settings():
         "key": os.getenv("SUPABASE_SECRET_KEY", ""),
         "timeout_s": timeout_s,
     }
+
+
+def fleet_size_setting():
+    """FLEET_SIZE (default 100): the one demo fleet Replay, Live and Fleet all show."""
+    load_env()
+    try:
+        return max(0, int(os.getenv("FLEET_SIZE", "100")))
+    except ValueError:
+        return 100
+
+
+def _fleet_n(fleet_size):
+    return fleet_size_setting() if fleet_size is None else max(0, int(fleet_size))
+
+
+def fleet_ids(fleet_size=None):
+    """The fleet's ids in engine order (new_fleet), so home-1000 never counts as one of the first 100."""
+    return [home.home_id for home in new_fleet(_fleet_n(fleet_size))]
+
+
+def fleet_filter(fleet_size=None):
+    """PostgREST `and=(home_id.in.(...))` for the fleet. Its own key, so `home_id` stays free for eq/ilike."""
+    n = _fleet_n(fleet_size)
+    if n > FLEET_FILTER_MAX_IDS:
+        return {}
+    return {"and": f"(home_id.in.({','.join(fleet_ids(n))}))"}
+
+
+def in_fleet(home_id, fleet_size=None):
+    n = _fleet_n(fleet_size)
+    return n > FLEET_FILTER_MAX_IDS or home_id in set(fleet_ids(n))
 
 
 def page_limit(limit):
@@ -364,12 +398,13 @@ def exact_count(params, settings=None, http_get=None):
 
 
 def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings=None, http_get=None,
-             reserve_pct=None, zone_reserve_pct=None):
+             reserve_pct=None, zone_reserve_pct=None, fleet_size=None):
     params = {
         "select": HOME_SELECT,
         "order": "home_id.asc",
         "limit": str(page_limit(limit)),
         "offset": str(page_offset(offset)),
+        **fleet_filter(fleet_size),
     }
     if zone:
         params["zone"] = f"eq.{zone}"
@@ -382,7 +417,11 @@ def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings
             for row in fetch_home_rows(params, settings=settings, http_get=http_get)]
 
 
-def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_reserve_pct=None):
+def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_reserve_pct=None,
+              fleet_size=None):
+    if not in_fleet(home_id, fleet_size):
+        # Outside the demo fleet: not found, even when the 10k seed has the row.
+        return None
     rows = fetch_home_rows(
         {"select": HOME_SELECT, "home_id": f"eq.{home_id}", "limit": "1"},
         settings=settings,
@@ -437,7 +476,7 @@ def rollups_from_groups(count_rows, discharge_rows=None):
     return {"n": n, "zones": zones, "clusters": [dict(item) for item in CLUSTER_CENTROIDS]}
 
 
-def _discharging_mw(zone, settings=None, http_get=None):
+def _discharging_mw(zone, settings=None, http_get=None, fleet_size=None):
     total_kw = 0.0
     offset = 0
     while True:
@@ -449,6 +488,7 @@ def _discharging_mw(zone, settings=None, http_get=None):
                 "assigned_kw": "gt.0",
                 "limit": "200",
                 "offset": str(offset),
+                **fleet_filter(fleet_size),
             },
             settings=settings,
             http_get=http_get,
@@ -462,14 +502,20 @@ def _discharging_mw(zone, settings=None, http_get=None):
     return total_kw / 1000
 
 
-def table_rollups(settings=None, http_get=None):
+def fleet_count(fleet_size=None, settings=None, http_get=None):
+    """How many of the fleet's homes have a row in public.homes (Content-Range, no aggregates)."""
+    return exact_count(fleet_filter(fleet_size), settings=settings, http_get=http_get)
+
+
+def table_rollups(settings=None, http_get=None, fleet_size=None):
     """Zone counts from Content-Range. Never count() — PostgREST returns PGRST123."""
     zones = {name: _empty_zone_row() for name in ZONE_ORDER}
     n = 0
+    scope = fleet_filter(fleet_size)
     for zone in ZONE_ORDER:
         for status in ("live", "stale", "dead"):
             count = exact_count(
-                {"zone": f"eq.{zone}", "status": f"eq.{status}"},
+                {"zone": f"eq.{zone}", "status": f"eq.{status}", **scope},
                 settings=settings,
                 http_get=http_get,
             )
@@ -478,11 +524,12 @@ def table_rollups(settings=None, http_get=None):
             if status == "stale":
                 zones[zone]["silent"] += count
         discharging = exact_count(
-            {"zone": f"eq.{zone}", "status": "eq.live", "assigned_kw": "gt.0"},
+            {"zone": f"eq.{zone}", "status": "eq.live", "assigned_kw": "gt.0", **scope},
             settings=settings,
             http_get=http_get,
         )
         zones[zone]["discharging"] = discharging
         if discharging:
-            zones[zone]["discharging_mw"] = _discharging_mw(zone, settings=settings, http_get=http_get)
+            zones[zone]["discharging_mw"] = _discharging_mw(
+                zone, settings=settings, http_get=http_get, fleet_size=fleet_size)
     return {"n": n, "zones": zones, "clusters": [dict(item) for item in CLUSTER_CENTROIDS]}
