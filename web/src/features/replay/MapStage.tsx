@@ -306,8 +306,8 @@ export function MapStage({
       }) : null}
       <div className="replay-crumb replay-panel"><b>Texas</b><span>{notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
       <p className="replay-map-legend replay-panel">
-        <span>Shading: night and twilight from the sun over each zone at the tick's time (NOAA equations).</span>
-        <span>Rain: counties an NWS storm alert names this tick (Census county outlines, simplified).</span>
+        <span>Shading: night and twilight at the tick's time (sun position, NOAA equations).</span>
+        <span>Rain: counties an NWS storm alert names this tick (Census outlines, simplified).</span>
       </p>
       {notice ? (
         <div className={`replay-panel replay-worker-empty is-${notice}`} role="status">

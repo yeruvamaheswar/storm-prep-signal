@@ -164,6 +164,9 @@ export function ReplayPage({
           tickMinutes={session?.tick_minutes}
           mode={session?.tick?.mode}
           onClose={onCloseHome ?? (() => {})}
+          // The session's homes, so "took over / handed to" lines name the other home. HomePanel's typed `homes` prop
+          // comes with Task 17 (rajat/home-names); until that merges, the prop is passed untyped. Drop the cast after it.
+          {...({ homes: session?.homes } as object)}
         />
       ) : (
         <div className="replay-right">

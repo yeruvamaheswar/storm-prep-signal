@@ -29,7 +29,9 @@ export function ZonePanel({ zone, homes, orders, tick, tSeconds }: Props) {
   const zoneOrders = Object.fromEntries(Object.entries(orders ?? {}).filter(([id]) => ids.has(id)))
   // The tick's breach count is fleet-wide. The zone feed's closing line may say "0" only when the whole fleet had 0.
   const breaches = tick?.breaches === 0 ? 0 : undefined
-  const lines = feedLines(zoneOrders, tSeconds, {}, { breaches })
+  // Every session home by id (not only this zone's), so an order handed to a home in another zone is named too.
+  const homesById = Object.fromEntries(homes.map((home) => [home.id, home]))
+  const lines = feedLines(zoneOrders, tSeconds, homesById, { breaches })
   const breachText = count(tick?.breaches)
 
   return (

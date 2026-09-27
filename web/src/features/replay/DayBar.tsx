@@ -40,6 +40,16 @@ const LEGEND: Array<{ kind: DayMarkKind; text: string }> = [
   { kind: "fault", text: "Overlay (hand-placed fault)" },
 ]
 
+/** Hour labels far enough apart not to overlap on a narrow bar (the first one also names CST or CDT). */
+function spaced<T extends { pos: number }>(labels: T[]): T[] {
+  const out: T[] = []
+  for (const label of labels) {
+    const last = out[out.length - 1]
+    if (!last || label.pos - last.pos >= (out.length === 1 ? 0.2 : 0.12)) out.push(label)
+  }
+  return out
+}
+
 function pct(value: number): string {
   return `${Math.round(value * 100000) / 1000}%`
 }
@@ -49,7 +59,7 @@ function pct(value: number): string {
  * after it is a real tick; while it runs the bar says so and the seek controls are off. */
 export function DayBar({ state, playheadMs, observedStepSeconds, unavailable, seek, onSend }: Props) {
   const dayWin = useMemo(() => dayWindow(state), [state])
-  const hours = useMemo(() => (dayWin ? hourLabels(dayWin) : []), [dayWin])
+  const hours = useMemo(() => (dayWin ? spaced(hourLabels(dayWin)) : []), [dayWin])
   const marks = useMemo(() => dayMarks(state.history ?? [], state.alerts ?? []), [state.history, state.alerts])
   const stops = dayStops(unavailable ? null : state.speeds)
   const { shown, mark } = usePendingSpeed(state.speed)
