@@ -198,7 +198,8 @@ def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path)
     scenario_list = client.get("/v1/scenarios").json()
     assert "heather" in [s["id"] for s in scenario_list["scenarios"]]
     # Task 11 added the slow Replay speeds (2.4 is real time) and made 12 the default.
-    assert scenario_list["speeds"] == [2.4, 4.8, 12, 15, 30, 60, 150, 300, 600]
+    # Task 14 added the Day view's 288, 720 and 1440 (5, 2 and 1 min per scenario day).
+    assert scenario_list["speeds"] == [2.4, 4.8, 12, 15, 30, 60, 150, 288, 300, 600, 720, 1440]
     assert scenario_list["default_speed"] == 12
     assert client.get("/v1/scenario/state").json()["status"] == "worker_not_running"
     ok = client.post("/v1/scenario/start", json={"scenario": "heather", "seed": 5}, headers=OPERATOR)
