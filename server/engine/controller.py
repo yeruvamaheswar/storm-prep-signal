@@ -156,47 +156,55 @@ def allocate_charge(homes, frame, policy, settings):
     in one tick. Charge raises soc and is never a breach; the worker and `discharge` clamp
     it to `room_kw`, so it never fills past capacity.
     """
-    return serve_then_charge(homes, frame, policy, settings, lambda home: True)
+    def sell(caps, target_kw):
+        return split_target(pick_sellers(caps, target_kw), target_kw)
+
+    return serve_then_charge(homes, frame, policy, settings, sell, lambda home: True)
 
 
 def allocate_zoned(homes, frame, policy, settings, zone_intent):
     """Each zone's own price band, but the call is always served while any zone has headroom.
 
-    Sellers are the fewest homes that cover the call: discharge-band zones first, then hold,
-    then charge (a zone with no row counts as hold); within a band most headroom first, ties
-    by home_id. Every other live home in a charge zone absorbs at its room cap. Non-selling
-    homes in hold and discharge zones do nothing: the fleet only sells on a call.
+    Every live home with headroom in a discharge or hold zone (a zone with no row counts as
+    hold) shares the call in proportion to its cap, like `allocate_discharge`: spreading the
+    drain keeps the most homes above their floors for the next call. Only when those caps
+    fall short do charge-zone homes sell the remainder, the fewest of them (most headroom
+    first, ties by home_id), so the rest of the cheap zone still charges. Non-selling homes
+    in hold and discharge zones do nothing: the fleet only sells on a call.
     """
-    def band(home):
-        return zone_intent.get(home.zone, "hold")
+    zone_of = {home.home_id: home.zone for home in homes}
 
-    def rank(home):
-        return SELL_ORDER.get(band(home), SELL_ORDER["hold"])
+    def cheap(home_id):
+        return zone_intent.get(zone_of[home_id], "hold") == "charge"
 
-    return serve_then_charge(homes, frame, policy, settings, lambda home: band(home) == "charge", rank)
+    def sell(caps, target_kw):
+        spread = {home_id: cap for home_id, cap in caps.items() if not cheap(home_id)}
+        shares = split_target(spread, target_kw)
+        remainder = target_kw - sum(spread.values())
+        if remainder > 0:
+            # Fewest cheap homes cover what the other zones could not: the rest keep charging.
+            cheap_caps = {home_id: cap for home_id, cap in caps.items() if cheap(home_id)}
+            shares.update(split_target(pick_sellers(cheap_caps, remainder), remainder))
+        return shares
+
+    return serve_then_charge(homes, frame, policy, settings, sell,
+                             lambda home: cheap(home.home_id))
 
 
-# Which zones sell first on a zoned tick: expensive power before cheap power.
-SELL_ORDER = {"discharge": 0, "hold": 1, "charge": 2}
+def serve_then_charge(homes, frame, policy, settings, sell, may_charge):
+    """Serve `target_mw` with `sell(caps, target_kw)`, then charge the non-sellers `may_charge` allows.
 
-
-def serve_then_charge(homes, frame, policy, settings, may_charge, rank=None):
-    """Serve `target_mw` from the fewest homes (by `rank`, then headroom), then charge the rest.
-
-    `may_charge(home)` says which non-selling homes absorb at their room cap. With no rank,
-    every home is one tier. Shared by the fleet charge path and the zoned path so both keep
-    the same books: delivered counts the sellers only, missed is the rest, and a missed call
-    means every home with headroom was already selling.
+    Shared by the fleet charge path and the zoned path so both keep the same books:
+    delivered counts the sellers only, missed is the rest, and a home never sells and
+    charges in one tick.
     """
     target_kw = frame.target_mw * 1000
     down = grid_down_zones(frame)
-    by_id = {home.home_id: home for home in homes}
-    order = (lambda home_id: rank(by_id[home_id])) if rank else None
-    sellers = pick_sellers(home_caps(homes, policy, settings, down), target_kw, order)
-    positive = split_target(sellers, target_kw)
+    positive = sell(home_caps(homes, policy, settings, down), target_kw)
     room = charge_caps(homes, policy, settings, down)
+    by_id = {home.home_id: home for home in homes}
     negative = {home_id: -kw for home_id, kw in room.items()
-                if home_id not in sellers and may_charge(by_id[home_id])}
+                if home_id not in positive and may_charge(by_id[home_id])}
     delivered_mw = min(sum(positive.values()) / 1000, frame.target_mw)
     missed_mw = max(0.0, frame.target_mw - delivered_mw)
     reasons = shortfall_codes(policy, missed_mw)
@@ -206,15 +214,13 @@ def serve_then_charge(homes, frame, policy, settings, may_charge, rank=None):
     return Allocation({**positive, **negative}, delivered_mw, missed_mw, reasons)
 
 
-def pick_sellers(caps, target_kw, rank=None):
+def pick_sellers(caps, target_kw):
     """The fewest homes whose caps cover target_kw, most headroom first; all of them if short.
 
-    Selling from few homes leaves the most homes free to charge on cheap power. `rank(home_id)`,
-    when given, sorts first (lower sells sooner), so a zoned tick drains expensive zones first.
+    Selling from few homes leaves the most homes free to charge on cheap power.
     """
     picked, total = {}, 0.0
-    order = rank or (lambda home_id: 0)
-    for home_id, cap in sorted(caps.items(), key=lambda item: (order(item[0]), -item[1], item[0])):
+    for home_id, cap in sorted(caps.items(), key=lambda item: (-item[1], item[0])):
         if total >= target_kw:
             break
         picked[home_id] = cap

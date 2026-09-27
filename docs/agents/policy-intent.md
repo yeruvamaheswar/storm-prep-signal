@@ -42,14 +42,15 @@ Floor-only callers omit `price_label`. Intent stays `hold` and the floor reasons
 
 `allocate_zoned` (via `serve_then_charge`, shared with `allocate_charge`):
 
-1. Sellers are the fewest live homes that cover the call: `discharge` zones first, then `hold` (a zone with no row counts as hold), then `charge`; within a band most headroom first, ties by `home_id` (`pick_sellers(..., rank)`). They split the call with `split_target`.
+1. Every live home with headroom in a `discharge` or `hold` zone (a zone with no row counts as hold) shares the call in proportion to its cap (`split_target`, as `allocate_discharge`). Spreading keeps the most homes above their floors for the next call; picking the fewest homes only pays when it frees other homes to charge, and nobody charges in these zones.
+   Only if those caps fall short do `charge`-zone homes sell the remainder, the fewest of them (`pick_sellers`), so the rest of the cheap zone still charges.
 2. Every other live home in a `charge` zone charges at its room cap. Non-selling homes in hold and discharge zones do nothing: the fleet sells only on a call.
 3. A home never sells and charges in one tick. Grid-down, dead, stale and unknown-zone homes get nothing.
 4. Reasons: shortfall head code if missed, `charging` if any home charges, status suffixes; `grid_down:<zone>` appended by `allocate`.
 
 `holding_spare_energy` is dropped from the zoned path: it meant "missed while hold zones sat on headroom", which cannot happen now that hold zones sell for a call. It stays only on the unknown-intent branch of `allocate`.
 
-Trade-off seen on tapes: selling from the fewest homes drains a few homes deep instead of all homes evenly, so on long high-call evenings the inverter cap (`max_kw`) of the homes still above the floor can bind earlier. `storm-rule-night` fell from 35.3% to 29.1% delivered, `feed-failure` from 100% to 96.3%; `heather` rose from 24.4% to 35.6% and `calm-charge` from 76.9% to 80.0%. Floor breaches stay 0.
+Tapes (origin/main -> this rule, 0 breaches): heather 24.4 -> 35.5%, heather-thaw 80.5 -> 92.8%, calm-charge 76.9 -> 80.8%; storm-rule-night 35.3 -> 29.2%, storm-rule-high 32.6 -> 32.5%; the rest unchanged within 0.2 points.
 
 Tests: zone-band cases in `tests/test_policy.py`, `allocate_zoned` tier cases in `tests/test_controller.py`, path 24 in `tests/test_tick_paths.py`.
 

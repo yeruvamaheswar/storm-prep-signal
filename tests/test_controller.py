@@ -532,19 +532,20 @@ def test_zone_intent_missing_zone_holds_while_others_charge():
     assert_real_reasons(alloc)
 
 
-def test_zone_intent_sells_from_discharge_zones_then_hold_then_charge():
+def test_zone_intent_discharge_and_hold_zones_share_the_call_proportionally():
     p = policy(intent="hold")
     p.zone_intent = {"Houston": "charge", "North": "hold", "South": "hold", "West": "discharge"}
     # Headroom caps: h 100 (inverter), n 48, s 72, w 48. Room caps: h 24, n 100, s 96, w 100.
     homes = [home("h", 18.0, zone="Houston"), home("n", 10.0, zone="North"),
              home("s", 12.0, zone="South"), home("w", 10.0, zone="West")]
     alloc = allocate(homes, frame(0.1), p, "AUTO", settings())
-    # West first (48 kW), then the hold zone with the most headroom (South, 72 kW) covers
-    # the rest. North is not needed and does nothing. Houston has the most headroom but is
-    # cheap, so it charges instead of selling.
-    assert set(alloc.per_home_kw) == {"w", "s", "h"}
-    assert alloc.per_home_kw["w"] == pytest.approx(100 * 48 / 120)
-    assert alloc.per_home_kw["s"] == pytest.approx(100 * 72 / 120)
+    # Discharge and hold zones (168 kW of caps) cover the call, so every one of their homes
+    # shares it in proportion to its cap. Houston has the most headroom but is cheap, so it
+    # charges instead of selling.
+    assert set(alloc.per_home_kw) == {"w", "n", "s", "h"}
+    assert alloc.per_home_kw["w"] == pytest.approx(100 * 48 / 168)
+    assert alloc.per_home_kw["n"] == pytest.approx(100 * 48 / 168)
+    assert alloc.per_home_kw["s"] == pytest.approx(100 * 72 / 168)
     assert alloc.per_home_kw["h"] == -24.0
     assert alloc.delivered_mw == pytest.approx(0.1) and alloc.missed_mw == pytest.approx(0.0)
     assert alloc.reasons == ["charging"]
@@ -563,13 +564,27 @@ def test_zone_intent_uses_a_charge_zone_home_when_nothing_else_has_headroom():
     check_zoned_books(alloc, 0.04)
 
 
-def test_zone_intent_picks_the_fewest_homes_in_a_tier_most_headroom_first():
+def test_zone_intent_charge_zone_covers_only_the_remainder_from_the_fewest_homes():
+    p = policy(intent="hold")
+    p.zone_intent = {"Houston": "charge", "West": "discharge"}
+    # West gives its full 48 kW cap; the 22 kW left comes from one Houston home (most
+    # headroom, ties by id), and the other Houston home still charges.
+    homes = [home("a", 10.0), home("b", 10.0), home("w", 10.0, zone="West")]
+    alloc = allocate(homes, frame(0.07), p, "AUTO", settings())
+    assert alloc.per_home_kw == {"w": 48.0, "a": pytest.approx(22.0), "b": -100.0}
+    assert alloc.delivered_mw == pytest.approx(0.07)
+    assert alloc.reasons == ["charging"]
+    check_zoned_books(alloc, 0.07)
+
+
+def test_zone_intent_spreads_a_small_call_over_every_discharge_and_hold_home():
     p = policy(intent="hold")
     p.zone_intent = {"Houston": "discharge", "North": "hold"}
     homes = [home("h1", 10.0), home("h2", 12.0), home("n", 16.0, zone="North")]
     alloc = allocate(homes, frame(0.06), p, "AUTO", settings())
-    # h2 (72 kW) covers 60 kW alone; h1 and the hold zone are left alone, nobody charges.
-    assert alloc.per_home_kw == {"h2": pytest.approx(60.0)}
+    # Caps 48, 72, 100 (220 kW): each home gives its share of 60 kW; nobody charges.
+    assert alloc.per_home_kw == {"h1": pytest.approx(60 * 48 / 220), "h2": pytest.approx(60 * 72 / 220),
+                                 "n": pytest.approx(60 * 100 / 220)}
     assert alloc.reasons == []
     check_zoned_books(alloc, 0.06)
 
