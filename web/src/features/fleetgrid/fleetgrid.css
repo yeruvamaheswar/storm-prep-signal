@@ -151,6 +151,70 @@
   color: var(--rg-muted);
 }
 
+/* Task 13 item 7: region title, its "Split by county" toggle, and the county blocks. */
+.fg-bank-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.fg-bank-head h2 {
+  min-width: 0;
+}
+
+.fg-bank-note {
+  margin: -4px 0 10px;
+  font-size: 13px;
+  color: var(--rg-muted);
+}
+
+.fg-split {
+  border: 1px solid var(--rg-fleet-bank);
+  background: var(--rg-surface);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--rg-ink);
+  padding: 5px 11px;
+  border-radius: var(--rg-pill-radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fg-split.on {
+  background: var(--rg-ink);
+  border-color: var(--rg-ink);
+  color: var(--rg-panel-map);
+}
+
+.fg-split:focus-visible {
+  outline: 3px solid var(--rg-focus);
+  outline-offset: 2px;
+}
+
+.fg-counties {
+  display: grid;
+  gap: 10px;
+}
+
+.fg-county {
+  border-top: 1px solid var(--rg-line);
+  padding-top: 8px;
+}
+
+.fg-county:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.fg-county h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rg-clay-text);
+  font-variant-numeric: tabular-nums;
+}
+
 .fg-dist {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

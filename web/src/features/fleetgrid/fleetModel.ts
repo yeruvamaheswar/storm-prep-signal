@@ -34,6 +34,8 @@ export type GridHome = {
   /** Scenario only (#47): display name, e.g. "Houston-FortBend-005", and county name. Search and URLs use `id`. */
   name?: string | null
   countyName?: string | null
+  /** County FIPS (Task 13 item 7): the scenario's own, or the one GET /v1/homes derives with the engine's rule. */
+  county?: string | null
 }
 
 export type SourceKey = "live" | "scenario"
@@ -49,6 +51,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function textOrNull(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null
 }
 
 function zoneOf(value: unknown): GridZone | null {
@@ -91,6 +97,8 @@ export function fromLiveRows(body: unknown): GridHome[] {
       kw: num(row.power_kw),
       action: status === "live" ? cs : null,
       planStale: false,
+      county: textOrNull(row.county),
+      countyName: textOrNull(row.county_name),
     })
   }
   return out
@@ -128,6 +136,7 @@ export function fromScenarioHomes(homes: FlowHome[]): GridHome[] {
       planStale,
       name: typeof h.name === "string" && h.name !== "" ? h.name : null,
       countyName: typeof h.county_name === "string" && h.county_name !== "" ? h.county_name : null,
+      county: textOrNull(h.county),
     }
   })
 }
@@ -266,7 +275,89 @@ export function cellLook(h: GridHome): CellLook {
   }
 }
 
-export type ZoneBank = { key: string; name: string; zone: GridZone | null; homes: GridHome[]; note: string }
+/** One roster county: GET /v1/fleet/counties or the scenario's `counties`. */
+export type CountyRosterRow = { zone: string; fips: string; name: string }
+/** A region's homes in one county. `fips` null collects homes whose county is not reported. */
+export type CountyGroup = { key: string; fips: string | null; name: string; homes: GridHome[] }
+export const NO_COUNTY = "County not reported"
+
+export type ZoneBank = {
+  key: string
+  name: string
+  zone: GridZone | null
+  homes: GridHome[]
+  note: string
+  /** Task 13 item 7: the region's roster counties in roster order (0 homes kept), then any unreported. */
+  counties: CountyGroup[]
+}
+
+/** Every roster county of the zone (in roster order, even with 0 homes), then counties only the homes name, then no county. */
+export function countyGroups(zone: string | null, homes: GridHome[], roster: CountyRosterRow[] = []): CountyGroup[] {
+  const groups: CountyGroup[] = roster
+    .filter((row) => row.zone === zone)
+    .map((row) => ({ key: row.fips, fips: row.fips, name: row.name, homes: [] }))
+  const byFips = new Map(groups.map((g) => [g.fips as string, g]))
+  let loose: CountyGroup | null = null
+  for (const h of homes) {
+    if (!h.county) {
+      loose ??= { key: "none", fips: null, name: NO_COUNTY, homes: [] }
+      loose.homes.push(h)
+      continue
+    }
+    let group = byFips.get(h.county)
+    if (!group) {
+      group = { key: h.county, fips: h.county, name: h.countyName ?? h.county, homes: [] }
+      byFips.set(h.county, group)
+      groups.push(group)
+    }
+    group.homes.push(h)
+  }
+  return loose ? [...groups, loose] : groups
+}
+
+export function countyTitle(g: CountyGroup): string {
+  return g.fips === null ? `${g.name} · ${homesTitle(g.homes.length)}` : `${g.name} County (${g.fips}) · ${homesTitle(g.homes.length)}`
+}
+
+export function countyAria(g: CountyGroup, bank: ZoneBank): string {
+  const where = bank.zone === null ? bank.name : `${bank.name} zone`
+  return g.fips === null ? `${g.name}, ${where}` : `${g.name} County, ${where}`
+}
+
+/** "Houston · 25 homes · 5 counties": counted from the rows and the roster, never fixed. */
+export function bankTitle(bank: ZoneBank): string {
+  const named = bank.counties.filter((c) => c.fips !== null).length
+  const counties = named ? ` · ${named === 1 ? "1 county" : `${named} counties`}` : ""
+  return `${bank.name} · ${homesTitle(bank.homes.length)}${counties}`
+}
+
+/** ?split=Houston,North: the regions shown split by county. Unknown names are ignored. */
+export function readSplit(search: string): Set<GridZone> {
+  const raw = new URLSearchParams(search).get("split") ?? ""
+  const out = new Set<GridZone>()
+  for (const part of raw.split(",")) {
+    const zone = zoneOf(part.trim())
+    if (zone) out.add(zone)
+  }
+  return out
+}
+
+export function toggleSplit(split: ReadonlySet<string>, zone: string): Set<string> {
+  const next = new Set(split)
+  if (next.has(zone)) next.delete(zone)
+  else next.add(zone)
+  return next
+}
+
+/** The search string with ?split= rewritten (regions in page order), other params kept. */
+export function splitSearch(search: string, split: ReadonlySet<string>): string {
+  const params = new URLSearchParams(search)
+  const zones = GRID_ZONES.filter((z) => split.has(z))
+  if (zones.length) params.set("split", zones.join(","))
+  else params.delete("split")
+  const text = params.toString()
+  return text ? `?${text}` : ""
+}
 
 export function bankNote(homes: GridHome[]): string {
   const off = homes.filter((h) => h.status !== "live").length
@@ -275,13 +366,15 @@ export function bankNote(homes: GridHome[]): string {
 }
 
 /** Four zone banks in mockup order, plus one for homes with no zone so the counts add up. */
-export function zoneBanks(homes: GridHome[]): ZoneBank[] {
+export function zoneBanks(homes: GridHome[], roster: CountyRosterRow[] = []): ZoneBank[] {
   const banks: ZoneBank[] = GRID_ZONES.map((zone) => {
     const zh = homes.filter((h) => h.zone === zone)
-    return { key: zone, name: zone, zone, homes: zh, note: bankNote(zh) }
+    return { key: zone, name: zone, zone, homes: zh, note: bankNote(zh), counties: countyGroups(zone, zh, roster) }
   })
   const loose = homes.filter((h) => h.zone === null)
-  if (loose.length) banks.push({ key: "none", name: NO_ZONE, zone: null, homes: loose, note: bankNote(loose) })
+  if (loose.length) {
+    banks.push({ key: "none", name: NO_ZONE, zone: null, homes: loose, note: bankNote(loose), counties: countyGroups(null, loose) })
+  }
   return banks
 }
 
@@ -320,7 +413,8 @@ export function chargeText(h: GridHome): string {
 }
 
 export function tileAria(h: GridHome): string {
-  return `${h.id}, ${nowText(h)}, charge ${chargeText(h)}`
+  const county = h.countyName ? `${h.countyName} County, ` : ""
+  return `${h.id}, ${county}${nowText(h)}, charge ${chargeText(h)}`
 }
 
 export function homesTitle(n: number): string {
@@ -349,6 +443,47 @@ export function scenarioSourceNote(state: {
 }): string {
   if (state.scenario === null) return "Scenario: none started yet."
   return `Scenario: ${state.scenario.name}, tick ${state.tick_index} of ${state.tick_count}, ${state.status}.`
+}
+
+/** "100-home demo fleet", from the fleet size the data reports. */
+export function fleetLabel(n: number): string {
+  return `${n}-home demo fleet`
+}
+
+export type HomesSource = { source: "supabase" | "fixture" | null; fleetSize: number | null; total: number | null }
+
+function headerInt(value: string | null): number | null {
+  if (value === null || !/^\d+$/.test(value.trim())) return null
+  return Number(value.trim())
+}
+
+/** X-Homes-Source, X-Fleet-Size and X-Homes-Total from GET /v1/homes (server/api/v1.py, Task 13). */
+export function readHomesSource(headers: { get(name: string): string | null }): HomesSource {
+  const raw = headers.get("x-homes-source")
+  const source = raw === "supabase" || raw === "fixture" ? raw : null
+  return { source, fleetSize: headerInt(headers.get("x-fleet-size")), total: headerInt(headers.get("x-homes-total")) }
+}
+
+/** Supabase: the live fleet, N of FLEET_SIZE. Fixture: sample rows, never called live. */
+export function liveFleetNote(src: HomesSource, rows: number): string {
+  if (src.source === "fixture") {
+    return `${rows === 1 ? "1 sample row" : `${rows} sample rows`} (no Supabase connection), not live data.`
+  }
+  if (src.source === "supabase" && src.fleetSize !== null) {
+    return `${fleetLabel(src.fleetSize)}. Live fleet from Supabase: ${src.total ?? rows} of ${src.fleetSize} homes.`
+  }
+  return liveSourceNote(rows)
+}
+
+/** The scenario runs its whole fleet, so its size is the homes it sent. */
+export function scenarioFleetNote(state: Parameters<typeof scenarioSourceNote>[0], homes: number): string {
+  const note = scenarioSourceNote(state)
+  return homes > 0 ? `${fleetLabel(homes)}. ${note}` : note
+}
+
+/** Open on Scenario when the scenario worker answers, otherwise Live. */
+export function defaultSource(reply: unknown): SourceKey {
+  return isRecord(reply) && typeof reply.status === "string" && reply.status !== "worker_not_running" ? "scenario" : "live"
 }
 
 /** Homes counted under All only (not live, stale or offline), so the filter counts visibly add up. */

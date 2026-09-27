@@ -4,7 +4,7 @@ import { HomeDetail } from "./HomeDetail"
 import { Skeleton } from "./Skeleton"
 import {
   FILTERS, filterCounts, floorLegend, homesTitle, otherNote, zoneBanks,
-  type FilterKey, type GridHome, type SourceKey,
+  type CountyRosterRow, type FilterKey, type GridHome, type SourceKey,
 } from "./fleetModel"
 import "./fleetgrid.css"
 
@@ -26,6 +26,11 @@ export type FleetGridPageProps = {
   onSelect: (id: string | null) => void
   onQuery: (query: string) => void
   onFind: (query: string) => void
+  /** Task 13 item 7: the county roster (GET /v1/fleet/counties or the scenario's `counties`). */
+  counties?: CountyRosterRow[]
+  /** Regions shown split by county. */
+  split?: ReadonlySet<string>
+  onSplit?: (zone: string) => void
 }
 
 const SOURCES: Array<[SourceKey, string]> = [["live", "Live"], ["scenario", "Scenario"]]
@@ -49,7 +54,7 @@ export function FleetGridPage(props: FleetGridPageProps) {
   } else {
     body = (
       <div className="fg-banks">
-        {zoneBanks(homes).map((bank) => (
+        {zoneBanks(homes, props.counties ?? []).map((bank) => (
           <BankPanel
             key={bank.key}
             bank={bank}
@@ -58,6 +63,8 @@ export function FleetGridPage(props: FleetGridPageProps) {
             selectedId={selectedId}
             foundId={foundId}
             onSelect={props.onSelect}
+            split={props.split?.has(bank.key) ?? false}
+            onSplit={props.onSplit}
           />
         ))}
       </div>
