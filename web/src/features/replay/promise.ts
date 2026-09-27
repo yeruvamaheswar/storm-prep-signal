@@ -6,7 +6,7 @@ export type ReplayPromiseResult = Partial<FlowTick> & {
 }
 
 export type PromiseRow =
-  | { key: "asked" | "sold_confirmed" | "sent_not_counted" | "not_sold"; label: string; mw: number }
+  | { key: "asked" | "sold_confirmed" | "sent_not_counted" | "not_sold" | "charged"; label: string; mw: number }
   | { key: "breaches"; label: string; count: number }
 
 function hasNumber(value: unknown): value is number {
@@ -15,6 +15,17 @@ function hasNumber(value: unknown): value is number {
 
 function floorRaised(result: ReplayPromiseResult): boolean {
   return (result.reasons ?? []).some(isFloorRaisingReason)
+}
+
+/** An operator HOLD sends nothing (controller.py: Allocation({}, 0, target, ["operator_hold"])).
+ * History points carry no mode, so the reason alone also counts. */
+function operatorHold(result: ReplayPromiseResult): boolean {
+  return result.mode === "HOLD" || (result.reasons ?? []).includes("operator_hold")
+}
+
+function notSoldLabel(result: ReplayPromiseResult): string {
+  if (operatorHold(result)) return "Not sent, operator hold"
+  return floorRaised(result) ? "Kept for backup, floor raised" : "Not sent, no spare energy above floors"
 }
 
 export function promiseBreakdown(result: ReplayPromiseResult): PromiseRow[] {
@@ -26,9 +37,10 @@ export function promiseBreakdown(result: ReplayPromiseResult): PromiseRow[] {
   // and credited_mw only counts confirmed energy). Subtract it back out so this single row never double-counts.
   if (hasNumber(result.missed_mw) && hasNumber(result.unconfirmed_mw)) {
     const notSold = Math.max(0, result.missed_mw - result.unconfirmed_mw)
-    const label = floorRaised(result) ? "Kept for backup, floor raised" : "Not sent, no spare energy above floors"
-    rows.push({ key: "not_sold", label, mw: notSold })
+    rows.push({ key: "not_sold", label: notSoldLabel(result), mw: notSold })
   }
+  // Energy bought from the grid this tick. Not a sale: never part of asked, sold or not sold.
+  if (hasNumber(result.charging_mw)) rows.push({ key: "charged", label: "Charged from the grid", mw: result.charging_mw })
   if (hasNumber(result.breaches)) rows.push({ key: "breaches", label: "Backup breaches", count: result.breaches })
   return rows
 }

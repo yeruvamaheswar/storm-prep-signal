@@ -28,6 +28,45 @@ describe("Replay promise panel", () => {
     expect(html).toContain("Open the ledger")
   })
 
+  it("heather tick 74: names what the fleet did and the energy bought, in amber, apart from sold", () => {
+    const html = renderToStaticMarkup(createElement(PromisePanel, {
+      tick: {
+        tick: 74, mode: "AUTO", target_mw: 0.2, delivered_mw: 0, missed_mw: 0.2, unconfirmed_mw: 0, charging_mw: 1.1286,
+        intent: "charge", intent_reason: "reserve_refill", reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0,
+      },
+      onOpenLedger: () => {},
+      onOpenData: () => {},
+    }))
+    expect(html).toContain("Fleet did: Charge — refilled batteries under their floor")
+    expect(html).toMatch(/<span class="is-charge">Charged from the grid<\/span><b class="is-charge">1\.129 MW<\/b>/)
+    expect(html).toContain("Kept for backup, floor raised")
+    expect(html).not.toContain("Not sent")
+  })
+
+  it("an operator HOLD tick says the call was not sent because of the hold", () => {
+    const html = renderToStaticMarkup(createElement(PromisePanel, {
+      tick: {
+        tick: 4, mode: "HOLD", target_mw: 0.5477, delivered_mw: 0, missed_mw: 0.5477, unconfirmed_mw: 0, charging_mw: 0,
+        intent: "hold", intent_reason: "operator_hold", reasons: ["operator_hold"], breaches: 0,
+      },
+      onOpenLedger: () => {},
+      onOpenData: () => {},
+    }))
+    expect(html).toContain("Not sent, operator hold")
+    expect(html).toContain("Fleet did: Hold — operator hold")
+    expect(html).not.toContain("no spare energy")
+  })
+
+  it("shows no intent line when the tick carries no intent", () => {
+    const html = renderToStaticMarkup(createElement(PromisePanel, {
+      tick: { target_mw: 0.4, delivered_mw: 0.25, missed_mw: 0.1, unconfirmed_mw: 0.05, breaches: 0 },
+      onOpenLedger: () => {},
+      onOpenData: () => {},
+    }))
+    expect(html).not.toContain("Fleet did")
+    expect(html).not.toContain("Charged from the grid")
+  })
+
   it("shows not reported when the tick is missing", () => {
     const html = renderToStaticMarkup(createElement(PromisePanel, {
       tick: null,

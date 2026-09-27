@@ -512,6 +512,31 @@
   color: var(--rg-confirmed);
 }
 
+/* Task 12: energy bought from the grid. Amber, set apart from the call's rows, never summed with them. */
+.replay-promise .is-charge,
+.replay-ledger .is-charge {
+  color: var(--rg-charging-text);
+}
+
+.replay-row.replay-row-charge {
+  margin-top: 4px;
+  border-top: 1px dashed var(--rg-charging);
+}
+
+.replay-intent {
+  margin: 6px 0 4px;
+  color: var(--rg-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.replay-ledger-intent {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
 .replay-breaches {
   display: flex;
   align-items: center;
