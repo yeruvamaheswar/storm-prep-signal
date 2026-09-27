@@ -11,8 +11,8 @@
 ## Which rows are the fleet
 
 - Seeded ids are `new_fleet` ids: `home-001` … `home-999`, `home-1000` … `home-10000` (checked read-only against Supabase on 2026-09-27). Sorting by text would put `home-1000` before `home-101`, so "the first 100" is `new_fleet(FLEET_SIZE)` ids, not `order=home_id&limit=100`.
-- `server/api/homes.py` `fleet_filter(n)` adds `and=(home_id.in.(<ids>))` to the PostgREST query (its own key, so `home_id=eq.`/`ilike.` still work). Used by `list_homes`, `table_rollups`, `_discharging_mw` and `fleet_count`. `read_home` answers `None` (404) for an id outside the fleet.
-- Above `FLEET_FILTER_MAX_IDS` (1,000) no id filter is sent, because the URL would be too long. That is only right when the whole table is the fleet (FLEET_SIZE=10000).
+- `server/api/homes.py` `fleet_filter(n)` adds `and=(home_id.in.(<ids>))` to the PostgREST query (its own key, so `home_id=eq.`/`ilike.` still work). Used by `list_homes`, `table_rollups`, `_discharging_mw` and `fleet_count`. `read_home` answers `None` (404) for an id outside the fleet, at any fleet size (`in_fleet` checks the id set in memory; no URL is built).
+- Above `FLEET_FILTER_MAX_IDS` (1,000) no id filter is sent, because the URL would be too long (`fleet_scoped(n)` is false). Then nothing claims the fleet scope (fix 1, M2): `/v1/homes` rows are the whole table and the reply has no `X-Fleet-Size` or `X-Homes-Total`, so the Fleet page shows its plain `Live homes from the local API …` note; `table_rollups` raises `HomesUnavailable("fleet_unscoped")` and `GET /v1/fleet/rollups` serves `current_rollups()` (the engine's own `FLEET_SIZE` rollup) instead of counting the table. This holds at `FLEET_SIZE=10000` too.
 - Snapshot counts already follow the run file's `settings.fleet_size`, which now is `FLEET_SIZE` for Live.
 
 ## Source headers on GET /v1/homes (add-only, body stays a list)
@@ -20,8 +20,8 @@
 | Header | Value |
 |---|---|
 | `X-Homes-Source` | `supabase` (rows from `public.homes`) or `fixture` (the 3-row console sample when keys are missing or the read fails) |
-| `X-Fleet-Size` | `FLEET_SIZE` |
-| `X-Homes-Total` | Fleet homes that have a row in `public.homes` (`Prefer: count=exact`). Supabase only; omitted if the count fails |
+| `X-Fleet-Size` | `FLEET_SIZE`. Omitted when the fleet is above `FLEET_FILTER_MAX_IDS` (the rows are not scoped to it) |
+| `X-Homes-Total` | Fleet homes that have a row in `public.homes` (`Prefer: count=exact`). Supabase only; omitted if the count fails or the fleet is above `FLEET_FILTER_MAX_IDS` |
 
 `server/app.py` exposes them to a cross-origin wall (`expose_headers`).
 

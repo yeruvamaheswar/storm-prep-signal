@@ -153,6 +153,35 @@ def test_homes_total_counts_fleet_homes_present_in_the_table(monkeypatch):
     assert reply.headers["x-fleet-size"] == "100"
 
 
+# M2 (Task 13 fix 1): above FLEET_FILTER_MAX_IDS no id filter is sent, so the rows are the whole
+# table, not the fleet. Nothing may then claim an N-home fleet scope.
+
+def test_unfiltered_homes_route_claims_no_fleet_scope(monkeypatch):
+    client = api(monkeypatch, seeded_table(), fleet="2000")
+    reply = client.get("/v1/homes", params={"limit": 200})
+    assert reply.status_code == 200
+    assert reply.headers["x-homes-source"] == "supabase"
+    # "10000 of 2000 homes" would be false: no fleet size, no fleet total.
+    assert "x-fleet-size" not in reply.headers
+    assert "x-homes-total" not in reply.headers
+
+
+def test_unfiltered_read_home_still_answers_only_fleet_ids(monkeypatch):
+    client = api(monkeypatch, seeded_table(), fleet="2000")
+    assert client.get("/v1/homes/home-1500").status_code == 200
+    assert client.get("/v1/homes/home-2001").status_code == 404
+    assert client.get("/v1/homes/home-9999").status_code == 404
+
+
+def test_unfiltered_rollups_count_the_fleet_not_the_table(monkeypatch, tmp_path):
+    monkeypatch.setattr("server.engine.fleet.FLEET_DIR", tmp_path)
+    client = api(monkeypatch, seeded_table(), fleet="2000")
+    body = client.get("/v1/fleet/rollups").json()
+    # The table holds 10,000 rows; the fleet is 2,000. The table cannot be scoped by id here,
+    # so the route answers the engine's own 2,000-home rollup instead of counting the table.
+    assert body["n"] == 2000
+
+
 def test_fixture_fallback_is_labelled(monkeypatch):
     monkeypatch.setenv("FLEET_SIZE", "100")
     monkeypatch.setattr("server.api.homes.homes_settings", lambda: {"url": "", "key": "", "timeout_s": 3})

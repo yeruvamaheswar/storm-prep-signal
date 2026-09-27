@@ -17,7 +17,7 @@ from server.api.archive import event_for_clock
 from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
 from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, read_home_history, table_rollups
-from server.api.homes import fleet_count, fleet_size_setting
+from server.api.homes import fleet_count, fleet_scoped, fleet_size_setting
 from server.api.operator_settings import persist_mode, table_config
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
 from server.engine.fleet import FLEET_DIR, current_rollups, seed_settings, zone_counties
@@ -323,15 +323,20 @@ def get_homes(
     offset = page_offset(offset)
     reserve_pct, zone_reserve_pct = _current_floor()
     fleet = fleet_size_setting()
-    response.headers[FLEET_SIZE_HEADER] = str(fleet)
+    # Too large to filter by id (FLEET_FILTER_MAX_IDS): the rows are the whole table, so no header
+    # claims a fleet scope and the page falls back to its plain "Live homes from the local API" note.
+    scoped = fleet_scoped(fleet)
+    if scoped:
+        response.headers[FLEET_SIZE_HEADER] = str(fleet)
     try:
         homes = list_homes(zone=zone, status=status, q=q, limit=limit, offset=offset,
                            reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct, fleet_size=fleet)
         response.headers[HOMES_SOURCE_HEADER] = "supabase"
-        try:
-            response.headers[HOMES_TOTAL_HEADER] = str(fleet_count(fleet))
-        except HomesUnavailable:
-            pass  # The page still has its rows; it just cannot say "N of FLEET_SIZE".
+        if scoped:
+            try:
+                response.headers[HOMES_TOTAL_HEADER] = str(fleet_count(fleet))
+            except HomesUnavailable:
+                pass  # The page still has its rows; it just cannot say "N of FLEET_SIZE".
         return homes
     except HomesUnavailable:
         response.headers[HOMES_SOURCE_HEADER] = "fixture"

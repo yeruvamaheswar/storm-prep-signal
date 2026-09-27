@@ -70,17 +70,28 @@ def fleet_ids(fleet_size=None):
     return [home.home_id for home in new_fleet(_fleet_n(fleet_size))]
 
 
+def fleet_scoped(fleet_size=None):
+    """True when table reads can be limited to the fleet's ids. Above FLEET_FILTER_MAX_IDS they
+    cannot, so a table read is the whole table and must not be labelled as the fleet."""
+    return _fleet_n(fleet_size) <= FLEET_FILTER_MAX_IDS
+
+
 def fleet_filter(fleet_size=None):
     """PostgREST `and=(home_id.in.(...))` for the fleet. Its own key, so `home_id` stays free for eq/ilike."""
     n = _fleet_n(fleet_size)
-    if n > FLEET_FILTER_MAX_IDS:
+    if not fleet_scoped(n):
         return {}
     return {"and": f"(home_id.in.({','.join(fleet_ids(n))}))"}
 
 
+@lru_cache(maxsize=4)
+def _fleet_id_set(n):
+    return frozenset(fleet_ids(n))
+
+
 def in_fleet(home_id, fleet_size=None):
-    n = _fleet_n(fleet_size)
-    return n > FLEET_FILTER_MAX_IDS or home_id in set(fleet_ids(n))
+    """Checked here against the fleet's ids at any size: no URL is built, so the id cap does not apply."""
+    return home_id in _fleet_id_set(_fleet_n(fleet_size))
 
 
 @lru_cache(maxsize=4)
@@ -525,7 +536,13 @@ def fleet_count(fleet_size=None, settings=None, http_get=None):
 
 
 def table_rollups(settings=None, http_get=None, fleet_size=None):
-    """Zone counts from Content-Range. Never count() — PostgREST returns PGRST123."""
+    """Zone counts from Content-Range. Never count() — PostgREST returns PGRST123.
+
+    Raises HomesUnavailable("fleet_unscoped") when the fleet is too large to filter by id: counting
+    the whole table would report its rows as the fleet. The route then serves current_rollups().
+    """
+    if not fleet_scoped(fleet_size):
+        raise HomesUnavailable("fleet_unscoped")
     zones = {name: _empty_zone_row() for name in ZONE_ORDER}
     n = 0
     scope = fleet_filter(fleet_size)
