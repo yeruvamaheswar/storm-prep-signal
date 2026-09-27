@@ -148,7 +148,11 @@ class TelemetryState:
         self.skew = {i: rng.uniform(-skew, skew) for i in ids}
         self.seq = dict.fromkeys(ids, 0)
         liars = knob(settings, "telemetry_liar_ids")
-        self.liar_ids = tuple(liars) if liars is not None else (rng.choice(ids),)
+        if liars is not None:
+            self.liar_ids = tuple(liars)
+        else:
+            # An empty fleet has no one to pick; a real fleet draws exactly as before.
+            self.liar_ids = (rng.choice(ids),) if ids else ()
         self.frozen = {h.home_id: h.soc_kwh for h in homes if h.home_id in self.liar_ids}
         outages = knob(settings, "telemetry_outages")
         if outages is None:

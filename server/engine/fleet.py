@@ -50,6 +50,8 @@ def assign_zone(index, zones):
 
     Kept as one tiny function so the team can swap in contiguous blocks with one edit.
     """
+    if not zones:
+        raise ValueError("no zones configured: set ZONES before building a fleet")
     return zones[(index - 1) % len(zones)]
 
 
@@ -138,14 +140,18 @@ def scale_tick_to_fleet(tick, settings):
     sized["live_homes"] = live
     sized["stale_homes"] = stale
     sized["dead_homes"] = dead
-    sized["target_mw"] = scale_target_mw(sized.get("target_mw") or 0, settings)
-    sized["delivered_mw"] = scale_target_mw(sized.get("delivered_mw") or 0, settings)
-    sized["missed_mw"] = scale_target_mw(sized.get("missed_mw") or 0, settings)
-    delivered = sized.get("zone_delivered_mw")
-    if isinstance(delivered, dict):
-        sized["zone_delivered_mw"] = {
-            zone: scale_target_mw(mw, settings) for zone, mw in delivered.items()
-        }
+    target = scale_target_mw(sized.get("target_mw") or 0, settings)
+    delivered_mw = min(scale_target_mw(sized.get("delivered_mw") or 0, settings), target)
+    sized["target_mw"] = target
+    sized["delivered_mw"] = delivered_mw
+    # Scaled on its own, a capped target breaks the books; missed is what was not delivered.
+    sized["missed_mw"] = max(0.0, target - delivered_mw)
+    if "charging_mw" in sized:
+        sized["charging_mw"] = scale_target_mw(sized.get("charging_mw") or 0, settings)
+    for key in ("zone_delivered_mw", "zone_charging_mw"):
+        by_zone = sized.get(key)
+        if isinstance(by_zone, dict):
+            sized[key] = {zone: scale_target_mw(mw, settings) for zone, mw in by_zone.items()}
     acks = sized.get("zone_acks")
     if isinstance(acks, dict):
         factor = n / current
@@ -187,6 +193,8 @@ def new_fleet(settings, persist=False, path=None):
     kwh = settings["home_kwh"]
     lo, hi = settings["home_start_soc_min_pct"], settings["home_start_soc_max_pct"]
     zones = list(settings["zones"])
+    if n > 0 and not zones:
+        raise ValueError("no zones configured: set ZONES before building a fleet")
     homes = []
     for i in range(1, n + 1):
         pct = lo if n == 1 else lo + (hi - lo) * (i - 1) / (n - 1)

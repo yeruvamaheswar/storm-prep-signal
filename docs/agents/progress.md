@@ -1281,10 +1281,17 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/grid-flow.md` ("Named-county rule", "Tests").
 - `pytest -q` (merged with main after the DAM cache and stop-at-spike entries above): 838 passed. Web: `vitest` 650 passed (50 files), `tsc --noEmit` clean.
 
+## 2026-09-27: Engine fixes (grid_down on no-call ticks, scaled books, empty fleet)
+
+- `controller.allocate`: a no-call tick on a hold or discharge price now carries the status codes (`homes_dead:n`, `homes_stale:n`, `unknown_zone`) and `grid_down:<zone>` (allocation rule 7), in the main path's order: `reserve_refill`, status codes, `grid_down`. The unknown-intent hold also adds `grid_down`. `tests/test_controller.py::test_zero_target_is_a_no_op` and `tests/test_grid_down.py` (renamed `test_hold_is_unchanged_and_a_zero_target_still_names_the_down_zone`) had encoded the old empty list and now expect the codes. Side effect: an AUTO no-call tick with a dead/stale home or a down zone no longer reads as "Auto requested — next dispatch pending" (`isPendingAuto` needs zero reasons).
+- `fleet.scale_tick_to_fleet`: `missed_mw = max(0, target − delivered)` after scaling (delivered capped at target), so the books close when the fleet cap clips the target; `charging_mw` and `zone_charging_mw` scale with the same factor.
+- `TelemetryState([])` picks no liar instead of raising; `new_fleet` / `assign_zone` with no zones raise `ValueError`. Seeded picks for a real fleet are unchanged (test pins seed 7).
+- `pytest -q`: 917 passed; `FUZZ_SEEDS=50`: 917 passed.
+
 ## 2026-09-27: Live page and worker fixes (data-check pill, worker resilience, zone intent on the wall)
 
 - Live page: `LivePage` passes `homes={placed}` to `HomePanel`, so "Taken over from" names the other home (`North-Dallas-002`, not `home-002`). `liveStatus` returns not live when the fresh, matching tick's `quality` is not `ok` (pill "Live tick, ERCOT data check failed", reason names the code) or is missing. The stale-worker reason now says "looks stopped or asleep" (the worker runs on Render since PR #60). `tickTiming` says "(archive clock)" only for `source: archive`.
 - Worker: `live_cycle --loop` catches any other exception from a cycle, prints the traceback and keeps ticking (one-shot still raises). `loop.write_atomic` writes `latest.json` and `tick_orders.json` via a same-folder temp file and `os.replace`. `render.yaml` sets `PYTHONUNBUFFERED=1`.
 - Snapshot: `_zone_plan` sends `zone_intent` and `zone_prices` as one pair. The tick's own intent keeps the tick's own prices; with no tick intent, the price-only recompute stays (tests/test_snapshot_prices.py relies on it) but a zone whose tick reason is in `STORM_REASONS` holds instead of discharging. Detail: `docs/agents/policy-intent.md`.
 - Open: Render's free plan sleeps after ~15 min without inbound requests; ticks stop and `var/` is lost on wake. Paid instance or keep-alive ping is Rajat's decision; not in this change. `docs/agents/live-ingest.md`, `docs/humans/live-worker.md`.
-- `pytest -q` (FUZZ_SEEDS=50): 913 passed. Web: `vitest` 789 passed (55 files), `tsc -b` clean, `npm run build` ok.
+- `pytest -q` (FUZZ_SEEDS=50, merged with main after the engine fixes entry above): 927 passed. Web: `vitest` 789 passed (55 files), `tsc -b` clean, `npm run build` ok.

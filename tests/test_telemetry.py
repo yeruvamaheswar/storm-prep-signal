@@ -439,3 +439,18 @@ def test_runner_prints_a_plant_line_with_telemetry(tmp_path, capsys, monkeypatch
     out = capsys.readouterr().out
     assert "plant: live" in out and path.exists()
     assert '"telemetry": true' in path.read_text()
+
+
+def test_an_empty_fleet_builds_telemetry_with_no_picks():
+    state = tm.TelemetryState([], settings(fleet_size=0), seed=7)
+    assert state.liar_ids == () and state.outages == {} and state.homes == {}
+
+
+def test_the_liar_pick_is_unchanged_for_a_real_fleet():
+    homes = new_fleet(settings())
+    first = tm.TelemetryState(homes, settings(), seed=7)
+    again = tm.TelemetryState(new_fleet(settings()), settings(), seed=7)
+    assert first.liar_ids == again.liar_ids and first.outages == again.outages
+    # Recorded before the empty-fleet guard: the seeded picks must not move.
+    assert first.liar_ids == ("home-011",)
+    assert sorted(first.outages) == ["home-016", "home-050", "home-085", "home-092", "home-097"]
