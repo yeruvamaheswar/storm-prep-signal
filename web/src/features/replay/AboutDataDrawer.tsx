@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { VerifyArchive } from "../flow/VerifyArchive"
 import { FLOW_ZONES, type ActiveAlert, type SessionState, type StartSummary } from "../flow/types"
 import { fmtScenarioTime, fmtUsd } from "../flow/flowMath"
+import { useDrawerFocus } from "./useDrawer"
 
 type Props = {
   state: SessionState
@@ -48,15 +49,16 @@ function AlertRows({ alert }: { alert: ActiveAlert }) {
 }
 
 export function AboutDataDrawer({ state, onClose }: Props) {
+  const ref = useDrawerFocus<HTMLElement>(onClose)
   const provenance = state.provenance
   return (
-    <section className="replay-panel replay-data" aria-label="About this data">
+    <section ref={ref} tabIndex={-1} role="dialog" className="replay-panel replay-drawer replay-data" aria-label="About this data">
       <div className="replay-ledger-head">
         <div>
           <h2>About this data</h2>
           <p>Archive rows and limits used by the scenario worker.</p>
         </div>
-        <button className="replay-pill" type="button" onClick={onClose}>Close</button>
+        <button className="replay-pill" type="button" onClick={onClose} aria-label="Close about this data">Close</button>
       </div>
       <section>
         <h3>Provenance</h3>
@@ -83,6 +85,22 @@ export function AboutDataDrawer({ state, onClose }: Props) {
         <h3>Starting charge</h3>
         {hasStart(state.start) ? <StartHistogram start={state.start} /> : <p className="replay-note">No seeded fleet reported.</p>}
       </section>
+    </section>
+  )
+}
+
+/** The drawer when there is no session to describe, so the button never does nothing. */
+export function AboutDataDrawerEmpty({ onClose }: { onClose: () => void }) {
+  const ref = useDrawerFocus<HTMLElement>(onClose)
+  return (
+    <section ref={ref} tabIndex={-1} role="dialog" className="replay-panel replay-drawer replay-data" aria-label="About this data">
+      <div className="replay-ledger-head">
+        <div>
+          <h2>About this data</h2>
+          <p>No scenario session is reported, so there is no data to describe yet.</p>
+        </div>
+        <button className="replay-pill" type="button" onClick={onClose} aria-label="Close about this data">Close</button>
+      </div>
     </section>
   )
 }

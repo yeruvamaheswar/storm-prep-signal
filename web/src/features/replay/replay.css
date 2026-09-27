@@ -4,8 +4,10 @@
 
 .replay-scene {
   position: relative;
-  min-height: calc(100vh - 64px);
-  height: 836px;
+  width: 100%;
+  height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
+  min-height: 560px;
   overflow: hidden;
   background: #0e1613;
   font-family: var(--rg-font);
@@ -31,28 +33,95 @@
 .replay-map-stage {
   position: absolute;
   inset: 0;
+  background: var(--rg-map-bg);
 }
 
-.replay-map-stage svg,
+.replay-terrain,
 .replay-leaflet,
-.replay-map-scrim {
+.replay-overlay {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Only shown after the imagery failed with no tile loaded. */
+.replay-terrain {
+  z-index: 0;
 }
 
 .replay-leaflet {
-  z-index: 0;
+  z-index: 1;
+}
+
+.replay-leaflet.leaflet-container {
+  background: transparent;
+  font-family: var(--rg-font);
+}
+
+.replay-leaflet .leaflet-tile-pane {
   filter: saturate(0.8) contrast(1.1);
 }
 
-.replay-map-scrim {
-  z-index: 1;
-  background: rgba(8, 14, 11, 0.55);
+/* The dark scrim pane between the imagery and the zones. */
+.replay-scrim-rect {
+  fill: rgb(8, 14, 11);
+  fill-opacity: 0.55;
+  stroke: none;
+}
+
+.replay-zone {
+  fill: var(--rg-calm-zone);
+  fill-opacity: 0.6;
+  stroke: var(--rg-zone-stroke);
+  stroke-width: 1.5;
+  stroke-opacity: 1;
+}
+
+.replay-zone.is-raised {
+  fill: var(--rg-raised-floor-zone);
+  fill-opacity: 1;
+  stroke: var(--rg-raised-floor-stroke);
+}
+
+.replay-zone.is-go {
+  stroke: var(--rg-gave-energy);
+  stroke-width: 2.5;
+}
+
+.replay-overlay {
+  z-index: 2;
   pointer-events: none;
 }
 
-.replay-map-stage svg {
-  z-index: 2;
+.replay-dot {
+  fill: var(--rg-battery-glow);
+}
+
+.lens-keep .replay-dot {
+  fill: var(--rg-charging);
+}
+
+.replay-cluster {
+  fill: url(#replay-homes);
+}
+
+.replay-loss {
+  fill: var(--rg-lost);
+  stroke: var(--rg-map-bg);
+  stroke-width: 2;
+}
+
+.replay-node circle {
+  fill: var(--rg-panel-map);
+}
+
+.replay-node path {
+  fill: none;
+  stroke: var(--rg-order-way);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .arc {
@@ -111,11 +180,17 @@
 }
 
 .replay-worker-empty {
-  left: 464px;
-  top: 300px;
+  left: 50%;
+  top: 42%;
   z-index: 4;
-  width: 512px;
+  width: min(512px, calc(100% - 700px));
+  min-width: 300px;
   padding: 20px 24px;
+  transform: translate(-50%, -50%);
+}
+
+.replay-worker-empty.is-api_down {
+  border-left: 6px solid var(--rg-lost);
 }
 
 .replay-worker-empty p {
@@ -144,6 +219,12 @@
   font-size: 13px;
   line-height: 1.35;
   text-align: left;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+}
+
+.replay-chip.is-below {
+  transform: translate(-50%, 0);
 }
 
 .replay-chip b {
@@ -162,7 +243,7 @@
 
 .replay-chip:focus-visible,
 .replay-pill:focus-visible,
-.replay-link-button:focus-visible,
+.replay-drawer-close:focus-visible,
 .replay-scenario:focus-visible,
 .replay-lens button:focus-visible,
 .replay-seg button:focus-visible,
@@ -172,16 +253,53 @@
   outline-offset: 2px;
 }
 
-.replay-scenarios {
-  left: 20px;
+/* Left column: the scenario rail scrolls inside its own height, the lens sits below it. */
+.replay-left,
+.replay-right {
+  position: absolute;
   top: 20px;
+  bottom: 20px;
   z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.replay-left {
+  left: 20px;
   width: 280px;
+}
+
+.replay-right {
+  right: 20px;
+  width: 292px;
+}
+
+.replay-left > .replay-panel,
+.replay-right > .replay-panel {
+  position: relative;
+  pointer-events: auto;
+}
+
+.replay-scenarios {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
   padding: 14px 10px;
 }
 
 .replay-scenarios > .replay-label {
   padding: 0 12px 8px;
+}
+
+.replay-scenario-list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .replay-scenario {
@@ -213,7 +331,11 @@
 }
 
 .replay-scenario .story {
-  display: block;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   margin-top: 2px;
   color: var(--rg-muted);
   font-size: 12.5px;
@@ -225,9 +347,10 @@
 }
 
 .replay-weather {
+  flex-shrink: 0;
   margin: 12px 8px 0;
   padding-top: 10px;
-  border-top: 1px solid #dcdfd8;
+  border-top: 1px solid var(--rg-clay-scene);
 }
 
 .replay-weather-buttons {
@@ -254,10 +377,7 @@
 }
 
 .replay-lens {
-  left: 20px;
-  top: 562px;
-  z-index: 3;
-  width: 280px;
+  flex: 0 0 auto;
   padding: 12px;
 }
 
@@ -299,10 +419,7 @@
 }
 
 .replay-promise {
-  left: 1128px;
-  top: 20px;
-  z-index: 3;
-  width: 292px;
+  flex: 0 0 auto;
   padding: 16px 18px;
 }
 
@@ -312,7 +429,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 9px 0;
-  border-top: 1px solid #dcdfd8;
+  border-top: 1px solid var(--rg-clay-scene);
   font-size: 14px;
 }
 
@@ -350,6 +467,11 @@
   font-size: 30px;
   font-weight: 800;
   line-height: 1;
+}
+
+.replay-breaches b.is-missing {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .replay-note {
@@ -391,22 +513,20 @@
   width: 100%;
 }
 
-.replay-link-button {
-  border: 0;
+.replay-pill-secondary {
+  border-color: var(--rg-line);
   background: transparent;
   color: var(--rg-muted);
-  cursor: pointer;
-  font: inherit;
   font-size: 13px;
-  text-decoration: underline;
+}
+
+.replay-pill-secondary:hover {
+  color: var(--rg-ink);
 }
 
 .replay-feed {
-  left: 1128px;
-  top: 420px;
-  z-index: 3;
-  width: 292px;
-  height: 396px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   padding: 14px 18px;
 }
@@ -415,7 +535,7 @@
   display: flex;
   gap: 10px;
   padding: 9px 0;
-  border-top: 1px solid #dcdfd8;
+  border-top: 1px solid var(--rg-clay-scene);
   font-size: 13.5px;
   line-height: 1.4;
 }
@@ -440,14 +560,40 @@
   line-height: 1.4;
 }
 
-.replay-playback {
+/* The playback bar spans between the two columns at the bottom. */
+.replay-bottom {
+  position: absolute;
   left: 320px;
-  top: 720px;
+  right: 332px;
+  bottom: 20px;
   z-index: 3;
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.replay-bottom > * {
+  pointer-events: auto;
+}
+
+.replay-post-error {
+  align-self: flex-start;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--rg-panel-map);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  color: var(--rg-lost);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.replay-playback {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 18px;
-  width: 792px;
+  gap: 12px;
   height: 96px;
   padding: 14px 20px;
 }
@@ -468,6 +614,11 @@
   font-weight: 800;
 }
 
+.replay-play:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .replay-tick-stack,
 .replay-speed-wrap {
   display: flex;
@@ -475,10 +626,43 @@
   gap: 6px;
 }
 
+.replay-tick-stack {
+  flex: 0 0 120px;
+}
+
+.replay-speed-wrap {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .replay-tick-stack span,
 .replay-speed-wrap span {
   color: var(--rg-muted);
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.replay-speed-wrap .replay-clock {
+  padding-left: 6px;
+}
+
+.replay-tick-label {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.replay-tick-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--rg-line);
+}
+
+.replay-tick-progress div {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--rg-ink);
 }
 
 .replay-seg {
@@ -490,7 +674,7 @@
 }
 
 .replay-seg button {
-  padding: 7px 12px;
+  padding: 7px 10px;
   border: 0;
   border-radius: 999px;
   background: none;
@@ -508,11 +692,18 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
+.replay-seg button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* Fixed width so its end labels never run into the speed buttons or the clock. */
 .replay-track {
   position: relative;
-  flex-grow: 1;
+  flex: 0 0 260px;
+  width: 260px;
   height: 44px;
-  min-width: 220px;
+  margin: 0 4px;
 }
 
 .replay-track .rail,
@@ -550,6 +741,14 @@
   transform: translateX(-50%);
 }
 
+.replay-track .notch-label.is-start {
+  transform: none;
+}
+
+.replay-track .notch-label.is-end {
+  transform: translateX(-100%);
+}
+
 .replay-track .head {
   position: absolute;
   top: 13px;
@@ -570,16 +769,26 @@
   transform: translateX(-50%);
 }
 
-.replay-ledger,
-.replay-data {
-  left: 700px;
+/* Drawers open beside the right column, so the promise panel's buttons stay reachable. */
+.replay-drawer {
   top: 20px;
+  right: 332px;
+  bottom: 136px;
   z-index: 6;
-  width: 720px;
-  height: 796px;
+  width: min(720px, calc(100% - 664px));
+  min-width: 420px;
   overflow: auto;
   padding: 20px 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.replay-drawer:focus {
+  outline: none;
+}
+
+.replay-drawer:focus-visible {
+  outline: 3px solid #0e6f78;
+  outline-offset: 2px;
 }
 
 .replay-ledger-head {
@@ -626,13 +835,14 @@
 
 .replay-ledger td {
   padding: 9px 8px;
-  border-bottom: 1px solid #dcdfd8;
+  border-bottom: 1px solid var(--rg-clay-scene);
   vertical-align: top;
 }
 
 .replay-ledger .n {
   text-align: right;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .replay-ledger .tick {
@@ -670,7 +880,7 @@
 
 .replay-data section {
   padding-top: 4px;
-  border-top: 1px solid #dcdfd8;
+  border-top: 1px solid var(--rg-clay-scene);
 }
 
 .replay-data-row {

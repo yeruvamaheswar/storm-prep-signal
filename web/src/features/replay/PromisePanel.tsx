@@ -4,8 +4,8 @@ import { mw } from "./format"
 
 type Props = {
   tick: ReplayPromiseResult | null
-  onOpenLedger: () => void
-  onOpenData: () => void
+  onOpenLedger: (opener: HTMLElement | null) => void
+  onOpenData: (opener: HTMLElement | null) => void
 }
 
 function Row({ label, children, strong }: { label: string; children: ReactNode; strong?: boolean }) {
@@ -39,12 +39,12 @@ export function PromisePanel({ tick, onOpenLedger, onOpenData }: Props) {
       )}
       <div className="replay-breaches">
         <span>Backup breaches</span>
-        <b>{breachCount ?? "Not reported"}</b>
+        <b className={breachCount === null ? "is-missing" : undefined}>{breachCount ?? "Not reported"}</b>
       </div>
       <p className="replay-note">{why}</p>
       <div className="replay-promise-actions">
-        <button className="replay-pill replay-pill-full" type="button" onClick={onOpenLedger}>Open the ledger</button>
-        <button className="replay-link-button" type="button" onClick={onOpenData}>About this data</button>
+        <button className="replay-pill replay-pill-full" type="button" onClick={(event) => onOpenLedger(event.currentTarget)}>Open the ledger</button>
+        <button className="replay-pill replay-pill-full replay-pill-secondary" type="button" onClick={(event) => onOpenData(event.currentTarget)}>About this data</button>
       </div>
     </section>
   )

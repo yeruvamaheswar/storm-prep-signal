@@ -172,6 +172,7 @@ export type HistoryPoint = {
   reserve_pct?: number
   risk_level?: string | null
   reasons?: string[]
+  breaches?: number
 }
 
 export type OrderKind =

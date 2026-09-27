@@ -55,6 +55,14 @@ def test_state_carries_replay_orders_before_soc_and_richer_history(tmp_path):
     assert {"missed_mw", "unconfirmed_mw", "reserve_pct", "risk_level", "reasons"} <= set(state["history"][-1])
 
 
+def test_history_rows_carry_the_engine_breach_count(tmp_path):
+    s = play(tmp_path, 7, 3)
+    history = s.state()["history"]
+    assert len(history) == 3
+    assert all(isinstance(point["breaches"], int) for point in history)
+    assert history[-1]["breaches"] == s.state()["tick"]["breaches"]
+
+
 def test_starting_charge_is_spread_wide_and_some_start_under_the_floor(tmp_path):
     s = play(tmp_path, 42, 0)
     pcts = [100 * h.soc_kwh / h.capacity_kwh for h in s.homes]

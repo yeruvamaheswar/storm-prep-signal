@@ -390,7 +390,7 @@ class Session:
             "delivered_mw": result.delivered_mw, "charging_mw": self.last["charging_mw"],
             "missed_mw": result.missed_mw, "unconfirmed_mw": cycle.unconfirmed_mw,
             "reserve_pct": result.reserve_pct, "risk_level": result.risk_level,
-            "reasons": list(result.reasons),
+            "reasons": list(result.reasons), "breaches": result.breaches,
         }])[-HISTORY_POINTS:]
         self.index += 1
         if self.index >= len(self.frames):

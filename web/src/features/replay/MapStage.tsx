@@ -1,161 +1,256 @@
-import { useEffect, useMemo, useRef } from "react"
-import type { Map as LeafletMap } from "leaflet"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import type { GeoJSON as LeafletGeoJSON, Map as LeafletMap, Path as LeafletPath } from "leaflet"
+import "leaflet/dist/leaflet.css"
 import geo from "../../../../geo/ercot-load-zones.json"
+import type { Point } from "../flow/flowMath"
 import { FLOW_ZONES, type FlowHome, type FlowTick, type FlowZoneRow, type OrderTimelineEntry } from "../flow/types"
-import { zoneShapes } from "../flow/flowMath"
-import { kw } from "./format"
+import {
+  CONTROLLER_LATLNG, arcPath, arcPoint, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity, zoneGeos, zoneRaised,
+  type LatLng, type ZoneActivity,
+} from "./mapModel"
 import type { Lens } from "./ScenarioRail"
+
+export type StageNotice = "worker_down" | "api_down" | null
 
 type Props = {
   zones: Partial<Record<string, FlowZoneRow>>
   homes: FlowHome[]
   orders?: Record<string, OrderTimelineEntry[]>
   tick: FlowTick | null
+  /** `state.start.base_floor_pct`. Missing means no zone is marked raised. */
+  baseFloorPct?: number
+  tSeconds: number
   lens: Lens
-  workerDown: boolean
+  notice: StageNotice
+  apiBase?: string
   onZone: (zone: string) => void
 }
 
-const CHIP_POS: Record<string, { left: number; top: number }> = {
-  North: { left: 900, top: 196 },
-  West: { left: 520, top: 238 },
-  South: { left: 700, top: 600 },
-  Houston: { left: 960, top: 492 },
+const TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+
+// Room for the side panels: left column 280 px, right column 292 px, 20 px gutters,
+// the breadcrumb on top and the playback bar at the bottom.
+const PAD_LEFT = 20 + 280 + 28
+const PAD_RIGHT = 20 + 292 + 28
+const PAD_TOP = 76
+const PAD_BOTTOM = 20 + 96 + 24
+
+type Projected = { node: Point; zones: Record<string, Point> }
+
+function noticeText(notice: StageNotice, apiBase: string): ReactNode {
+  if (notice === "api_down") {
+    return <p>Cannot reach the ReserveGate API at <code>{apiBase}/v1</code>. Check that the API server is running.</p>
+  }
+  if (notice === "worker_down") {
+    return <p>The scenario worker is not running. Start it with <code>.venv/bin/python scripts/scenario_session.py</code></p>
+  }
+  return null
 }
 
-const NODE: Record<string, [number, number]> = {
-  North: [958, 238],
-  West: [570, 320],
-  South: [744, 598],
-  Houston: [988, 500],
-}
-
-function zoneOrders(zone: string, homes: FlowHome[], orders: Record<string, OrderTimelineEntry[]> | undefined): OrderTimelineEntry[][] {
-  const ids = new Set(homes.filter((home) => home.zone === zone).map((home) => home.id))
-  return Object.entries(orders ?? {}).filter(([id]) => ids.has(id)).map(([, timeline]) => timeline)
-}
-
-function askedCount(timelines: OrderTimelineEntry[][]): number {
-  return timelines.filter((timeline) => timeline.some((entry) => entry[1] === "sent")).length
-}
-
-function confirmedCount(timelines: OrderTimelineEntry[][]): number {
-  return timelines.filter((timeline) => timeline.some((entry) => entry[1] === "conf")).length
-}
-
-function hasDrop(timelines: OrderTimelineEntry[][]): boolean {
-  return timelines.some((timeline) => timeline.some((entry) => entry[1] === "drop" || entry[1] === "rdrop"))
-}
-
-function chipText(row: FlowZoneRow | undefined, timelines: OrderTimelineEntry[][], lens: Lens): [string, string] {
-  if (!row) return ["Not reported", "Open zone"]
-  if (lens === "keep") return [`Floor ${row.reserve_pct}%`, row.reason.replace(/_/g, " ")]
-  if (lens === "trust") return [`${askedCount(timelines)} homes asked`, `${confirmedCount(timelines)} confirmed`]
-  return [`${askedCount(timelines)} homes asked`, `${kw(row.selling_mw * 1000, 0)} sold`]
-}
-
-export function MapStage({ zones, homes, orders, tick, lens, workerDown, onZone }: Props) {
+export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, lens, notice, apiBase = "", onZone }: Props) {
   const leafletRef = useRef<HTMLDivElement | null>(null)
-  const shapes = useMemo(() => zoneShapes(geo), [])
-  const baseFloor = 30
-  const arcClass = lens === "keep" ? "arc arc-keep" : lens === "trust" ? "arc arc-live" : "arc arc-send"
+  const zoneLayers = useRef<Record<string, LeafletPath>>({})
+  const onZoneRef = useRef(onZone)
+  onZoneRef.current = onZone
+  const geos = useMemo(() => zoneGeos(geo), [])
+  const [projected, setProjected] = useState<Projected | null>(null)
+  const [terrain, setTerrain] = useState(false)
+
+  const activity = useMemo(() => {
+    const out: Record<string, ZoneActivity | null> = {}
+    for (const zone of FLOW_ZONES) out[zone] = orders ? zoneActivity(zone, homes, orders, tSeconds) : null
+    return out
+  }, [homes, orders, tSeconds])
+  const raised = useMemo(() => Object.fromEntries(FLOW_ZONES.map((zone) => [zone, zoneRaised(zone, tick, baseFloorPct)])), [tick, baseFloorPct])
+  const homeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const home of homes) counts[home.zone] = (counts[home.zone] ?? 0) + 1
+    return counts
+  }, [homes])
 
   useEffect(() => {
     let map: LeafletMap | null = null
     let frame = 0
     let cancelled = false
+    let observer: ResizeObserver | null = null
+
     async function mountLeaflet() {
-      if (!leafletRef.current) return
+      const el = leafletRef.current
+      if (!el) return
       const L = await import("leaflet")
       if (cancelled || !leafletRef.current) return
-      map = L.map(leafletRef.current, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false })
-        .setView([31.2, -99.2], 6)
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 12,
-      }).addTo(map)
-      frame = requestAnimationFrame(() => map?.invalidateSize())
+      const m = L.map(el, {
+        zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false,
+        doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0.1,
+      })
+      map = m
+
+      let tilesLoaded = 0
+      L.tileLayer(TILE_URL, { maxZoom: 12 })
+        .on("tileload", () => {
+          tilesLoaded += 1
+          setTerrain(false)
+        })
+        .on("tileerror", () => {
+          if (tilesLoaded === 0) setTerrain(true)
+        })
+        .addTo(m)
+
+      // A dark scrim pane between the imagery and the zones, so zone colours read on top of it.
+      const scrim = m.createPane("replay-scrim")
+      scrim.style.zIndex = "350"
+      scrim.style.pointerEvents = "none"
+      L.rectangle([[-85, -180], [85, 180]], { pane: "replay-scrim", className: "replay-scrim-rect", interactive: false }).addTo(m)
+
+      const layer: LeafletGeoJSON = L.geoJSON(geo as Parameters<typeof L.geoJSON>[0], {
+        style: () => ({ className: "replay-zone", weight: 1.5 }),
+        onEachFeature: (feature, featureLayer) => {
+          const zone = (feature.properties as { zone?: string } | null)?.zone
+          if (typeof zone !== "string") return
+          zoneLayers.current[zone] = featureLayer as LeafletPath
+          featureLayer.on("click", () => onZoneRef.current(zone))
+        },
+      })
+      layer.addTo(m)
+
+      const [[s, w], [n, e]] = geoBounds(geos)
+      const fit = () => {
+        const width = m.getSize().x
+        const room = width > PAD_LEFT + PAD_RIGHT + 240
+        m.fitBounds([[s, w], [n, e]], {
+          paddingTopLeft: room ? [PAD_LEFT, PAD_TOP] : [20, PAD_TOP],
+          paddingBottomRight: room ? [PAD_RIGHT, PAD_BOTTOM] : [20, PAD_BOTTOM],
+          animate: false,
+        })
+      }
+      const toPoint = (ll: LatLng): Point => {
+        const p = m.latLngToContainerPoint([ll.lat, ll.lng])
+        return [p.x, p.y]
+      }
+      const reproject = () => {
+        if (cancelled) return
+        setProjected({
+          node: toPoint(CONTROLLER_LATLNG),
+          zones: Object.fromEntries(geos.map((z) => [z.zone, toPoint(z.anchor)])),
+        })
+      }
+      m.on("zoomend moveend", reproject)
+      m.on("resize", fit)
+      fit()
+      reproject()
+      if (typeof ResizeObserver !== "undefined") {
+        observer = new ResizeObserver(() => m.invalidateSize({ animate: false }))
+        observer.observe(el)
+      }
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        m.invalidateSize({ animate: false })
+        fit()
+      })
+      paintZones()
     }
-    void mountLeaflet()
+
+    mountLeaflet().catch(() => {
+      // Leaflet could not start (no layout, for example). The stage keeps its dark background.
+      if (!cancelled) setTerrain(true)
+    })
     return () => {
       cancelled = true
       if (frame) cancelAnimationFrame(frame)
+      observer?.disconnect()
+      zoneLayers.current = {}
       map?.remove()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  function paintZones() {
+    for (const [zone, layer] of Object.entries(zoneLayers.current)) {
+      const el = layer.getElement?.()
+      if (!el) continue
+      el.classList.toggle("is-raised", raised[zone] === true)
+      el.classList.toggle("is-go", activity[zone]?.sent === true)
+    }
+  }
+
+  useEffect(paintZones)
+
+  const arcClass = lens === "keep" ? "arc arc-keep" : lens === "trust" ? "arc arc-live" : "arc arc-send"
+
   return (
-    <div className="replay-map-stage" aria-label="Map of the four Texas load zones">
+    <div className={`replay-map-stage lens-${lens}`} aria-label="Map of the four Texas load zones">
+      {terrain ? (
+        <svg className="replay-terrain" aria-hidden="true" preserveAspectRatio="none">
+          <defs>
+            <filter id="replay-terrain" x="0" y="0" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="4" seed="7" />
+              <feColorMatrix values="0 0 0 0 0.07  0 0 0 0 0.11  0 0 0 0 0.09  0 0 0 0.9 0" />
+            </filter>
+          </defs>
+          <rect width="100%" height="100%" filter="url(#replay-terrain)" />
+        </svg>
+      ) : null}
       <div className="replay-leaflet" ref={leafletRef} aria-hidden="true" />
-      <div className="replay-map-scrim" aria-hidden="true" />
-      <svg width="1440" height="836" viewBox="0 0 1440 836" aria-hidden="true">
+      <svg className="replay-overlay" aria-hidden="true">
         <defs>
-          <filter id="replay-terrain" x="0" y="0" width="100%" height="100%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="4" seed="7" />
-            <feColorMatrix values="0 0 0 0 0.07  0 0 0 0 0.11  0 0 0 0 0.09  0 0 0 0.9 0" />
-          </filter>
           <filter id="replay-grain" x="0" y="0" width="100%" height="100%">
             <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
             <feColorMatrix values="0 0 0 0 0.6  0 0 0 0 0.66  0 0 0 0 0.6  0 0 0 0.07 0" />
           </filter>
           <pattern id="replay-homes" width="7" height="7" patternUnits="userSpaceOnUse">
-            <circle cx="3.5" cy="3.5" r="1.6" fill={lens === "keep" ? "#E7C07A" : "#8FE3E9"} />
+            <circle className="replay-dot" cx="3.5" cy="3.5" r="1.6" />
           </pattern>
         </defs>
-        <rect width="1440" height="836" fill="#101A16" />
-        <rect width="1440" height="836" filter="url(#replay-terrain)" />
-        <path d="M1010 560 C1100 520 1200 540 1440 520 L1440 836 L760 836 C860 760 930 640 1010 560 Z" fill="#0A1115" />
-        <text x="1210" y="700" fill="#3B5058" fontSize="15" fontStyle="italic">Gulf of Mexico</text>
-        <g transform="translate(330,40) scale(0.86)">
-          {shapes.map((shape) => {
-            const row = zones[shape.zone]
-            const raised = (row?.reserve_pct ?? tick?.reserve_pct ?? baseFloor) > baseFloor
-            return (
-              <path
-                key={shape.zone}
-                d={shape.path}
-                fill={raised ? "var(--rg-raised-floor-zone)" : shape.zone === "North" && lens !== "keep" ? "#1E3730" : "var(--rg-calm-zone)"}
-                stroke={raised ? "var(--rg-raised-floor-stroke)" : shape.zone === "North" && lens !== "keep" ? "var(--rg-gave-energy)" : "var(--rg-zone-stroke)"}
-                strokeWidth={shape.zone === "North" && lens !== "keep" ? 2.5 : 1.5}
-              />
-            )
-          })}
-          <circle cx="730" cy="300" r="30" fill="url(#replay-homes)" />
-          <circle cx="815" cy="468" r="24" fill="url(#replay-homes)" />
-          <circle cx="575" cy="560" r="24" fill="url(#replay-homes)" />
-          <circle cx="330" cy="330" r="20" fill="url(#replay-homes)" />
-        </g>
-        {FLOW_ZONES.map((zone) => {
-          const [x, y] = NODE[zone]
-          return <path key={zone} className={arcClass} d={`M856,410 Q${(856 + x) / 2},${Math.min(y, 410) - 60} ${x},${y}`} />
-        })}
-        {FLOW_ZONES.map((zone) => {
-          const timelines = zoneOrders(zone, homes, orders)
-          if (!hasDrop(timelines)) return null
-          const [x, y] = NODE[zone]
-          return <circle key={zone} cx={x - 28} cy={y - 24} r="6" fill="#E0533F" stroke="#101A16" strokeWidth="2" />
-        })}
-        <g>
-          <circle cx="856" cy="410" r="15" fill="#F2F3EF" />
-          <path d="M857 401 L851 412 H860 L854 421" fill="none" stroke="#0E6F78" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-        </g>
-        <rect width="1440" height="836" filter="url(#replay-grain)" pointerEvents="none" />
+        {projected ? (
+          <>
+            {FLOW_ZONES.map((zone) => {
+              const at = projected.zones[zone]
+              if (!at || !homeCounts[zone]) return null
+              return <circle key={`c-${zone}`} className="replay-cluster" cx={at[0]} cy={at[1]} r={clusterRadius(homeCounts[zone])} />
+            })}
+            {FLOW_ZONES.map((zone) => {
+              const at = projected.zones[zone]
+              if (!at || !activity[zone]?.sent) return null
+              return <path key={`a-${zone}`} className={arcClass} data-zone={zone} d={arcPath(projected.node, at)} />
+            })}
+            {FLOW_ZONES.map((zone) => {
+              const at = projected.zones[zone]
+              if (!at || !activity[zone]?.dropped) return null
+              const [x, y] = arcPoint(projected.node, at, 0.7)
+              return <circle key={`l-${zone}`} className="replay-loss" data-zone={zone} cx={x} cy={y} r="6" />
+            })}
+            <g className="replay-node" transform={`translate(${projected.node[0]},${projected.node[1]})`}>
+              <circle r="15" />
+              <path d="M1 -9 L-5 2 H4 L-2 11" />
+            </g>
+          </>
+        ) : null}
+        <rect width="100%" height="100%" filter="url(#replay-grain)" />
       </svg>
-      <div className="replay-crumb replay-panel"><b>Texas</b><span>{workerDown ? "Worker offline. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
-      {workerDown ? (
-        <div className="replay-panel replay-worker-empty">
-          <p>The scenario worker is not running. Start it with <code>.venv/bin/python scripts/scenario_session.py</code></p>
+      <div className="replay-crumb replay-panel"><b>Texas</b><span>{notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
+      {notice ? (
+        <div className={`replay-panel replay-worker-empty is-${notice}`} role="status">
+          {noticeText(notice, apiBase)}
         </div>
       ) : null}
-      {FLOW_ZONES.map((zone) => {
-        const pos = CHIP_POS[zone]
-        const timelines = zoneOrders(zone, homes, orders)
-        const [line1, line2] = chipText(zones[zone], timelines, lens)
+      {projected ? FLOW_ZONES.map((zone) => {
+        const at = projected.zones[zone]
+        if (!at) return null
+        const [line1, line2] = chipLines(zone, activity[zone], zones[zone], tick, lens)
+        const go = activity[zone]?.sent === true
+        const placement = chipPlacement(at, clusterRadius(homeCounts[zone] ?? 0), projected.node)
         return (
-          <button key={zone} type="button" className={zone === "North" ? "replay-chip go" : "replay-chip"} style={pos} onClick={() => onZone(zone)}>
+          <button
+            key={zone}
+            type="button"
+            className={`replay-chip${go ? " go" : ""}${placement.below ? " is-below" : ""}`}
+            style={{ left: at[0], top: placement.top }}
+            onClick={() => onZone(zone)}
+          >
             <b>{zone}</b>{line1}<br />{line2}
           </button>
         )
-      })}
+      }) : null}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { apiBaseUrl } from "../../api/health"
 import { TopBar } from "../shell/TopBar"
 import { readUrlState, subscribeUrlState, writeUrlState, zoomToZone } from "../shell/urlState"
@@ -11,20 +11,36 @@ function safeUrlState() {
   return typeof window === "undefined" ? { scenario: null, zone: null, home: null, tick: null } : readUrlState()
 }
 
+function errorText(err: unknown): string {
+  return err instanceof Error && err.message ? err.message : "the API did not accept the request"
+}
+
 export function ReplayRoot() {
   const base = useMemo(() => apiBaseUrl(), [])
   const [scenarios, setScenarios] = useState<ScenarioList | null>(null)
+  const [scenariosFailed, setScenariosFailed] = useState(false)
   const [state, setState] = useState<StateReply | null>(null)
+  const [apiDown, setApiDown] = useState(false)
+  const [postError, setPostError] = useState<string | null>(null)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [tickArrivedAtMs, setTickArrivedAtMs] = useState(() => Date.now())
-  const [lastTick, setLastTick] = useState<number | null>(null)
+  const lastTick = useRef<number | null>(null)
   const [url, setUrl] = useState(safeUrlState)
 
   useEffect(() => subscribeUrlState(setUrl), [])
 
   useEffect(() => {
     let cancelled = false
-    fetchScenarios(fetch, base).then((next) => { if (!cancelled) setScenarios(next) }).catch(() => { if (!cancelled) setScenarios({ scenarios: [], speeds: [15, 60, 300], default_speed: 60 }) })
+    fetchScenarios(fetch, base)
+      .then((next) => {
+        if (cancelled) return
+        setScenarios(next)
+        setScenariosFailed(false)
+      })
+      .catch(() => {
+        // No invented catalog or speeds: the rail says so and the speed buttons are disabled.
+        if (!cancelled) setScenariosFailed(true)
+      })
     return () => { cancelled = true }
   }, [base])
 
@@ -34,13 +50,14 @@ export function ReplayRoot() {
       try {
         const next = await fetchState(fetch, base)
         if (cancelled) return
+        setApiDown(false)
         setState(next)
-        if (!isWorkerDown(next) && next.tick_index !== lastTick) {
-          setLastTick(next.tick_index)
+        if (!isWorkerDown(next) && next.tick_index !== lastTick.current) {
+          lastTick.current = next.tick_index
           setTickArrivedAtMs(Date.now())
         }
       } catch {
-        if (!cancelled) setState({ status: "worker_not_running", brief: "scenario state unavailable" })
+        if (!cancelled) setApiDown(true)
       }
     }
     void poll()
@@ -49,7 +66,7 @@ export function ReplayRoot() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [base, lastTick])
+  }, [base])
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 250)
@@ -57,14 +74,17 @@ export function ReplayRoot() {
   }, [])
 
   function post(request: FlowRequest) {
-    void sendRequest(fetch, base, request).catch(() => undefined)
+    sendRequest(fetch, base, request)
+      .then(() => setPostError(null))
+      .catch((err: unknown) => setPostError(`Could not send "${request.kind}": ${errorText(err)}.`))
   }
 
-  const rightSlot = state && !isWorkerDown(state) ? (
+  const live = state && !isWorkerDown(state) && !apiDown ? state : null
+  const rightSlot = live ? (
     <>
       <span>Scenario</span>
-      <span className="rg-pill">{state.scenario?.name ?? "No scenario loaded"}</span>
-      <span>Tick {state.tick_index} of {state.tick_count}</span>
+      <span className="rg-pill">{live.scenario?.name ?? "No scenario loaded"}</span>
+      <span>Tick {live.tick_index} of {live.tick_count}</span>
     </>
   ) : <span className="rg-pill">No scenario loaded</span>
 
@@ -73,7 +93,11 @@ export function ReplayRoot() {
       <TopBar current="replay" rightSlot={rightSlot} />
       <ReplayPage
         scenarios={scenarios}
-        state={state}
+        scenariosFailed={scenariosFailed}
+        state={apiDown ? null : state}
+        apiDown={apiDown}
+        apiBase={base}
+        postError={postError}
         nowMs={nowMs}
         tickArrivedAtMs={tickArrivedAtMs}
         selectedZone={url.zone}
