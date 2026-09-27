@@ -1018,6 +1018,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
 
+## 2026-09-26: Replay order timelines for `/flow`
+
+- `server/engine/order_log.py` turns one tick's orchestration event log into compact per-home `orders` timelines for Replay, with only the contract kinds `sent`, `drop`, `exec`, `rdrop`, `retry`, `reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`.
+- `server/engine/scenario.py` now exposes `orders` at the top level of scenario state, records `soc_before_pct` per home, and extends each history row add-only with missed/unconfirmed MW, reserve percent, risk level, and reasons. `/flow` speeds now include 15x and 30x while keeping 300x as default.
+- `web/src/features/flow/types.ts` has additive types for the Replay fields. Docs updated in `grid-flow.md` and `code-flow.md`.
+- Tests: focused order/session tests 15 passed. `pytest -q`: 658 passed. `FUZZ_SEEDS=50 pytest -q`: 658 passed. Web: vitest 279 passed, `npm run build` clean.
+
 ## 2026-09-26: Persist operator HOLD / AUTO for the live worker
 
 - Named gap: Hold/Auto lived only in `var/state.json`. The wall on Render and the laptop `live_cycle` worker do not share that file, so a wall HOLD never reached `allocate()`.

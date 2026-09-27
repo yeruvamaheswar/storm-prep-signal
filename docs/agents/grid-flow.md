@@ -27,6 +27,18 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 
 Requests left over from an earlier worker are not replayed; the page asks again.
 
+## Order timelines
+
+`state.json` carries `orders` at the top level for Replay. It is a compact per-tick map:
+`{home_id: [[t, kind, extra], ...]}`. `t` is virtual seconds inside the engine cycle, rounded to
+0.1. The first `sent` entry carries the signed planned kW as `extra` (negative means charge).
+Confirmed and executed entries carry actual kW. Reassignments are logged on the original home
+with the new home id as `extra`, and the new home has its own timeline starting with `sent`.
+
+The only order kinds in this UI contract are `sent`, `drop`, `exec`, `rdrop`, `retry`,
+`reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`. Telemetry and
+transport-only noise stay out of `orders`; the raw orchestration log still lives on the cycle.
+
 ## Batteries
 
 - `SCENARIO_FLEET_SIZE = 100` (25 per zone), so every battery can be drawn.

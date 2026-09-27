@@ -46,6 +46,15 @@ def test_same_seed_gives_same_fleet_and_same_ticks(tmp_path):
     assert c.start_summary["histogram"] != a.start_summary["histogram"]
 
 
+def test_state_carries_replay_orders_before_soc_and_richer_history(tmp_path):
+    s = play(tmp_path, 7, 1)
+    state = s.state()
+    assert state["orders"] == s.last["orders"]
+    assert state["orders"]
+    assert all("soc_before_pct" in home for home in state["homes"])
+    assert {"missed_mw", "unconfirmed_mw", "reserve_pct", "risk_level", "reasons"} <= set(state["history"][-1])
+
+
 def test_starting_charge_is_spread_wide_and_some_start_under_the_floor(tmp_path):
     s = play(tmp_path, 42, 0)
     pcts = [100 * h.soc_kwh / h.capacity_kwh for h in s.homes]
@@ -167,7 +176,10 @@ def test_writes_need_an_operator_and_a_known_scenario(client, tmp_path):
 
 
 def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path):
-    assert "heather" in [s["id"] for s in client.get("/v1/scenarios").json()["scenarios"]]
+    scenario_list = client.get("/v1/scenarios").json()
+    assert "heather" in [s["id"] for s in scenario_list["scenarios"]]
+    assert scenario_list["speeds"] == [15, 30, 60, 150, 300, 600]
+    assert scenario_list["default_speed"] == 300
     assert client.get("/v1/scenario/state").json()["status"] == "worker_not_running"
     ok = client.post("/v1/scenario/start", json={"scenario": "heather", "seed": 5}, headers=OPERATOR)
     assert ok.status_code == 202

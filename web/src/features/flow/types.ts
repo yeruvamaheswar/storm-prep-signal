@@ -69,6 +69,7 @@ export type FlowHome = {
   id: string
   zone: string
   soc_pct: number
+  soc_before_pct?: number
   kw: number
   state: BatteryState
   status: string
@@ -166,7 +167,28 @@ export type HistoryPoint = {
   target_mw: number
   delivered_mw: number
   charging_mw: number
+  missed_mw?: number
+  unconfirmed_mw?: number
+  reserve_pct?: number
+  risk_level?: string | null
+  reasons?: string[]
 }
+
+export type OrderKind =
+  | "sent"
+  | "drop"
+  | "exec"
+  | "rdrop"
+  | "retry"
+  | "reassigned"
+  | "reassign_failed"
+  | "dup"
+  | "conf"
+  | "timeout"
+  | "mismatch"
+  | "late"
+
+export type OrderTimelineEntry = [number, OrderKind, number | string | null | undefined]
 
 export type SessionState = {
   status: "idle" | "playing" | "paused" | "finished" | "error"
@@ -183,6 +205,7 @@ export type SessionState = {
   start: StartSummary | Record<string, never>
   tick: FlowTick | null
   homes: FlowHome[]
+  orders?: Record<string, OrderTimelineEntry[]>
   zones: Partial<Record<string, FlowZoneRow>>
   charging_mw: number
   provenance: Provenance | null

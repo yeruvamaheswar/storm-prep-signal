@@ -20,6 +20,7 @@ from server.engine.brief import write_brief
 from server.engine.events import start_run
 from server.engine.fleet import new_fleet
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
+from server.engine.order_log import order_timelines
 from server.engine.score import new_board, update
 from server.engine.telemetry import TelemetryState
 from server.engine.tick_emit import build_tick_emit
@@ -33,7 +34,7 @@ SCENARIO_FLEET_SIZE = 100
 # Wide on purpose: some batteries start under the 30% floor, some near full.
 SOC_RANGE_PCT = (10.0, 95.0)
 # Time-lapse factors: scenario seconds per wall second. 300 plays one 5-minute tick per second.
-SPEEDS = (60, 150, 300, 600)
+SPEEDS = (15, 30, 60, 150, 300, 600)
 DEFAULT_SPEED = 300
 # The page calls the worker gone when state.json has not been rewritten for this long.
 STALE_AFTER_S = 10
@@ -378,14 +379,18 @@ class Session:
             return False
         frame = self.overlay(self.frames[self.index])
         self.mode = frame.events.get("operator", self.mode)
+        soc_before = {home.home_id: round(100 * home.soc_kwh / home.capacity_kwh, 2) for home in self.homes}
         result, cycle, policy, scaled, risk = play_frame(
             frame, self.homes, self.settings, self.baseline, self.mode, telemetry=self.telemetry)
         self.board = update(self.board, result, self.homes)
         emit = build_tick_emit(scaled, self.homes, cycle)
-        self.last = self.describe_tick(result, emit, policy, scaled, risk)
+        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before)
         self.history = (self.history + [{
             "tick": result.tick, "ts": result.ts, "target_mw": result.target_mw,
             "delivered_mw": result.delivered_mw, "charging_mw": self.last["charging_mw"],
+            "missed_mw": result.missed_mw, "unconfirmed_mw": cycle.unconfirmed_mw,
+            "reserve_pct": result.reserve_pct, "risk_level": result.risk_level,
+            "reasons": list(result.reasons),
         }])[-HISTORY_POINTS:]
         self.index += 1
         if self.index >= len(self.frames):
@@ -393,7 +398,7 @@ class Session:
             self.note("scenario finished")
         return True
 
-    def describe_tick(self, result, emit, policy, frame, risk):
+    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before):
         tick = {**asdict(result), "brief": write_brief(result)}
         policy_view = {"reserve_pct": policy.reserve_pct, "zone_reserve_pct": policy.zone_reserve_pct}
         grid_down = set(frame.events.get("grid_down", []))
@@ -405,6 +410,7 @@ class Session:
             state = home_state(home, home_emit, floor_pct, reason, home.zone in grid_down)
             kw = home_emit["power_kw"]
             homes.append({"id": home.home_id, "zone": home.zone, "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
+                          "soc_before_pct": soc_before.get(home.home_id),
                           "kw": round(kw, 3), "state": state, "status": home.status, "floor_pct": floor_pct,
                           "under_floor_why": self.under_floor_why(home, state, floor_pct)})
             row = zones.setdefault(home.zone, {
@@ -416,7 +422,9 @@ class Session:
             row["homes"] += 1
             row["states"][state] = row["states"].get(state, 0) + 1
             row["soc_mwh"] += home.soc_kwh / 1000
-        return {"result": tick, "homes": homes, "zones": zones, "charging_mw": result.charging_mw,
+        return {"result": tick, "homes": homes, "zones": zones,
+                "orders": order_timelines(cycle.events, cycle.allocation.per_home_kw),
+                "charging_mw": result.charging_mw,
                 "provenance": self.provenance(frame, risk)}
 
     # what the page shows
@@ -503,6 +511,7 @@ class Session:
             "start": self.start_summary,
             "tick": self.last["result"] if self.last else None,
             "homes": live_homes,
+            "orders": self.last["orders"] if self.last else {},
             "zones": self.last["zones"] if self.last else {},
             "charging_mw": self.last["charging_mw"] if self.last else 0.0,
             "provenance": self.last["provenance"] if self.last else None,
