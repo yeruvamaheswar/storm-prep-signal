@@ -389,6 +389,21 @@ def test_state_names_the_first_and_last_timestamp_of_the_tape(tmp_path):
     assert session(tmp_path).state()["scenario"] is None
 
 
+def test_honest_limits_pack_line_uses_session_settings_without_trailing_zeroes(tmp_path):
+    default = session(tmp_path).state()["honest_limits"]
+    assert "Pack: 25 kWh, 11.4 kW (example settings, not Base specs), shown in time-lapse." in default
+
+    custom_settings = {**SETTINGS, "home_kwh": 20.0, "home_max_kw": 5.0}
+    custom = Session(custom_settings, load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"),
+                     log_dir=tmp_path / "custom-logs").state()["honest_limits"]
+    assert "Pack: 20 kWh, 5 kW (example settings, not Base specs), shown in time-lapse." in custom
+    # Only the pack line changes: same length, same order, every other line untouched.
+    assert len(custom) == len(default)
+    assert [line for line in custom if not line.startswith("Pack:")] == \
+        [line for line in default if not line.startswith("Pack:")]
+    assert sum(line.startswith("Pack:") for line in custom) == 1
+
+
 def test_every_scenario_tape_is_evenly_spaced_at_tick_minutes():
     # The day bar places ticks by their real ts; an uneven tape would need a different bar.
     for entry in load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"):
