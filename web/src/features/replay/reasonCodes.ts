@@ -42,8 +42,8 @@ export function planNotLive(home: { plan_status?: string | null }): boolean {
 }
 
 /** This home's own floor was raised by weather (#47: floors are set per county). Its `floor_reason` says why:
- * `weather_alert_jev_yes` / `weather_alert_no_jev` / `weather_alert` / `storm_risk_high` raise it; `jev_no`,
- * `not_in_alert` and `normal` keep the base floor. An older worker sends no `floor_reason`: trust the zone. */
+ * `weather_alert` / `storm_risk_high` raise it; `not_in_alert` and `normal` keep the base floor. An older worker
+ * sends no `floor_reason`: trust the zone. */
 export function homeFloorRaised(home: { floor_reason?: string | null }): boolean {
   if (typeof home.floor_reason !== "string") return true
   return isWeatherReason(home.floor_reason)

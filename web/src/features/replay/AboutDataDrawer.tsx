@@ -173,7 +173,7 @@ export function AboutDataDrawer({ state, onClose }: Props) {
       </section>
       <section>
         <h3>Alerts</h3>
-        {state.alerts.length ? state.alerts.map((alert) => <AlertDetail key={alert.id} alert={alert} counties={state.counties ?? []} tick={state.tick} />) : <p className="replay-note">No alert sent in this session.</p>}
+        {state.alerts.length ? state.alerts.map((alert) => <AlertDetail key={alert.id} alert={alert} tick={state.tick} />) : <p className="replay-note">No alert sent in this session.</p>}
       </section>
       <section>
         <h3>Overlays (hand-placed)</h3>
