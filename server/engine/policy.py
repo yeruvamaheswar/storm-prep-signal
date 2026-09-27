@@ -52,14 +52,16 @@ def _set_zone_intent(policy, settings, mode, price_label, zone_prices):
     if price_label is None or mode == "HOLD" or not priced:
         return
     for zone in settings.get("zones", {}):
-        if zone not in priced:
-            # No number for this zone: it follows the headline price, like the whole fleet did.
-            policy.zone_intent[zone] = policy.intent
-            continue
         # A zone keeping storm backup (fleet storm, missing signal, or its own weather alert)
         # never sells on price, the same rule the fleet follows.
         storm = policy.zone_reasons.get(zone) in STORM_REASONS
-        policy.zone_intent[zone] = price_band(priced[zone], settings, storm)
+        if zone in priced:
+            policy.zone_intent[zone] = price_band(priced[zone], settings, storm)
+        elif storm and policy.intent == "discharge":
+            # No number: follow the headline band, but an alerted zone holds instead of selling.
+            policy.zone_intent[zone] = "hold"
+        else:
+            policy.zone_intent[zone] = policy.intent
 
 
 def price_band(usd, settings, storm):

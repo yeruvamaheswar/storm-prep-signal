@@ -72,7 +72,8 @@ def acted_intent(alloc, policy, mode):
         mode HOLD                        -> hold, operator_hold
         charged > sold                   -> charge; grid_call_served if anything sold (the
                                             call was met while the fleet mostly charged),
-                                            else policy reason
+                                            else policy reason on a charge band, or
+                                            zone_price when only zone prices said charge
         sold >= charged, sold > 0        -> discharge, policy reason if policy said discharge
                                             else grid_call (the grid called, not the price)
         nothing moved, policy said hold  -> hold, policy reason (e.g. price_unavailable)
@@ -94,7 +95,10 @@ def acted_intent(alloc, policy, mode):
     noise_kw = MISSED_TOLERANCE_MW * 1000
     sold = sold_kw > noise_kw
     if charged_kw > noise_kw and charged_kw - sold_kw > noise_kw:
-        return "charge", "grid_call_served" if sold else policy.intent_reason
+        if sold:
+            return "charge", "grid_call_served"
+        # Charging without a charge band means a zone's own price was cheap.
+        return "charge", policy.intent_reason if policy.intent == "charge" else "zone_price"
     if sold:
         return "discharge", policy.intent_reason if policy.intent == "discharge" else "grid_call"
     target_mw = alloc.delivered_mw + alloc.missed_mw
@@ -181,7 +185,8 @@ def allocate_zoned(homes, frame, policy, settings, zone_intent):
         spread = {home_id: cap for home_id, cap in caps.items() if not cheap(home_id)}
         shares = split_target(spread, target_kw)
         remainder = target_kw - sum(spread.values())
-        if remainder > 0:
+        # Split noise is not a shortfall: a cheap home must not sell 1e-15 kW and lose its charge.
+        if remainder > MISSED_TOLERANCE_MW * 1000:
             # Fewest cheap homes cover what the other zones could not: the rest keep charging.
             cheap_caps = {home_id: cap for home_id, cap in caps.items() if cheap(home_id)}
             shares.update(split_target(pick_sellers(cheap_caps, remainder), remainder))

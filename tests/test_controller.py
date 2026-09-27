@@ -520,7 +520,7 @@ def test_zone_intent_with_no_call_never_charges_a_grid_down_zone():
     assert alloc.reasons == ["charging", "grid_down:Houston"]
 
 
-def test_zone_intent_missing_zone_holds_while_others_charge():
+def test_zone_intent_zone_with_no_row_sells_the_call_while_houston_charges():
     p = policy(intent="discharge")
     p.zone_intent = {"Houston": "charge"}
     homes = [home("h", 10.0, zone="Houston"), home("n", 10.0, zone="North")]
@@ -589,6 +589,19 @@ def test_zone_intent_spreads_a_small_call_over_every_discharge_and_hold_home():
     check_zoned_books(alloc, 0.06)
 
 
+def test_zone_intent_near_exact_cover_never_sells_float_noise_from_a_charge_zone():
+    p = policy(intent="hold")
+    p.zone_intent = {"Houston": "charge", "North": "hold"}
+    # North caps 2.8 + 2.9 kW cover a 5.7 kW call up to float noise; Houston must keep charging.
+    homes = [home("n0", 10.0, zone="North", max_kw=2.8), home("n1", 10.0, zone="North", max_kw=2.9),
+             home("h0", 10.0, max_kw=5.0), home("h1", 10.0, max_kw=5.0)]
+    alloc = allocate(homes, frame(0.0057), p, "AUTO", settings())
+    assert alloc.per_home_kw["h0"] == -5.0 and alloc.per_home_kw["h1"] == -5.0
+    assert set(alloc.per_home_kw) == {"n0", "n1", "h0", "h1"}
+    assert alloc.missed_mw == pytest.approx(0.0, abs=1e-9)
+    assert alloc.reasons == ["charging"]
+
+
 def test_zone_intent_never_sells_without_a_call():
     p = policy(intent="discharge")
     p.zone_intent = {"Houston": "discharge", "North": "hold", "South": "charge"}
@@ -633,6 +646,30 @@ def labelled(intent, reason=""):
     p = policy(intent=intent)
     p.intent_reason = reason
     return p
+
+
+def zone_priced(zone_intent):
+    """No headline price, but the zones have their own: the fleet band is hold / price_unavailable."""
+    p = labelled("hold", "price_unavailable")
+    p.zone_intent = zone_intent
+    return p
+
+
+def test_acted_intent_charging_on_zone_prices_alone_says_zone_price():
+    p = zone_priced({z: "charge" for z in ZONES})
+    homes = [home("a", 10.0), home("b", 10.0, zone="North")]
+    alloc = allocate(homes, frame(0.0), p, "AUTO", settings())
+    assert acted_intent(alloc, p, "AUTO") == ("charge", "zone_price")
+
+
+def test_acted_intent_zone_price_tick_with_a_call_keeps_the_call_reasons():
+    p = zone_priced({z: "charge" for z in ZONES})
+    homes = [home("a", 10.0), home("b", 10.0), home("c", 10.0, zone="North")]
+    served = allocate(homes, frame(0.02), p, "AUTO", settings())
+    assert acted_intent(served, p, "AUTO") == ("charge", "grid_call_served")
+    sell = zone_priced({z: "discharge" for z in ZONES})
+    sold = allocate(homes, frame(0.02), sell, "AUTO", settings())
+    assert acted_intent(sold, sell, "AUTO") == ("discharge", "grid_call")
 
 
 def test_acted_intent_operator_hold_is_hold():

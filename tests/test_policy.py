@@ -175,3 +175,21 @@ def test_no_zone_prices_keeps_one_fleet_decision():
     # Floor-only callers (no price label) get no zone intent either.
     floor_only = reserve_policy(make_risk("LOW"), ZONE_INTENT_SETTINGS, zone_prices=ZONE_PRICES)
     assert floor_only.zone_intent == {} and floor_only.intent == "hold"
+
+
+def test_an_alerted_zone_with_no_price_never_takes_a_headline_discharge():
+    policy = zoned(make_risk("LOW"), zone_prices={"North": 80.0}, price=80.0,
+                   alerted={"Houston": "Hurricane Warning"})
+    assert policy.intent == "discharge"
+    assert policy.zone_intent["Houston"] == "hold"
+    assert policy.zone_intent["South"] == "discharge"
+    # A cheap headline still lets the alerted zone charge: charging never lowers backup.
+    cheap = zoned(make_risk("LOW"), zone_prices={"North": 10.0}, price=10.0,
+                  alerted={"Houston": "Hurricane Warning"})
+    assert cheap.zone_intent["Houston"] == "charge"
+
+
+def test_zone_prices_still_decide_when_the_headline_price_is_missing():
+    policy = zoned(make_risk("LOW"), zone_prices={"Houston": 10.0}, price=None, label="none")
+    assert (policy.intent, policy.intent_reason) == ("hold", "price_unavailable")
+    assert policy.zone_intent == {"Houston": "charge", "North": "hold", "South": "hold", "West": "hold"}

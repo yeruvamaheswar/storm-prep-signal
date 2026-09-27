@@ -6,7 +6,8 @@
 |---|---|---|
 | Mode HOLD | hold | `operator_hold` |
 | Charged kW > sold kW, something sold (mixed, charge-heavy) | charge | `grid_call_served` |
-| Charged kW > 0, nothing sold | charge | policy reason |
+| Charged kW > 0, nothing sold, band said charge | charge | policy reason |
+| Charged kW > 0, nothing sold, band not charge (only zone prices said charge, e.g. headline missing and Houston $10) | charge | `zone_price` |
 | Sold kW > 0 and sold kW >= charged kW | discharge | policy reason if the band said discharge, else `grid_call` |
 | Nothing moved, band said hold | hold | policy reason (`""`, `price_unavailable`) |
 | Nothing moved, band said charge/discharge, target 0 | hold | `no_grid_call` (for the charge band only when every home is full: idle charging otherwise makes it a charge tick) |
@@ -35,7 +36,8 @@ Floor-only callers omit `price_label`. Intent stays `hold` and the floor reasons
 `reserve_policy(..., zone_prices=None)` (add-only; `loop.play_frame` passes the tick's map) sets `Policy.zone_intent[zone]` for every zone in `ZONES` with `price_band`, the same bands as the fleet:
 
 - The zone's own price. A zone whose reason is `storm_risk_high`, `signal_unavailable` or `weather_alert` never gets `discharge` (charge when cheap, else hold).
-- A zone with no price takes the fleet `Policy.intent` (the headline price).
+- A zone with no price takes the fleet `Policy.intent` (the headline price), except a storm-reason zone gets `hold` where that is `discharge` (charge on a cheap headline is kept: charging never lowers backup).
+- A missing headline price (`price_unavailable`) does not stop zones with their own price: those are real ERCOT numbers, charging never lowers backup, and selling only happens on a call. A tick that charges only because of zone prices is labelled charge / `zone_price`.
 - HOLD mode, a floor-only call (no `price_label`), or no zone prices at all: `zone_intent` stays `{}` and the fleet path runs as before.
 
 `Policy.intent` stays the headline band; `acted_intent` still labels the tick by net flow.
