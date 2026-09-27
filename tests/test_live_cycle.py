@@ -163,18 +163,19 @@ def test_one_cycle_upserts_live_rows_and_allocates(tmp_path, monkeypatch):
     tick = result["record"]["ticks"][-1]
     assert result["record"]["source"] == "live"
     assert len(result["record"]["ticks"]) == 1
-    # Live allocates the 10k fleet even though SETTINGS is 100 homes.
-    assert result["record"]["settings"]["fleet_size"] == 10_000
-    assert tick["target_mw"] == pytest.approx(40.0)
+    # Task 13 spec change: live allocates the configured fleet (SETTINGS is 100 homes), not a fixed 10k.
+    # The 0.40 MW demo call at 100 homes stays 0.40 MW.
+    assert result["record"]["settings"]["fleet_size"] == 100
+    assert tick["target_mw"] == pytest.approx(0.40)
     assert tick["target_label"] == "synthetic"
-    assert tick["delivered_mw"] == pytest.approx(40.0)
+    assert tick["delivered_mw"] == pytest.approx(0.40)
     assert tick["missed_mw"] == pytest.approx(0.0)
-    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 10_000
+    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 100
     assert "temp_stub" not in tick["reasons"]
     assert tick["breaches"] == 0
     latest = json.loads((tmp_path / "runs" / "latest.json").read_text())
-    assert latest["ticks"][-1]["delivered_mw"] == pytest.approx(40.0)
-    assert latest["ticks"][-1]["target_mw"] == pytest.approx(40.0)
+    assert latest["ticks"][-1]["delivered_mw"] == pytest.approx(0.40)
+    assert latest["ticks"][-1]["target_mw"] == pytest.approx(0.40)
 
 
 def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
@@ -185,8 +186,9 @@ def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
     )
     assert result["upsert"].startswith("skipped")
     tick = result["record"]["ticks"][-1]
-    assert tick["delivered_mw"] == pytest.approx(40.0)
-    assert tick["target_mw"] == pytest.approx(40.0)
+    # Task 13 spec change: the 100-home SETTINGS fleet answers the 0.40 MW demo call.
+    assert tick["delivered_mw"] == pytest.approx(0.40)
+    assert tick["target_mw"] == pytest.approx(0.40)
     assert tick["target_label"] == "synthetic"
 
 
@@ -240,11 +242,12 @@ def test_one_live_frame_stays_synthetic_demo_peak():
 
 
 def test_live_tick_allocates_ten_thousand_ids(tmp_path, monkeypatch):
+    # Task 13: 10k is no longer the live default; a FLEET_SIZE=10000 setting still allocates new_fleet(10000).
     from server.engine.fleet import new_fleet
 
     _fake_ercot(monkeypatch, tmp_path)
     result = cycle.run_cycle(
-        SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        {**SETTINGS, "fleet_size": 10_000}, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )
     tick = result["record"]["ticks"][-1]
@@ -255,16 +258,34 @@ def test_live_tick_allocates_ten_thousand_ids(tmp_path, monkeypatch):
     assert [row["home_id"] for row in saved] == expected_ids
 
 
-def test_live_call_follows_call_target_and_cap(tmp_path, monkeypatch):
+def test_live_worker_allocates_the_configured_fleet_size(tmp_path, monkeypatch):
+    # Task 13: one demo fleet everywhere. Live allocates settings["fleet_size"] (FLEET_SIZE), never a fixed 10k.
+    from server.engine.fleet import new_fleet
+
     _fake_ercot(monkeypatch, tmp_path)
     result = cycle.run_cycle(
-        {**SETTINGS, "call_target_mw": 30.0}, now=NOW,
+        {**SETTINGS, "fleet_size": 37}, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+        state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
+    )
+    tick = result["record"]["ticks"][-1]
+    assert result["record"]["settings"]["fleet_size"] == 37
+    assert tick["live_homes"] + tick["stale_homes"] + tick["dead_homes"] == 37
+    saved = json.loads((tmp_path / "fleet" / "homes.json").read_text())
+    assert [row["home_id"] for row in saved] == [home.home_id for home in new_fleet(37)]
+    assert not hasattr(cycle, "LIVE_FLEET_SIZE")
+
+
+def test_live_call_follows_call_target_and_cap(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    # Task 13: the 10k fleet is now a setting, not the live default; the call and cap rules are unchanged.
+    result = cycle.run_cycle(
+        {**SETTINGS, "fleet_size": 10_000, "call_target_mw": 30.0}, now=NOW,
         runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )
     assert result["record"]["ticks"][-1]["target_mw"] == pytest.approx(30.0)
     result = cycle.run_cycle(
-        {**SETTINGS, "call_target_mw": 80.0}, now=NOW,
+        {**SETTINGS, "fleet_size": 10_000, "call_target_mw": 80.0}, now=NOW,
         runs_dir=tmp_path / "runs2", log_dir=tmp_path / "logs",
         state_path=tmp_path / "state.json", url="", key="", persist=False, send=None,
     )

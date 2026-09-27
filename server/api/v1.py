@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, Header, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -17,9 +17,10 @@ from server.api.archive import event_for_clock
 from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
 from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, read_home_history, table_rollups
+from server.api.homes import fleet_count, fleet_scoped, fleet_size_setting
 from server.api.operator_settings import persist_mode, table_config
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
-from server.engine.fleet import current_rollups
+from server.engine.fleet import FLEET_DIR, current_rollups, seed_settings, zone_counties
 from server.engine.fleet_state import write_fleet_mode
 
 router = APIRouter(prefix="/v1")
@@ -243,13 +244,34 @@ def get_live_stream(request: Request):
     return StreamingResponse(frames(), media_type="text/event-stream")
 
 
+# Written by server.engine.loop after every tick, beside tick_emit.json.
+TICK_ORDERS_PATH = FLEET_DIR / "tick_orders.json"
+
+
+@router.get("/live/orders")
+def get_live_orders():
+    # The last tick's logged order timelines, as the engine wrote them. Nothing is recomputed here.
+    try:
+        return json.loads(TICK_ORDERS_PATH.read_text())
+    except FileNotFoundError:
+        raise ApiError(404, "no_tick_orders", "No tick has written its orders yet.")
+    except ValueError:
+        raise ApiError(404, "no_tick_orders", "The tick orders file could not be read.")
+
+
 @router.get("/fleet/rollups")
 def get_fleet_rollups():
     # Zone counts and MW only. Never the seeded homes list.
     try:
-        return table_rollups()
+        return table_rollups(fleet_size=fleet_size_setting())
     except HomesUnavailable:
         return current_rollups()
+
+
+@router.get("/fleet/counties")
+def get_fleet_counties():
+    # Task 13 item 7: the county roster per zone, so the Fleet page shows a county with 0 homes too.
+    return [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(seed_settings(1))]
 
 
 def _current_floor():
@@ -275,9 +297,18 @@ def _current_floor():
     return reserve_pct, zone_reserve
 
 
+# Task 13: add-only headers on GET /v1/homes (the body stays a list). "supabase" rows are the
+# first FLEET_SIZE homes of public.homes; "fixture" is the 3-row console sample, not live data.
+HOMES_SOURCE_HEADER = "X-Homes-Source"
+FLEET_SIZE_HEADER = "X-Fleet-Size"
+HOMES_TOTAL_HEADER = "X-Homes-Total"
+HOMES_HEADERS = (HOMES_SOURCE_HEADER, FLEET_SIZE_HEADER, HOMES_TOTAL_HEADER)
+
+
 @router.get("/homes")
 def get_homes(
     request: Request,
+    response: Response,
     zone: Optional[str] = None,
     status: Optional[str] = None,
     q: Optional[str] = None,
@@ -291,10 +322,24 @@ def get_homes(
     limit = page_limit(limit)
     offset = page_offset(offset)
     reserve_pct, zone_reserve_pct = _current_floor()
+    fleet = fleet_size_setting()
+    # Too large to filter by id (FLEET_FILTER_MAX_IDS): the rows are the whole table, so no header
+    # claims a fleet scope and the page falls back to its plain "Live homes from the local API" note.
+    scoped = fleet_scoped(fleet)
+    if scoped:
+        response.headers[FLEET_SIZE_HEADER] = str(fleet)
     try:
-        return list_homes(zone=zone, status=status, q=q, limit=limit, offset=offset,
-                          reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+        homes = list_homes(zone=zone, status=status, q=q, limit=limit, offset=offset,
+                           reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct, fleet_size=fleet)
+        response.headers[HOMES_SOURCE_HEADER] = "supabase"
+        if scoped:
+            try:
+                response.headers[HOMES_TOTAL_HEADER] = str(fleet_count(fleet))
+            except HomesUnavailable:
+                pass  # The page still has its rows; it just cannot say "N of FLEET_SIZE".
+        return homes
     except HomesUnavailable:
+        response.headers[HOMES_SOURCE_HEADER] = "fixture"
         homes = _store(request).load("homes")
         if status is not None:
             homes = [h for h in homes if h["status"] == status]
@@ -310,7 +355,8 @@ def get_homes(
 def get_home(request: Request, home_id: str):
     reserve_pct, zone_reserve_pct = _current_floor()
     try:
-        home = read_home(home_id, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+        home = read_home(home_id, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct,
+                         fleet_size=fleet_size_setting())
     except HomesUnavailable:
         home = None
         for row in _store(request).load("homes"):

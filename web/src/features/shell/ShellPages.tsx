@@ -1,0 +1,45 @@
+import { TopBar } from "./TopBar"
+import { ReplayRoot } from "../replay/ReplayRoot"
+import { FleetGridRoot } from "../fleetgrid/FleetGridRoot"
+
+function LiveSlot() {
+  return <span className="rg-pill">Live feed not connected yet</span>
+}
+
+type PlaceholderProps = {
+  title: string
+  children: string
+}
+
+function Placeholder({ title, children }: PlaceholderProps) {
+  return (
+    <main className="rg-stage">
+      <section className="rg-placeholder" aria-labelledby="page-title">
+        <h1 id="page-title">{title}</h1>
+        <p>{children}</p>
+      </section>
+    </main>
+  )
+}
+
+export function ReplayApp() {
+  return <ReplayRoot />
+}
+
+export function LiveApp() {
+  return (
+    <div className="rg-shell">
+      <TopBar current="live" rightSlot={<LiveSlot />} />
+      <Placeholder title="Live">The live ERCOT inputs, newest tick, and replay handoff will be here.</Placeholder>
+    </div>
+  )
+}
+
+export function FleetGridApp() {
+  return (
+    <div className="rg-shell is-clay">
+      <TopBar current="fleet" />
+      <FleetGridRoot />
+    </div>
+  )
+}

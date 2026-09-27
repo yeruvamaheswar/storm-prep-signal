@@ -33,6 +33,7 @@ Open this index, then the one file the task needs.
 | `policy-intent.md` | You are changing charge / hold / discharge intent from price and floor |
 | `fleet-scale.md` | You are changing how the map, ack rail, or fleet list handle large fleets |
 | `zone-acks.md` | You are changing zone ack totals, the supervisor rollup, or the AckRail bars |
+| `demo-fleet.md` | You are changing the fleet size Live, Replay or Fleet shows, which `public.homes` rows the API reads, the `/v1/homes` source headers, or the Fleet page county split |
 | `fleet-rollups.md` | You are seeding a large fleet, persisting `var/fleet/`, or serving `GET /v1/fleet/rollups` |
 | `runtime-mode.md` | You are changing Live versus Demo, the tick scrubber, or the pinned clock |
 | `wall-snapshot.md` | You are changing the header tiles or the Demo/Live snapshot they read |

@@ -188,9 +188,23 @@ export function reasonLabel(code: string | null | undefined): string {
 
 /** "floor 60% (NWS weather alert)", or "floor 30–60% by county (...)" when the alert names only some of the zone's counties. */
 export function zoneFloorText(row: FlowZoneRow, homes: FlowHome[]): string {
-  const low = homes.length ? Math.min(...homes.map((home) => home.floor_pct)) : row.reserve_pct
-  const pct = low < row.reserve_pct ? `${low}–${row.reserve_pct}% by county` : `${row.reserve_pct}%`
+  const range = countyFloorRange(row.reserve_pct, homes)
+  const pct = range ? countyFloorRangeText(range) : `${row.reserve_pct}%`
   return `floor ${pct} (${reasonLabel(row.reason)})`
+}
+
+/** The zone's homes keep different county floors: the lowest home floor is under the zone floor (the zone floor
+ * is its highest county floor, policy.py _zone_floor). Null when every home keeps the zone floor or none is reported.
+ * One rule for /flow's zoneFloorText and the Replay keep chip (Task 12). */
+export function countyFloorRange(zonePct: number, homes: Pick<FlowHome, "floor_pct">[]): { low: number; high: number } | null {
+  const floors = homes.map((home) => home.floor_pct).filter((pct) => typeof pct === "number" && Number.isFinite(pct))
+  if (!floors.length) return null
+  const low = Math.min(...floors)
+  return low < zonePct ? { low, high: zonePct } : null
+}
+
+export function countyFloorRangeText(range: { low: number; high: number }): string {
+  return `${range.low}–${range.high}% by county`
 }
 
 export type CountyGroup = { fips: string; name: string; homes: FlowHome[] }

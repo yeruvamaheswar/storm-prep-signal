@@ -1,0 +1,27 @@
+/* The 3D house fills the same art slot as the flat HouseArt (.zone-home-art, 250 px tall), so nothing jumps
+   when the chunk loads. The status chip (.zone-chip) stays on top of it. */
+.house3d {
+  position: absolute;
+  inset: 0;
+}
+
+.house3d canvas {
+  display: block;
+}
+
+.house3d-note {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-surface);
+  color: var(--rg-clay-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.zone-home-art .zone-chip {
+  z-index: 1;
+}

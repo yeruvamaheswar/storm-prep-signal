@@ -2,6 +2,14 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Task 4 Replay Texas view
+
+- Built the redesigned Replay page at `/` from the approved `Main.dc.html` look, driven by the scenario session APIs and existing Replay logic.
+- Added focused Replay components under `web/src/features/replay/`: map stage, scenario rail, lens controls, promise panel, feed, playback, ledger, and About this data drawer.
+- The page polls `/v1/scenario/state`, lists `/v1/scenarios`, posts scenario/play/speed/weather requests through Uma's `/flow` API module, and keeps the full layout when the worker reports `worker_not_running`.
+- Added `web/tests/replay-components.test.ts` for the promise panel, ledger, and worker-not-running state.
+- Verification: `cd web && npm test`, `cd web && npm run build`, and `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` passed.
+
 ## 2026-09-25: Slice 0, research and plan (no application code)
 
 - Wrote `docs/research.md`. It covers NP3-233-CD access, auth (id_token as a Bearer token,
@@ -1017,6 +1025,37 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Real ERCOT check (read-only, 2026-09-26 17:45 CT interval): Houston 34.17, North 31.56, South 36.95, West 59.21 $/MWh; North equals the headline `fetch_price`.
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Replay order timelines for `/flow`
+
+- `server/engine/order_log.py` turns one tick's orchestration event log into compact per-home `orders` timelines for Replay, with only the contract kinds `sent`, `drop`, `exec`, `rdrop`, `retry`, `reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`.
+- `server/engine/scenario.py` now exposes `orders` at the top level of scenario state, records `soc_before_pct` per home, and extends each history row add-only with missed/unconfirmed MW, reserve percent, risk level, and reasons. `/flow` speeds now include 15x and 30x while keeping 300x as default.
+- `web/src/features/flow/types.ts` has additive types for the Replay fields. Docs updated in `grid-flow.md` and `code-flow.md`.
+- Tests: focused order/session tests 15 passed. `pytest -q`: 658 passed. `FUZZ_SEEDS=50 pytest -q`: 658 passed. Web: vitest 279 passed, `npm run build` clean.
+
+## 2026-09-26: Task 2 redesign shell
+
+- `/` now mounts the Replay placeholder, `/live` the Live placeholder, `/fleet` the new Fleet grid placeholder, `/fleet/table` the old fleet table, `/wall` the old wall, and `/flow` stays Uma's flow page.
+- Added `features/shell` top bar, URL state helpers, `--rg-*` tokens, Overpass, three, and React Three Fiber v9.
+- Tests: web 285 passed, build clean with Vite chunk-size warning, Python 658 passed, code-flow 2 passed.
+
+## 2026-09-26: Task 2 redesign shell fix round 1
+
+- Replay and Live shell slots now use neutral placeholder text and no live status dot. `zoomToZone` / `zoomToHome` skip history writes when the requested zoom is already current. `isFleetTablePath` handles `/fleet/table` and `/fleet/table.html` before the fleet grid route.
+- The old fleet table Wall link still points at `/` because an existing test pins that href and was not edited.
+- Tests: `cd web && npm test && npm run build` (287 passed, build passed with the existing chunk-size warning); `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` (2 passed).
+
+## 2026-09-26: Replay order timelines fix round 1
+
+- 2026-09-26: Replay core logic, Task 3.
+  - Added `web/src/features/replay/` with pure TS helpers for order state, keyed order splitting, tick clock mapping, narration, promise math, and key moments. No React or UI.
+  - Tests embed the real North tick-3 order timelines from `Zone.dc.html` and cover retry/drop/confirm/not-counted transitions, charging orders, own vs reassigned keys, feed sentences, promise rows, and clock math.
+  - `docs/agents/code-flow.md` now names `web/src/features/replay/` in the web diagram and file map.
+  - Verification: `cd web && npm test && npm run build` passed (301 Vitest tests; Vite chunk-size warning only). `HOME_MAX_KW=11.4 .venv/bin/python -m pytest -q tests/test_code_flow.py` passed (2).
+
+- Fixed order timeline direction tracking so a lost retry order at 60 s is `drop`, while lost reports after `exec` or `dup` stay `rdrop`.
+- Added the fourth timeline key (`own` / `r`) so one home can display its own command and a reassigned-in command in the same tick without mixing lifecycles.
+- Added real fault-tick tests for lossy seeds, keyed lifecycles, and slow speed validation. Verification: focused order/session tests 23 passed; `HOME_MAX_KW=11.4 pytest -q` 666 passed; `FUZZ_SEEDS=50 HOME_MAX_KW=11.4 pytest -q` 666 passed; web vitest 285 passed; web build clean with the existing chunk-size warning.
 
 ## 2026-09-26: Persist operator HOLD / AUTO for the live worker
 
