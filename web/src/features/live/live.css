@@ -1,0 +1,112 @@
+/* Task 9: the Live page (mockup/Main.dc.html, variant="live"). Replay's replay.css gives the shared panels,
+ * columns and pills; only live-* rules live here. */
+
+.live-pill svg circle {
+  fill: var(--rg-confirmed);
+}
+
+/* Left column: the ERCOT inputs, then the lens. */
+.live-inputs {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px;
+}
+
+.live-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--rg-clay-scene);
+  font-size: 14px;
+}
+
+.live-inputs .replay-label + .live-row {
+  border-top: 0;
+}
+
+.live-row b {
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.live-unit {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* The mockup's #2F8A55 is 3.86:1 on this panel; the Task 9 text token passes 4.5:1. */
+.live-row b.is-ok {
+  color: var(--rg-confirmed-text);
+}
+
+/* The mockup's #A4640C is 4.28:1 on this panel; the Task 12 strong amber passes 4.5:1. */
+.live-row b.is-warn {
+  color: var(--rg-charging-text-strong);
+}
+
+.live-row b.is-bad {
+  color: var(--rg-lost);
+}
+
+.live-status {
+  margin: 8px 0 0;
+  color: var(--rg-ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* The center notice while not live: loading, no snapshot, or not live (and why). */
+.live-notice.is-not_live {
+  border-left: 6px solid var(--rg-not-counted);
+}
+
+.live-notice.is-error {
+  border-left: 6px solid var(--rg-lost);
+}
+
+.live-notice b {
+  font-weight: 800;
+}
+
+/* The bar: last tick and countdown, one note line, and "Replay this tick". */
+.live-playback {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 96px;
+  padding: 14px 20px;
+}
+
+.live-playback-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.live-playback-timing {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.live-playback-note {
+  color: var(--rg-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.live-replay {
+  flex-shrink: 0;
+}
+
+.live-replay:not(:disabled) {
+  border-color: var(--rg-ink);
+  background: var(--rg-ink);
+  color: var(--rg-panel-map);
+}

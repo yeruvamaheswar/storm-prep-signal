@@ -75,4 +75,7 @@
   /* Task 12: charging words on the light panels. --rg-charging-text (#a4640c) is 4.28:1 on the map panel;
    * this is 4.96:1 there and 5.19:1 on clay. Amber fills keep --rg-charging. */
   --rg-charging-text-strong: #965b0a;
+  /* Task 9: confirmed words on the light panels. --rg-confirmed (#2f8a55) is 3.86:1 on the map panel;
+   * this is 5.06:1 there and 5.30:1 on clay. Green fills keep --rg-confirmed. */
+  --rg-confirmed-text: #267548;
 }

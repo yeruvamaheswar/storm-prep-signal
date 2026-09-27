@@ -95,6 +95,43 @@ def test_fetch_runs_table_skips_without_config():
     assert fetch_runs_table(get=refuse, url="", key="") is None
 
 
+def test_table_row_brings_its_persisted_settings():
+    # Task 9c: persist_run stores the run's settings in `summary`; the table run carries them as `settings`.
+    settings = {"fleet_size": 100, "tick_minutes": 5}
+    row = {"run_id": "table-run", "source": "live", "result": TABLE_RUN["ticks"], "summary": {"tick": 1, "settings": settings}}
+    assert run_from_table_rows([row])["settings"] == settings
+    nested = {"run_id": "table-run", "result": dict(TABLE_RUN), "summary": {"settings": settings}}
+    assert run_from_table_rows([nested])["settings"] == settings
+    assert "settings" not in TABLE_RUN
+
+
+def test_table_row_keeps_its_own_settings_and_never_invents_any():
+    own = {**TABLE_RUN, "settings": {"fleet_size": 10000}}
+    row = {"run_id": "table-run", "result": own, "summary": {"settings": {"fleet_size": 100}}}
+    assert run_from_table_rows([row])["settings"] == {"fleet_size": 10000}
+    bare = {"run_id": "table-run", "result": TABLE_RUN["ticks"], "summary": {"tick": 1}}
+    assert "settings" not in run_from_table_rows([bare])
+    odd = {"run_id": "table-run", "result": TABLE_RUN["ticks"], "summary": "x"}
+    assert "settings" not in run_from_table_rows([odd])
+
+
+def test_fetch_runs_table_asks_for_the_summary_too():
+    seen = {}
+
+    class Reply:
+        ok = True
+
+        def json(self):
+            return []
+
+    def get(url, params=None, headers=None, timeout=None):
+        seen.update(params or {})
+        return Reply()
+
+    fetch_runs_table(get=get, url="https://example.test", key="k")
+    assert "summary" in seen["select"].split(",")
+
+
 def test_get_latest_run_keeps_file_when_postgrest_is_empty(tmp_path, monkeypatch):
     latest = tmp_path / "latest.json"
     latest.write_text(json.dumps(ENGINE), encoding="utf-8")

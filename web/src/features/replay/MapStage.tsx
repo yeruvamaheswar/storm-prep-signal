@@ -25,6 +25,8 @@ type Props = {
   notice: StageNotice
   apiBase?: string
   onZone: (zone: string) => void
+  /** The breadcrumb's hint. Live (Task 9) passes its own; unset keeps Replay's words. */
+  crumbHint?: string
 }
 
 const TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -53,7 +55,7 @@ function noticeText(notice: StageNotice, apiBase: string): ReactNode {
   return null
 }
 
-export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, lens, notice, apiBase = "", onZone }: Props) {
+export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, lens, notice, apiBase = "", onZone, crumbHint }: Props) {
   const leafletRef = useRef<HTMLDivElement | null>(null)
   const zoneLayers = useRef<Record<string, LeafletPath>>({})
   const onZoneRef = useRef(onZone)
@@ -270,7 +272,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
           </div>
         )
       }) : null}
-      <div className="replay-crumb replay-panel"><b>Texas</b><span>{notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
+      <div className="replay-crumb replay-panel"><b>Texas</b><span>{crumbHint ?? (notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in.")}</span></div>
       {notice ? (
         <div className={`replay-panel replay-worker-empty is-${notice}`} role="status">
           {noticeText(notice, apiBase)}

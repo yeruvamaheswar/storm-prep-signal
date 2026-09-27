@@ -7,6 +7,8 @@ type Props = {
   tick: ReplayPromiseResult | null
   onOpenLedger: (opener: HTMLElement | null) => void
   onOpenData: (opener: HTMLElement | null) => void
+  /** Live (Task 9) has no ledger or About drawer, so it hides the two actions. Default: shown. */
+  hideActions?: boolean
 }
 
 function Row({ label, children, tone, className }: { label: string; children: ReactNode; tone?: string; className?: string }) {
@@ -18,7 +20,7 @@ function Row({ label, children, tone, className }: { label: string; children: Re
   )
 }
 
-export function PromisePanel({ tick, onOpenLedger, onOpenData }: Props) {
+export function PromisePanel({ tick, onOpenLedger, onOpenData, hideActions = false }: Props) {
   const rows = tick ? promiseBreakdown(tick) : []
   const breaches = rows.find((row) => row.key === "breaches")
   const charged = rows.find((row) => row.key === "charged")
@@ -50,10 +52,12 @@ export function PromisePanel({ tick, onOpenLedger, onOpenData }: Props) {
         <b className={breachCount === null ? "is-missing" : undefined}>{breachCount ?? "Not reported"}</b>
       </div>
       <p className="replay-note">{why}</p>
-      <div className="replay-promise-actions">
-        <button className="replay-pill replay-pill-full" type="button" onClick={(event) => onOpenLedger(event.currentTarget)}>Open the ledger</button>
-        <button className="replay-pill replay-pill-full replay-pill-secondary" type="button" onClick={(event) => onOpenData(event.currentTarget)}>About this data</button>
-      </div>
+      {hideActions ? null : (
+        <div className="replay-promise-actions">
+          <button className="replay-pill replay-pill-full" type="button" onClick={(event) => onOpenLedger(event.currentTarget)}>Open the ledger</button>
+          <button className="replay-pill replay-pill-full replay-pill-secondary" type="button" onClick={(event) => onOpenData(event.currentTarget)}>About this data</button>
+        </div>
+      )}
     </section>
   )
 }

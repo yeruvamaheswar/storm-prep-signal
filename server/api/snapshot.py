@@ -82,7 +82,10 @@ def _read_run(path: Path) -> Optional[dict]:
 
 
 def run_from_table_rows(rows):
-    """None when PostgREST /runs is empty or not a run file. Empty is not source of truth."""
+    """None when PostgREST /runs is empty or not a run file. Empty is not source of truth.
+
+    A run with no `settings` of its own takes the ones persist_run stored in `summary.settings` (Task 9c).
+    """
     if isinstance(rows, dict):
         rows = [rows]
     if not isinstance(rows, list) or not rows:
@@ -90,6 +93,17 @@ def run_from_table_rows(rows):
     row = rows[0]
     if not isinstance(row, dict):
         return None
+    run = _run_from_table_row(row)
+    if run is None or isinstance(run.get("settings"), dict):
+        return run
+    summary = row.get("summary")
+    stored = summary.get("settings") if isinstance(summary, dict) else None
+    if not isinstance(stored, dict):
+        return run
+    return {**run, "settings": dict(stored)}
+
+
+def _run_from_table_row(row):
     result = row.get("result")
     if isinstance(result, str):
         return None
@@ -124,7 +138,7 @@ def fetch_runs_table(get=None, url=None, key=None, timeout_s=None):
     except ValueError:
         timeout = 3.0
     endpoint = f"{host.rstrip('/')}/rest/v1/runs"
-    params = {"select": "run_id,source,result", "order": "run_id.desc", "limit": "1"}
+    params = {"select": "run_id,source,result,summary", "order": "run_id.desc", "limit": "1"}
     caller = requests.get if get is None else get
     try:
         reply = caller(endpoint, params=params, headers={"apikey": secret}, timeout=timeout)

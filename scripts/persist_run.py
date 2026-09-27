@@ -66,12 +66,17 @@ def summary_of(ticks):
 def row_from_record(record, git_sha=None, posting_ids=None):
     """Map a var/runs/<id>.json record onto the unused public.runs OpenAPI row."""
     ticks = record["ticks"] if isinstance(record.get("ticks"), list) else []
+    summary = summary_of(ticks)
+    # Add-only (Task 9c): the run's settings (tick_minutes, fleet_size, ...) ride in `summary`, so a table
+    # run read back by /v1/runs/latest still says its tick length and fleet. `result` stays the ticks.
+    if isinstance(record.get("settings"), dict):
+        summary["settings"] = dict(record["settings"])
     row = {
         "run_id": record["run_id"],
         "source": source_of(record),
         "tape_label": tape_label_for(record),
         "ercot_posting_ids": list(posting_ids or []),
-        "summary": summary_of(ticks),
+        "summary": summary,
         "result": ticks,
     }
     if git_sha:
