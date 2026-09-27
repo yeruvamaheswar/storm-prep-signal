@@ -27,6 +27,9 @@ type Props = {
   provenance?: ProvenanceLike | null
   /** `state.alerts`, to name each applied county's event (rain only for storm-type events). */
   alerts?: readonly AlertLike[]
+  /** Room kept below the map, in px: the playback bar's measured height plus gutters (ReplayPage). Missing: the
+   * Watch orders bar's 96 px. The Day view bar is taller, so the south of Texas would sit under it. */
+  padBottom?: number
   tSeconds: number
   lens: Lens
   notice: StageNotice
@@ -61,8 +64,12 @@ function noticeText(notice: StageNotice, apiBase: string): ReactNode {
 }
 
 export function MapStage({
-  zones, homes, orders, tick, baseFloorPct, provenance, alerts, tSeconds, lens, notice, apiBase = "", onZone,
+  zones, homes, orders, tick, baseFloorPct, provenance, alerts, padBottom, tSeconds, lens, notice, apiBase = "", onZone,
 }: Props) {
+  // Read by fit() at call time, so a taller or shorter playback bar refits the map (the effect below).
+  const padBottomRef = useRef(padBottom ?? PAD_BOTTOM)
+  padBottomRef.current = padBottom ?? PAD_BOTTOM
+  const refit = useRef<(() => void) | null>(null)
   const leafletRef = useRef<HTMLDivElement | null>(null)
   const zoneLayers = useRef<Record<string, LeafletPath>>({})
   const onZoneRef = useRef(onZone)
@@ -148,7 +155,7 @@ export function MapStage({
         const room = width > PAD_LEFT + PAD_RIGHT + 240
         m.fitBounds([[s, w], [n, e]], {
           paddingTopLeft: room ? [PAD_LEFT, PAD_TOP] : [20, PAD_TOP],
-          paddingBottomRight: room ? [PAD_RIGHT, PAD_BOTTOM] : [20, PAD_BOTTOM],
+          paddingBottomRight: room ? [PAD_RIGHT, padBottomRef.current] : [20, padBottomRef.current],
           animate: false,
         })
       }
@@ -167,6 +174,7 @@ export function MapStage({
       }
       m.on("zoomend moveend", reproject)
       m.on("resize", fit)
+      refit.current = fit
       fit()
       reproject()
       if (typeof ResizeObserver !== "undefined") {
@@ -190,6 +198,7 @@ export function MapStage({
       if (frame) cancelAnimationFrame(frame)
       observer?.disconnect()
       zoneLayers.current = {}
+      refit.current = null
       map?.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,12 +209,18 @@ export function MapStage({
       const el = layer.getElement?.()
       if (!el) continue
       el.classList.toggle("is-raised", raised[zone] === true)
+      el.setAttribute("data-zone", zone)
       // A zone that only charges was asked nothing for the call: no blue highlight.
       el.classList.toggle("is-go", zoneGoes(activity[zone]))
     }
   }
 
   useEffect(paintZones)
+
+  // The playback bar changed height (Day view vs Watch orders, wrapping): fit Texas above it again.
+  useEffect(() => {
+    refit.current?.()
+  }, [padBottom])
 
   return (
     <div className={`replay-map-stage lens-${lens}`} aria-label="Map of the four Texas load zones">

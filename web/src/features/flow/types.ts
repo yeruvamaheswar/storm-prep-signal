@@ -225,6 +225,8 @@ export type SessionState = {
    * writes just before it runs a seek; `actions` is the operator action log a seek replays. */
   seeking?: boolean
   actions?: OperatorAction[]
+  /** The last seek request the worker applied, by its request seq (Task 14B); null before the first. */
+  last_seek?: { to: number; seq: number | null } | null
   /* end Task 14 / 16 */
   error: string | null
   updated_at: string

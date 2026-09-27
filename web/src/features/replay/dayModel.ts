@@ -465,10 +465,14 @@ export function canSeek(state: SeekState | null | undefined): boolean {
     && typeof state.tick_index === "number" && typeof state.tick_count === "number" && state.tick_count > 1
 }
 
-/** A seek `delta` ticks from here, or null when none can be sent or it would not move. */
+/** A seek `delta` ticks from here, or null when none can be sent, it would not move, or the clamp would turn it
+ * around (Forward at the end of a finished run, index tick_count, would otherwise land one tick back). */
 export function seekBy(state: SeekState | null | undefined, delta: number): FlowRequest | null {
-  if (!state || !canSeek(state)) return null
-  return seekTo(state, state.tick_index + delta)
+  if (!state || !canSeek(state) || delta === 0) return null
+  const request = seekTo(state, state.tick_index + delta)
+  if (request?.kind !== "seek") return null
+  const moved = request.body.tick - state.tick_index
+  return Math.sign(moved) === Math.sign(delta) ? request : null
 }
 
 /** A seek to tick index N (clamped), or null when it would not move. */
@@ -477,18 +481,39 @@ export function seekTo(state: Pick<SessionState, "tick_index" | "tick_count">, i
   return tick === state.tick_index ? null : { kind: "seek", body: { tick } }
 }
 
-/** A seek the page sent and has not seen land. */
-export type SeekPending = { tick: number; label: string | null; atMs: number; key: string | null; sawSeeking: boolean }
+/** A seek the page sent and has not seen land. `seq` is the request seq the API accepted it as (null until the reply
+ * comes, or from an API that does not say); `fromIndex` is where the session was when it was sent. */
+export type SeekPending = {
+  tick: number
+  label: string | null
+  atMs: number
+  key: string | null
+  sawSeeking: boolean
+  seq?: number | null
+  fromIndex?: number
+}
 
 /** A seek that never lands stops showing "Seeking" after this long (the worst seek is about 3.3 s; Task 16A). */
 export const SEEK_WAIT_MS = 10_000
 
-/** Keeps a sent seek until the worker lands on it (tick N first) or finishes seeking, the run changes, or it waits too
- * long. */
-export function settleSeek(pending: SeekPending | null, obs: { seeking?: boolean; tickIndex: number; key: string | null },
-  nowMs: number): SeekPending | null {
+export type SeekObservation = {
+  seeking?: boolean
+  tickIndex: number
+  key: string | null
+  /** `state.last_seek.seq`: the last seek request the worker applied. Absent from an older worker. */
+  lastSeekSeq?: number | null
+}
+
+/** Keeps a sent seek until the worker answers it. The answer is `last_seek.seq` at or past the seq this page sent (Task
+ * 14B: at day pace the one `seeking` write and the landing tick can both fall between two polls). For an older worker
+ * without it: landing on tick N, or `seeking` going true then false. A run change, a restart to tick 0, or waiting too
+ * long also lets go. */
+export function settleSeek(pending: SeekPending | null, obs: SeekObservation, nowMs: number): SeekPending | null {
   if (!pending) return null
   if (obs.key !== pending.key || nowMs - pending.atMs > SEEK_WAIT_MS) return null
+  if (typeof pending.seq === "number" && typeof obs.lastSeekSeq === "number" && obs.lastSeekSeq >= pending.seq) return null
+  // A same-seed restart keeps the run key; the index falling to 0 (not the seek's own target) gives it away.
+  if (obs.tickIndex === 0 && pending.tick !== 0 && (pending.fromIndex ?? 1) > 0) return null
   if (obs.seeking === true) return pending.sawSeeking ? pending : { ...pending, sawSeeking: true }
   if (obs.tickIndex === pending.tick || pending.sawSeeking) return null
   return pending

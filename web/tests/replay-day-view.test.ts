@@ -13,7 +13,7 @@ import {
   DAY_STOPS, canSeek, dayStops, dayWindow, emptyArrivals, observedSecondsPerTick, ordersViewSpeed, runKey, seekBy,
   seekClock, seekIndexAt, settleSeek, ticksPerHour, trackArrivals, viewPlaySpeed,
 } from "../src/features/replay/dayModel"
-import { LINE_KINDS } from "../src/features/replay/LineLegend"
+import { MAP_LINES, ZONE_LINES } from "../src/features/replay/LineLegend"
 import { MapStage } from "../src/features/replay/MapStage"
 import { PlaybackBar } from "../src/features/replay/PlaybackBar"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
@@ -121,6 +121,42 @@ describe("seek helpers", () => {
     expect(settleSeek(pending, obs({ key: "operator-hold|1" }), 900)).toBeNull()
     expect(settleSeek(pending, obs({}), 20_000)).toBeNull()
     expect(settleSeek(null, obs({}), 0)).toBeNull()
+  })
+
+  // Fix round 1: at 1 min per day the one seeking write and the 0.21 s landing tick can both fall between two polls.
+  it("lets go when the worker answers the seek's seq, even if no poll saw tick N or seeking", () => {
+    const pending = { tick: 97, label: "06:00", atMs: 0, key: "beryl-landfall|42", sawSeeking: false, seq: 12, fromIndex: 22 }
+    const obs = (over: Record<string, unknown>) => ({ seeking: false, tickIndex: 22, key: "beryl-landfall|42", ...over })
+    // The polls see tick 22, then already tick 99: never 97, never seeking.
+    expect(settleSeek(pending, obs({ lastSeekSeq: 11 }), 250)).toEqual(pending)
+    expect(settleSeek(pending, obs({ tickIndex: 99, lastSeekSeq: 12 }), 500)).toBeNull()
+    expect(settleSeek(pending, obs({ tickIndex: 99, lastSeekSeq: 14 }), 500)).toBeNull()
+    // Before the POST reply names the seq, an older answer does not count.
+    expect(settleSeek({ ...pending, seq: null }, obs({ tickIndex: 22, lastSeekSeq: 30 }), 500)).toMatchObject({ tick: 97 })
+  })
+
+  it("lets go after a same-seed restart drops the index to 0, but not while a seek from 0 is on its way", () => {
+    const pending = { tick: 97, label: "06:00", atMs: 0, key: "beryl-landfall|42", sawSeeking: false, seq: 12, fromIndex: 22 }
+    const obs = { seeking: false, tickIndex: 0, key: "beryl-landfall|42", lastSeekSeq: null }
+    expect(settleSeek(pending, obs, 300)).toBeNull()
+    expect(settleSeek({ ...pending, fromIndex: 0, tick: 12 }, obs, 300)).toMatchObject({ tick: 12 })
+  })
+
+  it("never turns Forward into a step back at the end of a finished run", () => {
+    const done = berylSession({ status: "finished", tick_index: 193 })
+    expect(seekBy(done, 12)).toBeNull()
+    expect(seekBy(done, 1)).toBeNull()
+    expect(seekBy(done, -12)).toEqual({ kind: "seek", body: { tick: 181 } })
+    const ctx: ReplayKeyContext = {
+      status: "finished", speed: 1440, speeds: ALL_SPEEDS, canStep: false, tickIndex: 193, tickCount: 193, tickMinutes: 5, canSeek: true,
+    }
+    const key = (k: string, shiftKey = false) => ({ key: k, shiftKey, ctrlKey: false, metaKey: false, altKey: false, target: null })
+    expect(replayKeyRequest(key("."), ctx, 0)).toBeNull()
+    expect(replayKeyRequest(key(">", true), ctx, 0)).toBeNull()
+    expect(replayKeyRequest(key(".", true), ctx, 0)).toBeNull()
+    expect(replayKeyRequest(key(","), ctx, 0)).toEqual({ kind: "seek", body: { tick: 192 } })
+    const html = renderToStaticMarkup(createElement(PlaybackBar, { state: done, tSeconds: 120, view: "day", onSend: () => {} } as never))
+    expect(html).toMatch(/<button[^>]*aria-label="Forward 1 hour"[^>]*disabled=""/)
   })
 })
 
@@ -387,14 +423,53 @@ describe("line legend", () => {
   } as never))
 
   it("lists every line kind", () => {
-    expect(LINE_KINDS.map((kind) => kind.label)).toEqual(["On its way", "Lost", "Gave energy", "Confirmed", "Not counted", "Charging"])
+    expect(ZONE_LINES.map((kind) => kind.label)).toEqual([
+      "On its way", "Retrying", "Lost", "Lost on retry", "Gave energy", "Confirmed", "Not counted", "Charging",
+    ])
+    expect(MAP_LINES.send.map((kind) => kind.label)).toEqual(["Orders out to sell", "Charge orders", "Order lost on the way"])
   })
 
   it("is always shown, on the map and the zone board, with or without a session", () => {
     for (const html of [page(null), page("Houston"), page(null, null), page("West", null)]) {
       expect(html).toContain('class="replay-line-legend"')
-      for (const kind of LINE_KINDS) expect(html).toContain(`>${kind.label}</`)
+      for (const kind of [...ZONE_LINES, ...MAP_LINES.send]) expect(html).toContain(`>${kind.label}</`)
     }
+  })
+
+  // Rajat: the legend is there so people can read the colours, so each swatch is drawn exactly as its view draws it.
+  it("draws each zone swatch with its path's colour, width and dash (zone.css)", () => {
+    const rule = (cls: string) => new RegExp(`\\.zp\\.${cls} \\{([^}]*)\\}`).exec(zoneCss)?.[1] ?? ""
+    const cases: Array<[string, string]> = [
+      ["On its way", "p-out"], ["Retrying", "p-retry"], ["Lost", "p-lost"], ["Lost on retry", "p-rlost"],
+      ["Gave energy", "p-wait"], ["Confirmed", "p-ok"], ["Not counted", "p-nc"],
+    ]
+    const baseWidth = Number(/\.zp \{[^}]*stroke-width: ([\d.]+)/.exec(zoneCss)?.[1])
+    for (const [label, cls] of cases) {
+      const kind = ZONE_LINES.find((k) => k.label === label)!
+      const body = rule(cls)
+      expect(body, cls).toContain(`stroke: ${kind.stroke}`)
+      expect(kind.width, cls).toBe(Number(/stroke-width: ([\d.]+)/.exec(body)?.[1] ?? baseWidth))
+      expect(kind.dash ?? null, cls).toBe(/stroke-dasharray: ([\d ]+);/.exec(body)?.[1] ?? null)
+    }
+  })
+
+  it("draws each map swatch with its arc's colour, width and dash (replay.css), by lens", () => {
+    const rule = (cls: string) => new RegExp(`\\.${cls} \\{([^}]*)\\}`).exec(replayCss)?.[1] ?? ""
+    const baseWidth = Number(/\.arc \{[^}]*stroke-width: ([\d.]+)/.exec(replayCss)?.[1])
+    const cases: Array<[keyof typeof MAP_LINES, string, string]> = [
+      ["send", "Orders out to sell", "arc-send"], ["send", "Charge orders", "arc-charge"],
+      ["keep", "Orders out (Keep view)", "arc-keep"], ["trust", "Orders out (Trust view)", "arc-live"],
+    ]
+    for (const [lens, label, cls] of cases) {
+      const kind = MAP_LINES[lens].find((k) => k.label === label)!
+      const body = rule(cls)
+      expect(body, cls).toContain(`stroke: ${kind.stroke}`)
+      expect(kind.width, cls).toBe(Number(/stroke-width: ([\d.]+)/.exec(body)?.[1] ?? baseWidth))
+      expect(kind.dash ?? null, cls).toBe(/stroke-dasharray: ([\d ]+);/.exec(body)?.[1] ?? null)
+      expect(kind.opacity ?? null, cls).toBe(/opacity: ([\d.]+)/.exec(body) ? Number(/opacity: ([\d.]+)/.exec(body)![1]) : null)
+    }
+    expect(renderToStaticMarkup(createElement(ReplayPage, { scenarios: null, state: berylSession(), nowMs: 0 } as never)))
+      .toContain(">Orders out to sell</")
   })
 
   it("is pinned while scrolling and wraps at narrow widths", () => {

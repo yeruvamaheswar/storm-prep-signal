@@ -81,6 +81,9 @@ export function ReplayPage({
   const [lens, setLens] = useState<Lens>("send")
   const [drawer, setDrawer] = useState<Drawer>(null)
   const opener = useRef<HTMLElement | null>(null)
+  // The playback bar's real height, so the map keeps Texas above it (the Day view bar is taller than Watch orders').
+  const bottomRef = useRef<HTMLDivElement | null>(null)
+  const [bottomH, setBottomH] = useState<number | null>(null)
   const previousDrawer = useRef<Drawer>(null)
   const session = sessionOrNull(state)
   const zoneView = selectedZone || null
@@ -100,6 +103,19 @@ export function ReplayPage({
   const wx = alertCounties(session?.provenance, session?.alerts)
   const zoneRain = zoneView && wx !== null ? zoneHasRain(zoneView, rainFips(wx), session?.counties ?? ROSTER_COUNTIES) : undefined
 
+  useEffect(() => {
+    const el = bottomRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const measure = () => {
+      const h = el.getBoundingClientRect().height
+      if (h > 0) setBottomH(Math.round(h))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   // Return focus to the button that opened the drawer once every drawer is closed.
   useEffect(() => {
     if (previousDrawer.current && !drawer && opener.current?.isConnected) opener.current.focus()
@@ -113,7 +129,7 @@ export function ReplayPage({
 
   return (
     <>
-    <LineLegend />
+    <LineLegend lens={lens} view={zoneView ? "zone" : "map"} />
     <main className={`replay-scene${zoneView && openHome ? " has-home" : ""}${paused ? " is-paused" : ""}`}>
       {zoneView ? (
         <ZoneBoard
@@ -139,6 +155,7 @@ export function ReplayPage({
           baseFloorPct={baseFloor(session)}
           provenance={session?.provenance ?? null}
           alerts={session?.alerts ?? []}
+          padBottom={bottomH === null ? undefined : 20 + bottomH + 24}
           tSeconds={tSeconds}
           lens={lens}
           notice={notice}
@@ -189,7 +206,7 @@ export function ReplayPage({
           <AboutDataDrawerEmpty onClose={() => setDrawer(null)} />
         )
       ) : null}
-      <div className="replay-bottom">
+      <div className="replay-bottom" ref={bottomRef}>
         {postError ? <p className="replay-post-error" role="alert">{postError}</p> : null}
         <PlaybackBar state={session} tSeconds={tSeconds} speedsAvailable={!scenariosFailed} onSend={onSend}
           view={view} onView={onView} dayPlayheadMs={dayPlayheadMs} observedStepSeconds={observedStepSeconds} seek={seek} />

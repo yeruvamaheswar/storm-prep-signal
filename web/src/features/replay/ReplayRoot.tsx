@@ -93,7 +93,9 @@ export function ReplayRoot() {
           // marks and playhead are read from this state, so they follow it.
           const key = runKey(next)
           setArrivals((prev) => trackArrivals(prev, { key, tickIndex: next.tick_index, playing, speed: next.speed, atMs: now }))
-          setSeekPending((prev) => settleSeek(prev, { seeking: next.seeking, tickIndex: next.tick_index, key }, now))
+          setSeekPending((prev) => settleSeek(prev, {
+            seeking: next.seeking, tickIndex: next.tick_index, key, lastSeekSeq: next.last_seek?.seq ?? null,
+          }, now))
         }
       } catch {
         if (!cancelled) setApiDown(true)
@@ -114,10 +116,14 @@ export function ReplayRoot() {
 
   const live = state && !isWorkerDown(state) && !apiDown ? state : null
 
-  function send(request: FlowRequest) {
+  function send(request: FlowRequest, sentAtMs?: number) {
     rememberSpeed(sentSpeed, request, live?.speed ?? null, Date.now())
     sendRequest(fetch, base, request)
-      .then(() => setPostError(null))
+      .then((seq) => {
+        setPostError(null)
+        // The worker answers a seek by this seq in `last_seek`; keep it on the seek it belongs to.
+        if (request.kind === "seek") setSeekPending((prev) => (prev && prev.atMs === sentAtMs ? { ...prev, seq } : prev))
+      })
       .catch((err: unknown) => {
         setPostError(`Could not send "${request.kind}": ${errorText(err)}.`)
         if (request.kind === "seek") setSeekPending(null)
@@ -128,12 +134,17 @@ export function ReplayRoot() {
     // Rajat's coupling: Play or Start in Day view first asks for the day pace when the speed is not a day stop.
     const x = viewPlaySpeed(view, request, live)
     if (x !== null) send({ kind: "speed", body: { x } })
+    // A start or reset (a same-seed restart keeps the run key) drops any seek still pending.
+    if (request.kind === "start" || request.kind === "reset") setSeekPending(null)
     if (request.kind === "seek") {
       const win = live ? dayWindow(live) : null
+      const atMs = Date.now()
       setSeekPending({
         tick: request.body.tick, label: win && live ? seekClock(win, request.body.tick, live.tick_minutes) : null,
-        atMs: Date.now(), key: runKey(live), sawSeeking: false,
+        atMs, key: runKey(live), sawSeeking: false, seq: null, fromIndex: live?.tick_index,
       })
+      send(request, atMs)
+      return
     }
     send(request)
   }
