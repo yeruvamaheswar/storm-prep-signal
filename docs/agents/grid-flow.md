@@ -121,7 +121,7 @@ JEV (TypeSafe's yes/no model) used to decide, county by county, whether an alert
 
 ### Limits
 
-The page prints the county line, and the four day-ahead (DAM) lines, from `HONEST_LIMITS`.
+The page prints the county line, and the five day-ahead (DAM) lines, from `HONEST_LIMITS`.
 
 - The roster and its county-to-zone mapping are approximate.
 - No model weighs how dangerous an alert is. A heat advisory or a hail-only warning raises its named counties like a hurricane warning.

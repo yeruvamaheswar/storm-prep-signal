@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest"
 import { OPERATOR_ID, sendRequest } from "../src/features/flow/api"
 import { DataPanel } from "../src/features/flow/DataPanel"
 import {
-  alertCountyRows,
   chargeSpeedCaption,
   chosenAlertId,
   compareWithArchive,
@@ -16,7 +15,7 @@ import {
   flowDirection,
   flowStroke,
   fmtScenarioTime,
-  REASON_LABEL,
+  namedCountyRows,
   reasonLabel,
   weatherStepRequests,
   zoneFloorText,
@@ -223,7 +222,7 @@ describe("flow views", () => {
 
 describe("weather step (grid-down overlay)", () => {
   const beryl = { id: "beryl-hurricane-warning", event: "Hurricane Warning", zones: ["Houston"] }
-  const sent: ActiveAlert = { ...beryl, sent_at_tick: 3 }
+  const sent: ActiveAlert = { ...beryl, sent_at_tick: 3, jev: null }
   function stepState(alerts: ActiveAlert[], down: string[]) {
     return {
       alerts, grid_down_zones: down,
@@ -304,7 +303,7 @@ describe("alert county floor", () => {
     home("home-006", "48201", "Harris", 30, "not_in_alert"),
   ]
   const freeze: ActiveAlert = {
-    id: "heather-harris-hard-freeze-warning", event: "Hard Freeze Warning", zones: ["Houston"], sent_at_tick: 2,
+    id: "heather-harris-hard-freeze-warning", event: "Hard Freeze Warning", zones: ["Houston"], sent_at_tick: 2, jev: null,
     named_counties: [
       { fips: "48157", county_name: "Fort Bend", zone: "Houston" },
       { fips: "48167", county_name: "Galveston", zone: "Houston" },
@@ -349,16 +348,13 @@ describe("alert county floor", () => {
   })
 
   it("lists the counties the alert names, in the order the worker sent them", () => {
-    expect(alertCountyRows(freeze).map((r) => r.fips)).toEqual(["48157", "48167"])
-    expect(alertCountyRows({ ...freeze, named_counties: undefined })).toEqual([])
+    expect(namedCountyRows(freeze).map((r) => r.fips)).toEqual(["48157", "48167"])
+    expect(namedCountyRows({ ...freeze, named_counties: undefined })).toEqual([])
   })
 
-  it("labels both county reasons and no longer knows the JEV ones", () => {
+  it("labels both county reasons", () => {
     expect(reasonLabel("weather_alert")).toBe("NWS weather alert")
     expect(reasonLabel("not_in_alert")).toBe("County not named by the alert (base floor)")
-    for (const gone of ["weather_alert_jev_yes", "weather_alert_no_jev", "jev_no"]) {
-      expect(REASON_LABEL).not.toHaveProperty(gone)
-    }
   })
 
   it("shows county headers and display names in the zone drill-in", () => {

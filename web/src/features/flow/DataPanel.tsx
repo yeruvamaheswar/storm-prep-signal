@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { alertCountyRows, fmtMw, fmtScenarioTime, fmtUsd, reasonLabel } from "./flowMath"
+import { fmtMw, fmtScenarioTime, fmtUsd, namedCountyRows, reasonLabel } from "./flowMath"
 import type { ActiveAlert, FlowTick, SessionState, StartSummary } from "./types"
 import { FLOW_ZONES } from "./types"
 
@@ -62,7 +62,7 @@ function StartBlock({ start }: { start: StartSummary }) {
 }
 
 function AlertBlock({ alert, tick }: { alert: ActiveAlert; tick: FlowTick | null }) {
-  const rows = alertCountyRows(alert)
+  const rows = namedCountyRows(alert)
   return (
     <div className="flow-alert">
       <p className="flow-alert-event">{alert.event}</p>

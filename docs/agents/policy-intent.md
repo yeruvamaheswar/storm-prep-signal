@@ -1,6 +1,6 @@
 # Charge / hold / discharge intent
 
-**Decision (2026-09-27, user): above its floor, each load zone charges in its cheapest upcoming ERCOT day-ahead (DAM) hours, not whenever its price is at or below $25.** Selling, the storm cap and refill to the floor do not change. See "Cheapest DAM hours" below.
+**Decision (2026-09-27, user): above its floor, each load zone charges in its cheapest upcoming ERCOT day-ahead (DAM) hours, not whenever its price is at or below $25.** Selling, the storm cap and refill to the floor do not change. It is not a net win everywhere: in the `heather-spike` replay it nets about $198 less (open finding). See "Cheapest DAM hours" below.
 
 **Decision (2026-09-26, latest): a battery under its reserve floor charges back to that floor from the grid, at any price.** Rajat chose this; it replaces "refill is price-only". The point is to have the reserve in place before a storm lands: a weather alert or HIGH risk raises the floor to `storm_reserve_pct`, and every live, grid-up home under it refills, even at $60+. See "Refill to the floor" below.
 
@@ -90,34 +90,65 @@ What the zone records (`Policy.zone_charge_why`, copied to `TickResult`):
 | `full` | hold | Hours needed is 0 |
 | `sell_band` | discharge | The price band said discharge; DAM never stops a sale |
 
-A tick that charged because of this rule reads charge / `dam_cheap_hour` (or `rt_dip`) from `acted_intent` (table at the top). `ROUND_TRIP_PCT` (89) is an example setting: `CONSTRAINTS.md`, "Stale data". Honest limits (sized per zone, payback on DAM not the real-time that happens, one fetch a day, 89% example): `HONEST_LIMITS` in `server/engine/scenario.py`.
+A tick that charged because of this rule reads charge / `dam_cheap_hour` (or `rt_dip`) from `acted_intent` (table at the top). `ROUND_TRIP_PCT` (89) is an example setting: `CONSTRAINTS.md`, "Stale data". Honest limits (sized per zone, payback on DAM not the real-time that happens, one fetch a day, 89% example, can wait past a real dip for a cheaper hour beyond a price spike): `HONEST_LIMITS` in `server/engine/scenario.py`.
 
 ### Backtest: is DAM a good forecast of the cheap real-time hours?
 
 `scripts/backtest_dam.py` (commands: [dam-forecast.md](dam-forecast.md#scripts)). For each saved DAM day and load zone, it compares the k cheapest DAM hours with the k cheapest real-time hours (NP6-905-CD 15-minute prices from Supabase `ercot_prices`, averaged to hours). "Hit" is the share of DAM-chosen hours that really were among the k cheapest. The dollar columns are the average real-time $/MWh actually paid.
 
-First run: 8 zone-days (4 load zones × 2026-08-30 and 2026-08-31).
+**Result (2026-09-27): DAM-chosen hours cost about $1.80 to $2.70/MWh more than perfect hindsight, and about $3.70 to $4.10/MWh less than the $25 band on the days both could charge.** DAM finds 60% to 67% of the cheapest hours from k = 2 up, but only 31% of the single cheapest hour.
+
+All 18 scenario DAM days were fetched; ERCOT serves the 2024 dates. It rate-limits with HTTP 429, so the fetch was rerun after about 65 s. 17 days were scored, 68 zone-days. 2024-01-18 was skipped because its real-time prices in Supabase are incomplete.
 
 | k hours | Hit | DAM-chosen, real-time $/MWh | Hindsight, real-time $/MWh |
 |---|---|---|---|
-| 1 | 12% | 18.47 | 17.53 |
-| 2 | 62% | 18.12 | 17.93 |
-| 3 | 75% | 18.78 | 18.30 |
-| 4 | 78% | 19.26 | 18.74 |
+| 1 | 31% | 19.47 | 16.74 |
+| 2 | 60% | 19.55 | 17.65 |
+| 3 | 67% | 20.84 | 18.67 |
+| 4 | 67% | 21.64 | 19.81 |
 
-Today's $25 band (the first k hours at or under $25) paid about $22 to $23/MWh real-time.
+Against the $25 band, counted only on zone-days with at least k hours at or under $25 (real-time $/MWh paid):
 
-- DAM rarely names the single cheapest real-time hour (12% at k = 1). From 2 hours up it finds most of them (62% to 78%).
-- The price paid is what matters: the DAM-chosen hours cost $0.19 to $0.94/MWh more than perfect hindsight, and roughly $3 to $5/MWh less than the $25 band.
-- Two late-summer days are not enough to call this a win across seasons or storms.
+| k hours | Zone-days | $25 band | DAM-chosen | Hindsight |
+|---|---|---|---|---|
+| 1 | 59 | 21.59 | 17.89 | 15.14 |
+| 2 | 54 | 20.52 | 16.38 | 15.20 |
+| 3 | 45 | 19.60 | 15.81 | 14.51 |
+| 4 | 37 | 18.61 | 14.59 | 13.72 |
 
-<!-- numbers: all-days backtest + replay pending -->
-All saved DAM days: pending.
+Worst misses:
+
+- 2026-09-03: about 0% hit in almost every zone.
+- 2024-07-08, South: the DAM-chosen hours paid $21 to $28/MWh against $10 to $11 in hindsight.
+- 2026-09-16, West: $40 to $67/MWh against $21 to $28.
+
+History: the first run, 8 zone-days on 2026-08-30/31, gave hits of 12% / 62% / 75% / 78% for k = 1 to 4. Two days were too few to judge.
 
 ### Replay
 
-<!-- numbers: all-days backtest + replay pending -->
-Pending: `calm-charge`, `heather-spike`, `heather-thaw` and `beryl-landfall`, seed 42, before and after the rule. For each: kWh charged by hour, average price paid to charge, dollars delivered, ticks per `zone_charge_why` reason, and breaches (must be 0).
+**Finding (2026-09-27, open, pending the user's decision): the rule is not a net win in every scenario.** It nets more in `calm-charge`, `heather-thaw` and `beryl-landfall`, and about $198 less in `heather-spike`. 0 breaches before and after in all four.
+
+Seed 42. "Before" is the old tape (no DAM) on today's engine, so the $25/$60 bands. Net $ is dollars delivered minus the cost of charging.
+
+| Scenario | kWh charged | Avg $/MWh to charge | $ delivered | Net $ | Breaches |
+|---|---|---|---|---|---|
+| `calm-charge` | 1344.8 → 1311.6 | 20.55 → 16.10 | 129.01 → 127.87 | 101.37 → 106.76 | 0 → 0 |
+| `heather-spike` | 1447.8 → 1158.3 | 23.97 → 46.65 | 1075.78 → 896.72 | 1041.08 → 842.68 | 0 → 0 |
+| `heather-thaw` | 2116.3 → 1734.8 | 14.12 → 8.98 | 64.41 → 63.45 | 34.53 → 47.87 | 0 → 0 |
+| `beryl-landfall` | 1512.2 → 1530.0 | 15.73 → 11.92 | 10.32 → 8.17 | −13.46 → −10.07 | 0 → 0 |
+
+Where charging moved: `calm-charge` 07-08h → 08-10h; `heather-spike` 14-15h → 12-13h; `heather-thaw` spread more evenly; `beryl-landfall` 22-23h → 00-03h.
+
+Reasons, in zone-ticks:
+
+| Scenario | `dam_cheap_hour` | `rt_dip` | `cheaper_hour_later` | `no_payback` | `full` | `sell_band` |
+|---|---|---|---|---|---|---|
+| `calm-charge` | 216 | 12 | 331 | 0 | 0 | 165 |
+| `heather-spike` | 0 | 90 | 126 | 0 | 0 | 268 |
+| `heather-thaw` | 24 | 231 | 255 | 0 | 1 | 117 |
+| `beryl-landfall` | 135 | 328 | 282 | 3 | 0 | 24 |
+
+Why `heather-spike` loses: before 13:30 the only chosen Houston DAM hour was $78.54, so real-time at $44 to $54 counted as `rt_dip` and the zone charged there. At 13:30 tomorrow's DAM arrived with $16 to $22 midday hours. The zone then waited (`cheaper_hour_later`) through today's real $21 dip from 14:30 to 16:00, and entered the $1,165 peak with less charge. The 24-hour window never asks whether a high-priced sell period falls between now and the chosen hour. This is also a line in `HONEST_LIMITS`.
 
 Tests: `tests/test_dam.py` (parser, window, fetch, backtest scoring), `tests/test_fleet.py` (`zone_hours_needed`), the `test_dam_*` cases in `tests/test_policy.py` (one per row above, plus no DAM and HOLD), and in `tests/test_controller.py` a home under its floor still refills on a DAM hold hour and `acted_intent` names the DAM reason.
 
