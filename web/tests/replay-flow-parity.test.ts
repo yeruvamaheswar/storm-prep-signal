@@ -342,7 +342,7 @@ const berylScenario: SessionState["scenario"] = {
   name: "Hurricane Beryl landfall",
   event: "beryl",
   window: "2024-07-07 22:00 to 2024-07-08 14:00 CT",
-  summary: "Beryl came ashore early on July 8. Houston load fell away and LZ_HOUSTON went negative from about 08:00 to 13:30. Prices stay under $25 all window, so the fleet charges to full; the storm rule never read HIGH. The operator can mark a zone's grid down (overlay) to show batteries carrying homes.",
+  summary: "Beryl came ashore early on July 8. Houston load fell away and LZ_HOUSTON went negative from about 08:00 to 13:30. Prices stay under $25 all window, but each zone charges only in its cheapest day-ahead hours or on a real-time dip below them, so the fleet fills in steps and is about 98% full by 03:30; the storm rule never read HIGH. The operator can mark a zone's grid down (overlay) to show batteries carrying homes.",
   label: "recorded ERCOT; target synthetic:price-shaped",
   tape: "tapes/scenarios/beryl-landfall.json",
   baseline: "data/fixtures/beryl/baseline.json",
