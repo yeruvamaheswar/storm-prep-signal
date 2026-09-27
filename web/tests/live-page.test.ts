@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest"
 import { LivePage, type LivePageProps } from "../src/features/live/LivePage"
 import { homesFromReply, ordersFromReply, runFromReply, type HomesState } from "../src/features/live/liveModel"
 import { PromisePanel } from "../src/features/replay/PromisePanel"
+import { homeName } from "../src/features/replay/homeName"
 import tokens from "../src/design/tokens.css?raw"
 import {
   archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, oldRun10k, runLatest, tableRunNoSettings,
@@ -66,7 +67,8 @@ describe("Live page: not live", () => {
     const later = Date.parse("2026-09-27T17:31:00Z")
     const html = render({ nowMs: later })
     expect(html).toContain("Not live, last tick 11 min ago")
-    expect(html).toContain("No new tick since 12:20 CT, so the live worker looks stopped.")
+    expect(html).toContain("No new tick since 12:20 CT, so the live worker looks stopped or asleep.")
+    expect(html).not.toContain("only when someone starts it")
     expect(html).toContain("Last tick ran at 12:20 CT. Next tick was due at 12:25 CT and has not arrived.")
     expect(html).not.toContain("Live from ERCOT")
     expect(html).not.toContain("$185")
@@ -79,6 +81,15 @@ describe("Live page: not live", () => {
     expect(html).toContain("The newest run is from before the 100-home demo fleet, so it is not shown.")
     expect(html).not.toMatch(/10,?000/)
     expect(html).not.toContain("This tick, whole fleet")
+    expect(replayButton(html)).toContain("disabled")
+  })
+
+  it("a fresh tick whose ERCOT data check failed never wears the Live from ERCOT pill", () => {
+    const html = render({ snapshot: { kind: "ready", value: { ...liveSnapshot, quality: "auth" } } })
+    expect(html).toContain("Live tick, ERCOT data check failed")
+    expect(html).toContain("The newest tick&#x27;s ERCOT data check failed (auth), so it is not shown as live.")
+    expect(html).not.toContain("Live from ERCOT")
+    expect(html).not.toContain("$185")
     expect(replayButton(html)).toContain("disabled")
   })
 
@@ -185,6 +196,29 @@ describe("Live page: orders present", () => {
     expect(zone).not.toContain("home-002")
     const south = render({ selectedZone: "South" })
     expect(south).not.toContain("home-001")
+  })
+
+  it("names homes with the shared homeName helper (the engine's name from /v1/homes), never its own format", () => {
+    expect(html).toContain(`${homeName({ id: "home-001", name: "Houston-Harris-001" })} confirmed`)
+    const zone = render({ selectedZone: "Houston" })
+    expect(zone).toContain("Houston-FortBend-005")
+    // No name and no county: the helper's raw-id fallback.
+    expect(homeName(homesFromReply(homesRows, headers(homesHeaders)).homes[5])).toBe("home-006")
+  })
+
+  it("an open home that took over another home's order names that home, not its raw id", () => {
+    // Real reassignment shape: home-002 handed its order to home-005.
+    const reassigned = {
+      ...liveOrders,
+      orders: {
+        ...liveOrders.orders,
+        "home-002": [[0, "sent", 1.2, "own"], [60, "timeout", null, "own"], [60, "reassigned", "home-005", "own"]],
+        "home-005": [[60, "sent", 1.2, "r"], [64, "exec", 1.2, "r"], [70, "conf", 1.2, "r"]],
+      },
+    }
+    const panel = render({ orders: ordersFromReply(200, reassigned), selectedZone: "Houston", selectedHome: "home-005" })
+    expect(panel).toContain("Taken over from North-Dallas-002")
+    expect(panel).not.toContain("Taken over from home-002")
   })
 
   it("never shows the table's stale charge: an open home says Not reported", () => {

@@ -130,10 +130,29 @@ describe("is this live?", () => {
     expect(status(ready(liveSnapshot), run, 100, later)).toEqual({
       kind: "not_live",
       pill: "Not live, last tick 11 min ago",
-      reason: "No new tick since 12:20 CT, so the live worker looks stopped. It runs only when someone starts it.",
+      reason: "No new tick since 12:20 CT, so the live worker looks stopped or asleep.",
     })
     // Within the worker's normal lag (one extra tick length) it is still live.
     expect(status(ready(liveSnapshot), run, 100, Date.parse("2026-09-27T17:29:00Z"))).toEqual({ kind: "live" })
+  })
+
+  it("a fresh matching tick whose ERCOT data check failed is not live, and names the failed check", () => {
+    expect(status(ready({ ...liveSnapshot, quality: "auth" }))).toEqual({
+      kind: "not_live",
+      pill: "Live tick, ERCOT data check failed",
+      reason: "The newest tick's ERCOT data check failed (auth), so it is not shown as live.",
+    })
+    expect(status(ready({ ...liveSnapshot, quality: "stale_feed" }))).toMatchObject({
+      kind: "not_live", reason: "The newest tick's ERCOT data check failed (stale feed), so it is not shown as live.",
+    })
+    expect(status(ready({ ...liveSnapshot, quality: undefined }))).toEqual({
+      kind: "not_live",
+      pill: "Not live, run not checked",
+      reason: "The newest tick does not report its ERCOT data check, so it is not shown as live.",
+    })
+    // A stale tick still says the worker looks stopped first, whatever its check said.
+    expect(status(ready({ ...liveSnapshot, quality: "auth" }), run, 100, Date.parse("2026-09-27T17:31:00Z")))
+      .toMatchObject({ pill: "Not live, last tick 11 min ago" })
   })
 
   it("an archive, scenario or sample snapshot is not live", () => {
@@ -252,6 +271,13 @@ describe("tick timing", () => {
   it("an archive tick is stamped with its archive clock and gets no countdown", () => {
     expect(tickTiming(archiveSnapshot, settings, NOW_1221))
       .toBe("Newest tick is stamped Sep 25, 12:00 CT (archive clock). Next tick: Not reported, this is not a live run.")
+  })
+
+  it("only an archive tick is called an archive clock; a scenario or sample tick is not", () => {
+    for (const source of ["scenario", "fixture", undefined]) {
+      expect(tickTiming({ ...archiveSnapshot, source }, settings, NOW_1221))
+        .toBe("Newest tick is stamped Sep 25, 12:00 CT. Next tick: Not reported, this is not a live run.")
+    }
   })
 
   it("a missing tick time is Not reported", () => {
