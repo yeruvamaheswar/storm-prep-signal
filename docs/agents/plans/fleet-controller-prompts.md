@@ -8,6 +8,8 @@ There is no ERCOT product in this repo that asks the fleet for a megawatt number
 
 ## Shared contract
 
+**Superseded 2026-09-27:** the live worker now allocates `FLEET_SIZE` homes (default 100), not 10,000. See `docs/agents/demo-fleet.md`. The text below is the original prompt.
+
 **Call.** Demo (`FLEET_SIZE=100`) stays 0.40 MW, `target_label` `synthetic`. The live worker allocates all 10,000 homes. Its call is `call_target_mw` for that fleet (40 MW unless `CALL_TARGET_MW` is set, never above the 50 MW cap). `target_label` stays `synthetic`. Do not add an ERCOT dispatch fetch.
 
 **One fleet.** The homes `orchestrate_tick` plans are the same ids as `public.homes` (`home-001` … from `new_fleet`). Charge state is not random.

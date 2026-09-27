@@ -29,6 +29,8 @@ def create_app(fixtures: FixtureStore | None = None) -> FastAPI:
         allow_origins=cors_origins(),
         allow_methods=["GET", "POST"],
         allow_headers=["Accept", "Content-Type", "X-Operator-Id"],
+        # Task 13: a cross-origin wall reads which source /v1/homes used and the fleet size.
+        expose_headers=list(v1.HOMES_HEADERS),
     )
 
     @app.exception_handler(v1.ApiError)
