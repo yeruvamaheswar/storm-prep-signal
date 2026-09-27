@@ -25,7 +25,7 @@ PostgREST `/runs` requires `run_id`, `created_at`, `source`, `result`. `created_
 | `tape_label` | tape JSON `label`, or `synthetic`, or the run id for the layout file |
 | `git_sha` | `git rev-parse HEAD`, omitted when git is missing |
 | `ercot_posting_ids` | `ercot_postings.id` for NP3-233-CD postings the run used (tape `risk_fixture`s, or `var/signal/latest_np3.json` when `source` is `live`). Misses stay off the list. |
-| `summary` | last-tick header metrics plus `tick_count` |
+| `summary` | last-tick header metrics plus `tick_count`, and the run's `settings` when the record has them (Task 9c; `run_from_table_rows` hands them back as the run's `settings`, so `/v1/runs/latest` reports `tick_minutes` and `fleet_size` from a table row too) |
 | `result` | `ticks` |
 
 Upsert: `POST /rest/v1/runs?on_conflict=run_id` with `Prefer: resolution=merge-duplicates`, same helper as `scripts/load_ercot_archive.py` `send()`.

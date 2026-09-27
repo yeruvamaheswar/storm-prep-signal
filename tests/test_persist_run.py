@@ -55,6 +55,19 @@ def test_row_maps_openapi_runs_shape(no_network):
     assert "created_at" not in row
 
 
+def test_summary_carries_the_run_settings_the_live_page_checks(no_network):
+    # Task 9c: /v1/runs/latest from a table row needs tick_minutes and fleet_size; `result` stays the ticks.
+    record = {**RECORD, "settings": {"fleet_size": 100, "tick_minutes": 5, "base_reserve_pct": 30}}
+    row = persist.row_from_record(record)
+    assert row["summary"]["settings"] == {"fleet_size": 100, "tick_minutes": 5, "base_reserve_pct": 30}
+    assert row["result"] == record["ticks"]
+
+
+def test_summary_has_no_settings_when_the_record_has_none(no_network):
+    row = persist.row_from_record({"run_id": "layout-fixture", "ticks": [LAST]})
+    assert "settings" not in row["summary"]
+
+
 def test_missing_source_is_fixture(no_network):
     row = persist.row_from_record({"run_id": "layout-fixture", "ticks": [LAST]})
 
