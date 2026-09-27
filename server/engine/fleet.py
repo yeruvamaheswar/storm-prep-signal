@@ -5,6 +5,7 @@ means lowering its `soc_kwh` by the energy it gave. The floor is checked again i
 `discharge`, so a wrong or late order can never take a home below its zone's reserve.
 """
 import json
+import math
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -363,6 +364,23 @@ def room_kw(home, settings):
     """The most this home can take in this tick: room left to full, capped by its max kW."""
     room = max(0.0, home.capacity_kwh - home.soc_kwh)
     return min(home.max_kw, room * 60 / settings["tick_minutes"])
+
+
+def zone_hours_needed(homes, settings, grid_down=()):
+    """Zone to whole hours of charging that fill it: ceil(room kWh / max kW), both summed over the zone.
+
+    Counts live homes in a known zone whose grid is up; a zone with none of them needs 0.
+    Pure. Pass the planner's view (reported homes when the battery feed is on), never the truth.
+    """
+    room, rate = {}, {}
+    for home in homes:
+        if home.status != "live" or home.zone in grid_down:
+            continue
+        room[home.zone] = room.get(home.zone, 0.0) + max(0.0, home.capacity_kwh - home.soc_kwh)
+        rate[home.zone] = rate.get(home.zone, 0.0) + home.max_kw
+    # 1e-9 keeps float noise (19.000000001 kWh at 1 kW) from asking for an extra hour.
+    return {zone: (math.ceil(room.get(zone, 0.0) / rate[zone] - 1e-9) if rate.get(zone) else 0)
+            for zone in settings.get("zones", {})}
 
 
 def discharge(homes, alloc, policy, settings):

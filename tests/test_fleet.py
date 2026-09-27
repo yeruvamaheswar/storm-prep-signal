@@ -352,3 +352,18 @@ def test_rollups_route_omits_homes(tmp_path, monkeypatch):
     assert "homes" not in body
     assert set(body["zones"]) == {"South", "North", "West", "Houston"}
     assert "home-001" not in json.dumps(body)
+
+
+def test_zone_hours_needed_rounds_up_and_skips_homes_that_cannot_charge():
+    from server.engine.contracts import Home
+    from server.engine.fleet import zone_hours_needed
+
+    def home(home_id, soc_kwh, zone="Houston", status="live", max_kw=4.0):
+        return Home(home_id, 20.0, soc_kwh, max_kw, status=status, zone=zone)
+
+    homes = [home("a", 10.0), home("b", 11.0),                      # Houston: 19 kWh room at 8 kW
+             home("c", 0.0, status="dead"), home("d", 0.0, status="stale"),
+             home("n", 20.0, zone="North"),                          # North: full
+             home("w", 0.0, zone="West")]                            # West: grid down
+    needed = zone_hours_needed(homes, settings(), grid_down={"West"})
+    assert needed == {"Houston": 3, "North": 0, "South": 0, "West": 0}

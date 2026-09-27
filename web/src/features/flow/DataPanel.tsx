@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { alertCountyRows, fmtMw, fmtScenarioTime, fmtUsd, jevFloorText, reasonLabel } from "./flowMath"
-import type { ActiveAlert, FlowCounty, FlowTick, SessionState, StartSummary } from "./types"
+import { fmtMw, fmtScenarioTime, fmtUsd, namedCountyRows, reasonLabel } from "./flowMath"
+import type { ActiveAlert, FlowTick, SessionState, StartSummary } from "./types"
 import { FLOW_ZONES } from "./types"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -61,8 +61,8 @@ function StartBlock({ start }: { start: StartSummary }) {
   )
 }
 
-function AlertBlock({ alert, counties, tick }: { alert: ActiveAlert; counties: FlowCounty[]; tick: FlowTick | null }) {
-  const rows = alertCountyRows(alert, counties)
+function AlertBlock({ alert, tick }: { alert: ActiveAlert; tick: FlowTick | null }) {
+  const rows = namedCountyRows(alert)
   return (
     <div className="flow-alert">
       <p className="flow-alert-event">{alert.event}</p>
@@ -78,39 +78,31 @@ function AlertBlock({ alert, counties, tick }: { alert: ActiveAlert; counties: F
           ? <a href={alert.source_url} target="_blank" rel="noreferrer">{alert.source_label ?? "archived NWS alert"}</a>
           : "n/a"} />
       </dl>
-      <div className="flow-jev">
-        <p className="flow-jev-title">JEV System One (TypeSafe) · county floor gate</p>
-        {alert.jev ? (
-          <dl>
-            <Row k="Question" v={alert.jev.question} />
-            <Row k="P(threat)" v={`${alert.jev.probability.toFixed(2)} (${alert.jev.answer})`} />
-            <Row k="Model" v={`${alert.jev.model} · ${alert.jev.latency_ms} ms`} />
-            <Row k="Called" v={alert.jev.called_at} />
-            <Row k="Input" v={alert.jev.input_label} />
-          </dl>
-        ) : (
-          <p className="flow-muted">No recorded JEV reading for this alert.</p>
-        )}
+      <div className="flow-named">
+        <p className="flow-named-title">Counties named in this alert</p>
         {rows.length ? (
           <table className="flow-county-table">
             <thead>
-              <tr><th>County</th><th>FIPS</th><th>P(yes)</th><th>Floor</th></tr>
+              <tr><th>County</th><th>Zone</th><th>Floor</th></tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.fips}>
-                  <td>{row.county_name}</td>
-                  <td>{row.fips}</td>
-                  <td>{row.reading ? row.reading.probability.toFixed(2) : "no reading"}</td>
-                  <td>{jevFloorText(row.decision, tick?.county_reserve_pct?.[row.fips])}</td>
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const pct = tick?.county_reserve_pct?.[row.fips]
+                return (
+                  <tr key={row.fips}>
+                    <td>{row.county_name}</td>
+                    <td>{row.zone}</td>
+                    <td>{typeof pct === "number" ? `${pct}%` : "storm reserve"}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
-        ) : null}
+        ) : (
+          <p className="flow-muted">The alert names no roster county.</p>
+        )}
         <p className="flow-muted">
-          JEV gates the alert floor per county: yes (P ≥ 0.5) raises it to the storm reserve, no keeps the base floor,
-          a missing reading keeps the storm reserve (fail safe). ERCOT HIGH still raises every county.
+          A county the alert names keeps the storm reserve; other counties in the zone keep the base floor.
         </p>
       </div>
     </div>
@@ -193,7 +185,7 @@ export function DataPanel({ state, verify }: Props) {
 
       <Section title="Weather alerts sent">
         {state.alerts.length ? state.alerts.map((alert) => (
-          <AlertBlock key={alert.id} alert={alert} counties={state.counties ?? []} tick={tick} />
+          <AlertBlock key={alert.id} alert={alert} tick={tick} />
         ))
           : <p className="flow-muted">None. Use Send alert to push an archived NWS alert into the next tick.</p>}
       </Section>

@@ -547,6 +547,15 @@ def tick_clock(tick: dict):
     return parsed.astimezone(CENTRAL)
 
 
+def _drop_stale_plan(tick: dict, now: datetime) -> dict:
+    """A DAM window older than stale_after_min must not read as the next 24 hours."""
+    ts = tick_clock(tick)
+    limit_s = read_settings()["stale_after_min"] * 60
+    if ts is None or (now - ts).total_seconds() > limit_s:
+        tick.pop("dam_hours", None)
+    return tick
+
+
 def archive_ingest(now: datetime, event=None, http_get=None, settings=None) -> dict:
     """Newest archived posting at or before `now`. A missing price is named, not a hold."""
     name = event or event_for_clock(now)
@@ -602,6 +611,9 @@ def build_snapshot(
     replay = discover_runtime(event=named, clock=_iso_clock(clock))
     origin = _origin_fields(replay, run, named)
     when = _as_when(now, clock, replay)
+    if origin["source"] == "live":
+        # Not `when`: the Live wall may send a tape `clock`, which says nothing about this tick's age.
+        _drop_stale_plan(tick, now or datetime.now(CENTRAL))
     if ingest is None and origin["source"] == "archive":
         try:
             live = archive_ingest(when, event=origin["event"])

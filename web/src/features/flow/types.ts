@@ -29,6 +29,14 @@ export type AlertSummary = {
   counties?: string[]
 }
 
+/** A roster county the alert names. Its homes keep the storm reserve. */
+export type NamedCounty = {
+  fips: string
+  county_name: string
+  zone: string
+}
+
+/** Retired JEV shapes, kept only for Replay's AlertDetail; the server no longer sends them. */
 export type JevReading = {
   question: string
   answer: string
@@ -54,6 +62,8 @@ export type CountyJev = {
 export type ActiveAlert = AlertSummary & {
   zones: string[]
   sent_at_tick: number | null
+  /** Roster order. */
+  named_counties?: NamedCounty[]
   jev: JevReading | null
   jev_by_county?: Record<string, CountyJev>
 }

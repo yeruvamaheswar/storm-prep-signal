@@ -29,6 +29,7 @@ The homes are simulated. Why we build it, and the non-negotiable principles: [PR
 | Load zone | A region of the ERCOT grid. We use four: Houston, North, South, West. |
 | NP3-233-CD | ERCOT's hourly report of how many MW of power plants are offline. Our grid-stress signal. |
 | NP6-905-CD | ERCOT's 15-minute wholesale price per load zone, in $/MWh. |
+| DAM (NP4-190-CD) | ERCOT's day-ahead price per load zone, one per hour, set the afternoon before. Zones charge in its cheapest upcoming hours. |
 | MW, kW, MWh, kWh | Power (how fast) and energy (how much). 1 MW = 1,000 kW. |
 | SOC | State of charge: energy stored in a battery right now, in kWh. |
 | Reserve floor | The share of a battery that must stay full for backup. 30% normally, 60% under storm risk (example settings). |
@@ -47,8 +48,6 @@ The homes are simulated. Why we build it, and the non-negotiable principles: [PR
 | Wall | The operator screen, a React app in `web/`. |
 | Snapshot | One tick prepared by the API for the wall (`GET /v1/snapshot`). |
 | Fail safe | On bad input, keep the higher floor and log a reason. Never crash into a lower floor. |
-| JEV | TypeSafe's yes/no model. Asked once per weather alert and county whether the alert threatens power there; on `/flow`, its answer decides whether that county's floor rises. Detail: [grid-flow.md](grid-flow.md#jev-county-gate). |
-
 ## 3. The big picture
 
 Who and what talks to ReserveGate:
@@ -97,7 +96,7 @@ flowchart TB
   SCRIPTS --> SB
   SCRIPTS --> FILES
   FILES --> ENGINE
-  ERCOT --> WORKER
+  ERCOT -->|"outage and price every cycle, DAM once a day"| WORKER
   WORKER --> SB
   WORKER --> ENGINE
   STREAM --> SB
@@ -156,9 +155,9 @@ The engine reads one NP3-233-CD posting. For each of the next 6 hours it adds up
 |---|---|---|
 | `None` (no usable reading) | 60% | `signal_unavailable` |
 | `HIGH` | 60% | `storm_risk_high` |
-| `LOW` | 30%, except 60% where a weather warning applies: a whole zone from a tape, or on `/flow` each county the alert names where JEV said yes or gave no reading | `normal`, or `weather_alert` for that zone; county reasons in [CONSTRAINTS.md](../../CONSTRAINTS.md#function-contracts) |
+| `LOW` | 30%, except 60% where a weather warning applies: a whole zone from a tape, or on `/flow` each county an active alert names (the zone's other counties stay at 30%) | `normal`, or `weather_alert` for that zone; county reasons in [CONSTRAINTS.md](../../CONSTRAINTS.md#function-contracts) |
 
-The same function sets the intent from price: HOLD or a missing price is `hold`; HIGH or no signal may `charge` when cheap and never `discharge`; LOW charges below `CHARGE_BELOW_USD` and discharges above `DISCHARGE_ABOVE_USD`. Full contract: [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
+The same function sets the intent from price: HOLD or a missing price is `hold`; HIGH or no signal may `charge` when cheap and never `discharge`; LOW charges below `CHARGE_BELOW_USD` and discharges above `DISCHARGE_ABOVE_USD`. When the tick carries DAM hours, a zone above its floor charges in its cheapest upcoming DAM hours instead of below `CHARGE_BELOW_USD`, and only if a later hour pays back the `ROUND_TRIP_PCT` loss ([policy-intent.md, "Cheapest DAM hours"](policy-intent.md#cheapest-dam-hours)). Full contract: [CONSTRAINTS.md, Function contracts](../../CONSTRAINTS.md#function-contracts).
 
 ### Splitting the target (`server/engine/controller.py`)
 
@@ -181,10 +180,10 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | Shape | What it is |
 |---|---|
 | `Home` | One battery: capacity, stored energy, max kW, status (`live`, `stale`, `dead`), zone, and county (FIPS; set only on `/flow`). |
-| `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
-| `Policy` | The floors (fleet, per zone, and per county of an alerted zone), the reasons, the risk level, the intent. |
+| `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events, and which DAM day files were published (`dam_fixtures`). |
+| `Policy` | The floors (fleet, per zone, and per county of an alerted zone), the reasons, the risk level, the intent, and for zones with DAM hours the chosen charge hours and why (`zone_charge_hours`, `zone_charge_why`). |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. `county_reserve_pct` and `county_reasons` give each county of an alerted zone its floor and reason (the JEV county gate). |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. `county_reserve_pct` and `county_reasons` give each county of an alerted zone its floor and reason (named-county rule, [grid-flow.md](grid-flow.md#named-county-rule)). `dam_hours`, `dam_label`, `dam_as_of`, `zone_hours_needed`, `zone_charge_hours` and `zone_charge_why` carry the next 24 DAM hours and each zone's charge plan, which the Live wall's Next 24 h price panel shows ([dam-forecast.md](dam-forecast.md)). |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -193,12 +192,13 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | Place | What | Lifetime |
 |---|---|---|
 | `tapes/` | Replay tapes: `demo.json` (hand-written, synthetic), `heather.json` (built from Supabase), and `scenarios/` (the `/flow` tapes, their provenance sidecars, and `catalog.json`, built from Supabase). | Committed |
-| `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`, archived NWS alerts (`fixtures/nws/`) and their JEV readings, one per alert and county (`fixtures/jev/<alert_id>/<fips>.json`). | Committed, except raw zips |
+| `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`, archived NWS alerts (`fixtures/nws/`), and ERCOT DAM prices, one file per delivery day (`fixtures/dam/np4_190_cd_YYYYMMDD.json`, from `scripts/fetch_dam_prices.py`). | Committed, except raw zips |
 | `var/runs/` | Run files. The source of truth. | Local, gitignored |
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
 | `var/state.json` | Operator mode, `AUTO` or `HOLD`, local cache for this process. | Local, gitignored |
 | Supabase `operator_settings` | One fleet-wide HOLD / AUTO row so Render and the laptop worker share the mode. | Remote, optional |
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
+| `var/dam/` | Live DAM cache: one file per delivery day, fetched once and reused by every live cycle that day. | Local, gitignored, ephemeral (refetched after a restart) |
 | `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
 | `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
 | `var/scenario/` | `/flow` inbox and output: `requests.json` (appended by the API), `state.json` (rewritten by the scenario worker), `logs/`. | Local, gitignored |
@@ -227,6 +227,7 @@ How the mode is chosen and what each shows: [runtime-mode.md](runtime-mode.md).
 | Outage posting older than 90 minutes | Treated as no signal (same as above), quality `stale` | `signal.py`, `feeds.py` |
 | ERCOT keys missing or refused | Quality `auth`, fail safe as above | `feeds.py` |
 | Price missing | Intent `hold` with `price_unavailable`. The floor does not change. | `policy.py` |
+| DAM fetch fails, tomorrow is not posted yet, or a DAM file is broken | That day is left out (logged `fetch_dam_prices failed` or `stage=dam`) and tried again next live cycle. Zones without DAM hours use the `CHARGE_BELOW_USD` / `DISCHARGE_ABOVE_USD` bands. | `loop.py`, `signal.py` |
 | Baseline file missing or too short | The run stops with `BaselineError`. A setup error, not "no signal". | `baseline.py` |
 | A home goes dead or stale | It gets 0 kW. Reasons `homes_dead:n`, `homes_stale:n`. The rest keep working. | `controller.py` |
 | Not enough headroom | Target missed, reason `fleet_headroom_short` or `storm_reserve`. Never a breach. | `controller.py` |
@@ -282,8 +283,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
-
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/fetch_dam_prices.py` and `python scripts/backtest_dam.py` (save ERCOT DAM days, and score DAM against real-time; [dam-forecast.md, Scripts](dam-forecast.md#scripts)), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
 ### Settings
 
 Names and example values live in `.env.example`; `cli.read_settings()` and `server/env.py` read them. Values go in `.env` or `server/.env`, never in git.
@@ -293,13 +293,13 @@ Names and example values live in `.env.example`; `cli.read_settings()` and `serv
 | `ERCOT_USERNAME`, `ERCOT_PASSWORD`, `ERCOT_SUBSCRIPTION_KEY` | ERCOT API login. Server side only. |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Optional history. Server side only. |
 | `SUPABASE_DB_PASSWORD` | Optional. DDL only (CREATE TABLE). Not the Data API secret. |
-| `JEV_API_KEY` | Optional. Only `scripts/jev_shadow.py` uses it, to record JEV readings. The engine never calls JEV; `/flow` reads the recorded files. |
 | `RISK_MARGIN_PCT`, `LOOKAHEAD_HOURS` | The storm rule: margin over baseline, hours ahead. |
 | `FETCH_TIMEOUT_S`, `STALE_AFTER_MIN` | Network timeout, and when a posting counts as too old. |
 | `FLEET_SIZE`, `HOME_KWH`, `HOME_MAX_KW`, `HOME_START_SOC_MIN_PCT`, `HOME_START_SOC_MAX_PCT` | The simulated fleet. Example values, not Base specs. |
 | `CALL_TARGET_MW` | The Live and archive target. Unset scales the demo peak with the fleet size. |
 | `BASE_RESERVE_PCT`, `STORM_RESERVE_PCT` | The two floors. |
 | `CHARGE_BELOW_USD`, `DISCHARGE_ABOVE_USD` | Price bands for intent. |
+| `ROUND_TRIP_PCT` | Share of energy a battery gives back (89, Powerwall 3 datasheet; an example, not a Base spec). The DAM payback test. Rule: [CONSTRAINTS.md, Stale data](../../CONSTRAINTS.md#stale-data). |
 | `TICK_MINUTES` | Length of one tick. |
 | `CHANNEL_DROP_RATE`, `CHANNEL_DUP_RATE`, `CHANNEL_LATE_RATE` | Simulated bad network for every tick, 0 to 1 (default 0, clean). A tape `network` event overrides them for one tick. |
 | `TELEMETRY_FEED`, `TELEMETRY_EVERY_S`, `TELEMETRY_STALE_AFTER_S`, `TELEMETRY_DEAD_AFTER_S` | Simulated battery feed: on unless `0`; one reading per home every 10 s; a home is stale after 180 s and dead after 600 s without a reading. Example values. Detail: [telemetry-vpp.md](telemetry-vpp.md). |

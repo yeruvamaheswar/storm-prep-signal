@@ -1,6 +1,6 @@
 # Grid flow page (`/flow`)
 
-**Decision (2026-09-26).** `/flow` is an animated view of the real engine playing one archive scenario a tick at a time. A session worker (`scripts/scenario_session.py`) is the only process that runs the engine for it. It runs on the laptop, or beside uvicorn in the Render instance (decided 2026-09-26, see "Run it on Render"). The `/v1/scenario*` routes only record operator requests and read the worker's output, as `CONSTRAINTS.md` "Backend" requires. Batteries start at a seeded random charge. The operator can send a real archived NWS alert, and the engine reacts on the next tick. The side panel names every archive row in use. JEV decides, county by county, whether an alert raises a floor (2026-09-26, later; see "JEV county gate"). Charging refills a battery only when the zone price is cheap; there is no refill at any other price.
+**Decision (2026-09-26).** `/flow` is an animated view of the real engine playing one archive scenario a tick at a time. A session worker (`scripts/scenario_session.py`) is the only process that runs the engine for it. It runs on the laptop, or beside uvicorn in the Render instance (decided 2026-09-26, see "Run it on Render"). The `/v1/scenario*` routes only record operator requests and read the worker's output, as `CONSTRAINTS.md` "Backend" requires. Batteries start at a seeded random charge. The operator can send a real archived NWS alert, and the engine reacts on the next tick. The side panel names every archive row in use. A county an active alert names keeps the storm reserve; the zone's other counties keep base (2026-09-27; JEV removed; see "Named-county rule"). A battery under its floor refills to it at any price; above the floor it charges only when the zone price is cheap (see "Charging").
 
 People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/flow` paragraph. Allocation and fields: `CONSTRAINTS.md` allocation step 7 and "Zones".
 
@@ -30,8 +30,8 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 
 1. The page POSTs `start`, `reset`, `play`, `speed`, `step`, `alert`, or `grid-down` with `X-Operator-Id`. `server/api/scenario.py` appends it to `var/scenario/requests.json` and returns 202. `POST /v1/scenario/step` (Replay's Next tick) is recorded only while `state.json` reports `paused`: a missing or stale worker gets 409 `worker_not_running` first, any other status 409 `not_paused`.
 2. The worker reads new requests (by `seq`), applies them to its `Session` (`server/engine/scenario.py`), and when the time-lapse clock says so, plays one frame through `loop.play_frame` with the session's own fleet. A `step` request plays exactly one frame and leaves the session paused (`Session.step_paused`; refused with no scenario, while playing, or after the last tick). Pace: see "Playback pace" below.
-3. Each active alert adds its named roster counties, with their JEV P(yes) or null, to that frame's `events["weather_counties"]` (never whole zones to `events["weather"]`, so JEV gates each floor); grid-down zones go to `events["grid_down"]`. The engine then decides the tick with the usual rules.
-4. The worker writes `var/scenario/state.json`: the tick (with `county_reserve_pct` and `county_reasons`), each home's `{id, name, zone, county, county_name, soc_pct, kw, state, floor_pct, floor_reason}` (`floor_reason` is the county's reason when it has one this tick, else the zone's), zone MW selling and charging, floors and reasons, that tick's provenance rows, active alerts with `jev` (the anchor county's reading) and `jev_by_county`, `counties` (the roster: `{zone, fips, name}`), overlays, the seed and starting-charge histogram, and a short history.
+3. Each active alert adds its named roster counties to that frame's `events["weather_counties"]` as `{fips: NWS event name}` (two alerts on one county: the first name is kept), never whole zones to `events["weather"]`, so an unnamed county keeps base; grid-down zones go to `events["grid_down"]`. The engine then decides the tick with the usual rules.
+4. The worker writes `var/scenario/state.json`: the tick (with `county_reserve_pct` and `county_reasons`), each home's `{id, name, zone, county, county_name, soc_pct, kw, state, floor_pct, floor_reason}` (`floor_reason` is the county's reason when it has one this tick, else the zone's), zone MW selling and charging, floors and reasons, that tick's provenance rows, active alerts with `named_counties` (roster order, `{fips, county_name, zone}`), `counties` (the roster: `{zone, fips, name}`), overlays, the seed and starting-charge histogram, and a short history.
    - Each home row also carries `status` (the engine's own view) and `plan_status` (added 2026-09-26, Task 12): the status the planner used, taken at plan time (after the frame's status events, before orders go out), so a home that crashes mid-tick after its order reads `status "dead"` but `plan_status "live"`. With the telemetry feed on, the plan reads the batteries' reports (`telemetry.reported_homes`), so a home can be `status "live"` but `plan_status "stale"`; the planner gave it no order, and the tick's `homes_stale:N` counts it. Without the feed both are the same.
    - Each history point carries the tick's `intent` and `intent_reason` (added 2026-09-26, Task 12), copied from the tick, never re-derived. See `docs/agents/policy-intent.md` for the values.
 5. The page polls `GET /v1/scenario/state` every 500 ms. A state file older than 10 s reads as `worker_not_running`.
@@ -76,7 +76,7 @@ transport-only noise stay out of `orders`; the raw orchestration log still lives
 
 ## Charging
 
-- A battery never sells below its floor. Under its floor it refills to the floor from the grid at any price (Rajat, 2026-09-26, latest; replaces the earlier price-only refill). Filling past the floor still happens only when the zone price is at or below `CHARGE_BELOW_USD` ($25). Rule: `docs/agents/policy-intent.md` "Refill to the floor". A refilling battery reads `charging` and keeps its `under_floor_why`.
+- A battery never sells below its floor. Under its floor it refills to the floor from the grid at any price (Rajat, 2026-09-26, latest; replaces the earlier price-only refill). Filling past the floor still happens only when the zone price is at or below `CHARGE_BELOW_USD` ($25), unless the frame carries DAM days (`dam_fixtures`): then a zone fills past its floor in its cheapest upcoming DAM hours (2026-09-27, `docs/agents/policy-intent.md` "Cheapest DAM hours"). Rule: `docs/agents/policy-intent.md` "Refill to the floor". A refilling battery reads `charging` and keeps its `under_floor_why`.
 - Each battery's kW comes from `tick_emit`, which counts both `confirmed` and `charge_confirmed` reports. Before 2026-09-26 (latest) it read only `confirmed`, so every charging battery showed 0 kW and "below floor" / HOLDING even while `charging_mw` said the fleet was charging.
 - The worker clamps a charge order to `fleet.room_kw` = `min(max_kw, (capacity − soc) × 60 / tick_minutes)`, so a pack never fills past capacity. Charge is booked apart from delivery: `TickResult.charging_mw` and `zone_charging_mw`. It is never a breach.
 - A charge order is sent once: never retried, never reassigned (kept from `main` #34 when this branch merged, chosen by the user on 2026-09-26). `CycleResult.charged_mw` (from #34) equals `charging_mw`. Telemetry reports `CHARGING` for negative power.
@@ -84,36 +84,52 @@ transport-only noise stay out of `orders`; the raw orchestration log still lives
 
 ## Weather alerts
 
-- Four real archived NWS products, one file each under `data/fixtures/nws/<id>.json`, fetched from the Iowa Environmental Mesonet archive by `scripts/fetch_nws_alerts.py` (`--only <id>` for one). Every text field is verbatim; only zone codes were turned into county FIPS through the NWS zone-county correlation file. Each file carries its `source_url`.
-- The worker maps county codes to roster counties (`fleet.ZONE_COUNTIES`), and so to load zones. Codes that match no roster county are logged and ignored. An alert applies from the tick after it was sent until its `expires`, in scenario time. Which of its counties' floors rise is the JEV county gate, below.
+- Five real archived NWS products, one file each under `data/fixtures/nws/<id>.json`, fetched from the Iowa Environmental Mesonet archive by `scripts/fetch_nws_alerts.py` (`--only <id>` for one). Every text field is verbatim; only zone codes were turned into county FIPS through the NWS zone-county correlation file. Each file carries its `source_url`.
+- The worker maps county codes to roster counties (`fleet.ZONE_COUNTIES`), and so to load zones. Codes that match no roster county are logged and ignored. An alert applies from the tick after it was sent until its `expires`, in scenario time. Every roster county it names rises to the storm reserve (named-county rule, below).
 - Which alerts a scenario offers is the `alerts` list in `tapes/scenarios/catalog.json`. `build_scenarios.py` keeps that list on a rebuild.
 - The plan named a Beryl Hurricane Warning for Harris and a Heather Winter Storm Warning. Neither exists in the archive for these counties. Beryl uses the real Harris Tropical Storm Warning; Heather uses the real Dallas and Harris Hard Freeze Warnings. No text was invented.
+- The Beryl file keeps only the Inland Harris segment (`TXZ213`) of its product. The real Tropical Storm Warning (HGX TR.W 1002) also covered Fort Bend, Brazoria, Galveston and Montgomery, so today Beryl names one roster county, not five.
+- `price-spike` offers the real Dallas-Fort Worth Heat Advisory (FWD HT.Y 32, 2026): the last update before the window, issued 12:03 CT on Sep 16, in effect until 20:00 CT for Dallas, Tarrant, Collin and Denton.
 
-## JEV county gate
+## Named-county rule
 
-**Decision (2026-09-26, later; replaces "JEV shadow reading").** JEV decides which homes in an alerted zone keep more backup. When an alert names a home's county, JEV yes raises that county to the storm reserve, JEV no keeps it at base, and no reading fails safe to the storm reserve. A county in the same zone that the alert does not name keeps base. ERCOT HIGH and a missing outage signal still raise every county. Exact reasons and precedence: `CONSTRAINTS.md`, `reserve_policy` row and "Zones".
+**Decision (2026-09-27, user; replaces "JEV county gate").** When an active NWS alert names a roster county, that county's homes keep the storm reserve (60%, county reason `weather_alert`), whatever the alert type. A county in the same zone that the alert does not name keeps base (30%, `not_in_alert`). There is no event-type table and no probability. ERCOT HIGH, a missing outage signal, and a whole-zone alert still outrank it and raise every county. A zone with any named county stops price selling (zone reason `weather_alert`). Exact reasons and precedence: `CONSTRAINTS.md`, `reserve_policy` row and "Zones".
 
 - **Roster.** `fleet.ZONE_COUNTIES` is a simulation roster, anchor county first: 5 Houston counties, 4 each in North, West and South. It is not ERCOT's county map. A zone missing from it gets one county, its `ZONES` anchor, named by its FIPS.
-- **Readings.** One file per alert and county: `data/fixtures/jev/<alert_id>/<fips>.json`. The session reads them when the alert is sent (`scenario.load_jev`); `alerts[].jev_by_county[fips].decision` is `raise`, `keep_base` or `raise_no_reading`, from the reading alone. The engine only ever sees the numbers, through `events["weather_counties"]`.
-- **Recording.** `scripts/jev_shadow.py` (needs `JEV_API_KEY` in `.env`):
-  - `--alert <id>` records the anchor county of the alert's one zone.
-  - `--alert <id> --county <fips>` records one roster county the alert names.
-  - `--alert <id> --all-counties` records every named roster county with no file yet. A failure stops the run; run it again to retry the rest. A county with no file fails safe to the storm reserve.
-  - The question sent carries that county's FIPS and name (`FIPS 48157 (Fort Bend)`) and its load zone; new files add `county_fips`. With no arguments the script still writes `data/fixtures/jev_harris.json`, which the session does not read.
-- **Recorded answers** (`jev-1.13.0`; the four anchor readings are the earlier per-alert files, moved):
+- **State.** `alerts[].named_counties` lists the roster counties the alert names, in roster order. The page shows them in a "Counties named in this alert" table; each county note reads "named in alert · floor 60%" or "not named · floor 30%".
 
-| Alert | County: P(yes) | Floor it gives |
-|---|---|---|
-| `beryl-harris-tropical-storm-warning` | Harris 48201: 0.74 | 60% (the only county Beryl names) |
-| `heather-harris-hard-freeze-warning` | Harris 0.07, Fort Bend 0.06, Brazoria 0.07, Galveston 0.07, Montgomery 0.07 | 30% everywhere |
-| `heather-dallas-hard-freeze-warning` | Dallas 0.12, Tarrant 0.14, Collin 0.14, Denton 0.15 | 30% everywhere |
-| `tuning2026-midland-flash-flood-warning` | Midland 0.24, Ector 0.19 (Tom Green and Taylor not named) | 30% everywhere |
+### Why JEV was removed
 
-- **Limits.** The page prints the first one from `HONEST_LIMITS`.
-  - Readings are recorded once per alert and county, not called live.
-  - The roster and its county-to-zone mapping are approximate.
-  - A partly alerted zone stops price selling for the whole zone (zone reason `weather_alert`), even in counties kept at base.
-  - With these readings, the Heather and Midland alerts raise no floor, because JEV said no for every county. Beryl raises the 5 Harris homes only; the other 20 Houston homes stay at 30%.
+JEV (TypeSafe's yes/no model) used to decide, county by county, whether an alert raised a floor. Before removing it, a throwaway test fetched 12 real archived NWS alerts (IEM archive) and asked JEV 15 times (P(yes); 0.5 or more read as yes):
+
+| Alert | JEV P(yes) |
+|---|---|
+| Uri 2021, Harris Hard Freeze Warning | 0.08 (no) |
+| Uri 2021, Dallas Winter Storm Warning ("4 to 8 inches... wind chills as low as 15 below zero will become life threatening") | 0.34 (no) |
+| Apr 8 2024, hail-only Severe Thunderstorm Warning, storm near Hempstead/Waller | Harris 0.34, Montgomery 0.38 (no) |
+| Beryl 2024 TCV segments | Fort Bend 0.78, Brazoria (Hurricane Warning) 0.79, Galveston 0.74, Montgomery 0.75, Harris 0.74 (all yes) |
+| May 2024 derecho, Harris / Fort Bend / Montgomery | 0.89 |
+| 60 mph Harris Severe Thunderstorm Warning | 0.61 |
+| Travis Jan 2023 ice storm (issued as a Winter Storm Warning; no Ice Storm Warning exists for Travis 2021 to 2025) | 0.69 |
+| Travis Jan 2024 light glaze | 0.45 |
+| Dallas 2025 Winter Storm Warning | 0.19 |
+
+- JEV said no to both Uri alerts, the worst Texas grid storm on record.
+- On Beryl it never split the segments, so it matched the plain rule.
+- It was right once where the plain rule is not: the Apr 2024 hail-only warning. The named-county rule raises Harris and Montgomery there. That costs sales, not backup.
+- Conclusion: the county name decides where. JEV's severity call missed Uri and added nothing on Beryl, so it was removed. The five readings recorded earlier (Beryl Harris 0.74 yes; Heather Harris and Dallas freezes, Midland flood, Dallas heat all no) are history: `progress.md`, 2026-09-26 and 2026-09-27.
+
+### Limits
+
+The page prints the county line, and the five day-ahead (DAM) lines, from `HONEST_LIMITS`.
+
+- The roster and its county-to-zone mapping are approximate.
+- No model weighs how dangerous an alert is. A heat advisory or a hail-only warning raises its named counties like a hurricane warning.
+- A partly alerted zone stops price selling for the whole zone (zone reason `weather_alert`), even in counties kept at base.
+- What each alert raises today: Beryl, Harris only (5 homes; the other 20 Houston homes stay at 30%). Heather Harris freeze, all 5 Houston counties. Heather Dallas freeze and the Dallas heat advisory, all 4 North counties. Midland flood, Midland and Ector (Tom Green and Taylor stay at 30%).
+- Holding more backup is the right storm call, not always the better sale, because selling does not look ahead (the DAM rule, 2026-09-27, times charging only). Replays rerun 2026-09-27 with the named-county rule, before the DAM rule, seeds 7, 42 and 1234, alert sent after the first tick, zone revenue (`board["by_zone"][zone]["dollars"]`) with the alert against no alert:
+  - `heather-spike` (Houston): $129.12, $130.16, $128.78 with the alert (mean $129.35), against $266.40 with none. The zone sells at the $1,165 peak only without the alert.
+  - `price-spike` (North): $143.33, $137.45, $143.98 with the alert (mean $141.59), against $80.84 with none. At 30% the fleet sells into the $498 to $877 run-up and is empty by $1,000; the alert's 60% hold keeps charge until the advisory ends at 20:00. The earlier note said about $138; the removed JEV code with no readings gives the same $141.59 on these seeds, so the rule change did not move it.
 
 ## Grid down
 
@@ -126,7 +142,7 @@ transport-only noise stay out of `orders`; the raw orchestration log still lives
 
 - The grid ask on built tapes is `synthetic:price-shaped`: straight lines through $25 → 0.02 MW, $60 → 0.2 MW, $500 → 1.0 MW, flat beyond; 0.2 MW with no price. A cheap hour asks 0.02 MW; a few homes serve it and the rest charge (`docs/agents/policy-intent.md`). Heather keeps its flat 0.2 MW `synthetic` target.
 - Hand-placed events (withheld postings, faults, operator HOLD, grid down) are labeled as overlays in the sidecar, the catalog label, and the tape label.
-- `price-spike` and `operator-hold` start at the price run-up on purpose. Starting earlier, the fleet sold into the $100–$400 run-up and reached its floor before the peak, because the rules do not look ahead.
+- `price-spike` and `operator-hold` start at the price run-up on purpose. Starting earlier, the fleet sold into the $100–$400 run-up and reached its floor before the peak, because selling does not look ahead (DAM only times charging).
 - Real posting gaps never read as `signal_unavailable` (the builder uses the newest earlier posting), so `feed-failure` withholds postings by hand.
 - With the random starting charge, the most the fleet can deliver is about 0.65 MW, not the 1.14 MW cap.
 
@@ -144,4 +160,4 @@ The page prints them from `HONEST_LIMITS` in `server/engine/scenario.py`. That t
 
 ## Tests
 
-`tests/test_scenario_session.py`, `tests/test_scenario_alerts.py`, `tests/test_jev_county_floor.py`, `tests/test_build_scenarios.py`, `tests/test_grid_down.py`, the charge tests in `tests/test_orchestration.py` and `tests/test_invariants.py`, and `web/tests/flow.test.ts`.
+`tests/test_scenario_session.py`, `tests/test_scenario_alerts.py`, `tests/test_county_alert_floor.py`, `tests/test_build_scenarios.py`, `tests/test_grid_down.py`, the charge tests in `tests/test_orchestration.py` and `tests/test_invariants.py`, and `web/tests/flow.test.ts`.

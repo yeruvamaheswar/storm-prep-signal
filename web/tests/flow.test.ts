@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest"
 import { OPERATOR_ID, sendRequest } from "../src/features/flow/api"
 import { DataPanel } from "../src/features/flow/DataPanel"
 import {
-  alertCountyRows,
   chargeSpeedCaption,
+  chosenAlertId,
   compareWithArchive,
   contributionParts,
   countyFloorNote,
@@ -15,7 +15,8 @@ import {
   flowDirection,
   flowStroke,
   fmtScenarioTime,
-  jevFloorText,
+  namedCountyRows,
+  reasonLabel,
   weatherStepRequests,
   zoneFloorText,
   zoneShapes,
@@ -28,7 +29,6 @@ import type {
   FlowHome,
   FlowTick,
   FlowZoneRow,
-  JevReading,
   Provenance,
   SessionState,
 } from "../src/features/flow/types"
@@ -212,7 +212,7 @@ describe("flow views", () => {
       { id: "h2", zone: "North", soc_pct: 80, kw: 3.1, state: "selling", status: "online", floor_pct: 30 },
     ]
     const html = renderToStaticMarkup(createElement(ZoneBatteries, {
-      zone: "North", row: zoneRow(), homes, counties: [], alerts: [], stepSeconds: 1, pack: { kwh: 25, kw: 11.4 }, onClose: () => {},
+      zone: "North", row: zoneRow(), homes, counties: [], stepSeconds: 1, pack: { kwh: 25, kw: 11.4 }, onClose: () => {},
     }))
     expect(html).toContain("At floor, nothing left to sell")
     expect(html).toContain("Selling to grid")
@@ -248,6 +248,14 @@ describe("weather step (grid-down overlay)", () => {
     })
   })
 
+  it("drops an alert picked in an earlier scenario", () => {
+    const offered = [{ id: "beryl-harris-tropical-storm-warning" }]
+    expect(chosenAlertId(offered, new Set(), "heather-dallas-hard-freeze-warning")).toBe("beryl-harris-tropical-storm-warning")
+    expect(chosenAlertId(offered, new Set(), "")).toBe("beryl-harris-tropical-storm-warning")
+    expect(chosenAlertId(offered, new Set(["beryl-harris-tropical-storm-warning"]), "")).toBe("")
+    expect(chosenAlertId([{ id: "a" }, { id: "b" }], new Set(), "b")).toBe("b")
+  })
+
   it("cannot take back a sent alert", () => {
     expect(weatherStepRequests("none", stepState([sent], []), beryl.id)).toHaveProperty("blocked")
     expect(weatherStepRequests("none", stepState([], []), beryl.id)).toEqual({ requests: [] })
@@ -267,26 +275,20 @@ describe("weather step (grid-down overlay)", () => {
       { id: "home-004", zone: "Houston", soc_pct: 70, kw: 0, state: "islanded", status: "live", floor_pct: 30 },
     ]
     const html = renderToStaticMarkup(createElement(ZoneBatteries, {
-      zone: "Houston", row: zoneRow({ grid_down: true, selling_mw: 0 }), homes, counties: [], alerts: [], stepSeconds: 1, pack: null, onClose: () => {},
+      zone: "Houston", row: zoneRow({ grid_down: true, selling_mw: 0 }), homes, counties: [], stepSeconds: 1, pack: null, onClose: () => {},
     }))
     expect(html).toContain("Grid down, backing up home")
     expect(html).toContain("they neither sell nor charge")
   })
 })
 
-describe("JEV county floor gate", () => {
+describe("alert county floor", () => {
   const counties: FlowCounty[] = [
     { zone: "Houston", fips: "48201", name: "Harris" },
     { zone: "Houston", fips: "48157", name: "Fort Bend" },
     { zone: "Houston", fips: "48039", name: "Brazoria" },
     { zone: "Houston", fips: "48167", name: "Galveston" },
   ]
-  function reading(probability: number): JevReading {
-    return {
-      question: "q", answer: probability >= 0.5 ? "yes" : "no", probability, model: "jev-1.13.0",
-      called_at: "2026-09-27T00:54:29+00:00", latency_ms: 247, input_label: "archived NWS alert",
-    }
-  }
   function home(id: string, county: string, countyName: string, floor: number, floorReason: string): FlowHome {
     return {
       id, name: `Houston-${countyName.replace(/ /g, "")}-${id.slice(-3)}`, zone: "Houston", county, county_name: countyName,
@@ -295,19 +297,17 @@ describe("JEV county floor gate", () => {
   }
   // Listed out of roster order on purpose.
   const homes = [
-    home("home-005", "48167", "Galveston", 60, "weather_alert_no_jev"),
-    home("home-002", "48157", "Fort Bend", 60, "weather_alert_jev_yes"),
-    home("home-001", "48201", "Harris", 30, "jev_no"),
-    home("home-006", "48201", "Harris", 30, "jev_no"),
+    home("home-005", "48167", "Galveston", 60, "weather_alert"),
+    home("home-002", "48157", "Fort Bend", 60, "weather_alert"),
+    home("home-001", "48201", "Harris", 30, "not_in_alert"),
+    home("home-006", "48201", "Harris", 30, "not_in_alert"),
   ]
   const freeze: ActiveAlert = {
-    id: "heather-harris-hard-freeze-warning", event: "Hard Freeze Warning", zones: ["Houston"], sent_at_tick: 2,
-    jev: reading(0.07),
-    jev_by_county: {
-      "48201": { county_name: "Harris", zone: "Houston", reading: reading(0.07), decision: "keep_base" },
-      "48157": { county_name: "Fort Bend", zone: "Houston", reading: reading(0.74), decision: "raise" },
-      "48167": { county_name: "Galveston", zone: "Houston", reading: null, decision: "raise_no_reading" },
-    },
+    id: "heather-harris-hard-freeze-warning", event: "Hard Freeze Warning", zones: ["Houston"], sent_at_tick: 2, jev: null,
+    named_counties: [
+      { fips: "48157", county_name: "Fort Bend", zone: "Houston" },
+      { fips: "48167", county_name: "Galveston", zone: "Houston" },
+    ],
   }
 
   it("groups a zone's homes by county in roster order", () => {
@@ -318,68 +318,80 @@ describe("JEV county floor gate", () => {
 
   it("keeps an older worker's homes (no county) in one unnamed group", () => {
     const old: FlowHome[] = [{ id: "home-001", zone: "Houston", soc_pct: 50, kw: 0, state: "holding", status: "live", floor_pct: 30 }]
+    expect(countyFloorNote(countyGroups(old, [])[0], "normal")).toBe("floor 30% · Base floor")
     expect(countyGroups(old, [])).toEqual([{ fips: "", name: "", homes: old }])
   })
 
-  it("says in plain words why each county's floor sits where it does", () => {
+  it("says whether the alert named each county, and the floor that gave it", () => {
     const [harris, fortBend, galveston] = countyGroups(homes, counties)
-    expect(countyFloorNote(fortBend, "weather_alert", [freeze])).toBe("JEV yes 0.74 · floor 60%")
-    expect(countyFloorNote(harris, "weather_alert", [freeze])).toBe("JEV no 0.07 · floor 30%")
-    expect(countyFloorNote(galveston, "weather_alert", [freeze])).toBe("no JEV reading · floor 60% (fail safe)")
+    expect(countyFloorNote(fortBend, "weather_alert")).toBe("named in alert · floor 60%")
+    expect(countyFloorNote(galveston, "weather_alert")).toBe("named in alert · floor 60%")
+    expect(countyFloorNote(harris, "weather_alert")).toBe("not named · floor 30%")
   })
 
   it("says a county the alert skipped keeps the base floor (Beryl names only Harris)", () => {
     const skipped = countyGroups([home("home-003", "48039", "Brazoria", 30, "not_in_alert")], counties)[0]
-    expect(countyFloorNote(skipped, "weather_alert", [freeze])).toBe("floor 30% · County not named by the alert (base floor)")
+    expect(countyFloorNote(skipped, "weather_alert")).toBe("not named · floor 30%")
   })
 
-  it("shows the zone floor as a range when JEV kept some counties at base", () => {
+  it("shows the zone floor as a range when the alert names only some counties", () => {
     expect(zoneFloorText(zoneRow({ reason: "weather_alert", reserve_pct: 60 }), homes))
       .toBe("floor 30–60% by county (NWS weather alert)")
     expect(zoneFloorText(zoneRow({ reason: "storm_risk_high", reserve_pct: 60 }), homes.map((h) => ({ ...h, floor_pct: 60 }))))
       .toBe("floor 60% (ERCOT outage rule HIGH)")
   })
 
-  it("lets ERCOT HIGH outrank a county's JEV no", () => {
+  it("lets a fleet-wide reason outrank a county the alert did not name", () => {
     const [harris] = countyGroups(homes.map((h) => ({ ...h, floor_pct: 60 })), counties)
-    expect(countyFloorNote(harris, "storm_risk_high", [freeze])).toBe("floor 60% · ERCOT outage rule HIGH")
+    expect(countyFloorNote(harris, "storm_risk_high")).toBe("floor 60% · ERCOT outage rule HIGH")
+    expect(countyFloorNote(harris, "signal_unavailable")).toBe("floor 60% · Outage report unreadable (fail safe)")
   })
 
-  it("lists an alert's counties in roster order, not numeric FIPS order", () => {
-    expect(alertCountyRows(freeze, counties).map((r) => r.fips)).toEqual(["48201", "48157", "48167"])
-    expect(alertCountyRows({ ...freeze, jev_by_county: undefined }, counties)).toEqual([])
+  it("lists the counties the alert names, in the order the worker sent them", () => {
+    expect(namedCountyRows(freeze).map((r) => r.fips)).toEqual(["48157", "48167"])
+    expect(namedCountyRows({ ...freeze, named_counties: undefined })).toEqual([])
   })
 
-  it("names the floor each JEV decision gave", () => {
-    expect(jevFloorText("raise", 60)).toBe("60%")
-    expect(jevFloorText("keep_base", 30)).toBe("30%")
-    expect(jevFloorText("raise_no_reading", 60)).toBe("60% (fail safe)")
-    expect(jevFloorText("raise_no_reading", undefined)).toBe("storm reserve (fail safe)")
+  it("labels both county reasons", () => {
+    expect(reasonLabel("weather_alert")).toBe("NWS weather alert")
+    expect(reasonLabel("not_in_alert")).toBe("County not named by the alert (base floor)")
   })
 
   it("shows county headers and display names in the zone drill-in", () => {
     const html = renderToStaticMarkup(createElement(ZoneBatteries, {
-      zone: "Houston", row: zoneRow({ reason: "weather_alert", reserve_pct: 60 }), homes, counties, alerts: [freeze],
+      zone: "Houston", row: zoneRow({ reason: "weather_alert", reserve_pct: 60 }), homes, counties,
       stepSeconds: 1, pack: null, onClose: () => {},
     }))
     expect(html).toContain("<h3>Fort Bend</h3>")
-    expect(html).toContain("48157 · JEV yes 0.74 · floor 60%")
+    expect(html).toContain("48157 · named in alert · floor 60%")
+    expect(html).toContain("48201 · not named · floor 30%")
     expect(html).toContain('title="Houston-FortBend-002: ')
     expect(html.indexOf("<h3>Harris</h3>")).toBeLessThan(html.indexOf("<h3>Fort Bend</h3>"))
   })
 
-  it("shows the per-county JEV table and the gate rule, not shadow-only copy", () => {
-    const tick = { zone_reserve_pct: {}, zone_reasons: {}, reasons: [], county_reserve_pct: { "48201": 30, "48157": 60, "48167": 60 } }
+  function panelHtml(alert: ActiveAlert, countyPct: Record<string, number> | null): string {
+    const tick = countyPct ? { zone_reserve_pct: {}, zone_reasons: {}, reasons: [], county_reserve_pct: countyPct } : null
     const state = {
-      scenario: null, start: {}, alerts: [freeze], counties, grid_down_zones: [], honest_limits: [], log: [],
+      scenario: null, start: {}, alerts: [alert], counties, grid_down_zones: [], honest_limits: [], log: [],
       provenance: null, tick: tick as unknown as FlowTick,
     } as unknown as SessionState
-    const html = renderToStaticMarkup(createElement(DataPanel, { state, verify: null }))
-    expect(html).toContain("<td>Harris</td><td>48201</td><td>0.07</td><td>30%</td>")
-    expect(html).toContain("<td>Fort Bend</td><td>48157</td><td>0.74</td><td>60%</td>")
-    expect(html).toContain("<td>Galveston</td><td>48167</td><td>no reading</td><td>60% (fail safe)</td>")
-    expect(html).toContain("JEV gates the alert floor per county")
+    return renderToStaticMarkup(createElement(DataPanel, { state, verify: null }))
+  }
+
+  it("shows the counties the alert names with their floor, and the rule", () => {
+    const html = panelHtml(freeze, { "48201": 30, "48157": 60, "48167": 60 })
+    expect(html).toContain("Counties named in this alert")
+    expect(html).toContain("<td>Fort Bend</td><td>Houston</td><td>60%</td>")
+    expect(html).toContain("<td>Galveston</td><td>Houston</td><td>60%</td>")
+    expect(html).not.toContain("<td>Harris</td>")
+    expect(html).toContain("A county the alert names keeps the storm reserve; other counties in the zone keep the base floor.")
+    expect(html).not.toMatch(/JEV|TypeSafe/)
     expect(html).not.toContain("shadow only")
     expect(html).not.toContain("never dispatches")
+  })
+
+  it("names the storm reserve before the first tick, and says so when the alert names no roster county", () => {
+    expect(panelHtml(freeze, null)).toContain("<td>Fort Bend</td><td>Houston</td><td>storm reserve</td>")
+    expect(panelHtml({ ...freeze, named_counties: [] }, {})).toContain("The alert names no roster county.")
   })
 })

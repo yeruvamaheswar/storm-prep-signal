@@ -15,3 +15,7 @@ An interval is a clock window (SCED or 15-minute), not a tape index. The wall ke
 Tick buttons, scenario chips, and the High-risk advance stay on the tape. Zone drill-in still swaps that spark to the selected zone's outage MW. Hold and Auto still jump to the tape tick that already carries that mode. None of that runs in Live.
 
 Radar is a map overlay. It stays on both views.
+
+## Under the strip
+
+On Live, `ControlBar` renders the Next 24 h price panel (`DamForecast.tsx`) under `IntervalStrip`. It is hidden when the tick has no `dam_hours`. Detail: [dam-forecast.md](dam-forecast.md).

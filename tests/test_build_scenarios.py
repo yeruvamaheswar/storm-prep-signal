@@ -101,6 +101,28 @@ def test_sidecar_names_the_posting_row_the_price_rows_and_the_overlay(no_network
     assert [row["settlement_point"] for row in north_only["1"]["prices"]] == ["LZ_NORTH"]
 
 
+def test_frames_name_the_dam_days_published_at_the_tick_and_the_sidecar_lists_them(tmp_path, monkeypatch,
+                                                                                   no_network):
+    monkeypatch.setattr(build, "ROOT", tmp_path)
+    for day in ("20260912", "20260913"):
+        (tmp_path / "data" / "fixtures" / "dam").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "data" / "fixtures" / "dam" / f"np4_190_cd_{day}.json").write_text("{}")
+    spec = {**SPEC, "start": "2026-09-12T13:25", "end": "2026-09-12T13:30", "withhold": [], "overlays": []}
+    frames, _, notes = build.scenario_frames(spec, POSTINGS, ZONE_PRICES, 5)
+
+    today = "data/fixtures/dam/np4_190_cd_20260912.json"
+    tomorrow = "data/fixtures/dam/np4_190_cd_20260913.json"
+    # Tomorrow's DAM is posted at 13:30 CT, so the 13:25 tick reads today's file only.
+    assert [frame["dam_fixtures"] for frame in frames] == [[today], [today, tomorrow]]
+    rows = build.sidecar(frames, META, ZONE_PRICES, "tuning-2026", notes)
+    assert rows["2"]["dam"] == [{"report": "NP4-190-CD", "delivery_date": "2026-09-12", "file": today},
+                                {"report": "NP4-190-CD", "delivery_date": "2026-09-13", "file": tomorrow}]
+    # A day never fetched is left off; the tick falls back to the price bands.
+    (tmp_path / tomorrow).unlink()
+    frames, _, _ = build.scenario_frames(spec, POSTINGS, ZONE_PRICES, 5)
+    assert frames[1]["dam_fixtures"] == [today]
+
+
 def test_catalog_entry_names_every_overlay_in_its_label():
     entry = build.catalog_entry(SPEC, {"alerts": ["kept-alert"]})
     assert entry["label"].startswith("recorded ERCOT; target synthetic:price-shaped; overlays (hand-placed")
@@ -192,9 +214,12 @@ def test_calm_day_charges_on_cheap_ticks_and_sells_at_the_peak(tmp_path):
     ticks = play(tmp_path, "calm-charge", 181)
     cheap = [t for t in ticks if t["price_usd_mwh"] <= 25]
     assert cheap and any(t["charging_mw"] > 0 for t in cheap)
-    # Each zone charges on its own price (a zone with no price follows the headline one).
-    assert all(mw == 0 for t in ticks for zone, mw in t["zone_charging_mw"].items()
-               if t["zone_prices"].get(zone, t["price_usd_mwh"]) > 25)
+    # The tape carries DAM hours, so a zone above the $25 band charges only in a chosen DAM hour or a dip.
+    dear = [(t["zone_charge_why"].get(zone), mw) for t in ticks for zone, mw in t["zone_charging_mw"].items()
+            if t["zone_prices"].get(zone, t["price_usd_mwh"]) > 25]
+    assert any(mw > 0 for _, mw in dear)
+    assert {why for why, mw in dear if mw > 0} <= {"dam_cheap_hour", "rt_dip"}
+    assert all(t["dam_label"] == "recorded:ERCOT NP4-190-CD" for t in ticks)
     assert max(t["delivered_mw"] for t in ticks if t["price_usd_mwh"] >= 60) > 0.2
     assert sum(t["breaches"] for t in ticks) == 0
 

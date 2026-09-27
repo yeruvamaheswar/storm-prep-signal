@@ -6,9 +6,11 @@ Each scenario in SCENARIOS is one recorded window, built by the same rules as sc
 posting = the newest NP3-233-CD posting at or before the tick; price = the NP6-905-CD 15-minute
 interval that holds the tick. It writes committed files the session worker replays offline:
 - tapes/scenarios/<id>.json: one frame per tick. The target is synthetic:price-shaped (price_shaped_mw),
-  because no public dispatch target exists.
+  because no public dispatch target exists. dam_fixtures names the saved NP4-190-CD day files
+  (scripts/fetch_dam_prices.py) published at the tick; a day not fetched yet is left out.
 - tapes/scenarios/<id>.provenance.json: per tick, the Supabase rows the frame came from
-  ({posting: {id, report, posted_at, file_name, event}, prices: [...], overlay?}).
+  ({posting: {id, report, posted_at, file_name, event}, prices: [...], dam?: [{report, delivery_date, file}],
+  overlay?}).
 - data/fixtures/<event>/np3_233_cd_<posted>.json: each posting a tape points at.
 - data/fixtures/<event>/baseline.json: the lead-matched baseline, only when it is not there yet.
 - tapes/scenarios/catalog.json: every scenario. The heather entry is kept; tapes/heather.json is not
@@ -43,9 +45,10 @@ from build_tape import (  # noqa: E402
     price_at,
 )
 from check_margin import REPORT, FetchFailed, fetch_postings, windows  # noqa: E402
+from fetch_dam_prices import dam_path  # noqa: E402
 from server.api.prices import LOAD_ZONE_POINTS  # noqa: E402
 from server.engine.cli import read_settings  # noqa: E402
-from server.engine.signal import CENTRAL  # noqa: E402
+from server.engine.signal import CENTRAL, dam_days_published  # noqa: E402
 
 ENV_PATH = ROOT / ".env"
 SCENARIO_DIR = Path("tapes") / "scenarios"
@@ -61,6 +64,7 @@ PRICE_SHAPE = ((25.0, 0.02), (60.0, 0.2), (500.0, 1.0))
 WITHHELD_TEXT = ("overlay (hand-placed, not archive): the builder withheld NP3-233-CD postings for this tick,"
                  " so the storm rule reads signal_unavailable")
 LABEL = "recorded ERCOT; target synthetic:price-shaped"
+DAM_REPORT = "NP4-190-CD"
 
 # Windows picked from the archive (see the scenario summaries). Home ids are new_fleet's home-001..home-100.
 SCENARIOS = [
@@ -179,11 +183,21 @@ def posted_from_fixture(path):
     return datetime.strptime(Path(path).stem.removeprefix("np3_233_cd_"), "%Y%m%dT%H%M%S")
 
 
+def delivery_date_of(path):
+    """The delivery day in a DAM file name like np4_190_cd_20260830.json, as 2026-08-30."""
+    return datetime.strptime(Path(path).stem.removeprefix("np4_190_cd_"), "%Y%m%d").date().isoformat()
+
+
+def dam_fixtures_at(ts):
+    """The saved DAM day files published at ts (today, plus tomorrow from 13:30 CT). A day not fetched is left out."""
+    return [str(dam_path(day)) for day in dam_days_published(ts) if (ROOT / dam_path(day)).is_file()]
+
+
 def scenario_frames(spec, postings, zone_prices, tick_minutes):
     """Frames from start to end every tick_minutes, the postings they point at, and overlay text by tick.
 
     zone_prices maps each load-zone name to its (interval_ending, price) list; the frame's own price
-    is the zone whose point is spec["zone"].
+    is the zone whose point is spec["zone"]. dam_fixtures lists the DAM day files published at the tick.
     """
     primary = next(name for name, point in LOAD_ZONE_POINTS.items() if point == spec["zone"])
     frames, used, notes_by_tick = [], {}, {}
@@ -213,14 +227,15 @@ def scenario_frames(spec, postings, zone_prices, tick_minutes):
                        "price_label": f"recorded:ERCOT NP6-905-CD {spec['zone']}" if price is not None else "none",
                        "risk_fixture": fixture, "events": events,
                        "zone_prices": by_zone,
-                       "zone_price_label": "recorded:ERCOT NP6-905-CD" if by_zone else "none"})
+                       "zone_price_label": "recorded:ERCOT NP6-905-CD" if by_zone else "none",
+                       "dam_fixtures": dam_fixtures_at(ts)})
         ts += timedelta(minutes=tick_minutes)
         tick += 1
     return frames, used, notes_by_tick
 
 
 def sidecar(frames, meta, zone_prices, event, notes_by_tick=None):
-    """Per tick (keyed by str(tick)): the posting row, the four zone price rows, and any overlay text."""
+    """Per tick (keyed by str(tick)): the posting row, the four zone price rows, the DAM day files, and any overlay text."""
     notes_by_tick = notes_by_tick or {}
     rows = {}
     for frame in frames:
@@ -236,6 +251,9 @@ def sidecar(frames, meta, zone_prices, event, notes_by_tick=None):
                             "price_usd_mwh": hit[1]}
                            for name, point in LOAD_ZONE_POINTS.items()
                            if (hit := row_at(zone_prices.get(name, []), ts))]
+        if frame.get("dam_fixtures"):
+            entry["dam"] = [{"report": DAM_REPORT, "delivery_date": delivery_date_of(path), "file": path}
+                            for path in frame["dam_fixtures"]]
         if frame["tick"] in notes_by_tick:
             entry["overlay"] = notes_by_tick[frame["tick"]]
         rows[str(frame["tick"])] = entry

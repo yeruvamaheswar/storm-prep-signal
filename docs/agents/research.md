@@ -245,6 +245,6 @@ Each of these becomes a clear reason passed to `fail_safe(reason)`:
    zone with the largest sum.
 3. **Hour to rate**: first round, the current hour ending. Slice 1 round: the peak of the
    current hour plus the next `LOOKAHEAD_HOURS` − 1 hours, from the newest posting.
-4. **`JEV_API_KEY`**: optional, for a later add-on worker. Not used in Slices 0–6 and never
-   required.
+4. **`JEV_API_KEY`**: JEV was removed 2026-09-27 (see `docs/agents/grid-flow.md`, "Why JEV was
+   removed").
 5. **Python version**: 3.13 (the installed `.venv`, Python 3.13.3). `AGENTS.md` is updated.

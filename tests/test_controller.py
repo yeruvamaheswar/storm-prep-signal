@@ -866,6 +866,25 @@ def test_acted_intent_cheap_tick_keeps_the_policy_reason_when_a_floor_home_charg
     assert acted_intent(alloc, p, "AUTO") == ("charge", "")
 
 
+def test_dam_waiting_zone_still_refills_a_home_under_its_floor():
+    # The DAM rule set North to wait for a cheaper hour; the home under its floor refills anyway.
+    p = policy(30.0, intent="hold")
+    p.zone_intent = {z: "hold" for z in ZONES}
+    p.zone_charge_why = {"North": "cheaper_hour_later"}
+    homes = [home("n", 2.0, zone="North"), home("n2", 10.0, zone="North")]
+    alloc = allocate(homes, frame(0.0), p, "AUTO", settings())
+    assert alloc.per_home_kw == {"n": pytest.approx(-48.0)}
+    assert acted_intent(alloc, p, "AUTO") == ("charge", "reserve_refill")
+
+
+def test_acted_intent_names_the_dam_rule_when_it_set_a_charging_zone():
+    for why in ("dam_cheap_hour", "rt_dip"):
+        p = zone_priced({z: "hold" for z in ZONES} | {"North": "charge"})
+        p.zone_charge_why = {"North": why, "Houston": "cheaper_hour_later"}
+        alloc = allocate([home("n", 10.0, zone="North")], frame(0.0), p, "AUTO", settings())
+        assert acted_intent(alloc, p, "AUTO") == ("charge", why)
+
+
 def test_acted_intent_zoned_refill_only_on_a_cheap_headline_says_reserve_refill():
     # Headline band says charge, but every zone's own price says hold: only the floor refill ran.
     p = labelled("charge", "")

@@ -15,6 +15,7 @@ Open this index, then the one file the task needs.
 | `progress.md` | You need what is already built |
 | `research.md` | You need the ERCOT source notes |
 | `price-live.md` | You are changing the live LZ_NORTH price fetch or how zone prices are stamped on the tick |
+| `dam-forecast.md` | You are changing the ERCOT day-ahead (DAM) fetch, the `var/dam/` cache or DAM fixtures, the Next 24 h price panel, or running `fetch_dam_prices.py` / `backtest_dam.py` |
 | `reservegate-summarized.md` | You need the product in one sitting |
 | `reservegate.md` | You need the hackathon build plan and the frozen tick |
 | `plan-of-attack.md` | Same build plan as `reservegate.md` |
@@ -47,6 +48,6 @@ Open this index, then the one file the task needs.
 | `epic-3-controller.md` | You are changing the fleet, the allocator, the scoreboard, or the orchestration runtime |
 | `failure-modes.md` | You are switching on simulated faults (bad network, crashing or lying homes) in a tape or `.env` |
 | `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |
-| `grid-flow.md` | You are changing the `/flow` page, the scenario session worker, scenario tapes, archived NWS alerts, JEV readings, or grid down |
+| `grid-flow.md` | You are changing the `/flow` page, the scenario session worker, scenario tapes, archived NWS alerts and the named-county floor, or grid down |
 | `mode-stale-hold.md` | You are changing snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path |
 | `operator-settings.md` | You are changing the operator settings table, the mode POST persist, or how the live worker reads HOLD / AUTO |

@@ -2,7 +2,7 @@
 
 **Decision (2026-09-26, later): zone prices drive zone decisions.** `play_frame` passes the tick's `zone_prices` (the live fetch, or the tape's recorded map) to `reserve_policy(..., zone_prices=...)`, which sets `Policy.zone_intent` per zone from that zone's own price. The headline (LZ_NORTH) price still sets the fleet `Policy.intent` and fills any zone with no number. No zone prices: one fleet decision, as before. Rules: `docs/agents/policy-intent.md` "Each zone decides from its own price".
 
-**Decision (2026-09-26).** The engine and `/v1/snapshot` share one Python price reader. The wall's `readPrice()` in `web/src/liveStamp.ts` stays the browser path. The headline live price stays `settlementPoint=LZ_NORTH`. Live runs also fetch the four load zones (`fetch_zone_prices`, below) so each zone's dollars use its own live price. Archive and the snapshot bind the four load zones from `ercot_prices` rows at that interval. DAM NP4-190 stays out.
+**Decision (2026-09-26).** The engine and `/v1/snapshot` share one Python price reader. The wall's `readPrice()` in `web/src/liveStamp.ts` stays the browser path. The headline live price stays `settlementPoint=LZ_NORTH`. Live runs also fetch the four load zones (`fetch_zone_prices`, below) so each zone's dollars use its own live price. Archive and the snapshot bind the four load zones from `ercot_prices` rows at that interval. DAM NP4-190-CD was kept out here; since 2026-09-27 it has its own note, [dam-forecast.md](dam-forecast.md).
 
 ## Reader
 
@@ -26,4 +26,4 @@ A failed live price must not paint tape 185. The tick shows no $/MWh and label `
 
 ## Not this pass
 
-- DAM NP4-190-CD
+- DAM NP4-190-CD is no longer out of scope (2026-09-27). Live fetches it once per delivery day into `var/dam/`, and scenario tapes carry recorded days. It times charging only; this file's real-time prices still drive selling and the headline. Detail: [dam-forecast.md](dam-forecast.md).

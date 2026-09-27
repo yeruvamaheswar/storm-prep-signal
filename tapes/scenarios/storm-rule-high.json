@@ -16,7 +16,10 @@
     "South": 53.7,
     "West": 53.7
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 2,
@@ -33,7 +36,10 @@
     "South": 53.7,
     "West": 53.7
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 3,
@@ -50,7 +56,10 @@
     "South": 53.7,
     "West": 53.7
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 4,
@@ -67,7 +76,10 @@
     "South": 53.16,
     "West": 53.16
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 5,
@@ -84,7 +96,10 @@
     "South": 53.16,
     "West": 53.16
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 6,
@@ -101,7 +116,10 @@
     "South": 53.16,
     "West": 53.16
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 7,
@@ -118,7 +136,10 @@
     "South": 50.48,
     "West": 50.48
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 8,
@@ -135,7 +156,10 @@
     "South": 50.48,
     "West": 50.48
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 9,
@@ -152,7 +176,10 @@
     "South": 50.48,
     "West": 50.48
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 10,
@@ -169,7 +196,10 @@
     "South": 49.92,
     "West": 49.97
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 11,
@@ -186,7 +216,10 @@
     "South": 49.92,
     "West": 49.97
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 12,
@@ -203,7 +236,10 @@
     "South": 49.92,
     "West": 49.97
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 13,
@@ -220,7 +256,10 @@
     "South": 41.65,
     "West": 43.02
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 14,
@@ -237,7 +276,10 @@
     "South": 41.65,
     "West": 43.02
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 15,
@@ -254,7 +296,10 @@
     "South": 41.65,
     "West": 43.02
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 16,
@@ -271,7 +316,10 @@
     "South": 45.35,
     "West": 46.24
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 17,
@@ -288,7 +336,10 @@
     "South": 45.35,
     "West": 46.24
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 18,
@@ -305,7 +356,10 @@
     "South": 45.35,
     "West": 46.24
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 19,
@@ -322,7 +376,10 @@
     "South": 46.53,
     "West": 48.86
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 20,
@@ -339,7 +396,10 @@
     "South": 46.53,
     "West": 48.86
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 21,
@@ -356,7 +416,10 @@
     "South": 46.53,
     "West": 48.86
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 22,
@@ -373,7 +436,10 @@
     "South": 48.35,
     "West": 51.44
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 23,
@@ -390,7 +456,10 @@
     "South": 48.35,
     "West": 51.44
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 24,
@@ -407,7 +476,10 @@
     "South": 48.35,
     "West": 51.44
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 25,
@@ -424,7 +496,10 @@
     "South": 48.49,
     "West": 52.45
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 26,
@@ -441,7 +516,10 @@
     "South": 48.49,
     "West": 52.45
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 27,
@@ -458,7 +536,10 @@
     "South": 48.49,
     "West": 52.45
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 28,
@@ -475,7 +556,10 @@
     "South": 46.89,
     "West": 52.88
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 29,
@@ -492,7 +576,10 @@
     "South": 46.89,
     "West": 52.88
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 30,
@@ -509,7 +596,10 @@
     "South": 46.89,
     "West": 52.88
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 31,
@@ -526,7 +616,10 @@
     "South": 48.75,
     "West": 55.59
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 32,
@@ -543,7 +636,10 @@
     "South": 48.75,
     "West": 55.59
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 33,
@@ -560,7 +656,10 @@
     "South": 48.75,
     "West": 55.59
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 34,
@@ -577,7 +676,10 @@
     "South": 54.89,
     "West": 61.37
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 35,
@@ -594,7 +696,10 @@
     "South": 54.89,
     "West": 61.37
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 36,
@@ -611,7 +716,10 @@
     "South": 54.89,
     "West": 61.37
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 37,
@@ -628,7 +736,10 @@
     "South": 57.96,
     "West": 66.55
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 38,
@@ -645,7 +756,10 @@
     "South": 57.96,
     "West": 66.55
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 39,
@@ -662,7 +776,10 @@
     "South": 57.96,
     "West": 66.55
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 40,
@@ -679,7 +796,10 @@
     "South": 60.66,
     "West": 69.51
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 41,
@@ -696,7 +816,10 @@
     "South": 60.66,
     "West": 69.51
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 42,
@@ -713,7 +836,10 @@
     "South": 60.66,
     "West": 69.51
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 43,
@@ -730,7 +856,10 @@
     "South": 53.64,
     "West": 60.58
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 44,
@@ -747,7 +876,10 @@
     "South": 53.64,
     "West": 60.58
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 45,
@@ -764,7 +896,10 @@
     "South": 53.64,
     "West": 60.58
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 46,
@@ -781,7 +916,10 @@
     "South": 58.81,
     "West": 66.78
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 47,
@@ -798,7 +936,10 @@
     "South": 58.81,
     "West": 66.78
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 48,
@@ -815,7 +956,10 @@
     "South": 58.81,
     "West": 66.78
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 49,
@@ -832,7 +976,10 @@
     "South": 60.03,
     "West": 66.77
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 50,
@@ -849,7 +996,10 @@
     "South": 60.03,
     "West": 66.77
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 51,
@@ -866,7 +1016,10 @@
     "South": 60.03,
     "West": 66.77
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 52,
@@ -883,7 +1036,10 @@
     "South": 66.65,
     "West": 74.99
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 53,
@@ -900,7 +1056,10 @@
     "South": 66.65,
     "West": 74.99
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 54,
@@ -917,7 +1076,10 @@
     "South": 66.65,
     "West": 74.99
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 55,
@@ -934,7 +1096,10 @@
     "South": 68.31,
     "West": 78.04
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 56,
@@ -951,7 +1116,10 @@
     "South": 68.31,
     "West": 78.04
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 57,
@@ -968,7 +1136,10 @@
     "South": 68.31,
     "West": 78.04
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 58,
@@ -985,7 +1156,10 @@
     "South": 74.14,
     "West": 96.69
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 59,
@@ -1002,7 +1176,10 @@
     "South": 74.14,
     "West": 96.69
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 60,
@@ -1019,7 +1196,10 @@
     "South": 74.14,
     "West": 96.69
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 61,
@@ -1036,7 +1216,10 @@
     "South": 79.85,
     "West": 106.48
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 62,
@@ -1053,7 +1236,10 @@
     "South": 79.85,
     "West": 106.48
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 63,
@@ -1070,7 +1256,10 @@
     "South": 79.85,
     "West": 106.48
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 64,
@@ -1087,7 +1276,10 @@
     "South": 61.76,
     "West": 70.83
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 65,
@@ -1104,7 +1296,10 @@
     "South": 61.76,
     "West": 70.83
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 66,
@@ -1121,7 +1316,10 @@
     "South": 61.76,
     "West": 70.83
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 67,
@@ -1138,7 +1336,10 @@
     "South": 47.59,
     "West": 53.95
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 68,
@@ -1155,7 +1356,10 @@
     "South": 47.59,
     "West": 53.95
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 69,
@@ -1172,7 +1376,10 @@
     "South": 47.59,
     "West": 53.95
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 70,
@@ -1189,7 +1396,10 @@
     "South": 36.35,
     "West": 39.95
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 71,
@@ -1206,7 +1416,10 @@
     "South": 36.35,
     "West": 39.95
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 72,
@@ -1223,7 +1436,10 @@
     "South": 36.35,
     "West": 39.95
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 73,
@@ -1240,7 +1456,10 @@
     "South": 40.13,
     "West": 43.44
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 74,
@@ -1257,7 +1476,10 @@
     "South": 40.13,
     "West": 43.44
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 75,
@@ -1274,7 +1496,10 @@
     "South": 40.13,
     "West": 43.44
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 76,
@@ -1291,7 +1516,10 @@
     "South": 32.19,
     "West": 32.19
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 77,
@@ -1308,7 +1536,10 @@
     "South": 32.19,
     "West": 32.19
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 78,
@@ -1325,7 +1556,10 @@
     "South": 32.19,
     "West": 32.19
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 79,
@@ -1342,7 +1576,10 @@
     "South": 26.5,
     "West": 26.52
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 80,
@@ -1359,7 +1596,10 @@
     "South": 26.5,
     "West": 26.52
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 81,
@@ -1376,7 +1616,10 @@
     "South": 26.5,
     "West": 26.52
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 82,
@@ -1393,7 +1636,10 @@
     "South": 25.49,
     "West": 24.77
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 83,
@@ -1410,7 +1656,10 @@
     "South": 25.49,
     "West": 24.77
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 84,
@@ -1427,7 +1676,10 @@
     "South": 25.49,
     "West": 24.77
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 85,
@@ -1444,7 +1696,10 @@
     "South": 26.59,
     "West": 26.42
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 86,
@@ -1461,7 +1716,10 @@
     "South": 26.59,
     "West": 26.42
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 87,
@@ -1478,7 +1736,10 @@
     "South": 26.59,
     "West": 26.42
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 88,
@@ -1495,7 +1756,10 @@
     "South": 26.81,
     "West": 26.61
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 89,
@@ -1512,7 +1776,10 @@
     "South": 26.81,
     "West": 26.61
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 90,
@@ -1529,7 +1796,10 @@
     "South": 26.81,
     "West": 26.61
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 91,
@@ -1546,7 +1816,10 @@
     "South": 27.97,
     "West": 28.07
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 92,
@@ -1563,7 +1836,10 @@
     "South": 27.97,
     "West": 28.07
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 93,
@@ -1580,7 +1856,10 @@
     "South": 27.97,
     "West": 28.07
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 94,
@@ -1597,7 +1876,10 @@
     "South": 29.58,
     "West": 29.65
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 95,
@@ -1614,7 +1896,10 @@
     "South": 29.58,
     "West": 29.65
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 96,
@@ -1631,7 +1916,10 @@
     "South": 29.58,
     "West": 29.65
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 97,
@@ -1648,7 +1936,10 @@
     "South": 30.04,
     "West": 29.82
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 98,
@@ -1665,7 +1956,10 @@
     "South": 30.04,
     "West": 29.82
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 99,
@@ -1682,7 +1976,10 @@
     "South": 30.04,
     "West": 29.82
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 100,
@@ -1699,7 +1996,10 @@
     "South": 30.28,
     "West": 30.19
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 101,
@@ -1716,7 +2016,10 @@
     "South": 30.28,
     "West": 30.19
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 102,
@@ -1733,7 +2036,10 @@
     "South": 30.28,
     "West": 30.19
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 103,
@@ -1750,7 +2056,10 @@
     "South": 30.98,
     "West": 30.07
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 104,
@@ -1767,7 +2076,10 @@
     "South": 30.98,
     "West": 30.07
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 105,
@@ -1784,7 +2096,10 @@
     "South": 30.98,
     "West": 30.07
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 106,
@@ -1801,7 +2116,10 @@
     "South": 31.14,
     "West": 30.62
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 107,
@@ -1818,7 +2136,10 @@
     "South": 31.14,
     "West": 30.62
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 108,
@@ -1835,7 +2156,10 @@
     "South": 31.14,
     "West": 30.62
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 109,
@@ -1852,7 +2176,10 @@
     "South": 32.85,
     "West": 31.01
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 110,
@@ -1869,7 +2196,10 @@
     "South": 32.85,
     "West": 31.01
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 111,
@@ -1886,7 +2216,10 @@
     "South": 32.85,
     "West": 31.01
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 112,
@@ -1903,7 +2236,10 @@
     "South": 34.04,
     "West": 32.47
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 113,
@@ -1920,7 +2256,10 @@
     "South": 34.04,
     "West": 32.47
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 114,
@@ -1937,7 +2276,10 @@
     "South": 34.04,
     "West": 32.47
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 115,
@@ -1954,7 +2296,10 @@
     "South": 34.19,
     "West": 33.55
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 116,
@@ -1971,7 +2316,10 @@
     "South": 34.19,
     "West": 33.55
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 117,
@@ -1988,7 +2336,10 @@
     "South": 34.19,
     "West": 33.55
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 118,
@@ -2005,7 +2356,10 @@
     "South": 34.8,
     "West": 35.01
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 119,
@@ -2022,7 +2376,10 @@
     "South": 34.8,
     "West": 35.01
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 120,
@@ -2039,7 +2396,10 @@
     "South": 34.8,
     "West": 35.01
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 121,
@@ -2056,7 +2416,10 @@
     "South": 35.75,
     "West": 36.52
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 122,
@@ -2073,7 +2436,10 @@
     "South": 35.75,
     "West": 36.52
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 123,
@@ -2090,7 +2456,10 @@
     "South": 35.75,
     "West": 36.52
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 124,
@@ -2107,7 +2476,10 @@
     "South": 37.71,
     "West": 39.6
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 125,
@@ -2124,7 +2496,10 @@
     "South": 37.71,
     "West": 39.6
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 126,
@@ -2141,7 +2516,10 @@
     "South": 37.71,
     "West": 39.6
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 127,
@@ -2158,7 +2536,10 @@
     "South": 40.34,
     "West": 41.13
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 128,
@@ -2175,7 +2556,10 @@
     "South": 40.34,
     "West": 41.13
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 129,
@@ -2192,7 +2576,10 @@
     "South": 40.34,
     "West": 41.13
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 130,
@@ -2209,7 +2596,10 @@
     "South": 39.13,
     "West": 44.32
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 131,
@@ -2226,7 +2616,10 @@
     "South": 39.13,
     "West": 44.32
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 132,
@@ -2243,7 +2636,10 @@
     "South": 39.13,
     "West": 44.32
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 133,
@@ -2260,7 +2656,10 @@
     "South": 33.12,
     "West": 39.75
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 134,
@@ -2277,7 +2676,10 @@
     "South": 33.12,
     "West": 39.75
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 135,
@@ -2294,7 +2696,10 @@
     "South": 33.12,
     "West": 39.75
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 136,
@@ -2311,7 +2716,10 @@
     "South": 33.01,
     "West": 42.58
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 137,
@@ -2328,7 +2736,10 @@
     "South": 33.01,
     "West": 42.58
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 138,
@@ -2345,7 +2756,10 @@
     "South": 33.01,
     "West": 42.58
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json"
+   ]
   },
   {
    "tick": 139,
@@ -2362,7 +2776,11 @@
     "South": 38.48,
     "West": 51.06
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   },
   {
    "tick": 140,
@@ -2379,7 +2797,11 @@
     "South": 38.48,
     "West": 51.06
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   },
   {
    "tick": 141,
@@ -2396,7 +2818,11 @@
     "South": 38.48,
     "West": 51.06
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   },
   {
    "tick": 142,
@@ -2413,7 +2839,11 @@
     "South": 39.8,
     "West": 107.1
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   },
   {
    "tick": 143,
@@ -2430,7 +2860,11 @@
     "South": 39.8,
     "West": 107.1
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   },
   {
    "tick": 144,
@@ -2447,7 +2881,11 @@
     "South": 39.8,
     "West": 107.1
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   },
   {
    "tick": 145,
@@ -2464,7 +2902,11 @@
     "South": 33.79,
     "West": 93.43
    },
-   "zone_price_label": "recorded:ERCOT NP6-905-CD"
+   "zone_price_label": "recorded:ERCOT NP6-905-CD",
+   "dam_fixtures": [
+    "data/fixtures/dam/np4_190_cd_20260916.json",
+    "data/fixtures/dam/np4_190_cd_20260917.json"
+   ]
   }
  ]
 }
