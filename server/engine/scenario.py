@@ -34,8 +34,10 @@ SCENARIO_FLEET_SIZE = 100
 # Wide on purpose: some batteries start under the 30% floor, some near full.
 SOC_RANGE_PCT = (10.0, 95.0)
 # Time-lapse factors: scenario seconds per wall second. 300 plays one 5-minute tick per second.
-SPEEDS = (15, 30, 60, 150, 300, 600)
-DEFAULT_SPEED = 300
+# 2.4 is real time for the Replay page: one 5-minute tick plays its 125 s order window at true speed.
+SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 300, 600)
+# About 25 s per 5-minute tick, slow enough to follow each order.
+DEFAULT_SPEED = 12
 # The page calls the worker gone when state.json has not been rewritten for this long.
 STALE_AFTER_S = 10
 HIST_BINS = 10
@@ -44,7 +46,7 @@ LOG_LINES = 12
 KW_EPS = 1e-6
 # A battery within this many percent of its floor is "at floor", not holding spare charge.
 FLOOR_BAND_PCT = 0.5
-REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down")
+REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down", "step")
 HONEST_LIMITS = (
     "The fleet is simulated. Each battery's starting charge is a seeded random draw.",
     "The grid ask (target MW) is synthetic; no public dispatch target exists.",
@@ -264,6 +266,8 @@ class Session:
                 self.send_alert(body.get("alert_id"))
             elif kind == "grid_down":
                 self.set_grid_down(body.get("zone"), bool(body.get("down", True)))
+            elif kind == "step":
+                self.step_paused()
             else:
                 raise ValueError(f"unknown request {kind!r}")
         except ValueError as exc:
@@ -307,8 +311,24 @@ class Session:
             self.reset(self.seed)
         self.playing = playing
 
+    def step_paused(self):
+        """Play exactly one frame while paused (the Replay page's Next tick). Playback stays paused."""
+        if self.scenario is None:
+            raise ValueError("pick a scenario first")
+        if self.playing:
+            raise ValueError("pause first")
+        if self.index >= len(self.frames):
+            raise ValueError("scenario finished")
+        try:
+            self.step()
+        except Exception as exc:
+            # Same as a crashed tick in the worker loop: named on the page, never raised.
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.note(f"tick failed: {self.error}")
+        self.playing = False
+
     def set_speed(self, x):
-        if x not in SPEEDS:
+        if isinstance(x, bool) or x not in SPEEDS:
             raise ValueError(f"speed must be one of {SPEEDS}")
         self.speed = x
 

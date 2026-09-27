@@ -34,6 +34,13 @@ POLL_S = 0.25
 HEARTBEAT_S = 1.0
 
 
+def rescale_next_step(next_step, now, old_step_s, new_step_s):
+    """When the next tick is due after a speed change: the time left, at the new rate."""
+    if old_step_s == new_step_s or not old_step_s > 0 or next_step <= now:
+        return next_step
+    return now + (next_step - now) * new_step_s / old_step_s
+
+
 def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, seed=None, steps=None,
         settings=None, poll_s=POLL_S, clock=time.monotonic, sleep=time.sleep, ignore_old_requests=True):
     """The worker loop. Returns the session after `steps` ticks (or never, without --steps)."""
@@ -46,10 +53,13 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
     played, next_step, last_write = 0, clock(), None
     while True:
         changed = False
+        step_before = session.step_seconds()
         for request in read_requests(last_seq, scenario_dir):
             session.apply(request)
             last_seq, changed = request["seq"], True
         now = clock()
+        # A speed change mid-tick keeps the share of the tick already played; only the rest changes pace.
+        next_step = rescale_next_step(next_step, now, step_before, session.step_seconds())
         # --steps runs as fast as it can; the page run waits for the time-lapse clock.
         if session.playing and (steps is not None or now >= next_step):
             try:

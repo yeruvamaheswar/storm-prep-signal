@@ -35,7 +35,8 @@ class PlayBody(BaseModel):
 
 
 class SpeedBody(BaseModel):
-    x: int
+    # Not only whole numbers: 2.4 is real time for 5-minute ticks.
+    x: float
 
 
 class AlertBody(BaseModel):
@@ -123,7 +124,18 @@ def post_speed(body: SpeedBody, x_operator_id: Optional[str] = Header(None)):
     operator = _require_operator(x_operator_id)
     if body.x not in store.SPEEDS:
         raise ApiError(422, "bad_speed", f"Speed must be one of {', '.join(map(str, store.SPEEDS))}.")
-    return _record("speed", body.model_dump(), operator)
+    # Record 12, not 12.0, so whole speeds read the same as before.
+    x = int(body.x) if body.x.is_integer() else body.x
+    return _record("speed", {"x": x}, operator)
+
+
+@router.post("/scenario/step", status_code=202)
+def post_step(x_operator_id: Optional[str] = Header(None)):
+    """Next tick while paused: the worker plays exactly one frame and stays paused."""
+    operator = _require_operator(x_operator_id)
+    if store.read_state(store.SCENARIO_DIR).get("status") != "paused":
+        raise ApiError(409, "not_paused", "Next tick works only while a scenario is paused.")
+    return _record("step", {}, operator)
 
 
 @router.post("/scenario/alert", status_code=202)

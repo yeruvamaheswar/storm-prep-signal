@@ -194,8 +194,9 @@ def test_speed_accepts_slow_replay_values(client, tmp_path):
 def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path):
     scenario_list = client.get("/v1/scenarios").json()
     assert "heather" in [s["id"] for s in scenario_list["scenarios"]]
-    assert scenario_list["speeds"] == [15, 30, 60, 150, 300, 600]
-    assert scenario_list["default_speed"] == 300
+    # Task 11 added the slow Replay speeds (2.4 is real time) and made 12 the default.
+    assert scenario_list["speeds"] == [2.4, 4.8, 12, 15, 30, 60, 150, 300, 600]
+    assert scenario_list["default_speed"] == 12
     assert client.get("/v1/scenario/state").json()["status"] == "worker_not_running"
     ok = client.post("/v1/scenario/start", json={"scenario": "heather", "seed": 5}, headers=OPERATOR)
     assert ok.status_code == 202
