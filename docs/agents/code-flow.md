@@ -398,7 +398,7 @@ How one engine tick runs, in order (`run()` in `server/engine/loop.py`):
 
 How `GET /v1/snapshot` builds one tick for the wall (`server/api/snapshot.py`):
 
-1. `load_latest_run()`: `var/runs/latest.json`, else a non-empty Supabase `runs` row, else `web/src/fixtures/layout-run.json`.
+1. `load_latest_run()`: `var/runs/latest.json`, else the newest Supabase `runs` row by `created_at` (not `run_id`), else `web/src/fixtures/layout-run.json`. A table row stores ticks only, so a tick that already counts more homes than `FLEET_SIZE` keeps that count.
 2. Take the last tick and scale it to the fleet. `_with_telemetry` moves the engine's `plant` and `feed` dict into `telemetry` (unscaled), so `feed` stays free for the ERCOT status text. `runtime.discover_runtime` decides live, archive, or fixture from `?event=`, `?clock=`, and `data/events/<event>/replay.csv`.
 3. Live: first `archive_ingest(event="live")` reads the newest `event=live` posting that `scripts/live_cycle.py` upserted (stale after 90 minutes). If that fails, `feeds.serve_outage` and `serve_price` fetch ERCOT (keys stay on the server), cache the last good body in `var/signal/`, and fall back to it inside 90 minutes (outage) or 30 minutes (price). Archive: `archive.read_outage` and `read_prices` read Supabase at the pinned clock.
 4. Rate the posting with `compute_risk` and `reserve_policy`, bind zone prices with `prices.bind_zone_prices`, apply the operator mode from `var/state.json`, and add the brief with `apply_tick_brief`. A failure returns the tick with a named quality (`auth`, `stale`, `unavailable`) and the storm floor.

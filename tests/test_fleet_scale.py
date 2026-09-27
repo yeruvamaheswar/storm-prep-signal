@@ -114,6 +114,35 @@ def test_meta_live_10k_exposes_cap_and_call(tmp_path, monkeypatch):
     assert meta["call_target_mw"] == 40.0
 
 
+def test_snapshot_keeps_a_10k_table_tick_when_env_is_demo(tmp_path, monkeypatch):
+    """public.runs stores ticks only. A missing settings block must not shrink 40 MW to the demo fleet."""
+    monkeypatch.setattr("server.api.snapshot.LATEST_RUN", tmp_path / "missing.json")
+    monkeypatch.setenv("FLEET_SIZE", "100")
+    tick = {
+        "tick": 1, "ts": "2026-09-26T19:34:03-05:00", "mode": "AUTO",
+        "target_mw": 40.0, "target_label": "synthetic",
+        "delivered_mw": 40.0, "missed_mw": 0.0,
+        "price_usd_mwh": 33.0, "price_label": "ercot",
+        "reserve_pct": 30, "policy_reason": "normal", "risk_level": "LOW",
+        "live_homes": 10000, "stale_homes": 0, "dead_homes": 0, "breaches": 0,
+        "reasons": [],
+    }
+    monkeypatch.setattr(
+        "server.api.snapshot.fetch_runs_table",
+        lambda: [{"run_id": "20260926-193406-705429", "source": "live", "result": [tick]}],
+    )
+
+    def boom(_now, event=None, **kwargs):
+        raise IngestError("unavailable")
+
+    monkeypatch.setattr("server.api.snapshot.archive_ingest", boom)
+    monkeypatch.setattr("server.api.snapshot.live_ingest", boom)
+    got = build_snapshot()
+    assert got["target_mw"] == 40.0
+    assert got["delivered_mw"] == 40.0
+    assert got["live_homes"] == 10000
+
+
 def test_snapshot_counts_follow_fleet_size(tmp_path, monkeypatch):
     latest = tmp_path / "latest.json"
     latest.write_text(

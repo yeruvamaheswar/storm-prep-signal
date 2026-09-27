@@ -1055,3 +1055,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Seen: a charge tick draws the fleet's full 1.14 MW while the call asks 0.2 MW, storm or not (rules hold; a product question). With every report late, the fleet gives 0.2 MW and 0 is credited (honest books by design). The feed's planted liar (`home-042`, seed 1) is caught on a charge tick; no honest charging battery is flagged.
 - Not reachable end to end: per-zone `zone_intent` (no `Policy` field, `loop.py` never sets it); `TickResult` has no `charged_mw`.
 - `pytest -q`: 593 passed, 2 failed locally (the fleet-cap meta tests read a local `.env` pinned to the old pack). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Live wall was reading the probe run
+
+- Named gap: Live showed a 0.20 MW target while `scripts/live_cycle.py` had already stored 40 MW ticks in `public.runs`.
+- `fetch_runs_table` ordered by `run_id`. `persist-probe-20260926` sorts after every `20260926-…` id, so the wall kept that 100-home probe. The query is now `created_at.desc`.
+- A table row has ticks and no `settings`. `_fleet_size` no longer shrinks a tick whose home count is already above `FLEET_SIZE`.
+- `pytest -q`: 594 passed, 3 failed. The 3 are `tests/test_homes_api.py` homes/history routes. They fail the same way on the previous `snapshot.py`: there is no `var/runs/latest.json`, so `_current_floor` reads `public.runs`, and those tests' fake `requests.get` only accepts `/homes`.

@@ -95,6 +95,25 @@ def test_fetch_runs_table_skips_without_config():
     assert fetch_runs_table(get=refuse, url="", key="") is None
 
 
+def test_fetch_runs_table_orders_by_created_at_not_run_id():
+    """A probe id like persist-probe sorts after every timestamp run_id."""
+    seen = {}
+
+    class Reply:
+        ok = True
+
+        def json(self):
+            return []
+
+    def get(url, params=None, headers=None, timeout=None):
+        seen["params"] = params
+        return Reply()
+
+    assert fetch_runs_table(get=get, url="https://example.supabase.co", key="k") == []
+    assert seen["params"]["order"] == "created_at.desc"
+    assert seen["params"]["limit"] == "1"
+
+
 def test_get_latest_run_keeps_file_when_postgrest_is_empty(tmp_path, monkeypatch):
     latest = tmp_path / "latest.json"
     latest.write_text(json.dumps(ENGINE), encoding="utf-8")

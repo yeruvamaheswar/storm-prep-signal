@@ -124,7 +124,8 @@ def fetch_runs_table(get=None, url=None, key=None, timeout_s=None):
     except ValueError:
         timeout = 3.0
     endpoint = f"{host.rstrip('/')}/rest/v1/runs"
-    params = {"select": "run_id,source,result", "order": "run_id.desc", "limit": "1"}
+    # created_at, not run_id: "persist-probe-…" sorts after every "20260926-…" id.
+    params = {"select": "run_id,source,result", "order": "created_at.desc", "limit": "1"}
     caller = requests.get if get is None else get
     try:
         reply = caller(endpoint, params=params, headers={"apikey": secret}, timeout=timeout)
@@ -153,15 +154,32 @@ def load_latest_run() -> dict:
     raise FileNotFoundError("no run file")
 
 
+def _tick_homes(run: dict) -> int:
+    """Homes on the last tick. public.runs stores ticks only, so settings may be missing."""
+    ticks = run.get("ticks")
+    if not isinstance(ticks, list) or not ticks or not isinstance(ticks[-1], dict):
+        return 0
+    last = ticks[-1]
+    total = 0
+    for key in ("live_homes", "stale_homes", "dead_homes"):
+        try:
+            total += int(last.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0
+    return total
+
+
 def _fleet_size(run: dict) -> int:
     settings = run.get("settings") if isinstance(run.get("settings"), dict) else {}
     fleet = settings.get("fleet_size")
-    if not isinstance(fleet, int) or isinstance(fleet, bool):
-        try:
-            fleet = int(os.getenv("FLEET_SIZE", "100"))
-        except ValueError:
-            fleet = 100
-    return fleet
+    if isinstance(fleet, int) and not isinstance(fleet, bool):
+        return fleet
+    try:
+        fallback = int(os.getenv("FLEET_SIZE", "100"))
+    except ValueError:
+        fallback = 100
+    # A 10k live tick must not shrink to a demo env. A larger env may still scale a small tick up.
+    return max(fallback, _tick_homes(run))
 
 
 def _iso_clock(clock):
