@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { apiBaseUrl } from "../../api/health"
 import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomToHome, zoomToZone } from "../shell/urlState"
+import { clockMs } from "../replay/phoneMedia"
 import "../replay/replay.css"
 import { LivePage } from "./LivePage"
 import {
@@ -11,7 +12,6 @@ import {
 /** The wall polls /v1/snapshot every 20 s; Live reads the same body and the tick's files on the same beat. */
 const POLL_MS = 20_000
 const TIMEOUT_MS = 15_000
-const CLOCK_MS = 250
 const HOMES_LIMIT = 200
 const UNREACHABLE = "cannot reach the ReserveGate API"
 
@@ -87,7 +87,8 @@ export function LiveRoot() {
   }, [base])
 
   useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), CLOCK_MS)
+    // Phone: 1 s UI clock; Live's data poll stays 20 s either way.
+    const timer = setInterval(() => setNowMs(Date.now()), clockMs())
     return () => clearInterval(timer)
   }, [])
 

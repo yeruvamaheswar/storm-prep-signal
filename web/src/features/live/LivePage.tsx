@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { FlowTick, FlowZoneRow } from "../flow/types"
 import { FeedPanel } from "../replay/FeedPanel"
 import { HomePanel } from "../replay/HomePanel"
 import { MapStage } from "../replay/MapStage"
+import { PhoneChrome, type PhoneSheet } from "../replay/PhoneChrome"
 import { PromisePanel } from "../replay/PromisePanel"
 import type { Lens } from "../replay/ScenarioRail"
 import { ZoneBoard } from "../replay/ZoneBoard"
@@ -60,11 +61,17 @@ export function LivePage({
   onZone, onBack, onHome, onCloseHome, onReplay,
 }: LivePageProps) {
   const [lens, setLens] = useState<Lens>("send")
+  const [phoneSheet, setPhoneSheet] = useState<PhoneSheet>(null)
   const body = snapshot.kind === "ready" ? snapshot.value : null
   const settings = run.kind === "ready" ? run.settings : NO_SETTINGS
   const status = liveStatus(snapshot, run, demoFleet, nowMs)
   const live = status.kind === "live"
   const pill = livePill(status, body, nowMs)
+
+  // No fleet panel while not live; drop a stale "This tick" sheet.
+  useEffect(() => {
+    if (!live && phoneSheet === "fleet") setPhoneSheet(null)
+  }, [live, phoneSheet])
 
   // Nothing from the tick reaches the screen unless it is live: no stale numbers shown as current.
   const shown = live ? body : null
@@ -87,6 +94,8 @@ export function LivePage({
   else if (replaying) note = `Replaying this tick's orders: ${fmtClock(tSeconds)} of ${fmtClock(HOLD_T)}.`
   else note = tickOrders?.note ?? ""
 
+  const sheetClass = phoneSheet === "setup" ? " phone-sheet-setup" : phoneSheet === "fleet" ? " phone-sheet-fleet" : ""
+
   return (
     <div className="rg-shell replay-shell live-shell">
       <TopBar
@@ -100,7 +109,7 @@ export function LivePage({
           </span>
         )}
       />
-      <main className={`replay-scene live-scene${zoneView && openHome ? " has-home" : ""}`}>
+      <main className={`replay-scene live-scene${zoneView && openHome ? " has-home" : ""}${sheetClass}`}>
         {zoneView ? (
           <ZoneBoard
             zone={zoneView}
@@ -158,6 +167,15 @@ export function LivePage({
             )}
           </div>
         ) : null}
+        <PhoneChrome
+          lens={lens}
+          onLens={setLens}
+          sheet={phoneSheet}
+          onSheet={setPhoneSheet}
+          setupLabel="Inputs"
+          fleetLabel="This tick"
+          showFleet={live}
+        />
         <div className="replay-bottom">
           <LivePlaybackBar timing={timing} note={note} canReplay={tickOrders?.canReplay === true} onReplay={onReplay} />
         </div>

@@ -10,6 +10,7 @@ import { FeedPanel } from "./FeedPanel"
 import { HomePanel } from "./HomePanel"
 import { LedgerDrawer } from "./LedgerDrawer"
 import { MapStage, type StageNotice } from "./MapStage"
+import { PhoneChrome, type PhoneSheet } from "./PhoneChrome"
 import { PlaybackBar, type ReplayView } from "./PlaybackBar"
 import { PromisePanel } from "./PromisePanel"
 import { ScenarioRail, type Lens } from "./ScenarioRail"
@@ -79,6 +80,7 @@ export function ReplayPage({
   view = "orders", onView, dayPlayheadMs, observedStepSeconds, seek,
 }: Props) {
   const [lens, setLens] = useState<Lens>("send")
+  const [phoneSheet, setPhoneSheet] = useState<PhoneSheet>(null)
   const [drawer, setDrawer] = useState<Drawer>(null)
   const opener = useRef<HTMLElement | null>(null)
   // The playback bar's real height, so the map keeps Texas above it (the Day view bar is taller than Watch orders').
@@ -122,15 +124,23 @@ export function ReplayPage({
     previousDrawer.current = drawer
   }, [drawer])
 
+  // After a scenario starts, drop the setup sheet so the map is free again.
+  const scenarioId = session?.scenario?.id
+  useEffect(() => {
+    if (scenarioId) setPhoneSheet((sheet) => (sheet === "setup" ? null : sheet))
+  }, [scenarioId])
+
   function openDrawer(next: Exclude<Drawer, null>, from: HTMLElement | null) {
     opener.current = from
     setDrawer(next)
   }
 
+  const sheetClass = phoneSheet === "setup" ? " phone-sheet-setup" : phoneSheet === "fleet" ? " phone-sheet-fleet" : ""
+
   return (
     <>
     <LineLegend lens={lens} view={zoneView ? "zone" : "map"} />
-    <main className={`replay-scene${zoneView && openHome ? " has-home" : ""}${paused ? " is-paused" : ""}`}>
+    <main className={`replay-scene${zoneView && openHome ? " has-home" : ""}${paused ? " is-paused" : ""}${sheetClass}`}>
       {zoneView ? (
         <ZoneBoard
           zone={zoneView}
@@ -205,6 +215,14 @@ export function ReplayPage({
           <AboutDataDrawerEmpty onClose={() => setDrawer(null)} />
         )
       ) : null}
+      <PhoneChrome
+        lens={lens}
+        onLens={setLens}
+        sheet={phoneSheet}
+        onSheet={setPhoneSheet}
+        setupLabel="Scenario"
+        fleetLabel="This tick"
+      />
       <div className="replay-bottom" ref={bottomRef}>
         {postError ? <p className="replay-post-error" role="alert">{postError}</p> : null}
         <PlaybackBar state={session} tSeconds={tSeconds} speedsAvailable={!scenariosFailed} onSend={onSend}

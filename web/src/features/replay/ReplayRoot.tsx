@@ -11,6 +11,7 @@ import {
 } from "./dayModel"
 import { canStep, type ReplayView } from "./PlaybackBar"
 import { ReplayPage } from "./ReplayPage"
+import { SCENARIO_POLL_MS_PHONE, clockMs, isPhonePortrait } from "./phoneMedia"
 import { SPEED_STOPS, advancePlayhead, initialPlayhead, playheadSeconds } from "./tickClock"
 import { rememberSpeed, useReplayKeys, type SentSpeed } from "./useReplayKeys"
 import "./replay.css"
@@ -109,7 +110,9 @@ export function ReplayRoot() {
       }
     }
     void poll()
-    const timer = setInterval(() => void poll(), POLL_MS[view])
+    // Phone: floor at 1 s to cut work; desktop keeps Day at 250 ms / Orders at 500 ms.
+    const ms = isPhonePortrait() ? Math.max(POLL_MS[view], SCENARIO_POLL_MS_PHONE) : POLL_MS[view]
+    const timer = setInterval(() => void poll(), ms)
     return () => {
       cancelled = true
       clearInterval(timer)
@@ -117,7 +120,7 @@ export function ReplayRoot() {
   }, [base, view])
 
   useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), 250)
+    const timer = setInterval(() => setNowMs(Date.now()), clockMs())
     return () => clearInterval(timer)
   }, [])
 
@@ -180,11 +183,12 @@ export function ReplayRoot() {
     canSeek: !seekBusy && canSeek(live),
   }, post)
   const playheadT = live ? playheadSeconds(playhead, nowMs) : undefined
+  // Phone TopBar is tight: name + tick only (the "Scenario" label is desktop).
   const rightSlot = live ? (
     <>
-      <span>Scenario</span>
-      <span className="rg-pill">{live.scenario?.name ?? "No scenario loaded"}</span>
-      <span>Tick {live.tick_index} of {live.tick_count}</span>
+      <span className="rg-slot-label">Scenario</span>
+      <span className="rg-pill rg-pill-scenario">{live.scenario?.name ?? "No scenario loaded"}</span>
+      <span className="rg-tick">Tick {live.tick_index} of {live.tick_count}</span>
     </>
   ) : <span className="rg-pill">No scenario loaded</span>
 
