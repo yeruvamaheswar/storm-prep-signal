@@ -49,6 +49,19 @@ def tick_left(session, next_step, paused_left, now):
     return None if paused_left is None else round(paused_left, 3)
 
 
+def superseded_seek(batch, k):
+    """True when a later seek in this poll's batch replaces seek `k`: only speed requests lie between them, so running
+    just the last one gives the same result with one re-run (a drag can queue several). Any other request keeps the
+    earlier seek. Play included: Play on a finished tape resets the run, so it must be judged after the earlier seek."""
+    for later in batch[k + 1:]:
+        kind = later.get("kind")
+        if kind == "seek":
+            return True
+        if kind != "speed":
+            return False
+    return False
+
+
 def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, seed=None, steps=None,
         settings=None, poll_s=POLL_S, clock=time.monotonic, sleep=time.sleep, ignore_old_requests=True):
     """The worker loop. Returns the session after `steps` ticks (or never, without --steps)."""
@@ -65,9 +78,28 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
         changed = False
         step_before = session.step_seconds()
         playing_before, index_before = session.playing, session.index
-        for request in read_requests(last_seq, scenario_dir):
-            session.apply(request)
+        # A start or reset begins a new tick window at once, even when the index does not move (the old run sat at
+        # tick 0 with its next tick still due). A seek that moved the index lands on its tick for a full window.
+        # The last of these in the batch decides; a no-op or refused seek changes nothing.
+        restart = None
+        batch = read_requests(last_seq, scenario_dir)
+        for k, request in enumerate(batch):
+            kind = request.get("kind")
             last_seq, changed = request["seq"], True
+            if kind == "seek" and superseded_seek(batch, k):
+                continue
+            if kind == "seek" and session.scenario is not None:
+                # Tell the page before a long re-run; it shows the tick it has until the new one is written.
+                seeking = session.state()
+                seeking["seeking"] = True
+                seeking["tick_left_s"] = tick_left(session, next_step, paused_left, clock())
+                write_state(seeking, scenario_dir)
+            index_at = session.index
+            session.apply(request)
+            if kind in ("start", "reset"):
+                restart = "start"
+            elif kind == "seek" and session.index != index_at:
+                restart = "seek"
         now = clock()
         step_after = session.step_seconds()
         # A speed change mid-tick keeps the share of the tick already played; only the rest changes pace.
@@ -77,7 +109,10 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
         if playing_before and not session.playing:
             # Pause keeps the time left in this tick instead of letting the clock run on.
             paused_left = max(0.0, next_step - now)
-        if session.index < index_before:
+        if restart == "seek":
+            # The page lands on the seek's tick and shows it for a full window, like a Next tick.
+            next_step, paused_left = now + step_after, None
+        elif restart == "start" or session.index < index_before:
             # A reset or a new scenario: nothing is left of the old tick.
             next_step, paused_left = now, None
         elif session.index > index_before:
