@@ -595,6 +595,17 @@ def test_acted_intent_exact_tie_is_discharge():
     assert acted_intent(alloc, labelled("charge"), "AUTO") == ("discharge", "grid_call")
 
 
+def test_acted_intent_float_noise_tie_is_discharge():
+    # 0.1 + 0.2 charged is 0.30000000000000004 kW: noise over the 0.3 kW sold, still a tie.
+    alloc = Allocation({"a": 0.3, "b": -0.1, "c": -0.2}, 0.0003, 0.0, ["charging"])
+    assert acted_intent(alloc, labelled("charge"), "AUTO") == ("discharge", "grid_call")
+
+
+def test_acted_intent_noise_sized_kw_is_not_movement():
+    alloc = Allocation({"a": 1e-9, "b": -1e-9}, 0.0, 0.0, [])
+    assert acted_intent(alloc, labelled("discharge"), "AUTO") == ("hold", "no_grid_call")
+
+
 def test_acted_intent_discharge_price_with_no_call_is_hold():
     alloc = Allocation({}, 0.0, 0.0, [])
     assert acted_intent(alloc, labelled("discharge"), "AUTO") == ("hold", "no_grid_call")

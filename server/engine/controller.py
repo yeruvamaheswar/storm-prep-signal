@@ -79,7 +79,8 @@ def acted_intent(alloc, policy, mode):
         nothing moved, charge/discharge  -> hold, no_grid_call when the target was 0,
                                             else policy reason (a call nobody could serve)
 
-    An exact tie reads discharge: the call was served. A discharge-winning mixed tick shows
+    Sizes within MISSED_TOLERANCE_MW (as kW) are float noise: a noise-sized kW is not
+    movement, and charge wins only by more than that. An exact tie reads discharge: the call was served. A discharge-winning mixed tick shows
     its charge through the `charging` reason code on the allocation.
     A cheap tick with no call charges every home with room, so it reads charge; the
     charge-band no_grid_call row only happens when every home is full.
@@ -89,9 +90,12 @@ def acted_intent(alloc, policy, mode):
     planned = alloc.per_home_kw.values()
     sold_kw = sum(kw for kw in planned if kw > 0)
     charged_kw = -sum(kw for kw in planned if kw < 0)
-    if charged_kw > sold_kw:
-        return "charge", "grid_call_served" if sold_kw > 0 else policy.intent_reason
-    if sold_kw > 0:
+    # Split noise must not flip a tie to charge or count as movement.
+    noise_kw = MISSED_TOLERANCE_MW * 1000
+    sold = sold_kw > noise_kw
+    if charged_kw > noise_kw and charged_kw - sold_kw > noise_kw:
+        return "charge", "grid_call_served" if sold else policy.intent_reason
+    if sold:
         return "discharge", policy.intent_reason if policy.intent == "discharge" else "grid_call"
     target_mw = alloc.delivered_mw + alloc.missed_mw
     if policy.intent in ("charge", "discharge") and target_mw <= 0:
