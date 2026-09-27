@@ -50,7 +50,7 @@ Floor-only callers omit `price_label`. Intent stays `hold` and the floor reasons
 
 `holding_spare_energy` is dropped from the zoned path: it meant "missed while hold zones sat on headroom", which cannot happen now that hold zones sell for a call. It stays only on the unknown-intent branch of `allocate`.
 
-Tapes (origin/main -> this rule, 0 breaches): heather 24.4 -> 35.5%, heather-thaw 80.5 -> 92.8%, calm-charge 76.9 -> 80.8%; storm-rule-night 35.3 -> 29.2%, storm-rule-high 32.6 -> 32.5%; the rest unchanged within 0.2 points.
+Tapes (origin/main -> this rule, 0 breaches): heather 24.4 -> 35.5%, heather-thaw 80.5 -> 92.8%, calm-charge 76.9 -> 80.8%; storm-rule-night 35.3 -> 29.2%, storm-rule-high 32.6 -> 32.5%; the rest unchanged within 0.2 points. Why storm-rule-night drops (correct, not a bug): at 16:00-16:25 North is $22-23 but Houston is $67-80 and South $158-303. origin/main charged every zone on the North price (237 kWh over the run); per-zone charges only the cheap zones (92 kWh). The 145 kWh not bought is the 0.143 MWh delivered less: both runs drain every home to the floor by 20:40, so delivery equals energy stored. Deliveries first differ at tick 43 (19:30). storm-rule-high: South at $25.49 (just above $25) at 08:45-08:55 does not charge; 30 kWh less stored, 0.002 MWh less delivered.
 
 Tests: zone-band cases in `tests/test_policy.py`, `allocate_zoned` tier cases in `tests/test_controller.py`, path 24 in `tests/test_tick_paths.py`.
 
