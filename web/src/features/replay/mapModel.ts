@@ -180,20 +180,32 @@ export function chipLines(
   row: FlowZoneRow | undefined,
   tick: Pick<FlowTick, "zone_reserve_pct" | "zone_reasons"> | null | undefined,
   lens: ChipLens,
+  /** The session's homes. Since #47 a floor is set per county, so a zone's homes can keep different floors. */
+  homes?: FlowHome[],
 ): [string, string] {
   if (lens === "keep") {
     const floor = tick?.zone_reserve_pct?.[zone] ?? row?.reserve_pct
     const reason = tick?.zone_reasons?.[zone] ?? row?.reason
+    // The zone floor is its highest county floor (policy.py _zone_floor). When some homes keep less, say so:
+    // the same rule as /flow's zoneFloorText. "Raised" counts homes above the zone's lowest (base) floor.
+    const floors = (homes ?? []).filter((home) => home.zone === zone).map((home) => home.floor_pct)
+      .filter((pct): pct is number => typeof pct === "number" && Number.isFinite(pct))
+    const low = floors.length ? Math.min(...floors) : undefined
+    if (typeof floor === "number" && low !== undefined && low < floor) {
+      const raised = floors.filter((pct) => pct > low).length
+      const count = `${raised} of ${floors.length} homes raised`
+      return [`Floor ${low}–${floor}% by county`, reason ? `${plainReason(reason)}: ${count}` : count]
+    }
     return [
       typeof floor === "number" ? `Floor ${floor}%` : "Floor not reported",
       reason ? plainReason(reason) : "Reason not reported",
     ]
   }
   if (!activity) return ["Not reported", "Open zone"]
-  const homes = (n: number) => `${n} ${n === 1 ? "home" : "homes"}`
+  const homeCount = (n: number) => `${n} ${n === 1 ? "home" : "homes"}`
   const charging = activity.askedCharge > 0
-  let asked = `${homes(activity.asked)} asked`
-  if (chargeOnly(activity)) asked = `${homes(activity.askedCharge)} charging`
+  let asked = `${homeCount(activity.asked)} asked`
+  if (chargeOnly(activity)) asked = `${homeCount(activity.askedCharge)} charging`
   else if (charging) asked = `${activity.askedSell} asked to sell · ${activity.askedCharge} charging`
   if (lens === "trust") {
     // Only a confirmed sale counts as "confirmed"; a confirmed charge is named apart.

@@ -279,7 +279,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
       {projected ? FLOW_ZONES.map((zone) => {
         const at = projected.zones[zone]
         if (!at) return null
-        const [line1, line2] = chipLines(zone, activity[zone], zones[zone], tick, lens)
+        const [line1, line2] = chipLines(zone, activity[zone], zones[zone], tick, lens, homes)
         const go = zoneGoes(activity[zone])
         const charge = chargeOnly(activity[zone])
         const placement = chipPlacement(at, clusterRadius(homeCounts[zone] ?? 0), projected.node)

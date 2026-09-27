@@ -10,6 +10,7 @@ import {
   chipLines, chipPlacement, insideRing, zoneActivity, zoneArcClass, zoneGeos, zoneGoes, zoneRaised,
 } from "../src/features/replay/mapModel"
 import { PlaybackBar, tickProgress } from "../src/features/replay/PlaybackBar"
+import { berylHoustonHomes22, berylHoustonRow22, berylTick22 } from "./fixtures/beryl22"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
 
 // Consistent with the engine: missed = target - delivered, and missed already includes unconfirmed.
@@ -245,6 +246,18 @@ describe("zone emphasis is data driven", () => {
     const [floor, reason] = chipLines("North", null, undefined, tick, "keep")
     expect(floor).toBe("Floor 60%")
     expect(reason).toBe("Storm risk high")
+  })
+
+  it("keep lens names a floor range when the zone's counties keep different floors (Task 12 / #47: B2)", () => {
+    // beryl tick 22: the Houston zone floor is 60% (its highest county), but only Harris's 5 homes keep 60%.
+    expect(chipLines("Houston", null, berylHoustonRow22, berylTick22, "keep", berylHoustonHomes22))
+      .toEqual(["Floor 30–60% by county", "Weather alert: 5 of 25 homes raised"])
+    // Every home at the zone floor: the one floor, as before.
+    const north = berylHoustonHomes22.map((home) => ({ ...home, zone: "North", floor_pct: 30 }))
+    expect(chipLines("North", null, undefined, berylTick22, "keep", north)).toEqual(["Floor 30%", "Normal"])
+    // No homes passed (or none in the zone): the zone floor alone.
+    expect(chipLines("Houston", null, berylHoustonRow22, berylTick22, "keep")).toEqual(["Floor 60%", "Weather alert"])
+    expect(chipLines("Houston", null, berylHoustonRow22, berylTick22, "keep", north)).toEqual(["Floor 60%", "Weather alert"])
   })
 })
 
