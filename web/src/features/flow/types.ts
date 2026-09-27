@@ -38,13 +38,27 @@ export type JevReading = {
   latency_ms: number
   input_label: string
   recorded?: boolean
+  county_fips?: string
+}
+
+/** raise: JEV yes. keep_base: JEV no. raise_no_reading: no recorded reading, fail safe. */
+export type JevDecision = "raise" | "keep_base" | "raise_no_reading"
+
+export type CountyJev = {
+  county_name: string
+  zone: string
+  reading: JevReading | null
+  decision: JevDecision
 }
 
 export type ActiveAlert = AlertSummary & {
   zones: string[]
   sent_at_tick: number | null
   jev: JevReading | null
+  jev_by_county?: Record<string, CountyJev>
 }
+
+export type FlowCounty = { zone: string; fips: string; name: string }
 
 export type ScenarioEntry = {
   id: string
@@ -67,7 +81,11 @@ export type ScenarioList = {
 
 export type FlowHome = {
   id: string
+  name?: string
   zone: string
+  county?: string
+  county_name?: string
+  floor_reason?: string
   soc_pct: number
   soc_before_pct?: number
   kw: number
@@ -110,6 +128,8 @@ export type FlowTick = {
   breaches: number
   zone_reserve_pct: Record<string, number>
   zone_reasons: Record<string, string>
+  county_reserve_pct?: Record<string, number>
+  county_reasons?: Record<string, string>
   brief: string
   charging_mw?: number
   grid_down_zones?: string[]
@@ -216,6 +236,7 @@ export type SessionState = {
   charging_mw: number
   provenance: Provenance | null
   alerts: ActiveAlert[]
+  counties?: FlowCounty[]
   grid_down_zones: string[]
   history: HistoryPoint[]
   totals: Record<string, unknown> | null

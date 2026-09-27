@@ -247,10 +247,11 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
         zone_price_label = "ercot" if live else frame.zone_price_label
     # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
     # Zone prices give each zone its own charge/hold/discharge band; with none, one fleet band.
+    # County alerts carry JEV's P(yes) per county; JEV gates each county's alert floor.
     policy = reserve_policy(
         risk, settings, alerted, mode=mode,
         price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
-        zone_prices=zone_prices,
+        zone_prices=zone_prices, county_alerts=frame.events.get("weather_counties"),
     )
     # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
     target_mw = scale_target_mw(frame.target_mw, settings)
@@ -290,6 +291,8 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
         charging_mw=cycle.charging_mw,
         zone_charging_mw=dict(cycle.zone_charging_mw),
         grid_down_zones=sorted(grid_down_zones(frame)),
+        county_reserve_pct=dict(policy.county_reserve_pct),
+        county_reasons=dict(policy.county_reasons),
     )
     return result, cycle, policy, frame, risk
 

@@ -108,7 +108,7 @@ export function FlowApp() {
           {state?.tick ? <p className="flow-brief">{state.tick.brief}</p> : null}
           {selectedZone && state ? (
             <ZoneBatteries zone={selectedZone} row={state.zones[selectedZone]} homes={state.homes}
-              stepSeconds={state.step_seconds} pack={pack} onClose={() => setSelectedZone(null)} />
+              counties={state.counties ?? []} alerts={state.alerts} stepSeconds={state.step_seconds} pack={pack} onClose={() => setSelectedZone(null)} />
           ) : (
             <p className="flow-muted">Click a zone on the map to see each battery.</p>
           )}

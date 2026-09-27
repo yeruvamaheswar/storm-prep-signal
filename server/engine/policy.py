@@ -1,15 +1,22 @@
 """The reserve floor rule. Pure function only: no files, no clock, no network."""
 from server.engine.contracts import Policy
 from server.engine.controller import STORM_REASONS
+from server.engine.fleet import zone_counties
+
+# Jev returns P(yes); "yes" at 0.5 or above is our reading, not something Jev reports.
+JEV_YES_AT = 0.5
+COUNTY_RAISED = ("weather_alert_jev_yes", "weather_alert_no_jev")
 
 
 def reserve_policy(risk, settings, alerted=None, mode="AUTO", price_usd_mwh=None,
-                   price_label=None, zone_prices=None):
+                   price_label=None, zone_prices=None, county_alerts=None):
     """Pick the reserve floor, then the charge | hold | discharge price band.
 
     Floor is unchanged: HIGH and a missing signal keep storm_reserve_pct. Pass price_label
     to compute intent; omit it for a floor-only call (intent stays hold). Pass zone_prices
-    (zone name to $/MWh) to give each zone its own band in `zone_intent`.
+    (zone name to $/MWh) to give each zone its own band in `zone_intent`. Pass county_alerts
+    (county FIPS under an alert to its JEV P(yes), or None with no reading) to gate each
+    county's alert floor on JEV.
     """
     # No signal means we can't rule out a storm, so fail safe and keep the larger reserve.
     if risk is None:
@@ -20,8 +27,23 @@ def reserve_policy(risk, settings, alerted=None, mode="AUTO", price_usd_mwh=None
         policy = Policy(settings["base_reserve_pct"], "normal", "LOW")
 
     alerted = alerted or {}
+    raised = {}   # zone name to the floors of its raised counties
+    if county_alerts:
+        roster = zone_counties(settings)
+        named_zones = {zone for zone, fips, _ in roster if fips in county_alerts}
+        # Every county of a named zone gets its own floor, so a county the alert skipped
+        # never falls back to the zone's raised floor.
+        for zone, fips, _ in roster:
+            if zone not in named_zones:
+                continue
+            pct, reason = _county_floor(zone, fips in county_alerts, county_alerts.get(fips),
+                                        policy, alerted, settings)
+            policy.county_reserve_pct[fips] = pct
+            policy.county_reasons[fips] = reason
+            if reason in COUNTY_RAISED:
+                raised.setdefault(zone, []).append(pct)
     for zone in settings.get("zones", {}):
-        pct, reason = _zone_floor(zone, policy, alerted, settings)
+        pct, reason = _zone_floor(zone, policy, alerted, raised, settings)
         policy.zone_reserve_pct[zone] = pct
         policy.zone_reasons[zone] = reason
     _set_intent(policy, settings, mode, price_usd_mwh, price_label)
@@ -76,11 +98,30 @@ def price_band(usd, settings, storm):
     return "hold"
 
 
-def _zone_floor(zone, policy, alerted, settings):
+def _zone_floor(zone, policy, alerted, raised, settings):
     # A fleet-wide reason (no signal, or ERCOT HIGH) outranks any single zone's alert.
     if policy.reason != "normal":
         return policy.reserve_pct, policy.reason
     # Zones react only to weather alerts; there is no per-zone ERCOT threshold.
     if zone in alerted:
         return settings["storm_reserve_pct"], "weather_alert"
+    # A zone with any raised county never sells on price; its floor is the highest county floor.
+    if zone in raised:
+        return max(raised[zone]), "weather_alert"
     return settings["base_reserve_pct"], "normal"
+
+
+def _county_floor(zone, named, probability, policy, alerted, settings):
+    # Fleet-wide reasons, and a whole-zone alert with no county detail, outrank JEV.
+    if policy.reason != "normal":
+        return policy.reserve_pct, policy.reason
+    if zone in alerted:
+        return settings["storm_reserve_pct"], "weather_alert"
+    if not named:
+        return settings["base_reserve_pct"], "not_in_alert"
+    # No reading means we can't rule the alert out, so fail safe and keep the larger reserve.
+    if probability is None:
+        return settings["storm_reserve_pct"], "weather_alert_no_jev"
+    if probability >= JEV_YES_AT:
+        return settings["storm_reserve_pct"], "weather_alert_jev_yes"
+    return settings["base_reserve_pct"], "jev_no"
