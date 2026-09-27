@@ -96,6 +96,10 @@ describe("fleet handoff", () => {
     expect(north).toContain('href="/fleet?zone=North"')
     expect(north).toContain("Fleet homes in North")
   })
+
+  it("links the mast to the grid flow page", () => {
+    expect(strip(1)).toContain('href="/flow"')
+  })
 })
 
 describe("fixture chrome", () => {

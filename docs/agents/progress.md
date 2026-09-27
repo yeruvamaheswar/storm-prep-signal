@@ -1094,3 +1094,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Vercel: `web/vercel.json` (new) builds with Vite and rewrites `/health` and `/v1/*` to the Render API, with an `index.html` fallback for `/fleet` and `/flow`. Project import (root `web`, branch `main`) is done in the Vercel dashboard.
 - Verified: `npm run build` clean; `vite preview` proxied to Render served `/health`, `/v1/meta`, `/v1/snapshot`, `/geo/ercot-load-zones.json`, `/fleet`, `/flow` with 200. Vercel rewrites themselves not verified until the first Vercel deploy.
 - Docs: `backend.md` (Deploy the wall on Vercel), `system-design.md` section 9 diagram, `index.md`, `README.md`.
+
+## 2026-09-26: /flow worker on Render, wall links to /flow
+
+- `render.yaml` start command now runs `scripts/scenario_session.py` in the background and `exec`s uvicorn in the same instance, so the deployed `/flow` page has its session worker (they share `var/scenario/`). The live Render service was created by hand, so its Start Command is also changed in the dashboard. Limits: sleep after 15 idle minutes resets the session; one shared session for all viewers. Detail: `grid-flow.md`, "Run it on Render".
+- The wall masthead gets a "Grid flow" link to `/flow` beside "Fleet" (`TopStrip.tsx`, test in `web/tests/topStrip.test.ts`).
+- Verified locally: the combined start command on port 8765 accepted `start` and `play` through the API and reported `status: playing`; about 30 MB each for API and worker. Web: vitest 280 passed, build clean.
+- Docs: `grid-flow.md`, `system-design.md` (section 9 diagram), `code-flow.md`, `backend.md`, `docs/humans/grid-flow.md`.

@@ -108,6 +108,9 @@ export function TopStrip({
           >
             Fleet
           </a>
+          <a className="mast-link" href="/flow">
+            Grid flow
+          </a>
         </div>
         <p>
           {place}
