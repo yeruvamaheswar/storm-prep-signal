@@ -1,11 +1,22 @@
 import type { CSSProperties } from "react"
-import { BATTERY_COLOR, BATTERY_LABEL, chargeSpeedCaption, fmtKw, fmtMw, reasonLabel } from "./flowMath"
-import type { BatteryState, FlowHome, FlowZoneRow } from "./types"
+import {
+  BATTERY_COLOR,
+  BATTERY_LABEL,
+  chargeSpeedCaption,
+  countyFloorNote,
+  countyGroups,
+  fmtKw,
+  fmtMw,
+  zoneFloorText,
+} from "./flowMath"
+import type { ActiveAlert, BatteryState, FlowCounty, FlowHome, FlowZoneRow } from "./types"
 
 type Props = {
   zone: string
   row: FlowZoneRow | undefined
   homes: FlowHome[]
+  counties: FlowCounty[]
+  alerts: ActiveAlert[]
   stepSeconds: number
   pack: { kwh: number; kw: number } | null
   onClose: () => void
@@ -18,8 +29,8 @@ const UNDER_FLOOR_WHY = {
 
 const LEGEND: BatteryState[] = ["selling", "charging", "holding", "reserved", "at_floor", "below_floor", "islanded", "unconfirmed", "stale", "dead"]
 
-/** One cell per battery. The fill moves to the new charge over one playback step (real kW, sped up). */
-export function ZoneBatteries({ zone, row, homes, stepSeconds, pack, onClose }: Props) {
+/** One cell per battery, grouped by county. The fill moves to the new charge over one playback step (real kW, sped up). */
+export function ZoneBatteries({ zone, row, homes, counties, alerts, stepSeconds, pack, onClose }: Props) {
   const inZone = homes.filter((home) => home.zone === zone)
   const present = new Set(inZone.map((home) => home.state))
   const startedUnder = inZone.filter((home) => home.under_floor_why === "started_under").length
@@ -31,7 +42,7 @@ export function ZoneBatteries({ zone, row, homes, stepSeconds, pack, onClose }: 
         <h2>{zone} batteries</h2>
         <p className="flow-muted">
           {row
-            ? `sell ${fmtMw(row.selling_mw)} · charge ${fmtMw(row.charging_mw)} · floor ${row.reserve_pct}% (${reasonLabel(row.reason)})`
+            ? `sell ${fmtMw(row.selling_mw)} · charge ${fmtMw(row.charging_mw)} · ${zoneFloorText(row, inZone)}`
             : "No tick played yet."}
         </p>
         <button type="button" className="flow-button" onClick={onClose}>All zones</button>
@@ -41,20 +52,30 @@ export function ZoneBatteries({ zone, row, homes, stepSeconds, pack, onClose }: 
           Grid down in {zone} (operator overlay, not archive data). These batteries back up their own homes: they neither sell nor charge.
         </p>
       ) : null}
-      <div className="flow-cells">
-        {inZone.map((home) => (
-          <div key={home.id} className={`flow-cell is-${home.state}`}
-            title={`${home.id}: ${home.soc_pct.toFixed(1)}% · ${fmtKw(home.kw)} · ${BATTERY_LABEL[home.state]} · floor ${home.floor_pct}%` +
-              (home.under_floor_why ? ` · ${UNDER_FLOOR_WHY[home.under_floor_why]}` : "")}>
-            <div className="flow-cell-tank">
-              <span className="flow-cell-fill" style={{ height: `${home.soc_pct}%`, background: BATTERY_COLOR[home.state] }} />
-              <span className="flow-cell-floor" style={{ bottom: `${home.floor_pct}%` }} />
-            </div>
-            <span className="flow-cell-pct">{home.soc_pct.toFixed(0)}%</span>
-            <span className="flow-cell-kw">{fmtKw(home.kw)}</span>
+      {countyGroups(inZone, counties).map((group) => (
+        <div key={group.fips} className="flow-county">
+          {group.fips ? (
+            <header className="flow-county-head">
+              <h3>{group.name}</h3>
+              <span className="flow-muted">{group.fips} · {countyFloorNote(group, row?.reason, alerts)}</span>
+            </header>
+          ) : null}
+          <div className="flow-cells">
+            {group.homes.map((home) => (
+              <div key={home.id} className={`flow-cell is-${home.state}`}
+                title={`${home.name ?? home.id}: ${home.soc_pct.toFixed(1)}% · ${fmtKw(home.kw)} · ${BATTERY_LABEL[home.state]} · floor ${home.floor_pct}%` +
+                  (home.under_floor_why ? ` · ${UNDER_FLOOR_WHY[home.under_floor_why]}` : "")}>
+                <div className="flow-cell-tank">
+                  <span className="flow-cell-fill" style={{ height: `${home.soc_pct}%`, background: BATTERY_COLOR[home.state] }} />
+                  <span className="flow-cell-floor" style={{ bottom: `${home.floor_pct}%` }} />
+                </div>
+                <span className="flow-cell-pct">{home.soc_pct.toFixed(0)}%</span>
+                <span className="flow-cell-kw">{fmtKw(home.kw)}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
       <ul className="flow-legend">
         {LEGEND.filter((state) => present.has(state)).map((state) => (
           <li key={state}><span className="flow-swatch" style={{ background: BATTERY_COLOR[state] }} />{BATTERY_LABEL[state]}</li>

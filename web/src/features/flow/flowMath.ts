@@ -1,5 +1,15 @@
 import type { FlowRequest } from "./api"
-import type { BatteryState, FlowZoneRow, Provenance, SessionState } from "./types"
+import type {
+  ActiveAlert,
+  BatteryState,
+  CountyJev,
+  FlowCounty,
+  FlowHome,
+  FlowZoneRow,
+  JevDecision,
+  Provenance,
+  SessionState,
+} from "./types"
 
 export type Point = [number, number]
 export type ZoneShape = { zone: string; path: string; centroid: Point }
@@ -169,11 +179,86 @@ export const REASON_LABEL: Record<string, string> = {
   storm_risk_high: "ERCOT outage rule HIGH",
   weather_alert: "NWS weather alert",
   signal_unavailable: "Outage report unreadable (fail safe)",
+  weather_alert_jev_yes: "NWS alert, JEV yes",
+  weather_alert_no_jev: "NWS alert, no JEV reading (fail safe)",
+  jev_no: "NWS alert, JEV no (base floor)",
+  not_in_alert: "County not named by the alert (base floor)",
 }
 
 export function reasonLabel(code: string | null | undefined): string {
   if (!code) return "No reason"
   return REASON_LABEL[code] ?? code.replace(/_/g, " ")
+}
+
+/** "floor 60% (NWS weather alert)", or "floor 30–60% by county (...)" when JEV kept some counties at base. */
+export function zoneFloorText(row: FlowZoneRow, homes: FlowHome[]): string {
+  const low = homes.length ? Math.min(...homes.map((home) => home.floor_pct)) : row.reserve_pct
+  const pct = low < row.reserve_pct ? `${low}–${row.reserve_pct}% by county` : `${row.reserve_pct}%`
+  return `floor ${pct} (${reasonLabel(row.reason)})`
+}
+
+export type CountyGroup = { fips: string; name: string; homes: FlowHome[] }
+
+/** A zone's homes by county, in roster order. Homes with no county (older worker) share one group with fips "". */
+export function countyGroups(homes: FlowHome[], counties: FlowCounty[]): CountyGroup[] {
+  const byFips = new Map<string, FlowHome[]>()
+  for (const home of homes) {
+    const fips = home.county ?? ""
+    byFips.set(fips, [...(byFips.get(fips) ?? []), home])
+  }
+  const rostered = counties.map((county) => county.fips).filter((fips) => byFips.has(fips))
+  const others = [...byFips.keys()].filter((fips) => !rostered.includes(fips))
+  return [...rostered, ...others].map((fips) => {
+    const members = byFips.get(fips) ?? []
+    const name = counties.find((county) => county.fips === fips)?.name ?? members[0]?.county_name ?? fips
+    return { fips, name, homes: members }
+  })
+}
+
+const FLEET_REASONS = new Set(["storm_risk_high", "signal_unavailable"])
+
+const DECISION_OF_REASON: Record<string, JevDecision> = {
+  weather_alert_jev_yes: "raise",
+  jev_no: "keep_base",
+  weather_alert_no_jev: "raise_no_reading",
+}
+
+/** "JEV yes 0.74 · floor 60%". A fleet-wide reason (ERCOT HIGH, no signal) outranks the county's JEV gate. */
+export function countyFloorNote(group: CountyGroup, zoneReason: string | undefined, alerts: ActiveAlert[]): string {
+  const home = group.homes[0]
+  if (!home) return ""
+  const floor = `floor ${home.floor_pct}%`
+  const reason = zoneReason && FLEET_REASONS.has(zoneReason) ? zoneReason : home.floor_reason ?? zoneReason
+  const decision = reason ? DECISION_OF_REASON[reason] : undefined
+  if (!decision) return `${floor} · ${reasonLabel(reason)}`
+  if (decision === "raise_no_reading") return `no JEV reading · ${floor} (fail safe)`
+  const entries = alerts.map((alert) => alert.jev_by_county?.[group.fips]).filter((entry) => entry !== undefined)
+  const reading = (entries.find((entry) => entry.decision === decision) ?? entries[0])?.reading
+  const p = reading ? ` ${reading.probability.toFixed(2)}` : ""
+  return `JEV ${decision === "raise" ? "yes" : "no"}${p} · ${floor}`
+}
+
+export type AlertCountyRow = CountyJev & { fips: string }
+
+/** An alert's per-county JEV decisions in roster order (FIPS keys would otherwise sort numerically). */
+export function alertCountyRows(alert: ActiveAlert, counties: FlowCounty[]): AlertCountyRow[] {
+  const byFips = alert.jev_by_county ?? {}
+  const rank = new Map(counties.map((county, i) => [county.fips, i]))
+  return Object.keys(byFips)
+    .sort((a, b) => (rank.get(a) ?? counties.length) - (rank.get(b) ?? counties.length))
+    .map((fips) => ({ fips, ...byFips[fips] }))
+}
+
+const JEV_FLOOR_WORDS: Record<JevDecision, string> = {
+  raise: "storm reserve",
+  keep_base: "base floor",
+  raise_no_reading: "storm reserve (fail safe)",
+}
+
+/** The floor a county's JEV decision gave: "60%", "30%", "60% (fail safe)"; words when the tick has no number yet. */
+export function jevFloorText(decision: JevDecision, pct: number | undefined): string {
+  if (typeof pct !== "number") return JEV_FLOOR_WORDS[decision] ?? decision
+  return decision === "raise_no_reading" ? `${pct}% (fail safe)` : `${pct}%`
 }
 
 export function fmtMw(mw: number | null | undefined, digits = 3): string {

@@ -11,6 +11,7 @@ class Home:
     status: str = "live"      # "live" | "stale" | "dead"
     zone: str = ""            # ERCOT load zone name from the ZONES setting, "" if unassigned
     updated_at: str = ""      # ISO 8601 with UTC offset; "" until the fleet stamps a write
+    county: str = ""          # county FIPS from fleet.ZONE_COUNTIES, "" if unassigned
 
 @dataclass
 class TapeFrame:
@@ -24,7 +25,9 @@ class TapeFrame:
     events: dict = field(default_factory=dict)
     # events keys: "dead", "stale", "live" (lists of home_id), "operator" ("HOLD" | "AUTO"),
     # simulated faults "network", "crash", "misreport", "short_delivery" (docs/agents/failure-modes.md),
-    # "grid_down" (list of zone names whose batteries back up their own homes: no sell, no charge)
+    # "grid_down" (list of zone names whose batteries back up their own homes: no sell, no charge),
+    # "weather" (zone names under an alert), "weather_counties" (county FIPS under an alert to
+    # its JEV P(yes), or None when there is no reading)
     weather_fixture: Optional[str] = None  # path to a saved weather alerts response
     # Load-zone name to $/MWh, only zones with a price (same map as the snapshot's zone_prices).
     zone_prices: dict = field(default_factory=dict)
@@ -43,6 +46,10 @@ class Policy:
     # Zone name to its own price band, set only when the tick has zone prices. Empty: every
     # zone follows `intent`. See docs/agents/policy-intent.md "Each zone decides".
     zone_intent: dict = field(default_factory=dict)
+    # County FIPS to floor percent and reason, for every roster county of a zone an active alert names.
+    county_reserve_pct: dict = field(default_factory=dict)
+    # "weather_alert_jev_yes" | "weather_alert_no_jev" | "jev_no" | "not_in_alert", or a fleet/zone reason
+    county_reasons: dict = field(default_factory=dict)
 
 @dataclass
 class Allocation:
@@ -94,3 +101,5 @@ class TickResult:
     charging_mw: float = 0.0
     zone_charging_mw: dict = field(default_factory=dict)  # zone name to MW absorbed
     grid_down_zones: list = field(default_factory=list)   # zones whose batteries only back up their homes
+    county_reserve_pct: dict = field(default_factory=dict)  # county FIPS to floor percent (alerted zones' counties)
+    county_reasons: dict = field(default_factory=dict)      # county FIPS to reason code
