@@ -147,6 +147,9 @@ export type Home = {
   last_command: HomeCommand | null
   charge_state: ChargeState | null
   power_kw: number | null
+  /** Task 17, add-only: the engine's display name (e.g. Houston-FortBend-005) and county name from GET /v1/homes. */
+  name?: string | null
+  county_name?: string | null
 }
 
 export type Tape = {

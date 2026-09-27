@@ -14,6 +14,7 @@ import {
   zoneLabel,
   zoneText,
 } from "./display"
+import { homeName } from "../replay/homeName"
 import type { FleetPageProps, Home } from "./types"
 import "./fleet.css"
 
@@ -24,11 +25,11 @@ function lastAck(home: Home) {
   return home.last_command.ack
 }
 
-function rangeText(offset: number, count: number): string {
-  if (count === 0) return "No homes"
-  const start = offset + 1
-  const end = offset + count
-  return start === end ? `Home ${start}` : `Homes ${start}–${end}`
+/** Row numbers for a range of many homes; a single home is always named (homeName, Task 17). */
+function rangeText(offset: number, homes: Home[]): string {
+  if (homes.length === 0) return "No homes"
+  if (homes.length === 1) return homeName(homes[0])
+  return `Homes ${offset + 1}–${offset + homes.length}`
 }
 
 export function FleetPage({
@@ -105,7 +106,7 @@ export function FleetPage({
             onChange={(event) => onQuery(event.target.value)}
           />
         </label>
-        <p className="fleet-count">{rangeText(offset, windowed.length)}</p>
+        <p className="fleet-count">{rangeText(offset, windowed)}</p>
         <div className="fleet-pager" role="group" aria-label="Page">
           <button
             type="button"
@@ -166,7 +167,7 @@ export function FleetPage({
                           onOpenHome(home.home_id)
                         }}
                       >
-                        {home.home_id}
+                        {homeName(home)}
                       </button>
                     </th>
                     <td>{zoneLabel(home.zone)}</td>

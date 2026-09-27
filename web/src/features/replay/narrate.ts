@@ -1,4 +1,5 @@
 import type { FlowHome, OrderTimelineEntry } from "../flow/types"
+import { homeName, type NameableHome } from "./homeName"
 import { FEED_COLORS, homeOrderState, splitOrders } from "./orderState"
 import { fmtClock } from "./tickClock"
 
@@ -70,10 +71,14 @@ function add(lines: FeedLine[], at: number, x: string, c: string): void {
 export function feedLines(
   orders: Record<string, OrderTimelineEntry[]> = {},
   tSeconds: number,
-  homesById: Record<string, Pick<FlowHome, "kw"> | undefined> = {},
+  homesById: Record<string, (Pick<FlowHome, "kw"> & NameableHome) | undefined> = {},
   tickFacts: FeedTickFacts = {},
 ): FeedLine[] {
-  void homesById // kept for a stable call signature; kw always comes from the order's own timeline now.
+  // kW always comes from the order's own timeline; the home row only gives the name (Task 17).
+  const nameOf = (id: string) => {
+    const home = homesById[id]
+    return home ? homeName({ ...home, id }) : id
+  }
   const units = orderUnits(orders)
   const lines: FeedLine[] = []
   if (!units.length) return lines
@@ -111,20 +116,21 @@ export function feedLines(
 
   for (const unit of units) {
     const gave = gaveKw(unit)
+    const name = nameOf(unit.id)
     for (const [at, kind] of unit.timeline) {
       if (kind === "exec") {
         if (unit.isCharge) {
-          add(lines, at, gave === undefined ? `${unit.id} charged.` : `${unit.id} charged ${gave.toFixed(2)} kW.`, FEED_COLORS.charging)
+          add(lines, at, gave === undefined ? `${name} charged.` : `${name} charged ${gave.toFixed(2)} kW.`, FEED_COLORS.charging)
         } else {
-          add(lines, at, gave === undefined ? `${unit.id} gave energy.` : `${unit.id} gave ${gave.toFixed(2)} kW.`, FEED_COLORS.gave)
+          add(lines, at, gave === undefined ? `${name} gave energy.` : `${name} gave ${gave.toFixed(2)} kW.`, FEED_COLORS.gave)
         }
       }
       if (kind === "conf") {
-        add(lines, at, unit.isCharge ? `${unit.id} charge confirmed.` : `${unit.id} confirmed. Counted.`, FEED_COLORS.ok)
+        add(lines, at, unit.isCharge ? `${name} charge confirmed.` : `${name} confirmed. Counted.`, FEED_COLORS.ok)
       }
-      if (kind === "rdrop") add(lines, at, `${unit.id}'s report was lost on the way back.`, FEED_COLORS.lost)
-      if (kind === "dup") add(lines, at, `${unit.id}: a duplicate copy was ignored, so it did not run twice.`, FEED_COLORS.muted)
-      if (kind === "drop" && at > 0) add(lines, at, `${unit.id}'s retry was lost too.`, FEED_COLORS.lost)
+      if (kind === "rdrop") add(lines, at, `${name}'s report was lost on the way back.`, FEED_COLORS.lost)
+      if (kind === "dup") add(lines, at, `${name}: a duplicate copy was ignored, so it did not run twice.`, FEED_COLORS.muted)
+      if (kind === "drop" && at > 0) add(lines, at, `${name}'s retry was lost too.`, FEED_COLORS.lost)
     }
   }
 
