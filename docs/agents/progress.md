@@ -1088,6 +1088,22 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 - Merged `origin/main` (#32–#37) into `feature/grid-flow`. Charge orders follow main #34: sent once, never retried or reassigned (the user chose this; the branch's retry test was dropped). Charges live in `ZoneSupervisor.charges`; `close()` books `home_charged_kw` from that list. `CycleResult.charged_mw` (main) and `charging_mw` (this branch) are set from the same number. `home_caps` keeps both the grid-down skip and main's zero-headroom skip. The invariant check on per-home charge books now reads `charge_confirmed` events.
 
+## 2026-09-26: Deploy the wall to Vercel, API to Render
+
+- Render: created `reservegate-api` (free, Oregon, auto-deploys `main`) with the `render.yaml` build and start commands. Live at `https://reservegate-api.onrender.com`; `/health` and `/v1/meta` return 200. Health check path and `ERCOT_*` / `SUPABASE_*` still to be set in the dashboard.
+- Vercel: `web/vercel.json` (new) builds with Vite and rewrites `/health` and `/v1/*` to the Render API, with an `index.html` fallback for `/fleet` and `/flow`. Project import (root `web`, branch `main`) is done in the Vercel dashboard.
+- Verified: `npm run build` clean; `vite preview` proxied to Render served `/health`, `/v1/meta`, `/v1/snapshot`, `/geo/ercot-load-zones.json`, `/fleet`, `/flow` with 200. Vercel rewrites themselves not verified until the first Vercel deploy.
+- Docs: `backend.md` (Deploy the wall on Vercel), `system-design.md` section 9 diagram, `index.md`, `README.md`.
+
+## 2026-09-26: Cheap power serves the call, then charges (Rajat)
+
+- Bug: on `intent == charge` with a call, `allocate_charge` dropped the whole call and charged every home (100 homes, 0.2 MW call at $10: delivered 0, missed 0.2, absorbed 1.14 MW). With no call, `allocate` returned empty before looking at intent, so idle charging never ran.
+- Decided with the user: serve the call, charge the rest. `allocate_charge` picks just enough homes to cover the call (most headroom first, ties by `home_id`, new `pick_sellers`), splits it across them with `split_target`, and every other live home with room charges. Target 0 on a charge tick charges every home with room. After: same tick delivers 0.2, misses 0, charges 0.935 MW; idle tick charges 1.14 MW. `reason_codes` now reuses a new `shortfall_codes` helper. `allocate_zoned` unchanged.
+- Files: `server/engine/controller.py`; tests `tests/test_controller.py`, `tests/test_orchestration.py`, `tests/test_grid_down.py`, `tests/test_tick_paths.py`; docs `docs/agents/policy-intent.md`, `docs/agents/grid-flow.md` (one line), `CONSTRAINTS.md` (allocation step 8, `reserve_policy` row).
+- Tests: 8 new in `test_controller.py`, 2 new in `test_orchestration.py`. Tests that asserted "charge drops the call" were switched to target 0 (idle charging) or to the new served numbers; no safety assertion was weakened.
+- `pytest -q` (HOME_KWH=25 HOME_MAX_KW=11.4): 665 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
+- Tapes: `demo.json` unchanged (0.182 of 0.317 MWh, 57.6%). `calm-charge.json` 1.711 → 1.785 of 1.826 MWh (93.7% → 97.8%), 0 breaches.
+
 ## 2026-09-26: Intent label shows what the fleet did (Rajat)
 
 - Bug: `TickResult.intent` copied the price band, but hold and discharge both serve the call. HIGH $80 with a 0.2 MW call sold 0.2 MW labelled hold; LOW $80 with no call was labelled discharge with nothing sold.
@@ -1096,4 +1112,5 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests: 11 `acted_intent` cases in `tests/test_controller.py`; paths 21 to 23 in `tests/test_tick_paths.py`. Updated old-label assertions in `test_engine.py` (tiny tape) and `test_tick_paths.py` paths 1 and 4; they now also assert the policy band.
 - The label is the order, not the result: a discharge order that times out still reads discharge; `delivered_mw` shows the shortfall.
 - Test leak fixed: `read_settings()` calls bare `load_dotenv()`, which walks up and, in a git worktree, loads the main clone's `.env`. `SUPABASE_*` then stayed in `os.environ`, and with no `var/runs/latest.json` `load_latest_run` called the real `/runs` through the `requests.get` fake in `tests/test_homes_api.py`. New `tests/conftest.py` restores `os.environ` after every test.
-- `pytest -q` (HOME_KWH=25, HOME_MAX_KW=11.4): 669 passed. With the local `.env` as-is: 667 passed, 2 failed (the fleet-cap meta tests, same as main). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+- Merged main (#41, serve the call then charge; idle charging). Net flow now picks the label: a mixed charge-heavy tick reads charge / `grid_call_served`; sold >= charged (an exact tie too) reads discharge. A cheap no-call tick charges and reads charge. Paths 3, 6 and 20 (first tick) now assert charge / `grid_call_served` with `charging` in reasons and the call met; path 23 asserts idle charging. Unit tests add a charge-heavy mixed case and an exact tie.
+- `pytest -q` with the local `.env` as-is: 682 passed, 2 failed (the fleet-cap meta tests, same as main). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.

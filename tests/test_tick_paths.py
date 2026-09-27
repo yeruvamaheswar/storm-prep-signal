@@ -95,6 +95,11 @@ def moved_kwh(data):
     return sum(h.soc_kwh - data["before"][h.home_id] for h in data["homes"])
 
 
+def gained_kwh(data):
+    """kWh the charging homes took this tick (homes that sold are left out)."""
+    return sum(max(0.0, h.soc_kwh - data["before"][h.home_id]) for h in data["homes"])
+
+
 def story(n, name, tick, data, extra=""):
     print(f"\n  path {n:>2} {name:<24} intent {tick['intent']:<9} floor {tick['reserve_pct']:g}%"
           f" | delivered {tick['delivered_mw']:.3f} of {tick['target_mw']:.3f} MW"
@@ -123,15 +128,18 @@ def test_path_02_discharge_on_a_high_price_serves_the_call(tmp_path, monkeypatch
     assert tick["delivered_mw"] == pytest.approx(0.2)
 
 
-def test_path_03_charge_on_a_cheap_price_delivers_nothing_and_fills_safely(tmp_path, monkeypatch):
+def test_path_03_charge_on_a_cheap_price_serves_the_call_and_fills_safely(tmp_path, monkeypatch):
     record, seen = play(tmp_path, monkeypatch, [frame(price=20.0)])
     tick, data = record["ticks"][0], seen[0]
     story(3, "charge ($20)", tick, data, f" | charged {data['cycle'].charged_mw:.3f} MW")
-    assert tick["intent"] == "charge"
-    assert tick["delivered_mw"] == 0 and tick["missed_mw"] == pytest.approx(0.2)
+    # Net flow is in (most homes charge), and the call was met: charge / grid_call_served.
+    assert data["policy"].intent == "charge"
+    assert (tick["intent"], tick["intent_reason"]) == ("charge", "grid_call_served")
+    # Cheap power still answers the call first; the homes not selling charge.
+    assert tick["delivered_mw"] == pytest.approx(0.2) and tick["missed_mw"] == pytest.approx(0.0, abs=EPS)
     assert "charging" in tick["reasons"]
-    assert moved_kwh(data) > 0
-    assert data["cycle"].charged_mw == pytest.approx(moved_kwh(data) * 12 / 1000)
+    assert gained_kwh(data) > 0
+    assert data["cycle"].charged_mw == pytest.approx(gained_kwh(data) * 12 / 1000)
 
 
 def test_path_04_no_price_holds_and_still_serves(tmp_path, monkeypatch):
@@ -157,13 +165,21 @@ def test_path_05_storm_raises_every_floor_to_60(tmp_path, monkeypatch):
         assert "storm_reserve" in tick["reasons"]
 
 
-def test_path_06_storm_with_a_cheap_price_charges_and_never_discharges(tmp_path, monkeypatch):
+def test_path_06_storm_with_a_cheap_price_charges_and_serves_only_above_the_storm_floor(
+        tmp_path, monkeypatch):
     record, seen = play(tmp_path, monkeypatch, [frame(price=20.0, risk=STORM)])
     tick, data = record["ticks"][0], seen[0]
     story(6, "storm + cheap ($20)", tick, data)
-    assert tick["intent"] == "charge"
-    assert tick["delivered_mw"] == 0
-    assert all(h.soc_kwh >= data["before"][h.home_id] - EPS for h in data["homes"])
+    # Net flow is in, and the call was met from above the storm floor: charge / grid_call_served.
+    assert data["policy"].intent == "charge"
+    assert (tick["intent"], tick["intent_reason"]) == ("charge", "grid_call_served")
+    assert "charging" in tick["reasons"]
+    assert tick["delivered_mw"] == pytest.approx(0.2)
+    assert set(tick["zone_reserve_pct"].values()) == {60.0}
+    # The call is served from headroom above the 60% storm floor (check_tick guards the
+    # floor), and every home not selling charges.
+    assert tick["delivered_mw"] > 0
+    assert data["cycle"].charged_mw > 0
 
 
 def test_path_07_missing_signal_fails_safe_to_60(tmp_path, monkeypatch):
@@ -309,7 +325,11 @@ def test_path_20_charge_then_discharge_across_two_ticks(tmp_path, monkeypatch):
     first, second = record["ticks"]
     story(20, "tick 1 charge ($20)", first, seen[0])
     story(20, "tick 2 discharge ($80)", second, seen[1])
-    assert first["intent"] == "charge" and second["intent"] == "discharge"
+    # Tick 1 meets the call and charges the rest; net flow is in, so it reads charge.
+    assert seen[0]["policy"].intent == "charge" and "charging" in first["reasons"]
+    assert (first["intent"], first["intent_reason"]) == ("charge", "grid_call_served")
+    assert first["delivered_mw"] == pytest.approx(0.2)
+    assert second["intent"] == "discharge"
     assert moved_kwh(seen[0]) > 0 > moved_kwh(seen[1])
     assert second["delivered_mw"] == pytest.approx(0.2)
     assert record["totals"]["breaches"] == 0
@@ -345,11 +365,12 @@ def test_path_22_high_price_with_no_call_is_labelled_hold(tmp_path, monkeypatch)
     assert (tick["intent"], tick["intent_reason"]) == ("hold", "no_grid_call")
 
 
-def test_path_23_cheap_price_with_no_call_is_not_labelled_charge(tmp_path, monkeypatch):
+def test_path_23_cheap_price_with_no_call_charges_and_is_labelled_charge(tmp_path, monkeypatch):
+    # Idle charging: no call, cheap power, so the homes really charge and nothing is sold.
     record, seen = play(tmp_path, monkeypatch, [frame(target_mw=0.0, price=20.0)])
     tick, data = record["ticks"][0], seen[0]
     story(23, "no call ($20)", tick, data, f" | intent_reason {tick['intent_reason']}")
     assert data["policy"].intent == "charge"
-    assert data["cycle"].allocation.per_home_kw == {}
-    assert moved_kwh(data) == pytest.approx(0.0)
-    assert (tick["intent"], tick["intent_reason"]) == ("hold", "no_grid_call")
+    assert moved_kwh(data) > 0
+    assert sold_kw(data) == 0 and tick["delivered_mw"] == 0
+    assert (tick["intent"], tick["intent_reason"]) == ("charge", data["policy"].intent_reason)

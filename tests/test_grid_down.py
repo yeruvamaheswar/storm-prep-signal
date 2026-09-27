@@ -72,7 +72,7 @@ def test_a_shortfall_still_names_its_cause_before_the_grid_down_code():
 
 def test_a_charge_tick_does_not_charge_a_down_zone():
     homes = new_fleet(settings())
-    alloc = allocate(homes, frame(0.2, DOWN), policy("charge"), "AUTO", settings())
+    alloc = allocate(homes, frame(0.0, DOWN), policy("charge"), "AUTO", settings())
     zones = zone_of(homes)
     assert alloc.per_home_kw and all(kw < 0 for kw in alloc.per_home_kw.values())
     assert {zones[i] for i in alloc.per_home_kw} == {"North", "South", "West"}

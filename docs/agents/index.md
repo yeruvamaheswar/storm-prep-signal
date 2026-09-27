@@ -19,7 +19,7 @@ Open this index, then the one file the task needs.
 | `reservegate.md` | You need the hackathon build plan and the frozen tick |
 | `plan-of-attack.md` | Same build plan as `reservegate.md` |
 | `plans/operator-console.md` | You are designing the operator console past the hackathon data limits |
-| `backend.md` | You are changing `server/`, the `/v1` API, or the Render deploy |
+| `backend.md` | You are changing `server/`, the `/v1` API, the Render deploy, or the Vercel wall deploy |
 | `feeds-proxy.md` | You are changing ERCOT auth, `/v1/feeds`, or Vite ERCOT keys |
 | `plans/operator-console-prompts.md` | You are launching a parallel agent to build that console |
 | `plans/fleet-persist-prompts.md` | You are launching a parallel agent to persist the 10k fleet in Supabase |
