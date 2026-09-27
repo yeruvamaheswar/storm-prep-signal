@@ -1,18 +1,20 @@
 // Task 9 part 2: the Live page's pure model. Every label must be true against the real API replies.
 import { describe, expect, it } from "vitest"
 import {
-  REPLAY_WINDOW_SECONDS, engineZone, engineZoneOrder, fleetSizeFrom, flowHomeFromRow, homesFromReply, inputRows, livePill,
-  liveStatus, liveTick, liveZones, ordersForTick, ordersFromReply, placeHomes, provenanceLines, replayDone, replayT,
-  runFleetSize, settingsFromRun, snapshotFromReply, tickTiming, ZONE_NOTE,
-  type LiveStatus, type OrdersState, type SnapshotState,
+  REPLAY_WINDOW_SECONDS, fleetSizeFrom, flowHomeFromRow, homesFromReply, homesWarning, inputRows, livePill, liveStatus,
+  liveTick, liveZones, meaningLine, nextRun, ordersForTick, ordersFromReply, replayDone, replayT, runFromReply,
+  settingsFromRun, simulatedLine, snapshotFromReply, tickHomes, tickTiming,
+  type HomesState, type LiveStatus, type OrdersState, type RunState, type SnapshotState,
 } from "../src/features/live/liveModel"
 import {
-  archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, oldRun10k, oldSnapshot10k, rollups, runLatest,
+  archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, oldRun10k, rollups, runLatest,
+  tableRunNoSettings,
 } from "./fixtures/live"
 
 const headers = (h: Record<string, string>) => ({ get: (name: string) => h[name.toLowerCase()] ?? null })
 const ready = (value: Record<string, unknown>): SnapshotState => ({ kind: "ready", value })
 const settings = settingsFromRun(runLatest)
+const run = runFromReply(200, runLatest)
 const LIVE: LiveStatus = { kind: "live" }
 
 describe("snapshot and orders replies", () => {
@@ -26,7 +28,6 @@ describe("snapshot and orders replies", () => {
   it("treats a 404 on /v1/live/orders as no orders yet, with the server's brief", () => {
     expect(ordersFromReply(404, { error: "no_tick_orders", brief: "No tick has written its orders yet." }))
       .toEqual({ kind: "none", brief: "No tick has written its orders yet." })
-    // The same 404 for a read that collided with a write.
     expect(ordersFromReply(404, { error: "no_tick_orders", brief: "The tick orders file could not be read." }))
       .toEqual({ kind: "none", brief: "The tick orders file could not be read." })
     expect(ordersFromReply(404, null)).toEqual({ kind: "none", brief: "No tick has written its orders yet." })
@@ -40,70 +41,104 @@ describe("snapshot and orders replies", () => {
   })
 })
 
-describe("the run's own settings (GET /v1/runs/latest)", () => {
-  it("reads tick length, base floor and fleet size from the run, never a default", () => {
+describe("the run (GET /v1/runs/latest)", () => {
+  it("reads tick length, base floor and fleet size from the run's settings, never a default", () => {
     expect(settings).toEqual({ tickMinutes: 5, baseFloorPct: 30, fleetSize: 100 })
     expect(settingsFromRun({ settings: {} })).toEqual({ tickMinutes: undefined, baseFloorPct: undefined, fleetSize: undefined })
     expect(settingsFromRun(null)).toEqual({ tickMinutes: undefined, baseFloorPct: undefined, fleetSize: undefined })
-  })
-
-  it("falls back to the scoreboard's tick_minutes when settings omit it", () => {
     expect(settingsFromRun({ settings: {}, totals: { tick_minutes: 15 } }).tickMinutes).toBe(15)
   })
 
-  it("takes the run's fleet from its settings, then the tick's own home counts", () => {
-    expect(runFleetSize(settings, liveSnapshot)).toBe(100)
-    expect(runFleetSize(settingsFromRun(oldRun10k), liveSnapshot)).toBe(10000)
-    expect(runFleetSize({}, oldSnapshot10k)).toBe(10000)
-    expect(runFleetSize({}, { live_homes: 100 })).toBeNull()
-    expect(runFleetSize({}, null)).toBeNull()
+  it("keeps the run id and its newest tick's time, to match the snapshot to the same run", () => {
+    expect(run).toEqual({ kind: "ready", settings, runId: runLatest.run_id, lastTs: "2026-09-27T12:20:00-05:00" })
+    expect(runFromReply(404, { brief: "No run file is available." })).toEqual({ kind: "error", brief: "http 404: No run file is available." })
+  })
+
+  it("a failed poll keeps the last good run, and never switches the guards off", () => {
+    const failed: RunState = { kind: "error", brief: "http 502" }
+    expect(nextRun(run, failed)).toBe(run)
+    expect(nextRun({ kind: "loading" }, failed)).toEqual(failed)
+    expect(nextRun(run, runFromReply(200, oldRun10k))).toMatchObject({ settings: { fleetSize: 10000 } })
   })
 })
 
 describe("is this live?", () => {
-  const status = (snapshot: SnapshotState, run = settings, demo: number | null = 100, now = NOW_1221) =>
-    liveStatus(snapshot, run, demo, now)
+  const status = (snapshot: SnapshotState, r: RunState = run, demo: number | null = 100, now = NOW_1221) =>
+    liveStatus(snapshot, r, demo, now)
 
-  it("a fresh live run of the demo fleet is live", () => {
+  it("a fresh live run of the demo fleet, matched to its own run file, is live", () => {
     expect(status(ready(liveSnapshot))).toEqual({ kind: "live" })
   })
 
-  it("passes loading and snapshot errors through", () => {
+  it("passes loading and snapshot errors through, and waits for the run", () => {
     expect(status({ kind: "loading" })).toEqual({ kind: "loading" })
     expect(status({ kind: "error", brief: "http 404: No run file is available." }))
       .toEqual({ kind: "error", brief: "http 404: No run file is available." })
+    expect(status(ready(liveSnapshot), { kind: "loading" })).toEqual({ kind: "loading" })
+  })
+
+  it("an unread run file is not live", () => {
+    expect(status(ready(liveSnapshot), { kind: "error", brief: "http 502" })).toEqual({
+      kind: "not_live", pill: "Not live, run not checked", reason: "The run file could not be read (http 502), so this tick cannot be checked.",
+    })
   })
 
   it("an old 10,000-home run is not live, and never says 10,000", () => {
-    const got = status(ready(liveSnapshot), settingsFromRun(oldRun10k))
+    const got = status(ready(liveSnapshot), runFromReply(200, oldRun10k))
     expect(got).toMatchObject({ kind: "not_live", reason: "The newest run is from before the 100-home demo fleet, so it is not shown." })
     expect(JSON.stringify(got)).not.toMatch(/10,?000/)
-    const noSettings = status(ready(oldSnapshot10k), {})
-    expect(noSettings.kind).toBe("not_live")
-    expect(JSON.stringify(noSettings)).not.toMatch(/10,?000|9,?800/)
+  })
+
+  it("a table row with no settings (persisted before 9c, rescaled to 100 by the snapshot) is not live", () => {
+    const got = status(ready(liveSnapshot), runFromReply(200, tableRunNoSettings))
+    expect(got).toEqual({
+      kind: "not_live",
+      pill: "Not live, run not checked",
+      reason: "The run does not report its fleet size, so it cannot be checked against the 100-home demo fleet.",
+    })
+  })
+
+  it("an unknown demo fleet size is not live", () => {
+    expect(status(ready(liveSnapshot), run, null)).toMatchObject({
+      kind: "not_live", reason: "The demo fleet size is not reported, so the run cannot be checked against it.",
+    })
   })
 
   it("a smaller run than the demo fleet is not live either", () => {
-    expect(status(ready(liveSnapshot), { ...settings, fleetSize: 37 }))
+    const small = runFromReply(200, { ...runLatest, settings: { ...runLatest.settings, fleet_size: 37 } })
+    expect(status(ready(liveSnapshot), small))
       .toMatchObject({ kind: "not_live", reason: "The newest run did not use the 100-home demo fleet, so it is not shown." })
+  })
+
+  it("an unknown tick length is not live: freshness cannot be checked", () => {
+    const noLength = runFromReply(200, { ...runLatest, settings: { fleet_size: 100 }, totals: {} })
+    expect(status(ready(liveSnapshot), noLength)).toMatchObject({
+      kind: "not_live", reason: "The run does not report its tick length, so freshness cannot be checked.",
+    })
+  })
+
+  it("a snapshot that is not the run file's newest tick is not live", () => {
+    const other = runFromReply(200, { ...runLatest, ticks: [{ tick: 2, ts: "2026-09-27T12:25:00-05:00" }] })
+    expect(status(ready(liveSnapshot), other)).toMatchObject({
+      kind: "not_live", reason: "The snapshot and the run file do not name the same newest tick, so it is not shown as live.",
+    })
+    expect(status(ready(liveSnapshot), runFromReply(200, { ...runLatest, ticks: [] })).kind).toBe("not_live")
   })
 
   it("says the worker looks stopped when no tick came for two tick lengths", () => {
     const later = Date.parse("2026-09-27T17:31:00Z")
-    expect(status(ready(liveSnapshot), settings, 100, later)).toEqual({
+    expect(status(ready(liveSnapshot), run, 100, later)).toEqual({
       kind: "not_live",
       pill: "Not live, last tick 11 min ago",
       reason: "No new tick since 12:20 CT, so the live worker looks stopped. It runs only when someone starts it.",
     })
-  })
-
-  it("never judges staleness without the run's tick length", () => {
-    const later = Date.parse("2026-09-27T19:00:00Z")
-    expect(status(ready(liveSnapshot), { tickMinutes: undefined, fleetSize: 100 }, 100, later)).toEqual({ kind: "live" })
+    // Within the worker's normal lag (one extra tick length) it is still live.
+    expect(status(ready(liveSnapshot), run, 100, Date.parse("2026-09-27T17:29:00Z"))).toEqual({ kind: "live" })
   })
 
   it("an archive, scenario or sample snapshot is not live", () => {
-    expect(status(ready(archiveSnapshot))).toEqual({
+    const archiveRun = runFromReply(200, { ...runLatest, ticks: [{ ts: archiveSnapshot.ts }] })
+    expect(status(ready(archiveSnapshot), archiveRun)).toEqual({
       kind: "not_live",
       pill: "ERCOT archive (tuning-2026), not live",
       reason: "The newest run replays the tuning-2026 archive, not live ERCOT.",
@@ -167,21 +202,28 @@ describe("what ERCOT is telling us", () => {
     expect([check.value, check.tone]).toEqual(["Failed: stale", "bad"])
   })
 
-  it("labels what is real and what is simulated, from the data", () => {
-    expect(provenanceLines(liveSnapshot, 100)).toEqual([
-      "These are live ERCOT inputs.",
-      "The 100-home demo fleet and its orders are simulated. The target is a practice number (synthetic).",
-    ])
-    expect(provenanceLines(archiveSnapshot, null)).toEqual([
-      "These ERCOT inputs come from the tuning-2026 archive, not live.",
-      "The demo fleet and its orders are simulated. The target is a practice number (synthetic).",
-    ])
-    expect(provenanceLines({ ...liveSnapshot, target_label: "ercot", price_label: "tape:beryl" }, 37)[1])
-      .toBe("The 37-home demo fleet and its orders are simulated. The price is labeled tape:beryl.")
+  it("says what is simulated, from the data", () => {
+    expect(simulatedLine(liveSnapshot, 100)).toBe("The 100-home demo fleet and its orders are simulated. The target is a practice number (synthetic).")
+    expect(simulatedLine({ ...liveSnapshot, target_label: "ercot", price_label: "tape:beryl" }, null))
+      .toBe("The demo fleet and its orders are simulated. The price is labeled tape:beryl.")
+  })
+
+  it("gives the mockup's meaning sentence only when the fields support every word", () => {
+    const storm = { ...liveSnapshot, margin_mw: 191, policy_reason: "storm_risk_high", reserve_pct: 60, zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 } }
+    expect(meaningLine(storm)).toBe("Offline plants are over the stress line, so every home keeps 60% for backup.")
+    const calm = { ...storm, margin_mw: -3049.4, policy_reason: "normal", reserve_pct: 30, zone_reserve_pct: { Houston: 30, North: 30, South: 30, West: 30 } }
+    expect(meaningLine(calm)).toBe("Offline plants are under the stress line, so every home keeps the usual 30% for backup.")
+    // A zone raised by a weather alert: "every home" would be false.
+    expect(meaningLine({ ...calm, zone_reserve_pct: { ...calm.zone_reserve_pct, Houston: 60 } })).toBeNull()
+    expect(meaningLine({ ...calm, county_reserve_pct: { 48201: 60 } })).toBeNull()
+    // Over the line but the floor did not rise (for example a missing signal): no sentence.
+    expect(meaningLine({ ...storm, policy_reason: "signal_unavailable" })).toBeNull()
+    expect(meaningLine({ ...storm, margin_mw: undefined })).toBeNull()
+    expect(meaningLine({ ...storm, zone_reserve_pct: undefined })).toBeNull()
   })
 
   it("adds no JEV text anywhere", () => {
-    const text = JSON.stringify([inputRows(liveSnapshot), provenanceLines(liveSnapshot, 100), ZONE_NOTE])
+    const text = JSON.stringify([inputRows(liveSnapshot), simulatedLine(liveSnapshot, 100), meaningLine(liveSnapshot)])
     expect(text).not.toMatch(/JEV/i)
   })
 })
@@ -195,9 +237,11 @@ describe("tick timing", () => {
     expect(tickTiming(liveSnapshot, { tickMinutes: undefined }, NOW_1221)).toBe("Last tick ran at 12:20 CT. Next tick: Not reported.")
   })
 
-  it("says so when the next tick is overdue", () => {
-    const late = Date.parse("2026-09-27T17:31:00Z")
-    expect(tickTiming(liveSnapshot, settings, late)).toBe("Last tick ran at 12:20 CT. Next tick was due at 12:25 CT and has not arrived.")
+  it("allows one tick length of grace: the worker sleeps a whole tick after each cycle", () => {
+    expect(tickTiming(liveSnapshot, settings, Date.parse("2026-09-27T17:25:00Z"))).toBe("Last tick ran at 12:20 CT. Next tick due now.")
+    expect(tickTiming(liveSnapshot, settings, Date.parse("2026-09-27T17:29:59Z"))).toBe("Last tick ran at 12:20 CT. Next tick due now.")
+    expect(tickTiming(liveSnapshot, settings, Date.parse("2026-09-27T17:31:00Z")))
+      .toBe("Last tick ran at 12:20 CT. Next tick was due at 12:25 CT and has not arrived.")
   })
 
   it("adds the day when the last tick was on another day", () => {
@@ -227,6 +271,7 @@ describe("snapshot into Replay props", () => {
     expect(tick.reasons).toEqual(liveSnapshot.reasons)
     expect("unconfirmed_mw" in tick).toBe(false)
     expect("charging_mw" in tick).toBe(false)
+    expect(liveTick({ ...liveSnapshot, charging_mw: 0.12 }).charging_mw).toBe(0.12)
     expect(liveTick({ target_mw: "lots", breaches: null })).toEqual({})
   })
 
@@ -238,25 +283,52 @@ describe("snapshot into Replay props", () => {
 })
 
 describe("homes from GET /v1/homes", () => {
-  it("maps a row into the Replay home shape with the engine's state words", () => {
-    const [sell, below, charge, stale, atFloor, missing] = homesRows.map(flowHomeFromRow)
-    expect(sell).toMatchObject({ id: "home-001", zone: "South", soc_pct: 70, floor_pct: 60, kw: 2.5, state: "selling", status: "live", county_name: "Nueces" })
-    expect(below?.state).toBe("below_floor")
-    expect(charge?.state).toBe("charging")
-    expect(stale?.state).toBe("stale")
-    expect(atFloor?.state).toBe("at_floor")
-    expect(missing?.state).toBe("holding")
-    expect(Number.isNaN(missing?.soc_pct)).toBe(true)
+  it("takes who and where from the row: id, the engine's name, zone and county", () => {
+    const one = flowHomeFromRow(homesRows[0])
+    expect(one).toMatchObject({ id: "home-001", name: "Houston-Harris-001", zone: "Houston", county: "48201", county_name: "Harris" })
+    expect(flowHomeFromRow(homesRows[5])?.name).toBeUndefined()
     expect(flowHomeFromRow({ status: "live" })).toBeNull()
   })
 
-  it("labels the fleet from the headers", () => {
-    const got = homesFromReply(homesRows, headers(homesHeaders))
-    expect(got.homes).toHaveLength(6)
-    expect(got.fleetSize).toBe(100)
-    expect(got.note).toBe("100-home demo fleet. Live fleet from Supabase: 100 of 100 homes.")
-    const sample = homesFromReply(homesRows.slice(0, 3), headers({ "x-homes-source": "fixture" }))
-    expect(sample.note).toBe("3 sample rows (no Supabase connection), not live data.")
+  it("never reads the table's stale charge, power or status", () => {
+    for (const home of homesRows.map(flowHomeFromRow)) {
+      expect(Number.isNaN(home?.soc_pct)).toBe(true)
+      expect(Number.isNaN(home?.kw)).toBe(true)
+      expect(home?.status).toBe("")
+    }
+  })
+
+  it("places homes by the zone /v1/homes reports (the engine's, after Task 17)", () => {
+    const placed = homesFromReply(homesRows, headers(homesHeaders)).homes
+    expect(placed.filter((home) => home.zone === "Houston").map((home) => home.id)).toEqual(["home-001", "home-005"])
+  })
+
+  it("the state comes from this tick's orders, the floor from the snapshot (county, then zone, then fleet)", () => {
+    const rows = homesFromReply(homesRows, headers(homesHeaders)).homes
+    const snap = { ...liveSnapshot, reserve_pct: 30, zone_reserve_pct: { Houston: 30, North: 60 }, county_reserve_pct: { 48157: 60 } }
+    const orders = (ordersFromReply(200, liveOrders) as Extract<OrdersState, { kind: "ready" }>).orders
+    const got = Object.fromEntries(tickHomes(rows, snap, orders).map((home) => [home.id, home]))
+    expect(got["home-001"]).toMatchObject({ state: "selling", floor_pct: 30 })
+    expect(got["home-002"]).toMatchObject({ state: "selling", floor_pct: 60 })
+    expect(got["home-003"]).toMatchObject({ state: "charging", floor_pct: 30 })
+    // The table says home-005 gives 3.3 kW; it had no order this tick, so it holds. Its county floor wins.
+    expect(got["home-005"]).toMatchObject({ state: "holding", floor_pct: 60 })
+    expect(got["home-004"]).toMatchObject({ state: "holding", floor_pct: 30 })
+    expect(Number.isNaN(tickHomes(rows, {}, undefined)[0].floor_pct)).toBe(true)
+  })
+
+  it("says nothing about a full live table; warns on an error, sample rows or partial rows", () => {
+    const full: HomesState = { kind: "ready", ...homesFromReply(homesRows, headers(homesHeaders)) }
+    expect(full.kind === "ready" && full.rows).toBe(6)
+    // Six fixture rows stand in for a page of 100: a real full page has 100 rows.
+    const fullPage: HomesState = { ...full, rows: 100 } as HomesState
+    expect(homesWarning(fullPage)).toBeNull()
+    expect(homesWarning(full)).toBe("100-home demo fleet. Live fleet from Supabase: 100 of 100 homes.")
+    expect(homesWarning({ ...fullPage, total: 80 } as HomesState)).toBe("100-home demo fleet. Live fleet from Supabase: 100 of 100 homes.")
+    expect(homesWarning({ kind: "ready", ...homesFromReply(homesRows.slice(0, 3), headers({ "x-homes-source": "fixture" })) }))
+      .toBe("3 sample rows (no Supabase connection), not live data.")
+    expect(homesWarning({ kind: "error", brief: "http 500: boom" })).toBe("Could not read the homes: http 500: boom.")
+    expect(homesWarning({ kind: "loading" })).toBeNull()
   })
 
   it("takes the fleet size from the headers, then the rollups, never a constant", () => {
@@ -264,46 +336,6 @@ describe("homes from GET /v1/homes", () => {
     expect(fleetSizeFrom(null, { ...rollups, n: 37 })).toBe(37)
     expect(fleetSizeFrom(null, null)).toBeNull()
     expect(fleetSizeFrom(null, { n: "x" })).toBeNull()
-  })
-})
-
-describe("homes in the engine's zones", () => {
-  it("reads the engine's zone order from the snapshot's own per-zone floors", () => {
-    expect(engineZoneOrder(liveSnapshot)).toEqual(["Houston", "North", "South", "West"])
-    expect(engineZoneOrder({ zone_reasons: { West: "normal", South: "normal" } })).toEqual(["West", "South"])
-    expect(engineZoneOrder({})).toEqual([])
-    expect(engineZoneOrder(null)).toEqual([])
-  })
-
-  it("follows fleet.assign_zone: home number i takes zone (i - 1) mod the zone count", () => {
-    const order = ["Houston", "North", "South", "West"]
-    expect(["home-001", "home-002", "home-003", "home-004", "home-005", "home-100"].map((id) => engineZone(id, order)))
-      .toEqual(["Houston", "North", "South", "West", "Houston", "West"])
-    expect(engineZone("home-abc", order)).toBeNull()
-    expect(engineZone("home-000", order)).toBeNull()
-    expect(engineZone("home-001", [])).toBeNull()
-  })
-
-  it("moves each home to its engine zone and takes that zone's floor from the snapshot", () => {
-    const rows = homesFromReply(homesRows, headers(homesHeaders)).homes
-    const placed = placeHomes(rows, { ...liveSnapshot, zone_reserve_pct: { Houston: 60, North: 30, South: 30, West: 30 } })
-    const one = placed.find((home) => home.id === "home-001")
-    // home-001 is South in public.homes and Houston in every engine output.
-    expect(one).toMatchObject({ zone: "Houston", floor_pct: 60, soc_pct: 70, state: "selling" })
-    expect(one?.county).toBeUndefined()
-    expect(one?.county_name).toBeUndefined()
-    expect(placed.find((home) => home.id === "home-002")).toMatchObject({ zone: "North", floor_pct: 30 })
-    // home-005 sat at its 30% South floor in the table; in Houston (60%) it is below the floor.
-    expect(placed.find((home) => home.id === "home-005")).toMatchObject({ zone: "Houston", floor_pct: 60, state: "below_floor" })
-  })
-
-  it("places no home when the engine's zone order is not reported", () => {
-    const rows = homesFromReply(homesRows, headers(homesHeaders)).homes
-    expect(placeHomes(rows, {})).toEqual([])
-  })
-
-  it("the note says zones can differ from the Fleet page", () => {
-    expect(ZONE_NOTE).toBe("Homes sit in the engine's zones, which can differ from the Fleet page. Charge levels are the Fleet table's.")
   })
 })
 

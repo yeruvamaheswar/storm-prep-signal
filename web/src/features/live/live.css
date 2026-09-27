@@ -38,8 +38,9 @@
   font-weight: 500;
 }
 
+/* The mockup's #2F8A55 is 3.86:1 on this panel; the Task 9 text token passes 4.5:1. */
 .live-row b.is-ok {
-  color: var(--rg-confirmed);
+  color: var(--rg-confirmed-text);
 }
 
 /* The mockup's #A4640C is 4.28:1 on this panel; the Task 12 strong amber passes 4.5:1. */

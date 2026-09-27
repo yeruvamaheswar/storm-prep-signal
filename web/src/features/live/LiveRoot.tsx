@@ -4,8 +4,8 @@ import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomTo
 import "../replay/replay.css"
 import { LivePage } from "./LivePage"
 import {
-  fleetSizeFrom, homesStateFromReply, ordersFromReply, settingsFromRun, snapshotFromReply,
-  type HomesState, type OrdersState, type RunSettings, type SnapshotState,
+  fleetSizeFrom, homesStateFromReply, nextRun, ordersFromReply, runFromReply, snapshotFromReply,
+  type HomesState, type OrdersState, type RunState, type SnapshotState,
 } from "./liveModel"
 
 /** The wall polls /v1/snapshot every 20 s; Live reads the same body and the tick's files on the same beat. */
@@ -35,7 +35,7 @@ function safeUrlState() {
 export function LiveRoot() {
   const base = useMemo(() => apiBaseUrl(), [])
   const [snapshot, setSnapshot] = useState<SnapshotState>({ kind: "loading" })
-  const [settings, setSettings] = useState<RunSettings>({})
+  const [run, setRun] = useState<RunState>({ kind: "loading" })
   const [orders, setOrders] = useState<OrdersState>({ kind: "loading" })
   const [homes, setHomes] = useState<HomesState>({ kind: "loading" })
   const [demoFleet, setDemoFleet] = useState<number | null>(null)
@@ -57,7 +57,10 @@ export function LiveRoot() {
       if (cancelled) return
       // A failed read is said plainly; the last good value is never kept on screen as current.
       setSnapshot(snap.status === "fulfilled" ? snapshotFromReply(snap.value.status, snap.value.body) : { kind: "error", brief: UNREACHABLE })
-      setSettings(run.status === "fulfilled" && run.value.status === 200 ? settingsFromRun(run.value.body) : {})
+      // The run's guards (fleet, tick length, same tick) are never switched off by a failed poll: nextRun keeps the
+      // last good run, and with none the page is not live.
+      const runReply: RunState = run.status === "fulfilled" ? runFromReply(run.value.status, run.value.body) : { kind: "error", brief: UNREACHABLE }
+      setRun((previous) => nextRun(previous, runReply))
       setOrders(tickOrders.status === "fulfilled" ? ordersFromReply(tickOrders.value.status, tickOrders.value.body) : { kind: "error", brief: UNREACHABLE })
       const nextHomes = rows.status === "fulfilled"
         ? homesStateFromReply(rows.value.status, rows.value.body, rows.value.headers)
@@ -95,7 +98,7 @@ export function LiveRoot() {
   return (
     <LivePage
       snapshot={snapshot}
-      settings={settings}
+      run={run}
       orders={orders}
       homes={homes}
       demoFleet={demoFleet}

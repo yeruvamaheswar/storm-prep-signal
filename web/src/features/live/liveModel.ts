@@ -1,11 +1,11 @@
-import type { BatteryState, FlowHome, FlowTick, FlowZoneRow, OrderTimelineEntry } from "../flow/types"
+import type { FlowHome, FlowTick, FlowZoneRow, OrderTimelineEntry } from "../flow/types"
 import { errorText, fleetLabel, liveFleetNote, readHomesSource } from "../fleetgrid/fleetModel"
 import { NOT_REPORTED } from "../replay/format"
 import { HOLD_T, fmtClock, playheadSeconds } from "../replay/tickClock"
 
-/** Pure mapping for the Live page (Task 9 part 2): GET /v1/snapshot, /v1/live/orders, /v1/homes, /v1/fleet/rollups
- * and the run's settings into the shapes the Replay components take. Nothing is invented: a missing field stays
- * missing and shows "Not reported". */
+/** Pure mapping for the Live page (Task 9 part 2): GET /v1/snapshot, /v1/runs/latest, /v1/live/orders, /v1/homes and
+ * /v1/fleet/rollups into the shapes the Replay components take. Nothing is invented: a missing field stays missing and
+ * shows "Not reported", and the page is live only when every check it needs is reported and passes. */
 
 export { NOT_REPORTED }
 
@@ -19,17 +19,31 @@ export type OrdersState =
   | { kind: "error"; brief: string }
   | { kind: "ready"; tick: number | null; ts: string | null; orders: Record<string, OrderTimelineEntry[]> }
 
-/** From the run file's `settings` (GET /v1/runs/latest). Undefined when the run does not say. */
+/** From the run's `settings` (GET /v1/runs/latest). Undefined when the run does not say. */
 export type RunSettings = { tickMinutes?: number; baseFloorPct?: number; fleetSize?: number }
 
-/** Live only when the newest run is a fresh live-worker tick of the demo fleet. */
+/** GET /v1/runs/latest: its settings, and its newest tick's time so the snapshot can be matched to the same run. */
+export type RunState =
+  | { kind: "loading" }
+  | { kind: "error"; brief: string }
+  | { kind: "ready"; settings: RunSettings; runId: string | null; lastTs: string | null }
+
+/** Live only when the newest run is a fresh live-worker tick of the demo fleet, and every check says so. */
 export type LiveStatus =
   | { kind: "loading" }
   | { kind: "error"; brief: string }
   | { kind: "not_live"; pill: string; reason: string }
   | { kind: "live" }
 
-export type LiveHomes = { homes: FlowHome[]; note: string; fleetSize: number | null }
+/** GET /v1/homes: the rows as Replay homes, what the headers say, and how many rows came back. */
+export type LiveHomes = {
+  homes: FlowHome[]
+  note: string
+  fleetSize: number | null
+  source: "supabase" | "fixture" | null
+  total: number | null
+  rows: number
+}
 
 export type HomesState = { kind: "loading" } | { kind: "error"; brief: string } | ({ kind: "ready" } & LiveHomes)
 
@@ -76,7 +90,7 @@ export function ordersFromReply(status: number, body: unknown): OrdersState {
 }
 
 /** loop.run writes `settings` (SETTINGS_KEYS) and the scoreboard `totals`; tick_minutes is in both, never in the
- * snapshot. A run that says nothing leaves each field undefined. */
+ * snapshot. A table row carries `settings` since persist_run stores them (Task 9c). Missing stays undefined. */
 export function settingsFromRun(body: unknown): RunSettings {
   const settings = isRecord(body) && isRecord(body.settings) ? body.settings : {}
   const totals = isRecord(body) && isRecord(body.totals) ? body.totals : {}
@@ -87,57 +101,45 @@ export function settingsFromRun(body: unknown): RunSettings {
   }
 }
 
-/** The newest run's fleet: its settings first, then the tick's own live + stale + dead counts (all three needed). */
-export function runFleetSize(settings: RunSettings, snapshot: Json | null): number | null {
-  if (settings.fleetSize !== undefined) return settings.fleetSize
-  if (!snapshot) return null
-  const parts = [num(snapshot.live_homes), num(snapshot.stale_homes), num(snapshot.dead_homes)]
-  return parts.every((part) => part !== undefined) ? parts.reduce((sum: number, part) => sum + (part as number), 0) : null
+export function runFromReply(status: number, body: unknown): RunState {
+  if (status < 200 || status >= 300) return { kind: "error", brief: errorText(status, body) }
+  if (!isRecord(body)) return { kind: "error", brief: "the run reply was not an object" }
+  const ticks = Array.isArray(body.ticks) ? body.ticks : []
+  const last = ticks.at(-1)
+  return {
+    kind: "ready",
+    settings: settingsFromRun(body),
+    runId: text(body.run_id) ?? null,
+    lastTs: isRecord(last) ? text(last.ts) ?? null : null,
+  }
+}
+
+/** A failed poll keeps the last good run (so one dropped request does not flip the page), never an empty one. */
+export function nextRun(previous: RunState, reply: RunState): RunState {
+  return reply.kind === "error" && previous.kind === "ready" ? previous : reply
 }
 
 // --- homes ---
 
-/** scenario.py home_state's band: within half a point of the floor is "at its floor". */
-const FLOOR_BAND_PCT = 0.5
 const KW_EPS = 1e-6
 
-function pctOf(kwh: number | undefined, capacity: number | undefined): number {
-  return kwh !== undefined && capacity !== undefined && capacity > 0 ? (kwh / capacity) * 100 : Number.NaN
-}
-
-/** The engine's words (scenario.py home_state) from what the row reports: status, then confirmed kW, then the
- * charge against the floor. A row that reports no charge or floor is just "holding" (it says nothing more). */
-function stateOf(status: string, kw: number, soc: number, floor: number): BatteryState {
-  if (status === "dead" || status === "offline") return "dead"
-  if (status === "stale") return "stale"
-  if (status === "unconfirmed") return "unconfirmed"
-  if (kw > KW_EPS) return "selling"
-  if (kw < -KW_EPS) return "charging"
-  if (!Number.isFinite(soc) || !Number.isFinite(floor)) return "holding"
-  if (soc < floor - FLOOR_BAND_PCT) return "below_floor"
-  if (soc <= floor + FLOOR_BAND_PCT) return "at_floor"
-  return "holding"
-}
-
-/** One GET /v1/homes row as a Replay home. Missing numbers stay NaN, which every Replay view shows as "Not reported". */
+/** One GET /v1/homes row: who and where only. The table's charge, power and status are not this tick's engine state
+ * (the live worker does not write them), so they are never read: charge shows "Not reported". */
 export function flowHomeFromRow(row: unknown): FlowHome | null {
   if (!isRecord(row) || !text(row.home_id) || !text(row.zone)) return null
-  const capacity = num(row.capacity_kwh)
-  const soc = pctOf(num(row.soc_kwh), capacity)
-  const floor = pctOf(num(row.floor_kwh), capacity)
-  const kw = num(row.power_kw) ?? Number.NaN
-  const status = text(row.status) ?? ""
   const home: FlowHome = {
     id: row.home_id as string,
     zone: row.zone as string,
-    soc_pct: soc,
-    floor_pct: floor,
-    kw,
-    state: stateOf(status, Number.isFinite(kw) ? kw : 0, soc, floor),
-    status,
+    soc_pct: Number.NaN,
+    floor_pct: Number.NaN,
+    kw: Number.NaN,
+    state: "holding",
+    status: "",
   }
+  const name = text(row.name)
   const county = text(row.county)
   const countyName = text(row.county_name)
+  if (name) home.name = name
   if (county) home.county = county
   if (countyName) home.county_name = countyName
   return home
@@ -147,7 +149,7 @@ export function homesFromReply(body: unknown, headers: { get(name: string): stri
   const rows = Array.isArray(body) ? body : []
   const homes = rows.map(flowHomeFromRow).filter((home): home is FlowHome => home !== null)
   const src = readHomesSource(headers)
-  return { homes, note: liveFleetNote(src, rows.length), fleetSize: src.fleetSize }
+  return { homes, note: liveFleetNote(src, rows.length), fleetSize: src.fleetSize, source: src.source, total: src.total, rows: rows.length }
 }
 
 /** GET /v1/homes?limit=200 (the API caps it at the demo fleet). A failure keeps the server's brief. */
@@ -156,45 +158,39 @@ export function homesStateFromReply(status: number, body: unknown, headers: { ge
   return { kind: "ready", ...homesFromReply(body, headers) }
 }
 
-// --- the engine's zones (Rajat's ruling b) ---
-
-/** Shown wherever Live places homes. Task 17 moves the Fleet page onto the engine's zones too. */
-export const ZONE_NOTE = "Homes sit in the engine's zones, which can differ from the Fleet page. Charge levels are the Fleet table's."
-
-/** The engine's zone order (settings ZONES), as its own per-zone floors are keyed: policy.reserve_policy fills
- * zone_reserve_pct and zone_reasons in settings order. Empty when the snapshot reports neither. */
-export function engineZoneOrder(snapshot: Json | null): string[] {
-  if (!snapshot) return []
-  const keyed = isRecord(snapshot.zone_reserve_pct) ? snapshot.zone_reserve_pct : isRecord(snapshot.zone_reasons) ? snapshot.zone_reasons : {}
-  return Object.keys(keyed)
+/** The homes line for the left panel, only when something is wrong: a failed read, sample rows, or fewer rows than
+ * the fleet. A full, live table says nothing. */
+export function homesWarning(homes: HomesState): string | null {
+  if (homes.kind === "loading") return null
+  if (homes.kind === "error") return `Could not read the homes: ${homes.brief.replace(/\.$/, "")}.`
+  if (homes.source !== "supabase") return homes.note
+  const expected = homes.fleetSize
+  if (expected === null) return homes.note
+  const partial = homes.rows < expected || (homes.total !== null && homes.total < expected)
+  return partial ? homes.note : null
 }
 
-/** fleet.assign_zone: home number i (home-001 is 1) takes zones[(i - 1) % zones.length], as new_fleet seeds the
- * live worker's fleet. Null for an id without a number or with no zone order. */
-export function engineZone(homeId: string, order: readonly string[]): string | null {
-  const match = /-(\d+)$/.exec(homeId)
-  const index = match ? Number(match[1]) : 0
-  if (!(index >= 1) || !order.length) return null
-  return order[(index - 1) % order.length]
+/** The engine's words for a home from this tick's own orders: the last confirmed kW says selling or charging.
+ * Nothing confirmed: holding (Replay then shows "Not asked" or the order's own lifecycle). */
+function stateFromOrders(entries: OrderTimelineEntry[] | undefined): FlowHome["state"] {
+  const conf = (entries ?? []).filter(([, kind]) => kind === "conf").at(-1)
+  const kw = conf ? num(conf[2]) : undefined
+  if (kw === undefined) return "holding"
+  if (kw > KW_EPS) return "selling"
+  if (kw < -KW_EPS) return "charging"
+  return "holding"
 }
 
-/** The table's homes, moved to the engine's zones (where /v1/live/orders and the snapshot's zone totals put them).
- * The floor is that zone's snapshot floor, so the state words follow it. The table's county belonged to the table's
- * zone, so it is dropped. No zone order: no home is placed, rather than guessing. */
-export function placeHomes(homes: FlowHome[], snapshot: Json | null): FlowHome[] {
-  const order = engineZoneOrder(snapshot)
-  const floors = snapshot && isRecord(snapshot.zone_reserve_pct) ? snapshot.zone_reserve_pct : {}
-  const fleetFloor = snapshot ? num(snapshot.reserve_pct) : undefined
-  const out: FlowHome[] = []
-  for (const home of homes) {
-    const zone = engineZone(home.id, order)
-    if (!zone) continue
-    const floor = num(floors[zone]) ?? fleetFloor ?? Number.NaN
-    const kw = Number.isFinite(home.kw) ? home.kw : 0
-    const { county: _county, county_name: _countyName, ...rest } = home
-    out.push({ ...rest, zone, floor_pct: floor, state: stateOf(home.status, kw, home.soc_pct, floor) })
-  }
-  return out
+/** Each home at this tick: its floor is the snapshot's own (county, then zone, then fleet floor) and its state comes
+ * from this tick's orders. Its zone is the one /v1/homes reports (the engine's, after Task 17). */
+export function tickHomes(homes: FlowHome[], snapshot: Json | null, orders: Record<string, OrderTimelineEntry[]> | undefined): FlowHome[] {
+  const counties = snapshot && isRecord(snapshot.county_reserve_pct) ? snapshot.county_reserve_pct : {}
+  const zones = snapshot && isRecord(snapshot.zone_reserve_pct) ? snapshot.zone_reserve_pct : {}
+  const fleet = snapshot ? num(snapshot.reserve_pct) : undefined
+  return homes.map((home) => {
+    const floor = (home.county ? num(counties[home.county]) : undefined) ?? num(zones[home.zone]) ?? fleet ?? Number.NaN
+    return { ...home, floor_pct: floor, state: stateFromOrders(orders?.[home.id]) }
+  })
 }
 
 /** The demo fleet's size: X-Fleet-Size first, then GET /v1/fleet/rollups `n`. Null when neither says. */
@@ -206,7 +202,7 @@ export function fleetSizeFrom(headerSize: number | null, rollups: unknown): numb
 
 // --- snapshot into Replay props ---
 
-const TICK_NUMBERS = ["tick", "target_mw", "delivered_mw", "missed_mw", "reserve_pct", "breaches"] as const
+const TICK_NUMBERS = ["tick", "target_mw", "delivered_mw", "missed_mw", "reserve_pct", "breaches", "charging_mw"] as const
 const TICK_TEXT = ["ts", "mode", "target_label", "price_label", "policy_reason", "intent", "intent_reason", "brief"] as const
 
 /** The tick fields the promise panel, feed and map read, copied only when the snapshot has them. */
@@ -218,8 +214,10 @@ export function liveTick(snapshot: Json | null): Partial<FlowTick> {
   if (num(snapshot.price_usd_mwh) !== undefined) out.price_usd_mwh = snapshot.price_usd_mwh
   if (typeof snapshot.risk_level === "string") out.risk_level = snapshot.risk_level
   if (Array.isArray(snapshot.reasons)) out.reasons = snapshot.reasons.filter((r) => typeof r === "string")
-  if (isRecord(snapshot.zone_reserve_pct)) out.zone_reserve_pct = snapshot.zone_reserve_pct
-  if (isRecord(snapshot.zone_reasons)) out.zone_reasons = snapshot.zone_reasons
+  if (Array.isArray(snapshot.grid_down_zones)) out.grid_down_zones = snapshot.grid_down_zones.filter((z) => typeof z === "string")
+  for (const key of ["zone_reserve_pct", "zone_reasons", "county_reserve_pct", "county_reasons"] as const) {
+    if (isRecord(snapshot[key])) out[key] = snapshot[key]
+  }
   return out as Partial<FlowTick>
 }
 
@@ -284,14 +282,28 @@ export function inputRows(snapshot: Json): InputRow[] {
   ]
 }
 
-function sourceLine(snapshot: Json): string {
-  const source = text(snapshot.source)
-  const event = text(snapshot.event)
-  if (source === "live") return "These are live ERCOT inputs."
-  if (source === "archive") return `These ERCOT inputs come from ${event ? `the ${event} archive` : "an archive"}, not live.`
-  if (source === "scenario") return "These inputs come from a scenario run, not live ERCOT."
-  if (source === "fixture") return "These inputs are sample data, not live ERCOT."
-  return "Where these inputs come from is not reported."
+function pctText(value: number): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}%`
+}
+
+/** The mockup's one meaning sentence ("Offline plants are over the stress line, so every home keeps 60% for backup."),
+ * only when the snapshot's own fields support every word: the margin's side of the line, the policy reason that
+ * follows from it, and one floor that every zone reports. Otherwise null, never a guess. */
+export function meaningLine(snapshot: Json): string | null {
+  const margin = num(snapshot.margin_mw)
+  const floor = num(snapshot.reserve_pct)
+  const reason = text(snapshot.policy_reason)
+  const zones = isRecord(snapshot.zone_reserve_pct) ? Object.values(snapshot.zone_reserve_pct) : []
+  if (margin === undefined || floor === undefined || margin === 0) return null
+  if (!zones.length || !zones.every((pct) => num(pct) === floor)) return null
+  if (isRecord(snapshot.county_reserve_pct) && Object.values(snapshot.county_reserve_pct).some((pct) => num(pct) !== floor)) return null
+  if (margin > 0 && reason === "storm_risk_high") {
+    return `Offline plants are over the stress line, so every home keeps ${pctText(floor)} for backup.`
+  }
+  if (margin < 0 && reason === "normal") {
+    return `Offline plants are under the stress line, so every home keeps the usual ${pctText(floor)} for backup.`
+  }
+  return null
 }
 
 function labelWords(label: string | undefined, what: "target" | "price"): string | null {
@@ -300,11 +312,12 @@ function labelWords(label: string | undefined, what: "target" | "price"): string
   return `The ${what} is labeled ${label}.`
 }
 
-/** Real versus simulated, in the words the data carries: the source, the demo fleet and the target and price labels. */
-export function provenanceLines(snapshot: Json, fleetSize: number | null): string[] {
+/** What is simulated, in the words the data carries: the demo fleet and its orders, and the target and price labels.
+ * (The inputs are live ERCOT whenever this panel shows them, so that needs no line.) */
+export function simulatedLine(snapshot: Json, fleetSize: number | null): string {
   const fleet = fleetSize === null ? "The demo fleet" : `The ${fleetLabel(fleetSize)}`
   const labels = [labelWords(text(snapshot.target_label), "target"), labelWords(text(snapshot.price_label), "price")]
-  return [sourceLine(snapshot), [`${fleet} and its orders are simulated.`, ...labels.filter(Boolean)].join(" ")]
+  return [`${fleet} and its orders are simulated.`, ...labels.filter(Boolean)].join(" ")
 }
 
 // --- clocks ---
@@ -332,51 +345,67 @@ function minutesAgo(at: number, nowMs: number): number {
   return Math.floor(Math.max(0, nowMs - at) / 60_000)
 }
 
-/** A live tick older than this many tick lengths means the live worker (laptop only, PR #51) is not running. */
+/** A live tick older than this many tick lengths means the live worker (laptop only, PR #51) is not running.
+ * `live_cycle --loop` sleeps a whole tick length after each cycle, so one extra tick length is its normal lag. */
 const STALE_TICKS = 2
+
+function notLive(pill: string, reason: string): LiveStatus {
+  return { kind: "not_live", pill, reason }
+}
 
 function notLiveSource(snapshot: Json): LiveStatus | null {
   const source = text(snapshot.source)
   if (source === "live") return null
   if (source === "archive") {
     const event = text(snapshot.event)
-    return {
-      kind: "not_live",
-      pill: `ERCOT archive${event ? ` (${event})` : ""}, not live`,
-      reason: `The newest run replays ${event ? `the ${event} archive` : "an archive"}, not live ERCOT.`,
-    }
+    return notLive(
+      `ERCOT archive${event ? ` (${event})` : ""}, not live`,
+      `The newest run replays ${event ? `the ${event} archive` : "an archive"}, not live ERCOT.`,
+    )
   }
-  if (source === "scenario") return { kind: "not_live", pill: "Scenario run, not live ERCOT", reason: "The newest run is a scenario run, not live ERCOT." }
-  if (source === "fixture") return { kind: "not_live", pill: "Sample data, not live ERCOT", reason: "The API has only sample data, not live ERCOT." }
-  return { kind: "not_live", pill: "Source not reported, not live", reason: "The snapshot does not say where its data comes from, so it is not shown as live." }
+  if (source === "scenario") return notLive("Scenario run, not live ERCOT", "The newest run is a scenario run, not live ERCOT.")
+  if (source === "fixture") return notLive("Sample data, not live ERCOT", "The API has only sample data, not live ERCOT.")
+  return notLive("Source not reported, not live", "The snapshot does not say where its data comes from, so it is not shown as live.")
 }
 
-/** Live or not, and why. The fleet check comes first so an old 10,000-home tick never reaches the screen; its count is
- * never named. Staleness needs the run's own tick length; without it the page does not guess. */
-export function liveStatus(state: SnapshotState, settings: RunSettings, demoFleet: number | null, nowMs: number): LiveStatus {
+const UNCHECKED = "Not live, run not checked"
+
+/** Live or not, and why. Every guard must be reported and pass: an unknown fleet, demo fleet or tick length is not
+ * live. The fleet checks come first, so an old 10,000-home tick never reaches the screen and its count is never named.
+ * The snapshot must be the run's own newest tick. */
+export function liveStatus(state: SnapshotState, run: RunState, demoFleet: number | null, nowMs: number): LiveStatus {
   if (state.kind !== "ready") return state
+  if (run.kind === "loading") return { kind: "loading" }
+  if (run.kind === "error") return notLive(UNCHECKED, `The run file could not be read (${run.brief.replace(/\.$/, "")}), so this tick cannot be checked.`)
   const snapshot = state.value
-  const runFleet = runFleetSize(settings, snapshot)
-  if (runFleet !== null && demoFleet !== null && runFleet !== demoFleet) {
-    const demo = fleetLabel(demoFleet)
-    return {
-      kind: "not_live",
-      pill: "Not live, older run",
-      reason: runFleet > demoFleet
+  const { settings } = run
+  if (demoFleet === null) return notLive(UNCHECKED, "The demo fleet size is not reported, so the run cannot be checked against it.")
+  const demo = fleetLabel(demoFleet)
+  if (settings.fleetSize === undefined) return notLive(UNCHECKED, `The run does not report its fleet size, so it cannot be checked against the ${demo}.`)
+  if (settings.fleetSize !== demoFleet) {
+    return notLive(
+      "Not live, older run",
+      settings.fleetSize > demoFleet
         ? `The newest run is from before the ${demo}, so it is not shown.`
         : `The newest run did not use the ${demo}, so it is not shown.`,
-    }
+    )
   }
   const source = notLiveSource(snapshot)
   if (source) return source
   const at = parseMs(snapshot.ts)
+  const runAt = parseMs(run.lastTs)
+  if (at === null || runAt === null || at !== runAt) {
+    return notLive(UNCHECKED, "The snapshot and the run file do not name the same newest tick, so it is not shown as live.")
+  }
   const minutes = settings.tickMinutes
-  if (at !== null && minutes !== undefined && minutes > 0 && nowMs - at > STALE_TICKS * minutes * 60_000) {
-    return {
-      kind: "not_live",
-      pill: `Not live, last tick ${minutesAgo(at, nowMs)} min ago`,
-      reason: `No new tick since ${ctClock(at, !sameCtDay(at, nowMs))}, so the live worker looks stopped. It runs only when someone starts it.`,
-    }
+  if (minutes === undefined || !(minutes > 0)) {
+    return notLive(UNCHECKED, "The run does not report its tick length, so freshness cannot be checked.")
+  }
+  if (nowMs - at > STALE_TICKS * minutes * 60_000) {
+    return notLive(
+      `Not live, last tick ${minutesAgo(at, nowMs)} min ago`,
+      `No new tick since ${ctClock(at, !sameCtDay(at, nowMs))}, so the live worker looks stopped. It runs only when someone starts it.`,
+    )
   }
   return { kind: "live" }
 }
@@ -394,7 +423,8 @@ export function livePill(status: LiveStatus, snapshot: Json | null, nowMs: numbe
   return { text: `Live from ERCOT, updated ${minutes < 1 ? "under a minute" : `${minutes} min`} ago`, live: true }
 }
 
-/** The playback bar's first line. The countdown uses the run's own tick_minutes; without it, "Not reported". */
+/** The playback bar's first line. The countdown uses the run's own tick_minutes; without it, "Not reported". For one
+ * tick length past due the next tick is "due now" (the worker's normal lag); after that it "has not arrived". */
 export function tickTiming(snapshot: Json | null, settings: RunSettings, nowMs: number): string {
   const at = parseMs(snapshot?.ts)
   if (!snapshot || at === null) return "Last tick time: Not reported."
@@ -405,8 +435,9 @@ export function tickTiming(snapshot: Json | null, settings: RunSettings, nowMs: 
   const minutes = settings.tickMinutes
   if (minutes === undefined || !(minutes > 0)) return `${last} Next tick: Not reported.`
   const due = at + minutes * 60_000
-  if (due <= nowMs) return `${last} Next tick was due at ${ctClock(due, !sameCtDay(due, nowMs))} and has not arrived.`
-  return `${last} Next tick in ${fmtClock((due - nowMs) / 1000)}.`
+  if (due > nowMs) return `${last} Next tick in ${fmtClock((due - nowMs) / 1000)}.`
+  if (nowMs < due + minutes * 60_000) return `${last} Next tick due now.`
+  return `${last} Next tick was due at ${ctClock(due, !sameCtDay(due, nowMs))} and has not arrived.`
 }
 
 // --- orders against the tick on screen ---

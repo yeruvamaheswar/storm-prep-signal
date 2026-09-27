@@ -3,19 +3,21 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import { LivePage, type LivePageProps } from "../src/features/live/LivePage"
-import { homesFromReply, ordersFromReply, settingsFromRun, type HomesState } from "../src/features/live/liveModel"
+import { homesFromReply, ordersFromReply, runFromReply, type HomesState } from "../src/features/live/liveModel"
 import { PromisePanel } from "../src/features/replay/PromisePanel"
+import tokens from "../src/design/tokens.css?raw"
 import {
-  archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, oldRun10k, runLatest,
+  archiveSnapshot, homesHeaders, homesRows, liveOrders, liveSnapshot, NOW_1221, oldRun10k, runLatest, tableRunNoSettings,
 } from "./fixtures/live"
 
 const headers = (h: Record<string, string>) => ({ get: (name: string) => h[name.toLowerCase()] ?? null })
-const homes: HomesState = { kind: "ready", ...homesFromReply(homesRows, headers(homesHeaders)) }
+// Six fixture rows stand in for a full page: the headers say 100 of 100, so `rows` is set to match.
+const homes: HomesState = { kind: "ready", ...homesFromReply(homesRows, headers(homesHeaders)), rows: 100 }
 
 function render(overrides: Partial<LivePageProps> = {}): string {
   const props: LivePageProps = {
     snapshot: { kind: "ready", value: liveSnapshot },
-    settings: settingsFromRun(runLatest),
+    run: runFromReply(200, runLatest),
     orders: ordersFromReply(200, liveOrders),
     homes,
     demoFleet: 100,
@@ -73,7 +75,7 @@ describe("Live page: not live", () => {
   })
 
   it("an old 10,000-home run: not live, and never a 10,000 count", () => {
-    const html = render({ settings: settingsFromRun(oldRun10k) })
+    const html = render({ run: runFromReply(200, oldRun10k) })
     expect(html).toContain("The newest run is from before the 100-home demo fleet, so it is not shown.")
     expect(html).not.toMatch(/10,?000/)
     expect(html).not.toContain("This tick, whole fleet")
@@ -86,6 +88,27 @@ describe("Live page: not live", () => {
     expect(html).toContain("The newest run replays the tuning-2026 archive, not live ERCOT.")
     expect(html).toContain("Newest tick is stamped Sep 25, 12:00 CT (archive clock).")
     expect(html).not.toContain("Live from ERCOT")
+  })
+
+  it("a table run with no settings (the Supabase path before 9c) is not live", () => {
+    const html = render({ run: runFromReply(200, tableRunNoSettings) })
+    expect(html).toContain("The run does not report its fleet size, so it cannot be checked against the 100-home demo fleet.")
+    expect(html).not.toContain("Live from ERCOT")
+    expect(html).not.toContain("$185")
+  })
+
+  it("an unread run file, an unknown tick length or an unknown demo fleet is not live", () => {
+    expect(render({ run: { kind: "error", brief: "cannot reach the ReserveGate API" } }))
+      .toContain("The run file could not be read (cannot reach the ReserveGate API), so this tick cannot be checked.")
+    const noLength = runFromReply(200, { ...runLatest, settings: { fleet_size: 100 }, totals: {} })
+    expect(render({ run: noLength })).toContain("The run does not report its tick length, so freshness cannot be checked.")
+    expect(render({ demoFleet: null })).toContain("The demo fleet size is not reported")
+  })
+
+  it("the crumb never says Live when the page is not live", () => {
+    const html = render({ snapshot: { kind: "ready", value: archiveSnapshot } })
+    expect(html).not.toContain("Live. Click a zone")
+    expect(html).toContain("Click a zone to zoom in.")
   })
 })
 
@@ -124,11 +147,31 @@ describe("Live page: orders present", () => {
     expect(html).not.toContain("About this data")
   })
 
-  it("labels real versus simulated and notes the engine zones", () => {
-    expect(html).toContain("These are live ERCOT inputs.")
+  it("the happy path looks normal: the simulated-fleet line, and no warning notes", () => {
     expect(html).toContain("The 100-home demo fleet and its orders are simulated.")
-    expect(html).toContain("Homes sit in the engine&#x27;s zones, which can differ from the Fleet page.")
+    expect(html).not.toContain("These are live ERCOT inputs.")
+    expect(html).not.toContain("differ from the Fleet page")
+    expect(html).not.toContain("Live fleet from Supabase")
+    expect(html).not.toContain("live-warning")
+    expect(html).not.toContain("replay-worker-empty")
     expect(html).not.toMatch(/JEV/i)
+  })
+
+  it("adds the meaning sentence when the snapshot's fields support it", () => {
+    const storm = {
+      ...liveSnapshot, policy_reason: "storm_risk_high", reserve_pct: 60, risk_level: "HIGH",
+      zone_reserve_pct: { Houston: 60, North: 60, South: 60, West: 60 },
+    }
+    expect(render({ snapshot: { kind: "ready", value: storm } }))
+      .toContain("Offline plants are over the stress line, so every home keeps 60% for backup.")
+    // The fixture's floors disagree with its reason (normal, but 60% zones): no sentence.
+    expect(html).not.toContain("Offline plants are")
+  })
+
+  it("warns about the homes only when the read is partial, sample or failed", () => {
+    const partial = render({ homes: { ...homes, rows: 6 } as HomesState })
+    expect(partial).toContain("100-home demo fleet. Live fleet from Supabase: 100 of 100 homes.")
+    expect(render({ homes: { kind: "error", brief: "http 500: boom" } })).toContain("Could not read the homes: http 500: boom.")
   })
 
   it("while replaying, says where the playhead is", () => {
@@ -136,12 +179,32 @@ describe("Live page: orders present", () => {
     expect(replaying).toContain("Replaying this tick&#x27;s orders: 1:02 of 2:00.")
   })
 
-  it("opens a zone on the engine's zones (home-001 is Houston there)", () => {
+  it("places homes by the zone /v1/homes reports (engine-zone rows: home-001 is Houston)", () => {
     const zone = render({ selectedZone: "Houston" })
     expect(zone).toContain("home-001")
     expect(zone).not.toContain("home-002")
     const south = render({ selectedZone: "South" })
     expect(south).not.toContain("home-001")
+  })
+
+  it("never shows the table's stale charge: an open home says Not reported", () => {
+    const panel = render({ selectedZone: "Houston", selectedHome: "home-001" })
+    expect(panel).toContain("Houston-Harris-001")
+    expect(panel).toContain("Not reported")
+    expect(panel).not.toContain("70%")
+  })
+})
+
+describe("contrast", () => {
+  it("the confirmed text token reads at 4.5:1 or better on the map panel", () => {
+    const hex = (name: string) => tokens.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`))?.[1] ?? ""
+    const lum = (h: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+        .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const [hi, lo] = [lum(hex("--rg-panel-map")), lum(hex("--rg-confirmed-text"))].sort((x, y) => y - x)
+    expect((hi + 0.05) / (lo + 0.05)).toBeGreaterThanOrEqual(4.5)
   })
 })
 

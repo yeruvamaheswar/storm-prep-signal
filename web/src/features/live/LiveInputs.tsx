@@ -1,11 +1,11 @@
-import { ZONE_NOTE, inputRows, provenanceLines, type LiveStatus } from "./liveModel"
+import { inputRows, meaningLine, simulatedLine, type LiveStatus } from "./liveModel"
 
 type Props = {
   status: LiveStatus
   snapshot: Record<string, unknown> | null
   fleetSize: number | null
-  /** The homes reply's own source note, or why the homes could not be read. */
-  homesNote: string | null
+  /** Only when something is wrong with the homes read (liveModel.homesWarning); a full live table says nothing. */
+  homesWarning: string | null
 }
 
 function statusText(status: LiveStatus): string {
@@ -15,7 +15,7 @@ function statusText(status: LiveStatus): string {
 }
 
 /** "What ERCOT is telling us": only snapshot fields, and only while the page is live. */
-export function LiveInputs({ status, snapshot, fleetSize, homesNote }: Props) {
+export function LiveInputs({ status, snapshot, fleetSize, homesWarning }: Props) {
   if (status.kind !== "live" || !snapshot) {
     return (
       <section className="replay-panel live-inputs" aria-label="Live inputs">
@@ -25,6 +25,7 @@ export function LiveInputs({ status, snapshot, fleetSize, homesNote }: Props) {
     )
   }
   const rows = inputRows(snapshot)
+  const meaning = meaningLine(snapshot)
   return (
     <section className="replay-panel live-inputs" aria-label="Live inputs">
       <p className="replay-label">What ERCOT is telling us</p>
@@ -37,9 +38,8 @@ export function LiveInputs({ status, snapshot, fleetSize, homesNote }: Props) {
           </b>
         </div>
       ))}
-      {provenanceLines(snapshot, fleetSize).map((line) => <p key={line} className="replay-note">{line}</p>)}
-      <p className="replay-note">{ZONE_NOTE}</p>
-      {homesNote ? <p className="replay-note">{homesNote}</p> : null}
+      <p className="replay-note">{meaning ? `${meaning} ` : ""}{simulatedLine(snapshot, fleetSize)}</p>
+      {homesWarning ? <p className="replay-note live-warning">{homesWarning}</p> : null}
     </section>
   )
 }

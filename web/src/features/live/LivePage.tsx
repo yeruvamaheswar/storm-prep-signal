@@ -14,15 +14,15 @@ import { LiveInputs } from "./LiveInputs"
 import { LiveLens } from "./LiveLens"
 import { LivePlaybackBar } from "./LivePlaybackBar"
 import {
-  livePill, liveStatus, liveTick, liveZones, ordersForTick, placeHomes, replayDone, replayT, tickTiming,
-  type HomesState, type LiveStatus, type OrdersState, type RunSettings, type SnapshotState,
+  homesWarning, livePill, liveStatus, liveTick, liveZones, ordersForTick, replayDone, replayT, tickHomes, tickTiming,
+  type HomesState, type LiveStatus, type OrdersState, type RunSettings, type RunState, type SnapshotState,
 } from "./liveModel"
 import "./live.css"
 
 export type LivePageProps = {
   snapshot: SnapshotState
-  /** GET /v1/runs/latest `settings`: tick length, base floor, fleet size. */
-  settings: RunSettings
+  /** GET /v1/runs/latest: settings (tick length, base floor, fleet size) and its newest tick, or why it is missing. */
+  run: RunState
   orders: OrdersState
   homes: HomesState
   /** The demo fleet's size (X-Fleet-Size, else rollups `n`); null when neither says. */
@@ -40,7 +40,9 @@ export type LivePageProps = {
   onReplay: () => void
 }
 
-const CRUMB = "Live. Click a zone to zoom in."
+const CRUMB_LIVE = "Live. Click a zone to zoom in."
+const CRUMB_NOT_LIVE = "Click a zone to zoom in."
+const NO_SETTINGS: RunSettings = {}
 
 function Notice({ status }: { status: Exclude<LiveStatus, { kind: "live" }> }) {
   return (
@@ -52,27 +54,22 @@ function Notice({ status }: { status: Exclude<LiveStatus, { kind: "live" }> }) {
   )
 }
 
-function homesNote(homes: HomesState): string | null {
-  if (homes.kind === "loading") return null
-  if (homes.kind === "error") return `Could not read the homes: ${homes.brief.replace(/\.$/, "")}.`
-  return homes.note
-}
-
 /** Live: Replay's map, zone board and panels, fed by the live engine's newest tick instead of a scenario. */
 export function LivePage({
-  snapshot, settings, orders, homes, demoFleet, nowMs, replayStartMs, selectedZone, selectedHome, backHref,
+  snapshot, run, orders, homes, demoFleet, nowMs, replayStartMs, selectedZone, selectedHome, backHref,
   onZone, onBack, onHome, onCloseHome, onReplay,
 }: LivePageProps) {
   const [lens, setLens] = useState<Lens>("send")
   const body = snapshot.kind === "ready" ? snapshot.value : null
-  const status = liveStatus(snapshot, settings, demoFleet, nowMs)
+  const settings = run.kind === "ready" ? run.settings : NO_SETTINGS
+  const status = liveStatus(snapshot, run, demoFleet, nowMs)
   const live = status.kind === "live"
   const pill = livePill(status, body, nowMs)
 
   // Nothing from the tick reaches the screen unless it is live: no stale numbers shown as current.
   const shown = live ? body : null
   const tickOrders = live ? ordersForTick(orders, shown) : null
-  const placed = live && homes.kind === "ready" ? placeHomes(homes.homes, shown) : []
+  const placed = live && homes.kind === "ready" ? tickHomes(homes.homes, shown, tickOrders?.orders) : []
   // Partial by design: every Replay view reads these fields optionally and shows "Not reported" when one is missing.
   const tick = shown ? (liveTick(shown) as FlowTick) : null
   const zones = (shown ? liveZones(shown) : {}) as Partial<Record<string, FlowZoneRow>>
@@ -129,12 +126,12 @@ export function LivePage({
             lens={lens}
             notice={null}
             onZone={onZone}
-            crumbHint={CRUMB}
+            crumbHint={live ? CRUMB_LIVE : CRUMB_NOT_LIVE}
           />
         )}
         {status.kind !== "live" ? <Notice status={status} /> : null}
         <div className="replay-left">
-          <LiveInputs status={status} snapshot={shown} fleetSize={demoFleet} homesNote={live ? homesNote(homes) : null} />
+          <LiveInputs status={status} snapshot={shown} fleetSize={demoFleet} homesWarning={live ? homesWarning(homes) : null} />
           <LiveLens lens={lens} onLens={setLens} />
         </div>
         {live && zoneView && openHome ? (

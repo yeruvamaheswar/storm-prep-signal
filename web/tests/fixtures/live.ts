@@ -76,13 +76,16 @@ export const liveOrders = {
   },
 }
 
+/** GET /v1/homes rows as Task 17 serves them for the demo fleet: the engine's zone, county and `name`
+ * (home-001 is Houston in every engine output). The table's charge and power are stale seed values the live worker
+ * never writes; the page must not read them. */
 export const homesRows = [
-  { home_id: "home-001", status: "live", capacity_kwh: 20, soc_kwh: 14, floor_kwh: 12, max_kw: 5, assigned_kw: 2.5, eligible: true, skip_reason: null, charge_state: "DISCHARGING", power_kw: 2.5, zone: "South", county: "48355", county_name: "Nueces" },
-  { home_id: "home-002", status: "live", capacity_kwh: 20, soc_kwh: 0.3, floor_kwh: 12, max_kw: 5, assigned_kw: 0, eligible: false, skip_reason: "below_floor", charge_state: "HOLDING", power_kw: 0, zone: "North", county: "48113", county_name: "Dallas" },
-  { home_id: "home-003", status: "live", capacity_kwh: 20, soc_kwh: 5, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: false, skip_reason: "below_floor", charge_state: "CHARGING", power_kw: -3, zone: "North", county: "48113", county_name: "Dallas" },
-  { home_id: "home-004", status: "stale", capacity_kwh: 20, soc_kwh: 10, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: false, skip_reason: "stale", charge_state: "HOLDING", power_kw: 0, zone: "West", county: null, county_name: null },
-  { home_id: "home-005", status: "live", capacity_kwh: 20, soc_kwh: 6.05, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: true, skip_reason: null, charge_state: "HOLDING", power_kw: 0, zone: "Houston", county: "48201", county_name: "Harris" },
-  { home_id: "home-006", status: "live", capacity_kwh: 20, soc_kwh: null, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: true, skip_reason: null, charge_state: null, power_kw: null, zone: "Houston", county: "48201", county_name: "Harris" },
+  { home_id: "home-001", name: "Houston-Harris-001", status: "live", capacity_kwh: 20, soc_kwh: 14, floor_kwh: 12, max_kw: 5, assigned_kw: 2.5, eligible: true, skip_reason: null, charge_state: "DISCHARGING", power_kw: 2.5, zone: "Houston", county: "48201", county_name: "Harris" },
+  { home_id: "home-002", name: "North-Dallas-002", status: "live", capacity_kwh: 20, soc_kwh: 0.3, floor_kwh: 12, max_kw: 5, assigned_kw: 0, eligible: false, skip_reason: "below_floor", charge_state: "HOLDING", power_kw: 0, zone: "North", county: "48113", county_name: "Dallas" },
+  { home_id: "home-003", name: "South-Nueces-003", status: "live", capacity_kwh: 20, soc_kwh: 5, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: false, skip_reason: "below_floor", charge_state: "CHARGING", power_kw: -3, zone: "South", county: "48355", county_name: "Nueces" },
+  { home_id: "home-004", name: "West-Midland-004", status: "stale", capacity_kwh: 20, soc_kwh: 10, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: false, skip_reason: "stale", charge_state: "HOLDING", power_kw: 0, zone: "West", county: "48329", county_name: "Midland" },
+  { home_id: "home-005", name: "Houston-FortBend-005", status: "live", capacity_kwh: 20, soc_kwh: 6.05, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: true, skip_reason: null, charge_state: "HOLDING", power_kw: 3.3, zone: "Houston", county: "48157", county_name: "Fort Bend" },
+  { home_id: "home-006", status: "live", capacity_kwh: 20, soc_kwh: null, floor_kwh: 6, max_kw: 5, assigned_kw: 0, eligible: true, skip_reason: null, charge_state: null, power_kw: null, zone: "North", county: null, county_name: null },
 ]
 
 export const homesHeaders = { "x-homes-source": "supabase", "x-fleet-size": "100", "x-homes-total": "100" }
@@ -107,17 +110,22 @@ export const runLatest = {
     fleet_size: 100, home_kwh: 25, home_max_kw: 11.4, base_reserve_pct: 30, storm_reserve_pct: 60,
     charge_threshold_usd_mwh: 25, discharge_threshold_usd_mwh: 60, tick_minutes: 5, telemetry_feed: true,
   },
-  ticks: [],
+  ticks: [{ tick: 1, ts: "2026-09-27T12:20:00-05:00" }],
   totals: { tick_minutes: 5, ticks: 1 },
 }
 
-/** An old Supabase run row from the 10,000-home live fleet (before Task 13). Its settings say so. */
+/** An old Supabase run row from the 10,000-home live fleet (before Task 13), with settings that say so. */
 export const oldRun10k = {
   run_id: "20260920-080000-000001",
   source: "live",
   settings: { fleet_size: 10000, base_reserve_pct: 30, storm_reserve_pct: 60, tick_minutes: 5 },
-  ticks: [],
+  ticks: [{ tick: 1, ts: "2026-09-27T12:20:00-05:00" }],
 }
 
-/** The same old row with no settings: only the tick's own home counts (PR #39 keeps them at 10,000). */
-export const oldSnapshot10k = { ...liveSnapshot, live_homes: 9800, stale_homes: 150, dead_homes: 50 }
+/** A table row as persist_run stored it before Task 9c: `result` is the ticks only, so /v1/runs/latest has no
+ * settings or totals, and /v1/snapshot rescales its tick to the demo fleet (so the tick's counts prove nothing). */
+export const tableRunNoSettings = {
+  run_id: "20260920-080000-000001",
+  source: "live",
+  ticks: [{ tick: 1, ts: "2026-09-27T12:20:00-05:00", live_homes: 100 }],
+}
