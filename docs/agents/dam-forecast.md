@@ -49,7 +49,7 @@ flowchart LR
 - **Tapes.** `TapeFrame.dam_fixtures` lists the day files published at that frame's clock (today's, plus tomorrow's from 13:30 CT). `scripts/build_scenarios.py` stamps it and adds the DAM rows to the provenance sidecar. `loop.frame_dam` reads the files (cached per path) and windows them. A replay needs no network.
 - **Live.** `scripts/live_cycle.py` calls `loop.run(live=True)`. After `start_run`, if the outage fetch succeeded, `run` calls `read_live_dam(settings, clock)` with the first frame's clock. For each published day it reads `var/dam/np4_190_cd_YYYYMMDD.json`, or fetches that day with `signal.fetch_dam_prices` (its own ERCOT login, four GETs, one per load zone) and saves it. DAM prices are final once posted, so each day is fetched once.
 - **Fixture store.** `data/fixtures/dam/`, one committed file per delivery day: `{source, delivery_date, fields, data}`, 96 rows (4 zones × 24 hours; a DST day has 23 or 25 hours per zone).
-- **Live cache.** `var/dam/`, same file shape. Gitignored and ephemeral: a Render restart or a fresh laptop clone empties it, and the next cycle fetches again.
+- **Live cache.** `var/dam/`, same file shape, gitignored. The live worker runs only on a laptop ([live-ingest.md, Where it runs](live-ingest.md#where-it-runs-checked-2026-09-27)), so the folder survives every cycle and a restart of `--loop`; a fresh clone starts empty and fetches today once. Nothing on Render reads or writes it. Proof: `tests/test_live_cycle.py` (a second cycle and a restarted worker make no DAM GET).
 
 ## Failure
 
@@ -57,6 +57,7 @@ flowchart LR
 |---|---|
 | Outage fetch failed on Live (risk None) | No DAM read that cycle; every zone uses the $25/$60 bands. |
 | One day's DAM fetch fails (ERCOT down, tomorrow not posted yet) | Logs `fetch_dam_prices failed` with a secret-free reason, prints `live: DAM <day> unknown`, and leaves that day out. It is not cached, so the next cycle tries again. If ERCOT posts late, Live runs on today's hours until tomorrow's arrive. |
+| ERCOT rate-limits a DAM GET (HTTP 429) | `fetch_dam_prices` stops at that GET with `ERCOT DAM request failed (HTTP 429)`; it never retries. The day is not cached, so the next cycle (5 minutes later) makes one more attempt. |
 | A day file is broken, or a tape names a missing file | Logs `stage=dam` failed; the tick has no DAM hours and uses the bands. |
 | Tick older than `stale_after_min` on the wall | Snapshot drops `dam_hours`; the panel hides. |
 

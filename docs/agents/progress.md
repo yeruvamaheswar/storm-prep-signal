@@ -1234,3 +1234,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `CONSTRAINTS.md`; `docs/agents/policy-intent.md`, new `dam-forecast.md`, `index.md`, `price-live.md`, `live-ingest.md`, `wall-snapshot.md`, `interval-strip.md`, `code-flow.md` (diagrams too), `system-design.md`, `grid-flow.md`, `epics.md`; `docs/humans/policy-intent.md`, new `dam-forecast.md`, `grid-flow.md`, `epics.md`; `README.md`.
 - Tests: `tests/test_dam.py` (new), DAM cases in `tests/test_fleet.py`, `test_policy.py`, `test_controller.py`, `test_live_cycle.py`, `test_snapshot.py`, `test_build_scenarios.py`; `web/tests/damForecast.test.ts`. Doc checks: `tests/test_code_flow.py`, `tests/test_system_design.py` pass.
 - `pytest -q --ignore="tests/test_grid_down 2.py" --ignore="tests/test_tick_paths 2.py"`: 761 passed in 42.31 s.
+
+## 2026-09-27: Live DAM cache: where the worker runs
+
+- Question: does the live DAM cache (`var/dam/`) survive in production, so the live cycle fetches each delivery day once? Checked where `scripts/live_cycle.py` runs: only on a laptop, by hand. Render has one service (`reservegate-api`, start command `scenario_session.py` + uvicorn); no Render cron or worker, no GitHub Actions job (CI runs tests only), no Supabase `pg_cron`, `pg_net` or Edge Functions. Supabase `runs` holds 51 `source=live` rows, all 2026-09-26 19:46 to 2026-09-27 00:34 UTC: one `--loop` session. Evidence and the rule for a future move: `docs/agents/live-ingest.md` "Where it runs".
+- Result: the cache was not at risk. The laptop disk keeps `var/dam/` across cycles and restarts. No code change, no migration. The old note that "a Render restart empties it" was wrong, since nothing on Render reads or writes `var/dam/`.
+- ERCOT 429: `fetch_dam_prices` stops at the first non-200 GET and never retries, so a rate-limited day costs one GET per cycle.
+- Tests (`tests/test_live_cycle.py`): a restarted worker that finds the day in `var/dam/` makes no DAM GET; a DAM 429 is one GET per cycle, not cached, and tried once more next cycle. Existing: a second cycle makes no DAM GET; a DAM failure falls back to the bands.
+- Docs: `docs/agents/live-ingest.md`, `dam-forecast.md`, `system-design.md`.
+- `pytest -q`: 833 passed.
