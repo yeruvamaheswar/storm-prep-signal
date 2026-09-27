@@ -14,7 +14,7 @@ type Props = {
   trust: { mark: string | null; mismatch: string | null }
   open: boolean
   onOpen: (homeId: string) => void
-  /** The zone's floor is raised this tick: the window lights up. */
+  /** Weather raised this home's own floor this tick (the zone has weather and reasonCodes.homeFloorRaised): the window lights up. */
   lit?: boolean
 }
 

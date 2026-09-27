@@ -6,6 +6,8 @@ import type { FlowHome, FlowTick } from "../src/features/flow/types"
 import { MapStage } from "../src/features/replay/MapStage"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
 import { ZoneBoard } from "../src/features/replay/ZoneBoard"
+import { homeFloorRaised } from "../src/features/replay/reasonCodes"
+import { berylHoustonHomes22, berylHoustonOrders22 } from "./fixtures/beryl22"
 
 // Real engine ticks (server/engine/scenario.py Session, base floor 30%); see replay-weather.test.ts.
 // beryl-landfall tick 2 after the Beryl alert (JEV yes for Harris; merged engine with #47, seed 42).
@@ -93,6 +95,31 @@ describe("zone board weather", () => {
     expect(page(gridDownTick, "North")).not.toContain("Islanded")
     expect(page(signalMissingTick, "Houston")).not.toContain("is-weather")
     expect(page(signalMissingTick, "Houston")).not.toContain("var(--rg-window-lit)")
+  })
+
+  it("lights a lot's window only when that home's own county floor was raised (Task 12 / #47: W1)", () => {
+    // beryl tick 22: Houston has weather (the Harris alert), but only Harris homes keep the raised floor.
+    const html = renderToStaticMarkup(createElement(ZoneBoard, {
+      zone: "Houston", homes: berylHoustonHomes22, orders: berylHoustonOrders22, tSeconds: 120, lens: "send",
+      openHome: null, onHome: () => {}, onBack: () => {}, weather: { floorRaised: true, weather: true, gridDown: false },
+    }))
+    const lot = (id: string) => html.split("<button").slice(1).find((part) => part.includes(`data-home="${id}"`)) ?? ""
+    expect(lot("home-001")).toContain("zone-lot-window is-lit")
+    expect(lot("home-021")).toContain("zone-lot-window is-lit")
+    expect(lot("home-005")).not.toContain("is-lit")
+    expect(html.match(/zone-lot-window is-lit/g)).toHaveLength(5)
+    expect(html).toContain("zone-scene is-weather")
+  })
+
+  it("homeFloorRaised reads the home's floor reason, and trusts the zone when an older worker sends none", () => {
+    expect(homeFloorRaised({ floor_reason: "weather_alert_jev_yes" })).toBe(true)
+    expect(homeFloorRaised({ floor_reason: "weather_alert_no_jev" })).toBe(true)
+    expect(homeFloorRaised({ floor_reason: "weather_alert" })).toBe(true)
+    expect(homeFloorRaised({ floor_reason: "storm_risk_high" })).toBe(true)
+    expect(homeFloorRaised({ floor_reason: "jev_no" })).toBe(false)
+    expect(homeFloorRaised({ floor_reason: "not_in_alert" })).toBe(false)
+    expect(homeFloorRaised({ floor_reason: "normal" })).toBe(false)
+    expect(homeFloorRaised({})).toBe(true)
   })
 })
 

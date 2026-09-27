@@ -7,6 +7,7 @@ import {
   SUBSTATION, WORLD, boardPath, keepGauge, lotLook, storyHomes, streetsPath, trustMarks, zoneLots, zonePaths,
 } from "./zoneModel"
 import { ISLANDED_TEXT, type ZoneWeather } from "./weatherModel"
+import { homeFloorRaised } from "./reasonCodes"
 import "./zone.css"
 
 type Props = {
@@ -148,7 +149,7 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
                   trust={trustMarks(home, timeline, tSeconds, tickMinutes)}
                   open={openHome === home.id}
                   onOpen={onHome}
-                  lit={raised}
+                  lit={raised && homeFloorRaised(home)}
                 />
               )
             })}
