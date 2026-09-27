@@ -34,7 +34,8 @@ SCENARIO_FLEET_SIZE = 100
 SOC_RANGE_PCT = (10.0, 95.0)
 # Time-lapse factors: scenario seconds per wall second. 300 plays one 5-minute tick per second.
 # 2.4 is real time for the Replay page: one 5-minute tick plays its 125 s order window at true speed.
-SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 300, 600)
+# 288, 720 and 1440 are the Replay Day view's 5, 2 and 1 min per 24-hour scenario day (86400 / x seconds).
+SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 288, 300, 600, 720, 1440)
 # About 25 s per 5-minute tick, slow enough to follow each order.
 DEFAULT_SPEED = 12
 # The page calls the worker gone when state.json has not been rewritten for this long.
@@ -443,6 +444,10 @@ class Session:
             "reserve_pct": result.reserve_pct, "risk_level": result.risk_level,
             "reasons": list(result.reasons), "breaches": result.breaches,
             "intent": result.intent, "intent_reason": result.intent_reason,
+            # The frame's own price and the mode it played in, and which events it carried (overlays and alert
+            # counties included), for the Replay day bar. Copied, never re-derived.
+            "price_usd_mwh": result.price_usd_mwh, "price_label": result.price_label, "mode": result.mode,
+            "events": sorted(frame.events),
         }])[-HISTORY_POINTS:]
         self.index += 1
         if self.index >= len(self.frames):
@@ -588,6 +593,9 @@ class Session:
         if self.scenario is not None:
             scenario = {key: self.scenario.get(key) for key in
                         ("id", "name", "event", "window", "summary", "tape", "baseline", "label", "grid_down_overlay")}
+            # The tape's own ends, so the Replay day bar spans the real scenario window.
+            scenario["first_ts"] = self.frames[0].ts if self.frames else None
+            scenario["last_ts"] = self.frames[-1].ts if self.frames else None
             # Each alert's load zones, so the weather step can name the zones a grid-down overlay covers.
             scenario["alerts"] = [{**alert_summary(a), "zones": alert_zones(a, self.settings)[0]} for a in
                                   (load_alert(i, self.alert_dir) for i in self.scenario.get("alerts", [])) if a]

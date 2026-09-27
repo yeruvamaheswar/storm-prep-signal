@@ -107,7 +107,9 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
             last_write = now
         if steps is not None and (played >= steps or not session.playing):
             return session
-        sleep(poll_s)
+        # While playing, wake for the next tick if it is due before the next poll, so a step shorter than
+        # poll_s (the Day view's 1 min per day is 0.21 s) keeps its pace.
+        sleep(min(poll_s, max(0.0, next_step - clock())) if session.playing else poll_s)
 
 
 def main(argv=None):
