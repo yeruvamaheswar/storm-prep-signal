@@ -158,9 +158,15 @@ export function MapStage({
       const fit = () => {
         const width = m.getSize().x
         const room = width > PAD_LEFT + PAD_RIGHT + 240
+        // Phone dock + playback sit under the map; keep Texas clear of that chrome.
+        const top = phone ? 64 : PAD_TOP
+        const bottom = phone ? 200 : PAD_BOTTOM
+        // Phone: clear the dock; desktop (and phone with a measured bar) uses padBottomRef.
+        const padBottom = phone ? Math.max(padBottomRef.current, bottom) : padBottomRef.current
+        const padTop = phone ? top : PAD_TOP
         m.fitBounds([[s, w], [n, e]], {
-          paddingTopLeft: room ? [PAD_LEFT, PAD_TOP] : [20, PAD_TOP],
-          paddingBottomRight: room ? [PAD_RIGHT, padBottomRef.current] : [20, padBottomRef.current],
+          paddingTopLeft: room ? [PAD_LEFT, PAD_TOP] : [16, padTop],
+          paddingBottomRight: room ? [PAD_RIGHT, padBottom] : [16, padBottom],
           animate: false,
         })
       }

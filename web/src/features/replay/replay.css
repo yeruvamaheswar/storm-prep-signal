@@ -1723,50 +1723,171 @@
   }
 }
 
-/* Phone portrait only. Desktop dual-rail HUD above stays unchanged. */
+/* Phone dock / sheets: hidden on desktop so dual-rail HUD stays the only chrome. */
+.replay-phone-chrome,
+.replay-phone-scrim {
+  display: none;
+}
+
+/* Phone portrait only. Map-first: rails become sheets; lens lives in the dock. */
 @media (max-width: 720px) {
+  /* Sticky line legend: one group only (map or zone), one scrollable row. */
+  .replay-line-legend {
+    padding: 4px 12px;
+    gap: 8px 16px;
+    max-height: 40px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .replay-line-legend ul {
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .replay-line-legend ul:nth-child(2) {
+    display: none;
+  }
+
   .replay-scene {
     min-height: 0;
-    height: calc(100dvh - 64px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    height: auto;
+    flex: 1 1 auto;
+    overflow: hidden;
+    padding-bottom: 0;
   }
 
   .replay-crumb {
     left: 12px;
-    right: 12px;
+    right: auto;
     top: 12px;
     width: auto;
-    max-width: none;
+    max-width: calc(100% - 24px);
     box-sizing: border-box;
     flex-wrap: wrap;
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
+  /* Dual rails stay off-screen until a sheet is open — map stays tappable. */
   .replay-left,
   .replay-right {
+    display: none;
     left: 12px;
     right: 12px;
-    width: auto;
     top: auto;
-    bottom: auto;
-    max-height: min(38dvh, 340px);
+    bottom: calc(168px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: min(52dvh, 380px);
+    z-index: 7;
+    gap: 10px;
+    pointer-events: auto;
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .replay-left {
-    top: 64px;
-    z-index: 4;
+  .replay-scene.phone-sheet-setup .replay-left,
+  .replay-scene.phone-sheet-fleet .replay-right {
+    display: flex;
   }
 
-  .replay-right {
-    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
-    z-index: 4;
+  /* Lens is in the phone dock; hide the duplicate rail block. */
+  .replay-left .replay-lens {
+    display: none;
+  }
+
+  /* Feed stays available but below the fold of the sheet; promise is the first read. */
+  .replay-right .replay-feed {
+    max-height: 160px;
+  }
+
+  .replay-scenario {
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  .replay-lens button {
+    min-height: 44px;
+  }
+
+  .replay-phone-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: rgba(8, 14, 11, 0.45);
+    cursor: pointer;
+  }
+
+  .replay-phone-chrome {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .replay-phone-lens,
+  .replay-phone-dock {
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .replay-phone-lens {
+    padding: 4px;
+    border-radius: 12px;
+    background: var(--rg-panel-map);
+    box-shadow: 0 8px 20px rgba(4, 10, 8, 0.35);
+  }
+
+  .replay-phone-lens button,
+  .replay-phone-dock button {
+    flex: 1 1 0;
+    min-height: 44px;
+    margin: 0;
+    border: 1px solid var(--rg-line);
+    border-radius: 10px;
+    background: #ffffff;
+    color: var(--rg-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .replay-phone-lens button {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .replay-phone-lens button.on,
+  .replay-phone-dock button.on {
+    background: var(--rg-ink);
+    border-color: var(--rg-ink);
+    color: var(--rg-panel-map);
+  }
+
+  .replay-phone-dock button {
+    background: var(--rg-panel-map);
+    box-shadow: 0 8px 20px rgba(4, 10, 8, 0.35);
   }
 
   .replay-bottom {
     left: 12px;
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
   }
 
   .replay-scene.has-home .replay-bottom {
@@ -1776,9 +1897,15 @@
   .replay-playback {
     flex-wrap: wrap;
     height: auto;
-    min-height: 96px;
+    min-height: 88px;
     gap: 10px 12px;
     padding: 12px 14px;
+  }
+
+  .replay-play,
+  .replay-next,
+  .replay-speed {
+    min-height: 44px;
   }
 
   .replay-track {
@@ -1799,20 +1926,29 @@
     width: auto;
     min-width: 0;
     padding: 16px;
+    z-index: 8;
   }
 
   .replay-worker-empty {
     left: 50%;
-    top: 48%;
+    top: 36%;
     width: calc(100% - 24px);
     min-width: 0;
     max-width: none;
     box-sizing: border-box;
   }
 
-  .replay-chip {
+  /* Zone chips sit under their anchors on phone so they do not cover the crumb. */
+  .replay-chip,
+  .replay-chip.is-below {
     min-width: 0;
     max-width: min(160px, 42vw);
     font-size: 12px;
+    transform: translate(-50%, 8px);
+  }
+
+  /* Rain sheet is transform-animated; skip on phone to cut paint cost. */
+  .replay-wx-rain-sheet {
+    animation: none;
   }
 }

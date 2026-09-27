@@ -2,6 +2,14 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Phone Replay/Live sheets + less lag
+
+- Named gap: phone Replay/Live menus and lag — dual overlay rails made the map hard to use; 250 ms UI clock was heavy.
+- Map-first under 720px: `PhoneChrome` dock (Send/Keep/Trust + Scenario/Inputs + This tick sheets); rails hidden until opened; scrim closes a sheet.
+- `phoneMedia.ts`: 1 s UI clock and scenario poll on phone; MapStage phone fitBounds clears the dock; rain animation off on phone.
+- Docs: `mobile-layout.md`, `docs/humans/mobile.md`. Tests: `web/tests/phone-chrome.test.ts`.
+- Verification: `cd web && npm test && npm run build`, `pytest -q`.
+
 ## 2026-09-27: Mobile portrait parity + judge README
 
 - Named gap: all routed pages usable in phone portrait with desktop feature parity; desktop layout unchanged; README judge-ready.

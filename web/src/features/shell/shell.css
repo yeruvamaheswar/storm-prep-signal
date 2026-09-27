@@ -170,7 +170,25 @@
   }
 
   .rg-pill {
-    padding: 12px 14px;
+    padding: 10px 12px;
+  }
+
+  /* Replay/Live: long scenario titles must not shove the nav off-screen. */
+  .replay-shell .rg-slot-label {
+    display: none;
+  }
+
+  .replay-shell .rg-pill-scenario {
+    max-width: min(46vw, 180px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .replay-shell .rg-tick {
+    font-size: 12px;
+    color: var(--rg-muted);
+    white-space: nowrap;
   }
 
   .rg-stage {
