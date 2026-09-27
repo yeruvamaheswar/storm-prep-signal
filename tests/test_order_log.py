@@ -30,6 +30,26 @@ def frame(events=None):
                      events=events or {})
 
 
+def grouped_by_key(rows):
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row[3], []).append(row)
+    return grouped
+
+
+def assert_lifecycle_is_well_formed(rows):
+    assert rows[0][1] == "sent"
+    kinds = [row[1] for row in rows]
+    for idx, kind in enumerate(kinds):
+        if kind == "conf":
+            assert "exec" in kinds[:idx]
+        if kind == "rdrop":
+            assert "exec" in kinds[:idx] or "dup" in kinds[:idx]
+        if kind == "rdrop" and "retry" in kinds[:idx]:
+            last_retry = max(i for i, prior in enumerate(kinds[:idx]) if prior == "retry")
+            assert rows[last_retry][0] != rows[idx][0] or any(k in ("exec", "dup") for k in kinds[last_retry + 1:idx])
+
+
 def test_order_timelines_normalize_kinds_and_filter_noise():
     events = [
         {"t": 0.04, "kind": "sent", "command_id": "home-001:1"},
@@ -50,18 +70,39 @@ def test_order_timelines_normalize_kinds_and_filter_noise():
     timelines = order_timelines(events, {"home-001": 4.0})
 
     assert timelines["home-001"] == [
-        [0.0, "sent", 4.0],
-        [3.2, "exec", 4.0],
-        [3.2, "rdrop", None],
-        [60.0, "retry", None],
-        [60.0, "reassigned", "home-002"],
+        [0.0, "sent", 4.0, "own"],
+        [3.2, "exec", 4.0, "own"],
+        [3.2, "rdrop", None, "own"],
+        [60.0, "retry", None, "own"],
+        [60.0, "reassigned", "home-002", "own"],
     ]
     assert timelines["home-002"] == [
-        [60.0, "sent", 2.5],
-        [65.0, "mismatch", 0.5],
-        [66.0, "conf", -2.0],
+        [60.0, "sent", 2.5, "r"],
+        [65.0, "mismatch", 0.5, "r"],
+        [66.0, "conf", -2.0, "r"],
     ]
     assert all(row[1] in NORMAL_KINDS for rows in timelines.values() for row in rows)
+    assert all(row[3] in {"own", "r"} for rows in timelines.values() for row in rows)
+
+
+def test_lost_retry_order_is_drop_not_report_drop():
+    events = [
+        {"t": 0.0, "kind": "sent", "command_id": "home-005:1"},
+        {"t": 10.0, "kind": "executed", "command_id": "home-005:1", "home_id": "home-005", "actual_kw": 2.0},
+        {"t": 10.0, "kind": "sent", "command_id": "home-005:1"},
+        {"t": 10.0, "kind": "dropped", "command_id": "home-005:1"},
+        {"t": 60.0, "kind": "retry", "command_id": "home-005:1", "home_id": "home-005"},
+        {"t": 60.0, "kind": "sent", "command_id": "home-005:1"},
+        {"t": 60.0, "kind": "dropped", "command_id": "home-005:1"},
+    ]
+
+    assert order_timelines(events, {"home-005": 2.0})["home-005"] == [
+        [0.0, "sent", 2.0, "own"],
+        [10.0, "exec", 2.0, "own"],
+        [10.0, "rdrop", None, "own"],
+        [60.0, "retry", None, "own"],
+        [60.0, "drop", None, "own"],
+    ]
 
 
 def test_fault_tick_order_timelines_stay_compact_and_consistent():
@@ -79,17 +120,46 @@ def test_fault_tick_order_timelines_stay_compact_and_consistent():
 
     lost_then_retried = 0
     for rows in timelines.values():
-        kinds = [row[1] for row in rows]
-        times = [row[0] for row in rows]
-        if "conf" in kinds:
-            assert "exec" in kinds
-            assert kinds.index("exec") < kinds.index("conf")
-        for idx, kind in enumerate(kinds):
-            if kind == "rdrop":
-                assert "exec" in kinds[:idx]
-        if "drop" in kinds and "retry" in kinds:
-            assert kinds.index("drop") < kinds.index("retry")
-            assert times[kinds.index("retry")] == pytest.approx(60.0)
-            lost_then_retried += 1
+        for keyed_rows in grouped_by_key(rows).values():
+            assert_lifecycle_is_well_formed(keyed_rows)
+            keyed_kinds = [row[1] for row in keyed_rows]
+            keyed_times = [row[0] for row in keyed_rows]
+            if "drop" in keyed_kinds and "retry" in keyed_kinds:
+                drop_idx = keyed_kinds.index("drop")
+                retry_idx = keyed_kinds.index("retry")
+                if drop_idx < retry_idx:
+                    assert keyed_times[retry_idx] == pytest.approx(60.0)
+                    lost_then_retried += 1
 
     assert lost_then_retried > 0
+
+
+def test_fault_tick_distinguishes_own_and_reassigned_orders():
+    s = settings(channel_drop_rate=0.4)
+    homes = new_fleet(s)
+    f = frame({"network": {"drop_rate": 0.4}})
+    apply_events(homes, f.events)
+    result = orchestrate_tick(homes, f, policy(), "AUTO", s, seed=1)
+
+    timelines = order_timelines(result.events, result.allocation.per_home_kw)
+    homes_with_both = [home_id for home_id, rows in timelines.items() if {"own", "r"} <= set(grouped_by_key(rows))]
+
+    assert homes_with_both
+    for rows in timelines.values():
+        for keyed_rows in grouped_by_key(rows).values():
+            assert_lifecycle_is_well_formed(keyed_rows)
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+def test_fault_tick_report_drops_follow_execution_or_duplicate(seed):
+    s = settings(channel_drop_rate=0.4)
+    homes = new_fleet(s)
+    f = frame({"network": {"drop_rate": 0.4}})
+    apply_events(homes, f.events)
+    result = orchestrate_tick(homes, f, policy(), "AUTO", s, seed=seed)
+
+    timelines = order_timelines(result.events, result.allocation.per_home_kw)
+
+    for rows in timelines.values():
+        for keyed_rows in grouped_by_key(rows).values():
+            assert_lifecycle_is_well_formed(keyed_rows)

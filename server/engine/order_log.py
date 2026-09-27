@@ -34,8 +34,12 @@ def _append(timelines, home_id, event):
         timelines.setdefault(home_id, []).append(event)
 
 
+def _key(command_id):
+    return "r" if str(command_id).endswith(":r") else "own"
+
+
 def order_timelines(events, per_home_kw):
-    """Return {home_id: [[t, kind, extra], ...]} for orders in one tick.
+    """Return {home_id: [[t, kind, extra, key], ...]} for orders in one tick.
 
     `per_home_kw` is the plan's signed kW by original home id. Reassigned child
     commands get their sent extra from the reassignment event's kW because they
@@ -43,7 +47,7 @@ def order_timelines(events, per_home_kw):
     """
     timelines = {}
     sent = set()
-    executed = set()
+    next_message = {}
     explicit_command_kw = {}
 
     for event in events:
@@ -55,37 +59,44 @@ def order_timelines(events, per_home_kw):
         t = _stamp(event)
 
         if kind == "sent":
-            if command_id in sent or command_id in executed:
+            direction = next_message.get(command_id, "order")
+            if command_id in sent:
                 continue
             sent.add(command_id)
+            if direction != "order":
+                continue
             extra = explicit_command_kw.get(command_id)
             if extra is None:
                 extra = per_home_kw.get(home_id)
-            _append(timelines, home_id, [t, "sent", extra])
+            _append(timelines, home_id, [t, "sent", extra, _key(command_id)])
         elif kind == "dropped":
-            _append(timelines, home_id, [t, "rdrop" if command_id in executed else "drop", None])
+            direction = next_message.get(command_id, "order")
+            _append(timelines, home_id, [t, "rdrop" if direction == "report" else "drop", None, _key(command_id)])
+            next_message[command_id] = "report" if direction == "order" else "order"
         elif kind == "executed":
-            executed.add(command_id)
-            _append(timelines, home_id, [t, "exec", event.get("actual_kw")])
+            next_message[command_id] = "report"
+            _append(timelines, home_id, [t, "exec", event.get("actual_kw"), _key(command_id)])
         elif kind == "retry":
-            _append(timelines, home_id, [t, "retry", None])
+            next_message[command_id] = "order"
+            _append(timelines, home_id, [t, "retry", None, _key(command_id)])
         elif kind == "reassigned":
             parent = str(event.get("parent_command_id") or "")
             parent_home = parent.split(":", 1)[0]
             child_home = str(event.get("home_id") or command_id.split(":", 1)[0])
             explicit_command_kw[command_id] = event.get("kw")
-            _append(timelines, parent_home, [t, "reassigned", child_home])
+            _append(timelines, parent_home, [t, "reassigned", child_home, _key(parent)])
         elif kind == "reassign_failed":
-            _append(timelines, home_id, [t, "reassign_failed", None])
+            _append(timelines, home_id, [t, "reassign_failed", None, _key(command_id)])
         elif kind == "duplicate_ignored":
-            _append(timelines, home_id, [t, "dup", None])
+            next_message[command_id] = "report"
+            _append(timelines, home_id, [t, "dup", None, _key(command_id)])
         elif kind in ("confirmed", "charge_confirmed"):
-            _append(timelines, home_id, [t, "conf", event.get("actual_kw")])
+            _append(timelines, home_id, [t, "conf", event.get("actual_kw"), _key(command_id)])
         elif kind == "timed_out":
-            _append(timelines, home_id, [t, "timeout", None])
+            _append(timelines, home_id, [t, "timeout", None, _key(command_id)])
         elif kind == "charge_mismatch":
-            _append(timelines, home_id, [t, "mismatch", event.get("reported_kwh")])
+            _append(timelines, home_id, [t, "mismatch", event.get("reported_kwh"), _key(command_id)])
         elif kind == "late_report":
-            _append(timelines, home_id, [t, "late", event.get("actual_kw")])
+            _append(timelines, home_id, [t, "late", event.get("actual_kw"), _key(command_id)])
 
     return {home_id: sorted(rows, key=lambda row: row[0]) for home_id, rows in timelines.items()}

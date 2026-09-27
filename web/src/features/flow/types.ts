@@ -188,7 +188,7 @@ export type OrderKind =
   | "mismatch"
   | "late"
 
-export type OrderTimelineEntry = [number, OrderKind, number | string | null | undefined]
+export type OrderTimelineEntry = [number, OrderKind, number | string | null | undefined, ("own" | "r")?]
 
 export type SessionState = {
   status: "idle" | "playing" | "paused" | "finished" | "error"

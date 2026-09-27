@@ -1027,6 +1027,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - `web/src/features/flow/types.ts` has additive types for the Replay fields. Docs updated in `grid-flow.md` and `code-flow.md`.
 - Tests: focused order/session tests 15 passed. `pytest -q`: 658 passed. `FUZZ_SEEDS=50 pytest -q`: 658 passed. Web: vitest 279 passed, `npm run build` clean.
 
+## 2026-09-26: Replay order timelines fix round 1
+
+- Fixed order timeline direction tracking so a lost retry order at 60 s is `drop`, while lost reports after `exec` or `dup` stay `rdrop`.
+- Added the fourth timeline key (`own` / `r`) so one home can display its own command and a reassigned-in command in the same tick without mixing lifecycles.
+- Added real fault-tick tests for lossy seeds, keyed lifecycles, and slow speed validation. Verification: focused order/session tests 23 passed; `HOME_MAX_KW=11.4 pytest -q` 666 passed; `FUZZ_SEEDS=50 HOME_MAX_KW=11.4 pytest -q` 666 passed; web vitest 285 passed; web build clean with the existing chunk-size warning.
+
 ## 2026-09-26: Persist operator HOLD / AUTO for the live worker
 
 - Named gap: Hold/Auto lived only in `var/state.json`. The wall on Render and the laptop `live_cycle` worker do not share that file, so a wall HOLD never reached `allocate()`.

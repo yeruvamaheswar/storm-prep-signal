@@ -30,10 +30,16 @@ Requests left over from an earlier worker are not replayed; the page asks again.
 ## Order timelines
 
 `state.json` carries `orders` at the top level for Replay. It is a compact per-tick map:
-`{home_id: [[t, kind, extra], ...]}`. `t` is virtual seconds inside the engine cycle, rounded to
-0.1. The first `sent` entry carries the signed planned kW as `extra` (negative means charge).
-Confirmed and executed entries carry actual kW. Reassignments are logged on the original home
-with the new home id as `extra`, and the new home has its own timeline starting with `sent`.
+`{home_id: [[t, kind, extra, key], ...]}`. `t` is virtual seconds inside the engine cycle,
+rounded to 0.1. The first `sent` entry carries the signed planned kW as `extra` (negative means
+charge). Confirmed and executed entries carry actual kW. A `mismatch` entry carries the
+`reported_kwh` extra in kWh, not kW. Reassignments are logged on the original home with the new
+home id as `extra`, and the new home has its own timeline starting with `sent`.
+
+The fourth item, `key`, separates two command lifecycles that can belong to the same displayed
+home in one tick. It is `"own"` for the home's own command id (`home:tick`) and `"r"` for a
+reassigned-in command id (`home:tick:r`). Older readers may ignore it because the first three
+items keep their original meaning.
 
 The only order kinds in this UI contract are `sent`, `drop`, `exec`, `rdrop`, `retry`,
 `reassigned`, `reassign_failed`, `dup`, `conf`, `timeout`, `mismatch`, and `late`. Telemetry and

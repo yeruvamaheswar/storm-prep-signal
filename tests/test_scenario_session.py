@@ -175,6 +175,14 @@ def test_writes_need_an_operator_and_a_known_scenario(client, tmp_path):
     assert not (tmp_path / "requests.json").exists()
 
 
+def test_speed_accepts_slow_replay_values(client, tmp_path):
+    assert client.post("/v1/scenario/speed", json={"x": 15}, headers=OPERATOR).status_code == 202
+    assert client.post("/v1/scenario/speed", json={"x": 30}, headers=OPERATOR).status_code == 202
+    assert client.post("/v1/scenario/speed", json={"x": 7}, headers=OPERATOR).status_code == 422
+    requests = json.loads((tmp_path / "requests.json").read_text())
+    assert [request["body"]["x"] for request in requests] == [15, 30]
+
+
 def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path):
     scenario_list = client.get("/v1/scenarios").json()
     assert "heather" in [s["id"] for s in scenario_list["scenarios"]]
