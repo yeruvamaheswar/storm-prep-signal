@@ -414,3 +414,40 @@ def test_live_snapshot_reads_event_live_before_direct_ercot(tmp_path, monkeypatc
     assert called == ["live"]
     assert tick["delivered_mw"] == pytest.approx(0.4)
     assert tick["quality"] == "auth"
+
+
+class _StopLoop(BaseException):
+    """Ends the --loop test; a BaseException so the worker's catch-all never swallows it."""
+
+
+def test_loop_survives_an_unexpected_error_and_runs_the_next_cycle(monkeypatch, capsys):
+    calls = []
+
+    def run_cycle(settings, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise KeyError("boom from a malformed ERCOT row")
+        raise _StopLoop
+
+    monkeypatch.setattr(cycle, "load_env", lambda path: None)
+    monkeypatch.setattr(cycle, "read_settings", lambda: dict(SETTINGS))
+    monkeypatch.setattr(cycle, "run_cycle", run_cycle)
+    monkeypatch.setattr(cycle.time, "sleep", lambda seconds: None)
+    with pytest.raises(_StopLoop):
+        cycle.main(["--loop", "--dry-run"])
+    assert len(calls) == 2
+    out = capsys.readouterr()
+    assert "Traceback" in out.err
+    assert "boom from a malformed ERCOT row" in out.err
+    assert "continuing" in out.out
+
+
+def test_one_shot_still_raises_an_unexpected_error(monkeypatch):
+    def run_cycle(settings, **kwargs):
+        raise KeyError("boom")
+
+    monkeypatch.setattr(cycle, "load_env", lambda path: None)
+    monkeypatch.setattr(cycle, "read_settings", lambda: dict(SETTINGS))
+    monkeypatch.setattr(cycle, "run_cycle", run_cycle)
+    with pytest.raises(KeyError):
+        cycle.main(["--dry-run"])

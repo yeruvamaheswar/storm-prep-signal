@@ -12,6 +12,7 @@ import argparse
 import os
 import sys
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -202,7 +203,13 @@ def main(argv=None):
         return once()
     pause = max(1, int(settings["tick_minutes"]) * 60)
     while True:
-        once()
+        # One bad cycle (a malformed ERCOT row, a disk error) must not end the worker: uvicorn's
+        # /health would stay green while no tick is ever written again. Log it and try next tick.
+        try:
+            once()
+        except Exception:
+            traceback.print_exc()
+            print(f"live_cycle: cycle failed, continuing in {pause}s", flush=True)
         time.sleep(pause)
 
 
