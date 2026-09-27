@@ -1,56 +1,139 @@
-import type { ReactNode } from "react"
+import { Fragment } from "react"
 import { VerifyArchive } from "../flow/VerifyArchive"
-import { FLOW_ZONES, type ActiveAlert, type SessionState, type StartSummary } from "../flow/types"
-import { fmtScenarioTime, fmtUsd } from "../flow/flowMath"
+import { FLOW_ZONES, type FlowCounty, type FlowTick, type Provenance, type SessionState, type StartSummary } from "../flow/types"
+import { fmtScenarioTime, fmtUsd, reasonLabel } from "../flow/flowMath"
+import { AlertDetail } from "./AlertDetail"
+import { DataRow as Row } from "./DataRow"
+import { NOT_REPORTED, mw, plainReason } from "./format"
+import { intentLine } from "./intentCopy"
+import { SessionLog } from "./SessionLog"
+import { StartCharge } from "./StartCharge"
 import { useDrawerFocus } from "./useDrawer"
+import { ZoneShares } from "./ZoneShares"
 
 type Props = {
   state: SessionState
   onClose: () => void
 }
 
-function Row({ k, v }: { k: string; v: ReactNode }) {
-  return (
-    <div className="replay-data-row">
-      <dt>{k}</dt>
-      <dd>{v}</dd>
-    </div>
-  )
-}
-
 function hasStart(start: SessionState["start"]): start is StartSummary {
   return typeof (start as StartSummary).seed === "number"
 }
 
-function StartHistogram({ start }: { start: StartSummary }) {
-  const peak = Math.max(1, ...start.histogram)
+function orMissing(value: string | null | undefined): string {
+  return value && value.trim() ? value : NOT_REPORTED
+}
+
+/** Mode words for the engine's two modes (server/engine/contracts.py). Any other code shows as sent. */
+const MODE_WORDS: Record<string, string> = {
+  AUTO: "Automatic: the engine decides",
+  // HOLD returns an empty allocation before refill (controller.py), so nothing sells and nothing charges.
+  HOLD: "Hold: the operator stopped the fleet (no selling, no charging)",
+}
+
+function whole(value: number): string {
+  return Math.round(value).toLocaleString("en-US")
+}
+
+function ruleReading(rating: NonNullable<Provenance["rating"]>): string {
+  return `${rating.level}: peak ${whole(rating.peak_mw)} MW at HE${rating.peak_hour} vs trigger ${whole(rating.trigger_mw)} MW (typical ${whole(rating.baseline_mw)} MW)`
+}
+
+function baselineRange(baseline: Provenance["baseline"]): string {
+  if (typeof baseline.postings !== "number") return NOT_REPORTED
+  return `${baseline.postings} postings, ${orMissing(baseline.from)} to ${orMissing(baseline.to)}`
+}
+
+/** A zone price, or the drawer's one wording for a missing value. */
+function zonePrice(price: number | undefined): string {
+  return typeof price === "number" && Number.isFinite(price) ? fmtUsd(price) : NOT_REPORTED
+}
+
+function ProvenanceRows({ provenance }: { provenance: Provenance }) {
+  const posting = provenance.posting
+  const archive = provenance.archive_rows
   return (
-    <div className="replay-hist" aria-label="Starting charge histogram">
-      {start.histogram.map((count, index) => (
-        <span key={index} title={`${count} homes`} style={{ height: `${(count / peak) * 100}%` }} />
-      ))}
-    </div>
+    <dl>
+      <Row k="Tick clock" v={`Tick ${provenance.tick} · ${fmtScenarioTime(provenance.ts)}`} />
+      {posting ? (
+        <>
+          <Row k="Outage report" v={`${posting.report} · ${posting.table}`} />
+          <Row k="Posted" v={orMissing(posting.posted_at)} />
+          <Row k="Rows" v={posting.rows} />
+          <Row k="File" v={<code>{posting.file}</code>} />
+        </>
+      ) : <Row k="Outage report" v="None on this tick: risk unknown, fail safe" />}
+      {archive?.posting?.id !== undefined ? (
+        <Row k="Supabase row" v={`ercot_postings.id ${archive.posting.id}${archive.posting.file_name ? ` · ${archive.posting.file_name}` : ""}`} />
+      ) : null}
+      <Row k="Rule reading" v={provenance.rating ? ruleReading(provenance.rating) : NOT_REPORTED} />
+      <Row k="Zone prices" v={orMissing(provenance.zone_prices.label)} />
+      {FLOW_ZONES.map((zone) => <Row key={zone} k={`${zone} price`} v={zonePrice(provenance.zone_prices.zones[zone])} />)}
+      {archive?.prices?.length ? (
+        <Row k="Price rows" v={archive.prices.map((row) => `${row.settlement_point} ${row.interval_ending}`).join(" · ")} />
+      ) : null}
+      <Row k="Target" v={`${mw(provenance.target.mw)} · ${provenance.target.label}`} />
+      <Row k="Baseline file" v={<code>{provenance.baseline.file}</code>} />
+      <Row k="Baseline postings" v={baselineRange(provenance.baseline)} />
+      {archive?.overlay ? <Row k="Overlay" v={archive.overlay} /> : null}
+    </dl>
   )
 }
 
-function AlertRows({ alert }: { alert: ActiveAlert }) {
+type CountyFloor = { fips: string; label: string; pct: number }
+
+/** The tick's county floors in one zone, in roster order. */
+function zoneCountyFloors(zone: string, tick: FlowTick, counties: FlowCounty[]): CountyFloor[] {
+  const floors = tick.county_reserve_pct ?? {}
+  return counties
+    .filter((county) => county.zone === zone && typeof floors[county.fips] === "number")
+    .map((county) => ({ fips: county.fips, label: `${county.name} (${county.fips})`, pct: floors[county.fips] }))
+}
+
+/** County floors for FIPS codes the roster does not place in a zone (an older or partial roster), by code. */
+function unplacedCountyFloors(tick: FlowTick, counties: FlowCounty[]): CountyFloor[] {
+  const placed = new Set(counties.map((county) => county.fips))
+  return Object.entries(tick.county_reserve_pct ?? {})
+    .filter(([fips]) => !placed.has(fips))
+    .map(([fips, pct]) => ({ fips, label: `County ${fips}`, pct }))
+}
+
+/** "Charge, served the call, then charged": the engine's acted intent in the ledger's words (intentCopy). */
+function fleetDid(tick: FlowTick): string {
+  return intentLine(tick.intent, tick.intent_reason)?.replace(/^Fleet did: /, "") ?? NOT_REPORTED
+}
+
+function EngineDecision({ tick, counties }: { tick: FlowTick; counties: FlowCounty[] }) {
+  const reasons = tick.county_reasons ?? {}
+  const countyRow = (county: CountyFloor) => (
+    <Row key={county.fips} sub k={county.label} v={`${county.pct}% · ${reasonLabel(reasons[county.fips])}`} />
+  )
   return (
-    <div className="replay-alert">
-      <b>{alert.event ?? alert.id}</b>
-      <p>{alert.headline ?? "No headline reported"}</p>
+    <>
       <dl>
-        <Row k="Zones" v={alert.zones.join(", ") || "Not reported"} />
-        <Row k="Expires" v={fmtScenarioTime(alert.expires)} />
+        {FLOW_ZONES.map((zone) => (
+          <Fragment key={zone}>
+            <Row k={`${zone} floor`}
+              v={`${tick.zone_reserve_pct[zone] ?? tick.reserve_pct}% · ${reasonLabel(tick.zone_reasons[zone] ?? tick.policy_reason)}`} />
+            {zoneCountyFloors(zone, tick, counties).map(countyRow)}
+          </Fragment>
+        ))}
+        {unplacedCountyFloors(tick, counties).map(countyRow)}
+        <Row k="Fleet did" v={fleetDid(tick)} />
+        <Row k="Mode" v={MODE_WORDS[tick.mode] ?? tick.mode} />
+        <Row k="Reasons" v={tick.reasons.length ? tick.reasons.map(plainReason).join(", ") : "None"} />
+        <Row k="Breaches" v={tick.breaches} />
       </dl>
-      <p className="replay-note">JEV shadow reading, never dispatches.</p>
-      {alert.jev ? <p>{alert.jev.answer} · P(threat) {alert.jev.probability.toFixed(2)}</p> : <p className="replay-note">No recorded JEV reading.</p>}
-    </div>
+      {tick.brief ? <p className="replay-note">{tick.brief}</p> : null}
+    </>
   )
 }
 
 export function AboutDataDrawer({ state, onClose }: Props) {
   const ref = useDrawerFocus<HTMLElement>(onClose)
   const provenance = state.provenance
+  const scenario = state.scenario
+  const overlay = provenance?.archive_rows?.overlay
   return (
     <section ref={ref} tabIndex={-1} role="dialog" className="replay-panel replay-drawer replay-data" aria-label="About this data">
       <div className="replay-ledger-head">
@@ -61,29 +144,55 @@ export function AboutDataDrawer({ state, onClose }: Props) {
         <button className="replay-pill" type="button" onClick={onClose} aria-label="Close about this data">Close</button>
       </div>
       <section>
+        <h3>Scenario</h3>
+        {scenario ? (
+          <>
+            <dl>
+              <Row k="Name" v={scenario.name} />
+              <Row k="Window" v={orMissing(scenario.window)} />
+              <Row k="Label" v={orMissing(scenario.label)} />
+              <Row k="Tape" v={scenario.tape ? <code>{scenario.tape}</code> : NOT_REPORTED} />
+              <Row k="Baseline" v={scenario.baseline ? <code>{scenario.baseline}</code> : NOT_REPORTED} />
+            </dl>
+            {scenario.summary ? <p className="replay-note">{scenario.summary}</p> : null}
+          </>
+        ) : <p className="replay-note">No scenario picked yet.</p>}
+      </section>
+      <section>
         <h3>Provenance</h3>
-        {provenance ? (
-          <dl>
-            <Row k="Tick clock" v={fmtScenarioTime(provenance.ts)} />
-            <Row k="Outage report" v={provenance.posting ? `${provenance.posting.report} · ${provenance.posting.file}` : "Not reported"} />
-            <Row k="Posted" v={provenance.posting?.posted_at ?? "Not reported"} />
-            <Row k="Target" v={`${provenance.target.mw.toFixed(3)} MW · ${provenance.target.label}`} />
-            {FLOW_ZONES.map((zone) => <Row key={zone} k={`${zone} price`} v={fmtUsd(provenance.zone_prices.zones[zone])} />)}
-          </dl>
-        ) : <p className="replay-note">No provenance reported yet.</p>}
+        {provenance ? <ProvenanceRows provenance={provenance} /> : <p className="replay-note">No provenance reported yet.</p>}
         <VerifyArchive state={state} />
       </section>
       <section>
+        <h3>Engine decision this tick</h3>
+        {state.tick ? <EngineDecision tick={state.tick} counties={state.counties ?? []} /> :<p className="replay-note">No tick played yet.</p>}
+      </section>
+      <section>
+        <h3>Zone shares this tick</h3>
+        {state.tick ? <ZoneShares zones={state.zones} /> : <p className="replay-note">No tick played yet.</p>}
+      </section>
+      <section>
         <h3>Alerts</h3>
-        {state.alerts.length ? state.alerts.map((alert) => <AlertRows key={alert.id} alert={alert} />) : <p className="replay-note">No alert sent in this session.</p>}
+        {state.alerts.length ? state.alerts.map((alert) => <AlertDetail key={alert.id} alert={alert} counties={state.counties ?? []} tick={state.tick} />) : <p className="replay-note">No alert sent in this session.</p>}
+      </section>
+      <section>
+        <h3>Overlays (hand-placed)</h3>
+        {overlay && provenance ? <p className="replay-note">Tick {provenance.tick}: {overlay}</p> : null}
+        {state.grid_down_zones.length
+          ? <p className="replay-note">Grid down in {state.grid_down_zones.join(", ")}. Operator overlay, not an archive row.</p> : null}
+        {!overlay && !state.grid_down_zones.length ? <p className="replay-note">None this tick.</p> : null}
+      </section>
+      <section>
+        <h3>Starting charge</h3>
+        {hasStart(state.start) ? <StartCharge start={state.start} /> : <p className="replay-note">No seeded fleet reported.</p>}
       </section>
       <section>
         <h3>Honest limits</h3>
         <ul>{state.honest_limits.map((line) => <li key={line}>{line}</li>)}</ul>
       </section>
       <section>
-        <h3>Starting charge</h3>
-        {hasStart(state.start) ? <StartHistogram start={state.start} /> : <p className="replay-note">No seeded fleet reported.</p>}
+        <h3>Session log</h3>
+        <SessionLog log={state.log} />
       </section>
     </section>
   )
