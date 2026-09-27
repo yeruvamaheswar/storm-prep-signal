@@ -246,7 +246,8 @@
 .replay-drawer-close:focus-visible,
 .replay-scenario:focus-visible,
 .replay-lens button:focus-visible,
-.replay-seg button:focus-visible,
+.replay-next:focus-visible,
+.replay-speed:focus-visible,
 .replay-play:focus-visible,
 .replay-weather button:focus-visible {
   outline: 3px solid #0e6f78;
@@ -665,36 +666,68 @@
   background: var(--rg-ink);
 }
 
-.replay-seg {
+/* Play above Next tick. */
+.replay-buttons {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: #e3e6df;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
-.replay-seg button {
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: #3c4641;
+.replay-next {
+  padding: 3px 9px;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-surface);
+  color: var(--rg-ink);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
-.replay-seg button.on {
-  background: #ffffff;
-  color: var(--rg-ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+.replay-next:disabled {
+  cursor: default;
+  color: var(--rg-muted);
+  opacity: 0.6;
 }
 
-.replay-seg button:disabled {
+/* Speed slider: the current stop's label above, the scenario clock and the keys below. */
+.replay-speed-wrap {
+  flex: 0 1 230px;
+  min-width: 0;
+  gap: 3px;
+}
+
+.replay-speed-now {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.replay-speed {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--rg-ink);
+  cursor: pointer;
+}
+
+.replay-speed:disabled {
   cursor: default;
   opacity: 0.45;
+}
+
+.replay-speed-wrap .replay-keys {
+  font-size: 11px;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.replay-speed-wrap .replay-keys span {
+  font-size: inherit;
+  white-space: nowrap;
 }
 
 /* Fixed width so its end labels never run into the speed buttons or the clock. */

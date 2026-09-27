@@ -1,0 +1,259 @@
+import { act, createElement } from "react"
+import { createRoot, type Root } from "react-dom/client"
+import { renderToStaticMarkup } from "react-dom/server"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import type { FlowRequest } from "../src/features/flow/api"
+import type { SessionState } from "../src/features/flow/types"
+import { canStep, PlaybackBar } from "../src/features/replay/PlaybackBar"
+import { ReplayPage } from "../src/features/replay/ReplayPage"
+import {
+  advancePlayhead, availableStops, initialPlayhead, nudgeSpeed, playheadSeconds, SPEED_STOPS, speedLabel,
+  type Playhead,
+} from "../src/features/replay/tickClock"
+import { replayKeyRequest, useReplayKeys, type ReplayKeyContext } from "../src/features/replay/useReplayKeys"
+
+const ALL_SPEEDS = [2.4, 4.8, 12, 15, 30, 60, 150, 300, 600]
+
+function session(over: Partial<SessionState> = {}): SessionState {
+  return {
+    status: "paused", error: null, updated_at: "", scenario: null, seed: 1, speed: 12, speeds: ALL_SPEEDS,
+    step_seconds: 25, tick_minutes: 5, tick_index: 3, tick_count: 10, start: {}, tick: null, homes: [], orders: {},
+    zones: {}, charging_mw: 0, provenance: null, alerts: [], grid_down_zones: [], history: [], totals: null, log: [],
+    honest_limits: [], ...over,
+  } as SessionState
+}
+
+describe("speed stops", () => {
+  it("labels each stop, slowest first, by what the viewer experiences for 5-minute ticks", () => {
+    expect(SPEED_STOPS.map((stop) => stop.x)).toEqual([2.4, 4.8, 12, 30, 60, 300])
+    expect(SPEED_STOPS.map((stop) => speedLabel(stop.x, 5))).toEqual([
+      "Real time · about 2 min per tick",
+      "2× · about 1 min per tick",
+      "5× · about 25 s per tick",
+      "about 10 s per tick",
+      "about 5 s per tick",
+      "Time-lapse · 1 s per tick",
+    ])
+  })
+
+  it("computes the seconds from tick_minutes instead of hard-coding them", () => {
+    expect(speedLabel(300, 10)).toBe("Time-lapse · 2 s per tick")
+    expect(speedLabel(60, 10)).toBe("about 10 s per tick")
+    // At 10-minute ticks 4.8 is real time: the 125 s order window at true speed.
+    expect(speedLabel(4.8, 10)).toBe("Real time · about 2 min per tick")
+  })
+
+  it("labels a speed that is not a stop by its pace alone", () => {
+    expect(speedLabel(15, 5)).toBe("about 20 s per tick")
+  })
+
+  it("skips stops the session does not offer", () => {
+    expect(availableStops([15, 60, 300]).map((stop) => stop.x)).toEqual([60, 300])
+    expect(availableStops(ALL_SPEEDS).map((stop) => stop.x)).toEqual([2.4, 4.8, 12, 30, 60, 300])
+    expect(availableStops(undefined)).toEqual([])
+  })
+
+  it("moves one offered stop slower or faster, and stops at the ends", () => {
+    expect(nudgeSpeed(12, ALL_SPEEDS, -1)).toBe(4.8)
+    expect(nudgeSpeed(12, ALL_SPEEDS, 1)).toBe(30)
+    expect(nudgeSpeed(2.4, ALL_SPEEDS, -1)).toBeNull()
+    expect(nudgeSpeed(300, ALL_SPEEDS, 1)).toBeNull()
+    expect(nudgeSpeed(60, [15, 60, 300], -1)).toBeNull()
+    // From a speed that is not a stop: the nearest stop in that direction.
+    expect(nudgeSpeed(15, ALL_SPEEDS, -1)).toBe(12)
+    expect(nudgeSpeed(15, ALL_SPEEDS, 1)).toBe(30)
+  })
+})
+
+describe("playback bar speed slider", () => {
+  it("is a native range over the offered stops with the current stop as its label", () => {
+    const html = renderToStaticMarkup(createElement(PlaybackBar, { state: session(), tSeconds: 0, onSend: () => {} }))
+    expect(html).toContain('type="range"')
+    expect(html).toContain('min="0"')
+    expect(html).toContain('max="5"')
+    expect(html).toContain('value="2"')
+    expect(html).toContain('aria-valuetext="5× · about 25 s per tick"')
+    expect(html).toContain("5× · about 25 s per tick")
+    expect(html).not.toContain("Watch orders")
+  })
+
+  it("skips stops the session does not offer", () => {
+    const html = renderToStaticMarkup(createElement(PlaybackBar, {
+      state: session({ speeds: [15, 60, 300], speed: 300 }), tSeconds: 0, onSend: () => {},
+    }))
+    expect(html).toContain('max="1"')
+    expect(html).toContain('value="1"')
+    expect(html).toContain('aria-valuetext="Time-lapse · 1 s per tick"')
+  })
+
+  it("is disabled with a plain reason when speeds are unavailable", () => {
+    const failed = renderToStaticMarkup(createElement(PlaybackBar, { state: session(), tSeconds: 0, speedsAvailable: false, onSend: () => {} }))
+    expect(failed).toMatch(/<input[^>]*type="range"[^>]*disabled=""/)
+    expect(failed).toContain("Speed unavailable: the scenario list did not load.")
+    const none = renderToStaticMarkup(createElement(PlaybackBar, { state: session({ speeds: [15, 150, 600] }), tSeconds: 0, onSend: () => {} }))
+    expect(none).toMatch(/<input[^>]*type="range"[^>]*disabled=""/)
+    expect(none).toContain("Speed unavailable: this session offers none of these speeds.")
+  })
+
+  it("shows the keyboard shortcuts in a Keys hint and in the button titles", () => {
+    const html = renderToStaticMarkup(createElement(PlaybackBar, { state: session(), tSeconds: 0, onSend: () => {} }))
+    expect(html).toContain("Keys")
+    expect(html).toContain('title="Play (Space)"')
+    expect(html).toContain('title="Next tick (.)"')
+    expect(html).toContain("[ slower")
+    expect(html).toContain("] faster")
+  })
+})
+
+describe("next tick button", () => {
+  it("is enabled only while paused before the last tick", () => {
+    expect(canStep(session())).toBe(true)
+    expect(canStep(session({ status: "playing" }))).toBe(false)
+    expect(canStep(session({ tick_index: 10, tick_count: 10 }))).toBe(false)
+    expect(canStep(session({ status: "finished", tick_index: 10 }))).toBe(false)
+    expect(canStep(session({ status: "idle" }))).toBe(false)
+    expect(canStep(null)).toBe(false)
+  })
+
+  it("renders disabled while playing and sends a step when paused", () => {
+    const playing = renderToStaticMarkup(createElement(PlaybackBar, { state: session({ status: "playing" }), tSeconds: 0, onSend: () => {} }))
+    expect(playing).toMatch(/<button[^>]*disabled=""[^>]*>Next tick<\/button>/)
+    const paused = renderToStaticMarkup(createElement(PlaybackBar, { state: session(), tSeconds: 0, onSend: () => {} }))
+    expect(paused).not.toMatch(/<button[^>]*disabled=""[^>]*>Next tick<\/button>/)
+  })
+})
+
+describe("keyboard shortcuts", () => {
+  const paused: ReplayKeyContext = { status: "paused", speed: 12, speeds: ALL_SPEEDS, canStep: true }
+  const body = document.body
+
+  function key(k: string, target: EventTarget | null = body, extra: Partial<KeyboardEvent> = {}) {
+    return { key: k, target, ctrlKey: false, metaKey: false, altKey: false, ...extra }
+  }
+
+  it("maps Space, [, ] and . to playback requests", () => {
+    expect(replayKeyRequest(key(" "), paused)).toEqual({ kind: "play", body: { playing: true } })
+    expect(replayKeyRequest(key(" "), { ...paused, status: "playing" })).toEqual({ kind: "play", body: { playing: false } })
+    expect(replayKeyRequest(key("["), paused)).toEqual({ kind: "speed", body: { x: 4.8 } })
+    expect(replayKeyRequest(key("]"), paused)).toEqual({ kind: "speed", body: { x: 30 } })
+    expect(replayKeyRequest(key("."), paused)).toEqual({ kind: "step", body: {} })
+  })
+
+  it("does nothing when the action is not available", () => {
+    expect(replayKeyRequest(key("."), { ...paused, canStep: false })).toBeNull()
+    expect(replayKeyRequest(key("["), { ...paused, speed: 2.4 })).toBeNull()
+    expect(replayKeyRequest(key(" "), { ...paused, status: null })).toBeNull()
+    expect(replayKeyRequest(key(" "), { ...paused, status: "idle" })).toBeNull()
+    expect(replayKeyRequest(key("x"), paused)).toBeNull()
+    expect(replayKeyRequest(key("]", body, { metaKey: true }), paused)).toBeNull()
+  })
+
+  it("ignores keys typed into an input, textarea, select or editable text", () => {
+    for (const tag of ["input", "textarea", "select"]) {
+      const el = document.createElement(tag)
+      expect(replayKeyRequest(key(" ", el), paused)).toBeNull()
+      expect(replayKeyRequest(key("]", el), paused)).toBeNull()
+    }
+    const editable = document.createElement("div")
+    editable.contentEditable = "true"
+    Object.defineProperty(editable, "isContentEditable", { value: true })
+    expect(replayKeyRequest(key(".", editable), paused)).toBeNull()
+  })
+
+  it("leaves Space on a focused button to the button itself", () => {
+    const button = document.createElement("button")
+    expect(replayKeyRequest(key(" ", button), paused)).toBeNull()
+    expect(replayKeyRequest(key("]", button), paused)).toEqual({ kind: "speed", body: { x: 30 } })
+  })
+
+  describe("on the page", () => {
+    let host: HTMLDivElement
+    let root: Root
+    beforeEach(() => {
+      ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+      host = document.createElement("div")
+      document.body.appendChild(host)
+      root = createRoot(host)
+    })
+    afterEach(() => {
+      act(() => root.unmount())
+      host.remove()
+    })
+
+    function Host({ onRequest }: { onRequest: (request: FlowRequest) => void }) {
+      useReplayKeys(paused, onRequest)
+      return createElement("input", { "aria-label": "Search" })
+    }
+
+    it("sends the request and stops Space from scrolling, but not while typing", () => {
+      const onRequest = vi.fn()
+      act(() => root.render(createElement(Host, { onRequest })))
+      const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true })
+      act(() => { window.dispatchEvent(space) })
+      expect(onRequest).toHaveBeenCalledWith({ kind: "play", body: { playing: true } })
+      expect(space.defaultPrevented).toBe(true)
+      onRequest.mockClear()
+      const input = host.querySelector("input")!
+      act(() => { input.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true })) })
+      expect(onRequest).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe("playhead", () => {
+  const observe = (p: Playhead, nowMs: number, tickIndex: number, stepSeconds: number, playing = true) =>
+    advancePlayhead(p, { nowMs, tickIndex, stepSeconds, playing })
+
+  it("plays each tick's 125 s window across one step while playing", () => {
+    const p = observe(initialPlayhead(0), 0, 3, 25)
+    expect(playheadSeconds(p, 0, true)).toBe(0)
+    expect(playheadSeconds(p, 12_500, true)).toBe(62.5)
+    expect(playheadSeconds(p, 40_000, true)).toBe(125)
+  })
+
+  it("keeps the playhead monotonic when the speed changes mid-tick", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    const samples: number[] = []
+    for (let ms = 0; ms <= 12_500; ms += 250) samples.push(playheadSeconds(p, ms, true))
+    // Faster: 1 s per tick from halfway. The rest of the window takes 0.5 s.
+    p = observe(p, 12_500, 3, 1)
+    for (let ms = 12_500; ms <= 13_500; ms += 100) samples.push(playheadSeconds(p, ms, true))
+    for (let i = 1; i < samples.length; i += 1) expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
+    expect(playheadSeconds(p, 12_500, true)).toBe(62.5)
+    expect(playheadSeconds(p, 13_000, true)).toBe(125)
+  })
+
+  it("slows down from where it is instead of jumping back", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    p = observe(p, 12_500, 3, 125)
+    expect(playheadSeconds(p, 12_500, true)).toBe(62.5)
+    expect(playheadSeconds(p, 12_500 + 31_250, true)).toBe(93.75)
+    expect(playheadSeconds(p, 12_500 + 62_500, true)).toBe(125)
+  })
+
+  it("after a step while paused, plays that tick's window once and then holds at 2:00", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25, false)
+    expect(playheadSeconds(p, 5_000, false)).toBe(120)
+    p = observe(p, 10_000, 4, 25, false)
+    expect(playheadSeconds(p, 10_000, false)).toBe(0)
+    expect(playheadSeconds(p, 20_000, false)).toBe(50)
+    expect(playheadSeconds(p, 34_000, false)).toBe(120)
+    expect(playheadSeconds(p, 90_000, false)).toBe(120)
+  })
+
+  it("holds at 2:00 while paused without a step, and restarts on a reset", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    expect(playheadSeconds(p, 5_000, false)).toBe(120)
+    p = observe(p, 6_000, 0, 25, false)
+    expect(playheadSeconds(p, 7_000, false)).toBe(120)
+  })
+})
+
+describe("replay page playhead", () => {
+  it("uses the playhead the root computed when one is given", () => {
+    const html = renderToStaticMarkup(createElement(ReplayPage, {
+      scenarios: null, state: session({ status: "playing" }), nowMs: 0, playheadT: 62.5,
+    }))
+    expect(html).toContain("1:02")
+  })
+})
