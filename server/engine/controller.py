@@ -20,10 +20,10 @@ def allocate(homes, frame, policy, mode, settings):
     """Plan how many kW each home gives this tick. See PRD K2 and the reason-code precedence.
 
     The price bands in `reserve_policy` set `Policy.intent`. HOLD mode wins over everything.
-    Charge absorbs (negative kW). Discharge and hold both serve `target_mw` from
-    headroom: hold is a label for the wall, not a dispatch stop (CONSTRAINTS
-    allocation rule; contracts.py says allocate still only discharges).
-    `delivered_mw` counts discharge only, so a charge tick delivers 0 and misses the call.
+    Discharge and hold both serve `target_mw` from headroom: hold is a label for the wall,
+    not a dispatch stop (CONSTRAINTS allocation rule). Charge serves the call from the
+    fewest homes first, then every other home with room absorbs (negative kW); with no
+    call, cheap power still charges. `delivered_mw` counts discharge only.
     Homes in a zone named by the frame's `grid_down` event get 0 kW both ways (they back up
     their own homes); each such zone adds reason `grid_down:<zone>` after the other codes.
     """
@@ -34,12 +34,14 @@ def allocate(homes, frame, policy, mode, settings):
     # The operator's HOLD wins over everything, so the screen always shows why nothing ran.
     if mode == "HOLD":
         return Allocation({}, 0.0, target_mw, ["operator_hold"])
-    if target_mw == 0:
-        return Allocation({}, 0.0, 0.0, [])
 
     zone_intent = getattr(policy, "zone_intent", None)
     intent = getattr(policy, "intent", "hold")
-    if isinstance(zone_intent, dict) and zone_intent:
+    zoned = isinstance(zone_intent, dict) and bool(zone_intent)
+    # With no call only cheap power has work to do: it refills the fleet.
+    if target_mw == 0 and (zoned or intent != "charge"):
+        return Allocation({}, 0.0, 0.0, [])
+    if zoned:
         alloc = allocate_zoned(homes, frame, policy, settings, zone_intent)
     elif intent == "charge":
         alloc = allocate_charge(homes, frame, policy, settings)
@@ -97,17 +99,41 @@ def charge_caps(homes, policy, settings, down=frozenset()):
 
 
 def allocate_charge(homes, frame, policy, settings):
-    """Charge only: every live home with room absorbs at its cap (negative kW).
+    """Cheap power: serve the call from the fewest homes, then every other home with room charges.
 
-    `delivered_mw` counts discharge only, so a charge tick delivers 0 and misses the call
-    with reason `charging`. Charge raises soc and is never a breach; the worker and
-    `discharge` clamp it to `room_kw`, so it never fills past capacity.
+    Sellers are picked most headroom first (ties by home_id, so a replay picks the same
+    homes) until their caps cover the call, and split it with `split_target`. Every other
+    live home with room absorbs at its cap (negative kW). A home never sells and charges
+    in one tick. Charge raises soc and is never a breach; the worker and `discharge` clamp
+    it to `room_kw`, so it never fills past capacity.
     """
     target_mw = frame.target_mw
-    caps = charge_caps(homes, policy, settings, grid_down_zones(frame))
-    per_home_kw = {home_id: -kw for home_id, kw in caps.items() if kw > 0}
-    reasons = ["charging"] + status_suffixes(homes, policy)
-    return Allocation(per_home_kw, 0.0, target_mw, reasons)
+    down = grid_down_zones(frame)
+    sellers = pick_sellers(home_caps(homes, policy, settings, down), target_mw * 1000)
+    positive = split_target(sellers, target_mw * 1000)
+    room = charge_caps(homes, policy, settings, down)
+    negative = {home_id: -kw for home_id, kw in room.items() if home_id not in sellers}
+    delivered_mw = min(sum(positive.values()) / 1000, target_mw)
+    missed_mw = max(0.0, target_mw - delivered_mw)
+    reasons = shortfall_codes(policy, missed_mw)
+    if negative:
+        reasons.append("charging")
+    reasons += status_suffixes(homes, policy)
+    return Allocation({**positive, **negative}, delivered_mw, missed_mw, reasons)
+
+
+def pick_sellers(caps, target_kw):
+    """The fewest homes whose caps cover target_kw, most headroom first; all of them if short.
+
+    Selling from few homes leaves the most homes free to charge on cheap power.
+    """
+    picked, total = {}, 0.0
+    for home_id, cap in sorted(caps.items(), key=lambda item: (-item[1], item[0])):
+        if total >= target_kw:
+            break
+        picked[home_id] = cap
+        total += cap
+    return picked
 
 
 def allocate_zoned(homes, frame, policy, settings, zone_intent):
@@ -200,18 +226,14 @@ def split_target(caps, target_kw):
 
 def reason_codes(homes, policy, missed_mw):
     """Why the target was missed, in the PRD's order: shortfall, dead, stale, unknown zone."""
-    reasons = []
+    return shortfall_codes(policy, missed_mw) + status_suffixes(homes, policy)
+
+
+def shortfall_codes(policy, missed_mw):
+    """The head code when the call was really missed: storm reserve or plain short headroom."""
     if missed_mw > MISSED_TOLERANCE_MW:
-        reasons.append("storm_reserve" if is_storm_policy(policy) else "fleet_headroom_short")
-    dead = sum(h.status == "dead" for h in homes)
-    stale = sum(h.status == "stale" for h in homes)
-    if dead:
-        reasons.append(f"homes_dead:{dead}")
-    if stale:
-        reasons.append(f"homes_stale:{stale}")
-    if any(h.status == "live" and has_unknown_zone(h, policy) for h in homes):
-        reasons.append("unknown_zone")
-    return reasons
+        return ["storm_reserve" if is_storm_policy(policy) else "fleet_headroom_short"]
+    return []
 
 
 def is_storm_policy(policy):

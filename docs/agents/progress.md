@@ -1087,3 +1087,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 ## 2026-09-26: Grid flow merged with main
 
 - Merged `origin/main` (#32–#37) into `feature/grid-flow`. Charge orders follow main #34: sent once, never retried or reassigned (the user chose this; the branch's retry test was dropped). Charges live in `ZoneSupervisor.charges`; `close()` books `home_charged_kw` from that list. `CycleResult.charged_mw` (main) and `charging_mw` (this branch) are set from the same number. `home_caps` keeps both the grid-down skip and main's zero-headroom skip. The invariant check on per-home charge books now reads `charge_confirmed` events.
+
+## 2026-09-26: Cheap power serves the call, then charges (Rajat)
+
+- Bug: on `intent == charge` with a call, `allocate_charge` dropped the whole call and charged every home (100 homes, 0.2 MW call at $10: delivered 0, missed 0.2, absorbed 1.14 MW). With no call, `allocate` returned empty before looking at intent, so idle charging never ran.
+- Decided with the user: serve the call, charge the rest. `allocate_charge` picks just enough homes to cover the call (most headroom first, ties by `home_id`, new `pick_sellers`), splits it across them with `split_target`, and every other live home with room charges. Target 0 on a charge tick charges every home with room. After: same tick delivers 0.2, misses 0, charges 0.935 MW; idle tick charges 1.14 MW. `reason_codes` now reuses a new `shortfall_codes` helper. `allocate_zoned` unchanged.
+- Files: `server/engine/controller.py`; tests `tests/test_controller.py`, `tests/test_orchestration.py`, `tests/test_grid_down.py`, `tests/test_tick_paths.py`; docs `docs/agents/policy-intent.md`, `docs/agents/grid-flow.md` (one line), `CONSTRAINTS.md` (allocation step 8, `reserve_policy` row).
+- Tests: 8 new in `test_controller.py`, 2 new in `test_orchestration.py`. Tests that asserted "charge drops the call" were switched to target 0 (idle charging) or to the new served numbers; no safety assertion was weakened.
+- `pytest -q` (HOME_KWH=25 HOME_MAX_KW=11.4): 665 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
+- Tapes: `demo.json` unchanged (0.182 of 0.317 MWh, 57.6%). `calm-charge.json` 1.711 → 1.785 of 1.826 MWh (93.7% → 97.8%), 0 breaches.
