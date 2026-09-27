@@ -19,6 +19,23 @@ services:
       # Which fixture GET /v1/live returns: live-ok, bad-feed, retry-spent, stress-reserve.
       - key: CONSOLE_SCENE
         value: live-ok
+      # Non-secret settings the API computes with (fleet cap, re-rated floors, price bands).
+      # Same values as .env.example, so Render and the laptop worker that writes runs agree;
+      # tests/test_render_settings.py fails if they drift.
+      - key: FLEET_SIZE
+        value: "100"
+      - key: HOME_KWH
+        value: "25"
+      - key: HOME_MAX_KW
+        value: "11.4"
+      - key: BASE_RESERVE_PCT
+        value: "30"
+      - key: STORM_RESERVE_PCT
+        value: "60"
+      - key: CHARGE_BELOW_USD
+        value: "25"
+      - key: DISCHARGE_ABOVE_USD
+        value: "60"
       # ERCOT Public API. Set these in the Render dashboard; never commit values.
       - key: ERCOT_USERNAME
         sync: false
