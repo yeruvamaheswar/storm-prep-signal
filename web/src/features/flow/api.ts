@@ -12,6 +12,7 @@ export type FlowRequest =
   | { kind: "speed"; body: { x: number } }
   | { kind: "alert"; body: { alert_id: string } }
   | { kind: "grid-down"; body: { zone: string; down: boolean } }
+  | { kind: "step"; body: Record<string, never> }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)

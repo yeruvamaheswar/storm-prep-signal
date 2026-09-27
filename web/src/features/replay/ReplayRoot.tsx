@@ -4,7 +4,10 @@ import { TopBar } from "../shell/TopBar"
 import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomToHome, zoomToZone } from "../shell/urlState"
 import { fetchScenarios, fetchState, sendRequest, type FlowRequest } from "../flow/api"
 import { isWorkerDown, type ScenarioList, type StateReply } from "../flow/types"
+import { canStep } from "./PlaybackBar"
 import { ReplayPage } from "./ReplayPage"
+import { advancePlayhead, initialPlayhead, playheadSeconds } from "./tickClock"
+import { rememberSpeed, useReplayKeys, type SentSpeed } from "./useReplayKeys"
 import "./replay.css"
 
 function safeUrlState() {
@@ -23,9 +26,11 @@ export function ReplayRoot() {
   const [apiDown, setApiDown] = useState(false)
   const [postError, setPostError] = useState<string | null>(null)
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const [tickArrivedAtMs, setTickArrivedAtMs] = useState(() => Date.now())
-  const lastTick = useRef<number | null>(null)
+  // Where the playhead sits inside the current tick; re-anchored on each new tick and each speed change.
+  const [playhead, setPlayhead] = useState(() => initialPlayhead(Date.now()))
   const [url, setUrl] = useState(safeUrlState)
+  // The last speed sent (slider or keys), so [ and ] nudge from it before the next poll reports it.
+  const sentSpeed = useRef<SentSpeed | null>(null)
 
   useEffect(() => subscribeUrlState(setUrl), [])
 
@@ -52,9 +57,12 @@ export function ReplayRoot() {
         if (cancelled) return
         setApiDown(false)
         setState(next)
-        if (!isWorkerDown(next) && next.tick_index !== lastTick.current) {
-          lastTick.current = next.tick_index
-          setTickArrivedAtMs(Date.now())
+        if (!isWorkerDown(next)) {
+          const observed = {
+            tickIndex: next.tick_index, playing: next.status === "playing", stepSeconds: next.step_seconds, nowMs: Date.now(),
+            finished: next.status === "finished", tickLeft: next.tick_left_s,
+          }
+          setPlayhead((prev) => advancePlayhead(prev, observed))
         }
       } catch {
         if (!cancelled) setApiDown(true)
@@ -74,12 +82,21 @@ export function ReplayRoot() {
   }, [])
 
   function post(request: FlowRequest) {
+    rememberSpeed(sentSpeed, request, live?.speed ?? null, Date.now())
     sendRequest(fetch, base, request)
       .then(() => setPostError(null))
       .catch((err: unknown) => setPostError(`Could not send "${request.kind}": ${errorText(err)}.`))
   }
 
   const live = state && !isWorkerDown(state) && !apiDown ? state : null
+  useReplayKeys({
+    status: live?.status ?? null,
+    speed: live?.speed ?? null,
+    speeds: scenariosFailed ? null : live?.speeds,
+    canStep: canStep(live),
+    sent: sentSpeed,
+  }, post)
+  const playheadT = live ? playheadSeconds(playhead, nowMs) : undefined
   const rightSlot = live ? (
     <>
       <span>Scenario</span>
@@ -99,7 +116,7 @@ export function ReplayRoot() {
         apiBase={base}
         postError={postError}
         nowMs={nowMs}
-        tickArrivedAtMs={tickArrivedAtMs}
+        playheadT={playheadT}
         selectedZone={url.zone}
         selectedHome={url.home}
         backHref={typeof window === "undefined" ? "/" : hrefForUrlState(window.location.pathname, { ...url, zone: null, home: null })}

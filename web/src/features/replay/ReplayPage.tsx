@@ -26,6 +26,8 @@ type Props = {
   postError?: string | null
   nowMs: number
   tickArrivedAtMs?: number
+  /** Seconds inside the tick from ReplayRoot's playhead (Task 11). Wins over the tickArrivedAtMs clock. */
+  playheadT?: number
   selectedZone?: string | null
   /** `?home=`: the open home panel inside the zone view. */
   selectedHome?: string | null
@@ -62,7 +64,7 @@ function promiseTick(session: SessionState | null) {
 }
 
 export function ReplayPage({
-  scenarios, scenariosFailed = false, state, apiDown = false, apiBase = "", postError = null, nowMs, tickArrivedAtMs,
+  scenarios, scenariosFailed = false, state, apiDown = false, apiBase = "", postError = null, nowMs, tickArrivedAtMs, playheadT,
   selectedZone, selectedHome = null, onZone, onBack, onHome, onCloseHome, backHref, onSend = noopSend,
 }: Props) {
   const [lens, setLens] = useState<Lens>("send")
@@ -73,7 +75,7 @@ export function ReplayPage({
   const zoneView = selectedZone || null
   const openHome = zoneView ? selectedHome : null
   const notice: StageNotice = apiDown ? "api_down" : state && isWorkerDown(state) ? "worker_down" : null
-  const tSeconds = session ? replayTickSeconds({
+  const tSeconds = session ? playheadT ?? replayTickSeconds({
     playing: session.status === "playing",
     nowMs,
     tickArrivedAtMs: tickArrivedAtMs ?? nowMs,

@@ -283,7 +283,8 @@ describe("playback bar", () => {
     const html = renderToStaticMarkup(createElement(PlaybackBar, { state: null, tSeconds: 0, speedsAvailable: false, onSend: () => {} }))
     expect(html).not.toContain('aria-label="Tick"')
     expect(html).toContain("Tick not reported")
-    expect(html.match(/disabled=""/g)?.length).toBe(4) // play plus three speeds
+    // Task 11 replaced the three speed buttons with one slider and added Next tick.
+    expect(html.match(/disabled=""/g)?.length).toBe(3) // play, next tick, speed slider
   })
 })
 
