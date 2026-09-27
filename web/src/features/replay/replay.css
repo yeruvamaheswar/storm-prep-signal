@@ -136,6 +136,17 @@
   animation: replay-flow 1.1s linear infinite;
 }
 
+/* Task 12: charge orders only. Power flows the other way, so the dash runs back to the controller. */
+.arc-charge {
+  stroke: var(--rg-charging);
+  stroke-dasharray: 10 9;
+  animation: replay-flow-back 1.1s linear infinite;
+}
+
+@keyframes replay-flow-back {
+  to { stroke-dashoffset: 19; }
+}
+
 .arc-keep {
   stroke: var(--rg-charging);
   stroke-width: 2;
@@ -154,7 +165,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arc-send {
+  .arc-send,
+  .arc-charge {
     animation: none;
   }
 }
@@ -300,6 +312,11 @@
 
 .replay-chip.go {
   outline: 2px solid var(--rg-gave-energy);
+}
+
+/* Task 12: a zone whose only orders are charges. */
+.replay-chip.charge {
+  outline: 2px solid var(--rg-charging);
 }
 
 .replay-chip:hover {

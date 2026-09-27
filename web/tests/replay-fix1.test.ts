@@ -7,7 +7,7 @@ import type { FlowHome, HistoryPoint, OrderTimelineEntry } from "../src/features
 import { NOT_REPORTED, sum } from "../src/features/replay/format"
 import { LedgerDrawer, ledgerRow } from "../src/features/replay/LedgerDrawer"
 import {
-  chipLines, chipPlacement, insideRing, zoneActivity, zoneGeos, zoneRaised,
+  chipLines, chipPlacement, insideRing, zoneActivity, zoneArcClass, zoneGeos, zoneGoes, zoneRaised,
 } from "../src/features/replay/mapModel"
 import { PlaybackBar, tickProgress } from "../src/features/replay/PlaybackBar"
 import { ReplayPage } from "../src/features/replay/ReplayPage"
@@ -161,6 +161,60 @@ describe("zone activity follows the playhead", () => {
     const bare = { h1: [[0, "sent", 3, "own"], [40, "conf", null, "own"]] as OrderTimelineEntry[] }
     expect(zoneActivity("North", homes, bare, 120).soldKw).toBeUndefined()
     expect(chipLines("North", zoneActivity("North", homes, bare, 120), undefined, null, "send")[1]).toBe("kW sold not reported")
+  })
+})
+
+describe("zone activity splits sell from charge (W1)", () => {
+  // Heather tick 74 shape: every order in a zone can be a charge (negative planned kW), and a
+  // zone can hold both. A single home never gets both in one tick (controller.py serve_then_charge).
+  const zoneHomes: FlowHome[] = [
+    { id: "c1", zone: "North", soc_pct: 40, kw: -11.4, state: "charging", status: "live", floor_pct: 60, under_floor_why: "floor_raised" },
+    { id: "c2", zone: "North", soc_pct: 41, kw: -11.4, state: "charging", status: "live", floor_pct: 60, under_floor_why: "floor_raised" },
+    { id: "s1", zone: "South", soc_pct: 70, kw: 2, state: "selling", status: "live", floor_pct: 30 },
+    { id: "c3", zone: "South", soc_pct: 20, kw: -5, state: "charging", status: "live", floor_pct: 30, under_floor_why: "started_under" },
+  ]
+  const zoneOrders: Record<string, OrderTimelineEntry[]> = {
+    c1: [[0, "sent", -11.4, "own"], [8, "exec", -11.4, "own"], [20, "conf", -11.4, "own"]],
+    c2: [[0, "sent", -11.4, "own"], [9, "exec", -11.4, "own"], [25, "conf", -11.4, "own"]],
+    s1: [[0, "sent", 2, "own"], [10, "exec", 2, "own"], [30, "conf", 2, "own"]],
+    c3: [[0, "sent", -5, "own"], [12, "exec", -5, "own"], [40, "conf", -5, "own"]],
+  }
+
+  it("a charge-only zone reads as charging, not asked to sell, and its charges are not 'confirmed' sales", () => {
+    const act = zoneActivity("North", zoneHomes, zoneOrders, 120)
+    expect(act).toMatchObject({ askedSell: 0, askedCharge: 2, confirmed: 0, confirmedCharge: 2, soldKw: 0, chargedKw: 22.8 })
+    expect(chipLines("North", act, undefined, null, "send")).toEqual(["2 homes charging", "22.8 kW charged"])
+    expect(chipLines("North", act, undefined, null, "trust")).toEqual(["2 homes charging", "2 charge confirmed"])
+    expect(zoneArcClass("send", act)).toBe("arc arc-charge")
+    expect(zoneArcClass("trust", act)).toBe("arc arc-charge")
+    expect(zoneGoes(act)).toBe(false)
+  })
+
+  it("a zone that sells and charges names both, and only the sale is sold or confirmed", () => {
+    const act = zoneActivity("South", zoneHomes, zoneOrders, 120)
+    expect(act).toMatchObject({ askedSell: 1, askedCharge: 1, confirmed: 1, confirmedCharge: 1, soldKw: 2, chargedKw: 5 })
+    expect(chipLines("South", act, undefined, null, "send")).toEqual(["1 asked to sell · 1 charging", "2.0 kW sold"])
+    expect(chipLines("South", act, undefined, null, "trust")).toEqual(["1 asked to sell · 1 charging", "1 confirmed · 1 charge confirmed"])
+    expect(zoneArcClass("send", act)).toBe("arc arc-send")
+    expect(zoneGoes(act)).toBe(true)
+  })
+
+  it("a sell-only zone keeps its wording and the blue send arc", () => {
+    const act = zoneActivity("North", homes, orders, 120)
+    expect(act).toMatchObject({ askedSell: 2, askedCharge: 0, confirmedCharge: 0 })
+    expect(chipLines("North", act, undefined, null, "send")).toEqual(["2 homes asked", "6.5 kW sold"])
+    expect(chipLines("North", act, undefined, null, "trust")).toEqual(["2 homes asked", "2 confirmed"])
+    expect(zoneArcClass("send", act)).toBe("arc arc-send")
+    expect(zoneArcClass("keep", act)).toBe("arc arc-keep")
+    expect(zoneArcClass("trust", act)).toBe("arc arc-live")
+    expect(zoneGoes(act)).toBe(true)
+  })
+
+  it("does not invent charged kW for a confirmed charge with no kW on record", () => {
+    const bare = { c1: [[0, "sent", -11.4, "own"], [20, "conf", null, "own"]] as OrderTimelineEntry[] }
+    const act = zoneActivity("North", zoneHomes, bare, 120)
+    expect(act.chargedKw).toBeUndefined()
+    expect(chipLines("North", act, undefined, null, "send")).toEqual(["1 home charging", "kW charged not reported"])
   })
 })
 
