@@ -1,3 +1,5 @@
+import type { FlowRequest, SeekBody } from "../flow/api"
+import type { ActiveAlert, HistoryPoint, SessionState, StateReply } from "../flow/types"
 import { isOperatorHold } from "./reasonCodes"
 import type { SpeedStop } from "./tickClock"
 
@@ -10,31 +12,12 @@ import type { SpeedStop } from "./tickClock"
 
 // --- the shapes read here ---
 
-/** A history point as the worker writes it (scenario.py `Session.step`). The Task 14 fields (`price_usd_mwh`,
- * `price_label`, `mode`, `events`) are absent from older workers. Local so this module does not depend on the shared
- * type while Task 15 edits it; Part B switches to `HistoryPoint` from flow/types. */
-export type DayHistoryPoint = {
-  tick: number
-  ts: string
-  target_mw?: number
-  delivered_mw?: number
-  charging_mw?: number
-  missed_mw?: number
-  reasons?: string[]
-  intent?: string
-  intent_reason?: string
-  price_usd_mwh?: number | null
-  price_label?: string
-  mode?: string
-  events?: string[]
-}
+/** A history point as the worker writes it (scenario.py `Session.step`), with only `tick` and `ts` required. The Task
+ * 14 fields (`price_usd_mwh`, `price_label`, `mode`, `events`) are absent from older workers. */
+export type DayHistoryPoint = Pick<HistoryPoint, "tick" | "ts"> & Partial<Omit<HistoryPoint, "tick" | "ts">>
 
 /** The active-alert fields the alert mark reads (state `alerts[]`). */
-export type DayAlert = {
-  event?: string
-  expires?: string
-  sent_at_tick: number | null
-}
+export type DayAlert = Pick<ActiveAlert, "sent_at_tick"> & Partial<Pick<ActiveAlert, "event" | "expires">>
 
 // --- the window ---
 
@@ -48,8 +31,8 @@ export type DayWindow = {
   estimatedEnd: boolean
 }
 
-/** `state.scenario` with the tape's ends (Task 14 U4). The index signature lets the shared scenario type fit. */
-export type ScenarioEnds = { first_ts?: string | null; last_ts?: string | null; [key: string]: unknown }
+/** `state.scenario` with the tape's ends (Task 14 U4). */
+export type ScenarioEnds = Partial<Pick<NonNullable<SessionState["scenario"]>, "first_ts" | "last_ts">>
 
 type WindowInput = {
   history?: readonly Pick<DayHistoryPoint, "tick" | "ts">[]
@@ -386,4 +369,192 @@ export function paceReadout(speed: number | null | undefined, observedSeconds: n
   if (!(observedSeconds > askedSeconds * (1 + PACE_BEHIND) + 1e-9)) return null
   const playedX = (tickMinutes * 60) / observedSeconds
   return `Asked ${dayPaceLabel(speed)}; the worker is playing about ${dayPaceLabel(playedX)}`
+}
+
+/** Tick arrivals kept for the pace, with the run and speed they were measured in. */
+export type ArrivalTrack = { key: string | null; speed: number | null; list: TickArrival[] }
+
+export type ArrivalObservation = { key: string | null; tickIndex: number; playing: boolean; speed: number; atMs: number }
+
+/** Arrivals kept for the pace readout: enough for a fair rate, few enough to follow a change. */
+const ARRIVALS_KEPT = 8
+
+export function emptyArrivals(): ArrivalTrack {
+  return { key: null, speed: null, list: [] }
+}
+
+/** Adds a poll's tick to the pace ring buffer. A new run, a rewind, a pause or a speed change starts it again, so the
+ * readout only ever measures uninterrupted play at one speed. */
+export function trackArrivals(prev: ArrivalTrack, obs: ArrivalObservation): ArrivalTrack {
+  if (!obs.playing) return { key: obs.key, speed: obs.speed, list: [] }
+  const last = prev.list.at(-1)
+  const fresh = obs.key !== prev.key || obs.speed !== prev.speed || (last !== undefined && obs.tickIndex < last.tickIndex)
+  if (fresh) return { key: obs.key, speed: obs.speed, list: [{ tickIndex: obs.tickIndex, atMs: obs.atMs }] }
+  if (last && last.tickIndex === obs.tickIndex) return prev
+  return { ...prev, list: [...prev.list, { tickIndex: obs.tickIndex, atMs: obs.atMs }].slice(-ARRIVALS_KEPT) }
+}
+
+// --- the run, and the view's speed ---
+
+/** One run of one scenario: its id and seed. A new start or reset gives a new key, and the Day bar starts over. */
+export function runKey(state: Pick<SessionState, "scenario" | "seed"> | null | undefined): string | null {
+  const id = state?.scenario?.id
+  return id ? `${id}|${state?.seed ?? ""}` : null
+}
+
+/** Rajat's coupling: Play or Start in Day view first asks for the default day stop when the session's speed is not
+ * one (the fastest offered when this worker has none). Null when no speed request is needed. */
+export function viewPlaySpeed(view: "day" | "orders", request: FlowRequest,
+  state: Pick<SessionState, "speed" | "speeds"> | null | undefined): number | null {
+  if (view !== "day" || !state) return null
+  const starts = request.kind === "start" || (request.kind === "play" && request.body.playing)
+  if (!starts) return null
+  const stops = dayStops(state.speeds)
+  if (!stops.length || stops.some((stop) => stop.x === state.speed)) return null
+  return (stops.find((stop) => stop.x === DEFAULT_DAY_SPEED) ?? stops[stops.length - 1]).x
+}
+
+/** Watch orders plays one tick's order window, so switching to it slows a day-pace session to 12 (25 s per tick). */
+export const ORDERS_VIEW_SPEED = 12
+const ORDERS_VIEW_MAX = 60
+
+export function ordersViewSpeed(state: Pick<SessionState, "speed" | "speeds"> | null | undefined): number | null {
+  if (!state || !(state.speed > ORDERS_VIEW_MAX) || !state.speeds?.includes(ORDERS_VIEW_SPEED)) return null
+  return ORDERS_VIEW_SPEED
+}
+
+// --- seeking (Task 16B) ---
+// The worker's seek re-runs the engine (same seed, same logged operator actions), so every tick shown after a seek is
+// a real engine tick. N is a tick index: the number of ticks played, so tick index N shows frame N - 1. The worker
+// clamps N to [0, tick_count - 1] and, after a seek to N, reports tick N first.
+
+type SeekState = Pick<SessionState, "status" | "tick_index" | "tick_count" | "tick_minutes"> & { seeking?: boolean }
+
+export function ticksPerHour(tickMinutes: number): number {
+  return tickMinutes > 0 ? Math.max(1, Math.round(60 / tickMinutes)) : 1
+}
+
+/** N inside the worker's seek range. */
+export function clampSeek(index: number, tickCount: number): number {
+  return Math.max(0, Math.min(Math.round(index), tickCount - 1))
+}
+
+/** The tick index whose tick sits nearest `ms` on the bar (frame p at start + p ticks is index p + 1). Tapes are evenly
+ * spaced at tick_minutes (checked in tests/test_scenario_playback.py). */
+export function seekIndexAt(win: Pick<DayWindow, "startMs" | "endMs">, ms: number, tickMinutes: number, tickCount: number): number {
+  const tickMs = tickMinutes * 60_000
+  if (!(tickMs > 0)) return 0
+  const clamped = Math.min(win.endMs, Math.max(win.startMs, ms))
+  return clampSeek(Math.round((clamped - win.startMs) / tickMs) + 1, tickCount)
+}
+
+/** Where tick index N's tick sits, in ms (index 0, before the first tick, sits at the start). */
+export function seekMs(win: Pick<DayWindow, "startMs">, index: number, tickMinutes: number): number {
+  return win.startMs + Math.max(0, index - 1) * tickMinutes * 60_000
+}
+
+/** Local "HH:MM" of tick index N's tick, in the offset the window's first ts carries. */
+export function seekClock(win: Pick<DayWindow, "startMs" | "startTs">, index: number, tickMinutes: number): string {
+  const local = new Date(seekMs(win, index, tickMinutes) + (tsOffsetMin(win.startTs) ?? 0) * 60_000)
+  return `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`
+}
+
+/** A seek can be sent: a scenario is loaded and no seek is running. */
+export function canSeek(state: SeekState | null | undefined): boolean {
+  return !!state && ["playing", "paused", "finished"].includes(state.status) && state.seeking !== true
+    && typeof state.tick_index === "number" && typeof state.tick_count === "number" && state.tick_count > 1
+}
+
+/** A seek `delta` ticks from here, or null when none can be sent, it would not move, or the clamp would turn it
+ * around (Forward at the end of a finished run, index tick_count, would otherwise land one tick back).
+ *
+ * While playing it is sent as `{delta}` (Task 14B fix round 2): the reported tick is up to one poll old, and at 1 min
+ * per day (0.21 s per tick) the worker is already a tick or two past it, so an absolute "one past what I saw" would
+ * land behind the worker, and a seek behind it rebuilds the run from the seed. The worker resolves a delta against its
+ * live index when it applies it. Paused or finished, the reported tick is where the worker is, so it stays a tick. */
+export function seekBy(state: SeekState | null | undefined, delta: number): FlowRequest | null {
+  if (!state || !canSeek(state) || delta === 0) return null
+  const tick = clampSeek(state.tick_index + delta, state.tick_count)
+  if (tick === state.tick_index || Math.sign(tick - state.tick_index) !== Math.sign(delta)) return null
+  return { kind: "seek", body: state.status === "playing" ? { delta } : { tick } }
+}
+
+/** A seek to tick index N (clamped), or null when it would not move. */
+export function seekTo(state: Pick<SessionState, "tick_index" | "tick_count">, index: number): FlowRequest | null {
+  const tick = clampSeek(index, state.tick_count)
+  return tick === state.tick_index ? null : { kind: "seek", body: { tick } }
+}
+
+/** Where a seek is expected to land, for the "Seeking to HH:MM" label and the ghost head: its tick, or for a delta the
+ * reported tick plus the delta, clamped (the worker counts from its live tick, so this can be a tick or two short while
+ * playing; `last_seek.to` has the real landing). */
+export function seekLanding(state: Pick<SessionState, "tick_index" | "tick_count">, body: SeekBody): number {
+  return "tick" in body ? body.tick : clampSeek(state.tick_index + body.delta, state.tick_count)
+}
+
+/** A seek the page sent and has not seen land. `seq` is the request seq the API accepted it as (null until the reply
+ * comes, or from an API that does not say); `fromIndex` is where the session was when it was sent. */
+export type SeekPending = {
+  tick: number
+  label: string | null
+  atMs: number
+  key: string | null
+  sawSeeking: boolean
+  seq?: number | null
+  fromIndex?: number
+}
+
+/** A seek that never lands stops showing "Seeking" after this long (the worst seek is about 3.3 s; Task 16A). */
+export const SEEK_WAIT_MS = 10_000
+
+export type SeekObservation = {
+  seeking?: boolean
+  tickIndex: number
+  key: string | null
+  /** `state.last_seek.seq`: the last seek request the worker applied. Absent from an older worker. */
+  lastSeekSeq?: number | null
+}
+
+/** Keeps a sent seek until the worker answers it. The answer is `last_seek.seq` at or past the seq this page sent (Task
+ * 14B: at day pace the one `seeking` write and the landing tick can both fall between two polls). A worker that
+ * reports `last_seek` (the key present, even null) is answered ONLY that way (fix round 2): passing tick N on the way,
+ * or an earlier seek's `seeking` flag, is not this seek's answer, and while the POST reply has not named the seq yet
+ * the page keeps waiting. For an older worker without it: landing on tick N, or `seeking` going true then false. A run
+ * change, a restart to tick 0, or waiting too long always lets go. */
+export function settleSeek(pending: SeekPending | null, obs: SeekObservation, nowMs: number): SeekPending | null {
+  if (!pending) return null
+  if (obs.key !== pending.key || nowMs - pending.atMs > SEEK_WAIT_MS) return null
+  // A same-seed restart keeps the run key; the index falling to 0 (not the seek's own target) gives it away.
+  if (obs.tickIndex === 0 && pending.tick !== 0 && (pending.fromIndex ?? 1) > 0) return null
+  if (obs.lastSeekSeq !== undefined) {
+    const answered = typeof pending.seq === "number" && typeof obs.lastSeekSeq === "number" && obs.lastSeekSeq >= pending.seq
+    return answered ? null : pending
+  }
+  if (obs.seeking === true) return pending.sawSeeking ? pending : { ...pending, sawSeeking: true }
+  if (obs.tickIndex === pending.tick || pending.sawSeeking) return null
+  return pending
+}
+
+// --- poll order (Task 14B fix round 2) ---
+
+/** The last poll reply applied: its poll number, and its state's `updated_at` in ms (null when it had none). */
+export type PollMark = { id: number; updatedMs: number | null }
+
+/** True when poll `id`'s reply should be applied. Polls go out every 250 ms with no wait for the last one, so on a slow
+ * API an older reply can land after a newer one; applying it would jerk the playhead back, reset the pace measure and
+ * re-disable seeking. A reply is dropped when a later poll's reply is already applied, or when its state's
+ * `updated_at` is older than the one on screen (same second is not older: the worker writes whole seconds). A
+ * worker-down reply has no `updated_at` and is judged by poll order only. */
+export function freshReply(last: PollMark | null, id: number, reply: StateReply): boolean {
+  if (!last) return true
+  if (id < last.id) return false
+  const updated = replyUpdatedMs(reply)
+  return !(updated !== null && last.updatedMs !== null && updated < last.updatedMs)
+}
+
+/** A poll reply's `updated_at` in ms, or null when it has none. */
+export function replyUpdatedMs(reply: StateReply): number | null {
+  const raw = (reply as { updated_at?: unknown }).updated_at
+  const ms = typeof raw === "string" ? Date.parse(raw) : NaN
+  return Number.isFinite(ms) ? ms : null
 }

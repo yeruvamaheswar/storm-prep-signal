@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import type { FlowRequest } from "../flow/api"
-import { nudgeSpeed } from "./tickClock"
+import { seekBy, ticksPerHour } from "./dayModel"
+import { nudgeSpeed, SPEED_STOPS, type SpeedStop } from "./tickClock"
 
 /** A speed request just sent, and the speed the session reported when it was sent. */
 export type SentSpeed = { x: number; from: number | null; atMs: number }
@@ -11,11 +12,22 @@ export type ReplayKeyContext = {
   speed: number | null
   speeds: readonly number[] | null | undefined
   canStep: boolean
+  /** The current view's stops ([ and ] move within them). Default: the Watch orders stops. */
+  stops?: readonly SpeedStop[]
   /** The last speed sent (by a key or the slider), read at key time so two quick presses do not send the same speed. */
   sent?: { current: SentSpeed | null }
+  /** For the seek keys (Task 16B): where the session is, and whether a seek can be sent now (dayModel.canSeek). */
+  tickIndex?: number | null
+  tickCount?: number | null
+  tickMinutes?: number | null
+  canSeek?: boolean
 }
 
-type KeyLike = Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey"> & { target: EventTarget | null; repeat?: boolean }
+type KeyLike = Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey"> & {
+  target: EventTarget | null
+  repeat?: boolean
+  shiftKey?: boolean
+}
 
 /** A sent speed counts until the session reports a different speed, or this long if it never does (same as the slider). */
 const SENT_SPEED_MS = 3000
@@ -49,7 +61,19 @@ export function rememberSpeed(sent: { current: SentSpeed | null }, request: Flow
   if (request.kind === "speed") sent.current = { x: request.body.x, from: reported, atMs: nowMs }
 }
 
-/** Space = play or pause, [ = one stop slower, ] = one stop faster, . = next tick while paused. */
+const SEEK_STATUSES = ["playing", "paused", "finished"] as const
+
+/** A seek `ticks` from where the session is, or null when a seek cannot be sent (or would not move). While playing it
+ * goes as a delta the worker resolves against its live tick (dayModel.seekBy). */
+function seekKey(ctx: ReplayKeyContext, ticks: number): FlowRequest | null {
+  if (!ctx.canSeek || typeof ctx.tickIndex !== "number" || typeof ctx.tickCount !== "number") return null
+  const status = SEEK_STATUSES.find((s) => s === ctx.status)
+  if (!status) return null
+  return seekBy({ status, tick_index: ctx.tickIndex, tick_count: ctx.tickCount, tick_minutes: ctx.tickMinutes ?? 5 }, ticks)
+}
+
+/** Space = play or pause, [ = one stop slower, ] = one stop faster, . = next tick while paused (else forward one tick),
+ * , = back one tick, Shift+, and Shift+. = one hour back or forward. */
 export function replayKeyRequest(event: KeyLike, ctx: ReplayKeyContext, nowMs = Date.now()): FlowRequest | null {
   if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return null
   const active = ctx.status !== null && ctx.status !== "idle" && ctx.status !== "error"
@@ -64,11 +88,22 @@ export function replayKeyRequest(event: KeyLike, ctx: ReplayKeyContext, nowMs = 
       if (event.repeat) return null
       const from = nudgeFrom(ctx.speed, ctx.sent?.current, nowMs)
       if (from === null) return null
-      const x = nudgeSpeed(from, ctx.speeds, event.key === "[" ? -1 : 1)
+      const x = nudgeSpeed(from, ctx.speeds, event.key === "[" ? -1 : 1, ctx.stops ?? SPEED_STOPS)
       return x === null ? null : { kind: "speed", body: { x } }
     }
+    case ",":
     case ".":
-      return ctx.canStep ? { kind: "step", body: {} } : null
+    case "<":
+    case ">": {
+      const forward = event.key === "." || event.key === ">"
+      const hour = event.shiftKey === true || event.key === "<" || event.key === ">"
+      // While paused, . stays Next tick (Task 11), as before.
+      if (forward && !hour && ctx.canStep) return { kind: "step", body: {} }
+      // Holding the key would queue a seek per repeat; each seek re-runs the engine.
+      if (event.repeat) return null
+      const ticks = hour ? ticksPerHour(ctx.tickMinutes ?? 5) : 1
+      return seekKey(ctx, forward ? ticks : -ticks)
+    }
     default:
       return null
   }

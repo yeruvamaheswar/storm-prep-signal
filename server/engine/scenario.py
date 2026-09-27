@@ -279,6 +279,8 @@ class Session:
         self.actions, self.applied, self.next_action_id = [], set(), 1
         # Set while a seek re-runs ticks: its replayed operator actions are not noted on the page again.
         self.replaying = False
+        # Task 14B: the last seek request applied, `{to, seq}`, so the page knows its seek landed by request seq.
+        self.last_seek = None
         self.messages = []
         self.error = None
 
@@ -303,7 +305,14 @@ class Session:
             elif kind == "step":
                 self.step_paused()
             elif kind == "seek":
-                self.seek(body.get("tick"))
+                try:
+                    if "delta" in body:
+                        self.seek_by(body.get("delta"))
+                    else:
+                        self.seek(body.get("tick"))
+                finally:
+                    # Task 14B: answered even when it did not move or was refused, so the page never waits on it.
+                    self.last_seek = {"to": self.index, "seq": request.get("seq")}
             else:
                 raise ValueError(f"unknown request {kind!r}")
         except ValueError as exc:
@@ -479,6 +488,18 @@ class Session:
             return
         self.playing = playing
         self.note(f"moved to tick {self.index} of {len(self.frames)}")
+
+    def seek_by(self, delta):
+        """Seek `delta` ticks from the live index (Task 14B fix round 2): resolved when applied, not when the page sent
+        it, so a step sent while playing never lands behind the worker. Clamped like `seek`, except that a forward
+        step on a finished run (index len(frames), past the seek range) stays put instead of turning into a step back."""
+        if self.scenario is None:
+            raise ValueError("pick a scenario first")
+        if isinstance(delta, bool) or not isinstance(delta, int):
+            raise ValueError(f"delta must be a whole number of ticks, not {delta!r}")
+        if delta > 0 and self.index >= len(self.frames) - 1:
+            return
+        self.seek(self.index + delta)
 
     # ticks
 
@@ -713,6 +734,8 @@ class Session:
             # Task 16: the operator actions a seek re-runs (for marks), and whether a seek is running. The worker
             # writes one state with seeking true before it runs a seek; this ordinary state is never mid-seek.
             "actions": [dict(action) for action in self.actions], "seeking": False,
+            # Task 14B: the last seek applied, by request seq (None before the first).
+            "last_seek": dict(self.last_seek) if self.last_seek else None,
             "counties": [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
             "history": self.history, "totals": self.board, "log": self.messages,
             "honest_limits": list(HONEST_LIMITS),

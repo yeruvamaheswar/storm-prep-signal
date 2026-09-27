@@ -171,6 +171,12 @@
   }
 }
 
+/* Task 16B: pause freezes the map's dash flow where it is; Play resumes it from there. Rain keeps falling (weather). */
+.replay-scene.is-paused .arc-send,
+.replay-scene.is-paused .arc-charge {
+  animation-play-state: paused;
+}
+
 /* Weather (Task 7), from mockup/Main.dc.html: blurred cloud blobs and a rain sheet over each zone whose floor
  * is raised this tick, placed from the zone's projected outline. A grid-down zone gets a dark tint. */
 .replay-wx-islanded {
@@ -1303,6 +1309,418 @@
 .replay-county-table tbody th {
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Task 14 / 16B: the line legend under the top bar, sun shading, the Day view bar, seeking and the view toggle. */
+
+/* The legend strip sits between the top bar and the scene; the scene takes the height that is left. */
+.replay-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.replay-shell > .replay-scene {
+  flex: 1 0 auto;
+  height: auto;
+}
+
+/* One shared line legend, always shown on the map and the zone board. Pinned while the page scrolls; wraps when narrow. */
+.replay-line-legend {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 28px;
+  padding: 5px 24px 6px;
+  border-bottom: 1px solid var(--rg-line);
+  background: var(--rg-panel-map);
+  font-family: var(--rg-font);
+}
+
+.replay-line-legend ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.replay-line-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--rg-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.replay-line-legend li.replay-line-legend-title {
+  color: var(--rg-muted);
+  font-weight: 700;
+}
+
+/* Sun shading: two stacked layers per zone, so day, twilight and night change opacity only. The fade lasts one real
+ * tick (--replay-step-ms, set by ReplayRoot). */
+.replay-sun {
+  stroke: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--replay-step-ms, 0ms) linear;
+}
+
+.replay-sun-twilight {
+  fill: var(--rg-map-twilight);
+}
+
+.replay-sun-night {
+  fill: var(--rg-map-night);
+}
+
+.replay-sun.is-on {
+  opacity: 1;
+}
+
+.replay-map-legend {
+  left: 320px;
+  top: 72px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 440px;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: var(--rg-list-radius);
+  color: var(--rg-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* The playback panel grows in Day view: the day bar needs its marks, rail, hours and legend. */
+.replay-playback.is-day {
+  align-items: flex-start;
+  height: auto;
+  min-height: 96px;
+  padding: 12px 16px;
+}
+
+.replay-day {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 14px;
+  min-width: 0;
+}
+
+.replay-day-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.replay-day-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+
+.replay-day-now {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.replay-day-seek {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.replay-day-jump,
+.replay-day-presets button,
+.replay-view button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 9px;
+  border: 1px solid var(--rg-muted);
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-surface);
+  color: var(--rg-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.replay-day-presets button[aria-pressed="true"],
+.replay-view button[aria-pressed="true"] {
+  border-color: var(--rg-ink);
+  background: var(--rg-ink);
+  color: var(--rg-panel-map);
+}
+
+.replay-day-jump:disabled {
+  border-color: var(--rg-line);
+  color: var(--rg-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.replay-day-jump:focus-visible,
+.replay-day-presets button:focus-visible,
+.replay-view button:focus-visible {
+  outline: 3px solid var(--rg-focus);
+  outline-offset: 2px;
+}
+
+.replay-day-seeking {
+  color: var(--rg-focus);
+  font-weight: 700;
+}
+
+.replay-day-readout {
+  color: var(--rg-charging-text-strong);
+  font-weight: 700;
+}
+
+.replay-day-note,
+.replay-day-missing {
+  margin: 0;
+  color: var(--rg-muted);
+  font-size: 12px;
+}
+
+/* The track: mark lanes on top, the rail, then the hour labels. Click or drag it to seek. */
+.replay-day-track {
+  position: relative;
+  height: 56px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.replay-day-track.is-seeking {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.replay-day-marks {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 24px;
+}
+
+.replay-day-mark {
+  position: absolute;
+  min-width: 3px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.replay-day-mark.is-point {
+  margin-left: -1px;
+}
+
+.replay-day-mark.is-hold,
+.replay-day-legend .is-hold {
+  background: var(--rg-ink);
+}
+
+.replay-day-mark.is-alert,
+.replay-day-legend .is-alert {
+  background: var(--rg-islanded);
+}
+
+.replay-day-mark.is-price,
+.replay-day-legend .is-price {
+  background: var(--rg-charging);
+}
+
+.replay-day-mark.is-call,
+.replay-day-legend .is-call {
+  background: var(--rg-gave-energy);
+}
+
+.replay-day-mark.is-missed,
+.replay-day-legend .is-missed {
+  background: var(--rg-lost);
+}
+
+.replay-day-mark.is-fault,
+.replay-day-legend .is-fault {
+  background: var(--rg-not-counted);
+}
+
+.replay-day-rail,
+.replay-day-fill {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.replay-day-rail {
+  background: var(--rg-line);
+}
+
+/* The glide: the playhead moves between real ticks' ts, re-anchored each 250 ms (the page clock). */
+.replay-day-fill {
+  background: var(--rg-ink);
+  transform-origin: left center;
+  transition: transform 250ms linear;
+}
+
+.replay-day-head,
+.replay-day-preview {
+  position: absolute;
+  top: 22px;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  pointer-events: none;
+}
+
+.replay-day-head {
+  transition: transform 250ms linear;
+}
+
+.replay-day-head span {
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 3px solid var(--rg-ink);
+  border-radius: 999px;
+  background: var(--rg-surface);
+}
+
+.replay-day-preview span {
+  position: absolute;
+  top: -8px;
+  left: -1px;
+  width: 2px;
+  height: 26px;
+  background: var(--rg-focus);
+}
+
+.replay-day-preview b {
+  position: absolute;
+  top: -26px;
+  left: 0;
+  padding: 2px 8px;
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-ink);
+  color: var(--rg-panel-map);
+  font-size: 11px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.replay-day-hours {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  left: 0;
+  height: 16px;
+}
+
+.replay-day-hours span {
+  position: absolute;
+  color: var(--rg-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.replay-day-hours span.is-start {
+  transform: none;
+}
+
+.replay-day-hours span.is-end {
+  transform: translateX(-100%);
+}
+
+.replay-day-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--rg-muted);
+  font-size: 11px;
+}
+
+.replay-day-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.replay-day-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.replay-day-side {
+  flex: 0 0 auto;
+}
+
+.replay-day-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.replay-day-end {
+  display: flex;
+  flex: 0 0 150px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.replay-day-end .replay-keys {
+  color: var(--rg-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.replay-day-end .replay-keys span {
+  white-space: nowrap;
+}
+
+.replay-view {
+  display: flex;
+  gap: 4px;
+}
+
+.replay-playback > .replay-view {
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .replay-sun,
+  .replay-day-fill,
+  .replay-day-head,
+  .replay-day-preview {
+    transition: none;
+  }
 }
 
 /* Phone portrait only. Desktop dual-rail HUD above stays unchanged. */

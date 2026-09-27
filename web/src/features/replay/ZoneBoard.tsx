@@ -23,6 +23,10 @@ type Props = {
   backHref?: string
   /** This zone's weather at the playhead's tick (weatherModel.zoneWeather). Missing shows no weather. */
   weather?: ZoneWeather
+  /** Task 14: a storm-type alert applied to a county of this zone this tick (alertWeather). When given, it alone dims
+   * the scene; the storm rule and freeze alerts raise floors but bring no rain. Undefined (the tick's provenance is not
+   * reported) keeps the zone rule. Lit windows still follow each home's own raised floor. */
+  rain?: boolean
 }
 
 const BOARD = boardPath()
@@ -49,18 +53,11 @@ function useFit(ref: React.RefObject<HTMLDivElement | null>) {
   return fit
 }
 
-const LEGEND: Array<{ label: string; stroke: string; width: number; dash?: string }> = [
-  { label: "On its way", stroke: "var(--rg-order-way)", width: 3, dash: "5 3" },
-  { label: "Lost", stroke: "var(--rg-lost)", width: 3, dash: "2 4" },
-  { label: "Gave energy", stroke: "var(--rg-gave-energy)", width: 4 },
-  { label: "Confirmed", stroke: "var(--rg-confirmed)", width: 4 },
-  { label: "Not counted", stroke: "var(--rg-not-counted)", width: 3, dash: "1 4" },
-]
-
 /** The clay isometric neighbourhood of one zone's homes, ported from the approved Zone mockup. */
-export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/", weather }: Props) {
+export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/", weather, rain }: Props) {
   // Weather only: a floor raised because the ERCOT signal is missing does not dim the board.
   const raised = weather?.weather === true
+  const dim = rain ?? raised
   const islanded = weather?.gridDown === true
   const fitRef = useRef<HTMLDivElement | null>(null)
   const fit = useFit(fitRef)
@@ -68,7 +65,6 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
   const paths = useMemo(() => zonePaths(lots.slots, orders, tSeconds), [lots, orders, tSeconds])
   const shownIds = useMemo(() => lots.slots.flatMap((lot) => (lot.home ? [lot.home.id] : [])), [lots])
   const story = useMemo(() => storyHomes(orders ?? {}, shownIds), [orders, shownIds])
-  const hasCharge = paths.some((path) => path.charging)
 
   // Return focus to the lot whose panel just closed.
   const previousHome = useRef<string | null>(openHome)
@@ -92,7 +88,7 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
 
   return (
     <div className={`zone-stage${openHome ? " has-home" : ""}`}>
-      <div className={`zone-scene${raised ? " is-weather" : ""}${islanded ? " is-islanded" : ""}`}>
+      <div className={`zone-scene${dim ? " is-weather" : ""}${islanded ? " is-islanded" : ""}`}>
         <svg className="zone-grain" aria-hidden="true">
           <defs>
             <filter id="zone-clay-grain" x="0" y="0" width="100%" height="100%">
@@ -176,22 +172,6 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
           <b aria-current="page">{zone}</b>
           {lots.total > lots.shown ? <span className="zone-more">Showing {lots.shown} of {lots.total}</span> : null}
         </nav>
-        <div className="zone-legend">
-          {LEGEND.map((item) => (
-            <span key={item.label} className="lg">
-              <svg width="22" height="6" aria-hidden="true">
-                <line x1="1" y1="3" x2="21" y2="3" style={{ stroke: item.stroke }} strokeWidth={item.width} strokeDasharray={item.dash} />
-              </svg>
-              {item.label}
-            </span>
-          ))}
-          {hasCharge ? (
-            <span className="lg">
-              <svg width="22" height="6" aria-hidden="true"><line x1="1" y1="3" x2="21" y2="3" style={{ stroke: "var(--rg-charging)" }} strokeWidth="4" /></svg>
-              Charging
-            </span>
-          ) : null}
-        </div>
         {islanded ? <p className="zone-islanded" role="status">{ISLANDED_TEXT}</p> : null}
       </div>
     </div>

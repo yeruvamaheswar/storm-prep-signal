@@ -10,7 +10,7 @@ from datetime import timedelta
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Header
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, Field, StrictInt, model_validator
 
 from server.api import archive
 from server.api.prices import POINT_TO_ZONE
@@ -50,7 +50,16 @@ class GridDownBody(BaseModel):
 
 class SeekBody(BaseModel):
     # A tick index (0 = before the first tick). The worker clamps it to the tape; 2.5, "7" or true are refused.
-    tick: StrictInt
+    tick: Optional[StrictInt] = None
+    # Task 14B fix round 2: or a step from wherever the worker is when it applies it (a key or a 1-hour button while
+    # playing), so a step never lands behind a worker that has played on since the page's last poll. One of the two.
+    delta: Optional[StrictInt] = None
+
+    @model_validator(mode="after")
+    def one_of_tick_and_delta(self):
+        if (self.tick is None) == (self.delta is None):
+            raise ValueError("send one of tick or delta")
+        return self
 
 
 def _catalog():
@@ -163,5 +172,6 @@ def post_grid_down(body: GridDownBody, x_operator_id: Optional[str] = Header(Non
 
 @router.post("/scenario/seek", status_code=202)
 def post_seek(body: SeekBody, x_operator_id: Optional[str] = Header(None)):
-    """Rewind or fast-forward: the worker re-runs the engine to this tick index (same seed, same logged actions)."""
-    return _record("seek", body.model_dump(), _require_operator(x_operator_id))
+    """Rewind or fast-forward: the worker re-runs the engine to this tick index, or `delta` ticks from its live index
+    (same seed, same logged actions)."""
+    return _record("seek", body.model_dump(exclude_none=True), _require_operator(x_operator_id))

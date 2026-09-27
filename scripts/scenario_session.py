@@ -52,11 +52,13 @@ def tick_left(session, next_step, paused_left, now):
 def superseded_seek(batch, k):
     """True when a later seek in this poll's batch replaces seek `k`: only speed requests lie between them, so running
     just the last one gives the same result with one re-run (a drag can queue several). Any other request keeps the
-    earlier seek. Play included: Play on a finished tape resets the run, so it must be judged after the earlier seek."""
+    earlier seek. Play included: Play on a finished tape resets the run, so it must be judged after the earlier seek.
+    Only a seek to a tick replaces: a later `delta` seek counts from where the earlier one lands, so both run and
+    two steps add up (Task 14B fix round 2)."""
     for later in batch[k + 1:]:
         kind = later.get("kind")
         if kind == "seek":
-            return True
+            return "delta" not in (later.get("body") or {})
         if kind != "speed":
             return False
     return False

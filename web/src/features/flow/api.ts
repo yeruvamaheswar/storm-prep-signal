@@ -13,6 +13,12 @@ export type FlowRequest =
   | { kind: "alert"; body: { alert_id: string } }
   | { kind: "grid-down"; body: { zone: string; down: boolean } }
   | { kind: "step"; body: Record<string, never> }
+  /** Task 16: go to tick index N (ticks played) by re-running the engine; the worker clamps N. Task 14B fix round 2:
+   * or `delta` ticks from the worker's live index, resolved when it applies it (key steps and 1-hour buttons while
+   * playing). */
+  | { kind: "seek"; body: SeekBody }
+
+export type SeekBody = { tick: number } | { delta: number }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -41,8 +47,9 @@ export async function fetchState(fetchFn: FetchFn, base: string): Promise<StateR
   return body as StateReply
 }
 
-/** Records one request. The session worker applies it on its next loop; the reply is not the result. */
-export async function sendRequest(fetchFn: FetchFn, base: string, request: FlowRequest): Promise<void> {
+/** Records one request. The session worker applies it on its next loop; the reply is not the result. Resolves to the
+ * request's seq from the reply (`accepted`), or null when the reply does not say. */
+export async function sendRequest(fetchFn: FetchFn, base: string, request: FlowRequest): Promise<number | null> {
   const res = await fetchFn(`${base}/v1/scenario/${request.kind}`, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json", "X-Operator-Id": OPERATOR_ID },
@@ -58,5 +65,11 @@ export async function sendRequest(fetchFn: FetchFn, base: string, request: FlowR
       // Keep the status text when the body is not JSON.
     }
     throw new Error(brief)
+  }
+  try {
+    const body: unknown = await res.json()
+    return isRecord(body) && typeof body.accepted === "number" ? body.accepted : null
+  } catch {
+    return null
   }
 }

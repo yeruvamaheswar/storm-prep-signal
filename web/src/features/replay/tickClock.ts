@@ -1,4 +1,4 @@
-export const SESSION_SPEEDS = [2.4, 4.8, 12, 15, 30, 60, 150, 300, 600] as const
+export const SESSION_SPEEDS = [2.4, 4.8, 12, 15, 30, 60, 150, 288, 300, 600, 720, 1440] as const
 export type SessionSpeed = (typeof SESSION_SPEEDS)[number]
 
 /** Seconds of order activity each tick replays: the order window runs 0:00 to 2:05. */
@@ -69,16 +69,19 @@ export function speedLabel(x: number, tickMinutes: number): string {
   return name ? `${name} · ${pace}` : pace
 }
 
-/** The stops this session offers, slowest first. */
-export function availableStops(speeds: readonly number[] | undefined | null): SpeedStop[] {
+/** The stops this session offers, slowest first. `stops` defaults to the Watch orders stops; the Day view passes
+ * its own (dayModel.dayStops). */
+export function availableStops(speeds: readonly number[] | undefined | null, stops: readonly SpeedStop[] = SPEED_STOPS): SpeedStop[] {
   if (!speeds) return []
-  return SPEED_STOPS.filter((stop) => speeds.includes(stop.x))
+  return stops.filter((stop) => speeds.includes(stop.x))
 }
 
 /** One offered stop slower (-1) or faster (+1) than `speed`, or null at the end. */
-export function nudgeSpeed(speed: number, speeds: readonly number[] | undefined | null, direction: -1 | 1): number | null {
-  const stops = availableStops(speeds).map((stop) => stop.x)
-  const next = direction < 0 ? stops.filter((x) => x < speed).pop() : stops.find((x) => x > speed)
+export function nudgeSpeed(
+  speed: number, speeds: readonly number[] | undefined | null, direction: -1 | 1, stops: readonly SpeedStop[] = SPEED_STOPS,
+): number | null {
+  const xs = availableStops(speeds, stops).map((stop) => stop.x)
+  const next = direction < 0 ? xs.filter((x) => x < speed).pop() : xs.find((x) => x > speed)
   return next ?? null
 }
 

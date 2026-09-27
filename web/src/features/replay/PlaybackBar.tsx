@@ -1,19 +1,30 @@
-import { useEffect, useState } from "react"
 import type { FlowRequest } from "../flow/api"
 import { fmtScenarioTime } from "../flow/flowMath"
 import type { SessionState } from "../flow/types"
+import { DayBar, type DaySeek } from "./DayBar"
+import { runKey } from "./dayModel"
 import { availableStops, fmtClock, speedLabel } from "./tickClock"
+import { usePendingSpeed } from "./usePendingSpeed"
+
+/** Day view (Task 14, the default on the page) or Watch orders (Task 11's one-tick order window). */
+export type ReplayView = "day" | "orders"
 
 type Props = {
   state: SessionState | null
   tSeconds: number
   /** False when the scenario catalog (and so the session speeds) could not be fetched. */
   speedsAvailable?: boolean
+  /** Which bar to show. Missing shows Watch orders, so older callers are unchanged. */
+  view?: ReplayView
+  /** Shows the "Day view / Watch orders" toggle when given. */
+  onView?: (view: ReplayView) => void
+  /** Day view: the glided playhead (dayModel.dayPlayheadMs) and the measured real seconds per tick. */
+  dayPlayheadMs?: number | null
+  observedStepSeconds?: number | null
+  /** Day view: a seek in flight (ReplayRoot). */
+  seek?: DaySeek | null
   onSend: (request: FlowRequest) => void
 }
-
-/** A sent speed shows on the slider until the session reports it, or this long if it never does. */
-const PENDING_SPEED_MS = 3000
 
 /** "Tick N of M" and the share of the run played, from the session's own counters. Null when not reported. */
 export function tickProgress(state: Pick<SessionState, "tick_index" | "tick_count"> | null): { label: string; pct: number | null } {
@@ -36,30 +47,53 @@ function speedUnavailable(state: SessionState | null, speedsAvailable: boolean, 
   return null
 }
 
-export function PlaybackBar({ state, tSeconds, speedsAvailable = true, onSend }: Props) {
+function dayUnavailable(state: SessionState | null, speedsAvailable: boolean): string | null {
+  if (!speedsAvailable) return "Pace unavailable: the scenario list did not load."
+  if (!state?.speeds?.length) return "Pace unavailable: the session reports no speeds."
+  return null
+}
+
+function KeysHint() {
+  return (
+    <span className="replay-keys">
+      <span>Keys: Space play or pause</span> · <span>[ slower</span> · <span>] faster</span> · <span>, back a tick</span>
+      {" · "}<span>. forward a tick</span> · <span>Shift+, or Shift+. one hour</span>
+    </span>
+  )
+}
+
+export function PlaybackBar({
+  state, tSeconds, speedsAvailable = true, view = "orders", onView, dayPlayheadMs, observedStepSeconds, seek, onSend,
+}: Props) {
   const playing = state?.status === "playing"
   const pct = `${Math.min(100, Math.max(0, (tSeconds / 120) * 100))}%`
   const progress = tickProgress(state)
   const stops = availableStops(state?.speeds)
   const tickMinutes = state?.tick_minutes ?? 5
-  // A speed just sent, kept only while the session still reports the speed it had when it was sent.
-  const [pending, setPending] = useState<{ x: number; from: number | undefined } | null>(null)
-  const reportedSpeed = state?.speed
-
-  useEffect(() => {
-    if (pending === null) return
-    const timer = setTimeout(() => setPending(null), PENDING_SPEED_MS)
-    return () => clearTimeout(timer)
-  }, [pending])
+  const { shown, mark } = usePendingSpeed(state?.speed)
 
   const reason = speedUnavailable(state, speedsAvailable, stops.length)
-  const shown = (pending && pending.from === reportedSpeed ? pending.x : reportedSpeed) ?? null
   const stopIndex = shown === null || stops.length === 0 ? 0 : nearestStop(stops.map((stop) => stop.x), shown)
   const label = reason ?? (shown === null ? "Speed not reported" : speedLabel(shown, tickMinutes))
   const stepOk = canStep(state)
+  const day = view === "day"
+
+  const nextTick = (
+    <button className="replay-next" type="button" title="Next tick (.)" disabled={!stepOk}
+      onClick={() => onSend({ kind: "step", body: {} })}>Next tick</button>
+  )
+  const toggle = onView ? (
+    <div className="replay-view" role="group" aria-label="View">
+      {(["day", "orders"] as const).map((option) => (
+        <button key={option} type="button" aria-pressed={view === option} onClick={() => { if (option !== view) onView(option) }}>
+          {option === "day" ? "Day view" : "Watch orders"}
+        </button>
+      ))}
+    </div>
+  ) : null
 
   return (
-    <section className="replay-panel replay-playback" aria-label="Playback">
+    <section className={`replay-panel replay-playback${day ? " is-day" : ""}`} aria-label="Playback">
       <div className="replay-buttons">
         <button
           className="replay-play"
@@ -75,59 +109,74 @@ export function PlaybackBar({ state, tSeconds, speedsAvailable = true, onSend }:
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2 L13 8 L4 14 Z" fill="currentColor" /></svg>
           )}
         </button>
-        <button className="replay-next" type="button" title="Next tick (.)" disabled={!stepOk}
-          onClick={() => onSend({ kind: "step", body: {} })}>Next tick</button>
+        {/* Day view: Next tick only while paused (Task 14). Watch orders keeps it, disabled while playing. */}
+        {day ? (state?.status === "paused" ? nextTick : null) : nextTick}
       </div>
-      <div className="replay-tick-stack">
-        <b className="replay-tick-label">{progress.label}</b>
-        <div
-          className="replay-tick-progress"
-          role="progressbar"
-          aria-label="Ticks played"
-          aria-valuemin={0}
-          aria-valuemax={state?.tick_count ?? undefined}
-          aria-valuenow={progress.pct === null ? undefined : state?.tick_index}
-        >
-          <div style={{ width: `${progress.pct ?? 0}%` }} />
-        </div>
-        <span>Each tick is 5 minutes</span>
-      </div>
-      <div className="replay-track" aria-label="Seconds inside this tick">
-        <div className="rail" />
-        <div className="done" style={{ width: pct }} />
-        <div className="notch" style={{ left: "50%" }} />
-        <div className="notch-label" style={{ left: "50%" }}>1:00 retry</div>
-        <div className="notch" style={{ left: "100%" }} />
-        <div className="notch-label is-end" style={{ left: "100%" }}>2:00 books close</div>
-        <div className="notch-label is-start" style={{ left: "0%" }}>0:00 send</div>
-        <div className="head" style={{ left: pct }} />
-        <div className="now" style={{ left: pct }}>{fmtClock(tSeconds)}</div>
-      </div>
-      <div className="replay-speed-wrap">
-        <b className="replay-speed-now">{label}</b>
-        <input
-          className="replay-speed"
-          type="range"
-          aria-label="Speed"
-          aria-valuetext={label}
-          title="Speed ([ slower, ] faster)"
-          min={0}
-          max={Math.max(0, stops.length - 1)}
-          step={1}
-          value={stopIndex}
-          disabled={reason !== null}
-          onChange={(event) => {
-            const stop = stops[Number(event.target.value)]
-            if (!stop || stop.x === shown) return
-            setPending({ x: stop.x, from: reportedSpeed })
-            onSend({ kind: "speed", body: { x: stop.x } })
-          }}
-        />
-        <span className="replay-clock">{state?.tick?.ts ? fmtScenarioTime(state.tick.ts) : "Scenario time not reported"}</span>
-        <span className="replay-keys">
-          <span>Keys: Space play or pause</span> · <span>[ slower</span> · <span>] faster</span> · <span>. next tick</span>
-        </span>
-      </div>
+      {day ? (
+        <>
+          {state ? (
+            // Keyed by the run, so a scenario switch or reset starts the bar's own state (drag, sent pace) over.
+            <DayBar key={runKey(state) ?? "no-run"} state={state} playheadMs={dayPlayheadMs} observedStepSeconds={observedStepSeconds}
+              unavailable={dayUnavailable(state, speedsAvailable)} seek={seek} onSend={onSend} />
+          ) : <p className="replay-day-missing">No scenario session.</p>}
+          <div className="replay-day-end">
+            {toggle}
+            <KeysHint />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="replay-tick-stack">
+            <b className="replay-tick-label">{progress.label}</b>
+            <div
+              className="replay-tick-progress"
+              role="progressbar"
+              aria-label="Ticks played"
+              aria-valuemin={0}
+              aria-valuemax={state?.tick_count ?? undefined}
+              aria-valuenow={progress.pct === null ? undefined : state?.tick_index}
+            >
+              <div style={{ width: `${progress.pct ?? 0}%` }} />
+            </div>
+            <span>Each tick is {tickMinutes} minutes</span>
+          </div>
+          <div className="replay-track" aria-label="Seconds inside this tick">
+            <div className="rail" />
+            <div className="done" style={{ width: pct }} />
+            <div className="notch" style={{ left: "50%" }} />
+            <div className="notch-label" style={{ left: "50%" }}>1:00 retry</div>
+            <div className="notch" style={{ left: "100%" }} />
+            <div className="notch-label is-end" style={{ left: "100%" }}>2:00 books close</div>
+            <div className="notch-label is-start" style={{ left: "0%" }}>0:00 send</div>
+            <div className="head" style={{ left: pct }} />
+            <div className="now" style={{ left: pct }}>{fmtClock(tSeconds)}</div>
+          </div>
+          <div className="replay-speed-wrap">
+            <b className="replay-speed-now">{label}</b>
+            <input
+              className="replay-speed"
+              type="range"
+              aria-label="Speed"
+              aria-valuetext={label}
+              title="Speed ([ slower, ] faster)"
+              min={0}
+              max={Math.max(0, stops.length - 1)}
+              step={1}
+              value={stopIndex}
+              disabled={reason !== null}
+              onChange={(event) => {
+                const stop = stops[Number(event.target.value)]
+                if (!stop || stop.x === shown) return
+                mark(stop.x)
+                onSend({ kind: "speed", body: { x: stop.x } })
+              }}
+            />
+            <span className="replay-clock">{state?.tick?.ts ? fmtScenarioTime(state.tick.ts) : "Scenario time not reported"}</span>
+            <KeysHint />
+          </div>
+          {toggle}
+        </>
+      )}
     </section>
   )
 }

@@ -6,21 +6,16 @@
  * in the frame's `weather_counties` event (keys are FIPS). The event comes from the alerts that name the county; the
  * `weather_counties` value is not read (it keeps only the first alert's event when two overlap a county). */
 
-/** The alert fields read here. Local so this module does not depend on the shared type while Task 15 edits it;
- * Part B switches to `ActiveAlert` from flow/types. */
-export type AlertLike = {
-  event?: string
-  expires?: string
-  sent_at_tick?: number | null
-  named_counties?: ReadonlyArray<{ fips: string }>
+import rosterGeo from "../../../../geo/tx-roster-counties.json"
+import type { ActiveAlert, NamedCounty, Provenance } from "../flow/types"
+
+/** The alert fields read here (state `alerts[]`). */
+export type AlertLike = Partial<Pick<ActiveAlert, "event" | "expires" | "sent_at_tick">> & {
+  named_counties?: ReadonlyArray<Pick<NamedCounty, "fips">>
 }
 
 /** The provenance fields read here (the tick's own number, ts and events). */
-export type ProvenanceLike = {
-  tick?: number
-  ts?: string
-  events?: Record<string, unknown> | null
-}
+export type ProvenanceLike = Partial<Pick<Provenance, "tick" | "ts">> & { events?: Provenance["events"] | null }
 
 /** NWS event names that bring rain or storms. A Hard Freeze Warning or a Heat Advisory does not. */
 export const RAIN_EVENT = /Tropical Storm|Hurricane|Flash Flood|Flood|Severe Thunderstorm|Tornado/i
@@ -91,6 +86,9 @@ export function countyGeos(geo: unknown): CountyGeo[] {
   }
   return out
 }
+
+/** The roster counties drawn on the map, imported as a module so Vite bundles the file (it does not serve geo/). */
+export const ROSTER_COUNTIES: CountyGeo[] = countyGeos(rosterGeo)
 
 /** True when a rain county lies in this zone, by the session's county roster. */
 export function zoneHasRain(zone: string, rain: readonly string[], roster: ReadonlyArray<{ zone: string; fips: string }>): boolean {

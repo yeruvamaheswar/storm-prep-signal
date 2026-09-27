@@ -1295,3 +1295,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Snapshot: `_zone_plan` sends `zone_intent` and `zone_prices` as one pair. The tick's own intent keeps the tick's own prices; with no tick intent, the price-only recompute stays (tests/test_snapshot_prices.py relies on it) but a zone whose tick reason is in `STORM_REASONS` holds instead of discharging. Detail: `docs/agents/policy-intent.md`.
 - Open: Render's free plan sleeps after ~15 min without inbound requests; ticks stop and `var/` is lost on wake. Paid instance or keep-alive ping is Rajat's decision; not in this change. `docs/agents/live-ingest.md`, `docs/humans/live-worker.md`.
 - `pytest -q` (FUZZ_SEEDS=50, merged with main after the engine fixes entry above): 927 passed. Web: `vitest` 789 passed (55 files), `tsc -b` clean, `npm run build` ok.
+
+## 2026-09-27: Day view in Replay ships (Task 14B, fix rounds 1 and 2)
+
+- Day view is Replay's default bar: scenario window by real `ts`, marks as ticks play, 5/2/1 min-per-day pace, seek (click/drag, 1-hour buttons, `,` `.` and Shift keys), pause freezes the lines, one line legend, sun shading and county rain on the map. Detail: `docs/agents/grid-flow.md` "Day view (Replay)".
+- Fix round 2: `POST /v1/scenario/seek` also takes `{delta}`, resolved against the worker's live index (`Session.seek_by`); the page sends it for key steps and 1-hour buttons while playing, so `.` at day pace no longer lands behind the worker and rebuilds the run. Two deltas in one poll add up. "Seeking" is held until `last_seek.seq` answers when the worker reports `last_seek`. The finished state is not a seek target (documented). Out-of-order poll replies are dropped (`dayModel.freshReply`).
+- Merged with main after #59 (Live), #61 (phone layout), #62 (engine fixes) and #63 (Live fixes): kept the Live `crumbHint` and the 720 px media queries with the Day view's sun, rain, sources note and measured bar height.
+- `pytest -q`: 942 passed; `FUZZ_SEEDS=50`: 942 passed. Web: `vitest` 856 passed (57 files), `tsc -b` clean, build ok.
