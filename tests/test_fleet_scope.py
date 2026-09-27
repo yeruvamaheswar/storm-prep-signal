@@ -245,7 +245,7 @@ def test_homes_rows_carry_a_derived_county(monkeypatch):
 
 
 def test_row_in_a_zone_the_engine_did_not_give_it_has_no_county(monkeypatch):
-    # home-001 is South in the live fleet. A table row that says North is not relabelled with a guess.
+    # home-001 is South in the Supabase seed. A table row that says North is not relabelled with a guess.
     client = api(monkeypatch, [row("home-001", "North")])
     home = client.get("/v1/homes").json()[0]
     assert home["county"] is None and home["county_name"] is None

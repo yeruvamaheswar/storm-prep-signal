@@ -101,8 +101,9 @@ def _live_counties(n):
 
 def with_county(home, fleet_size=None):
     """Add-only `county` (FIPS) and `county_name`. public.homes has no county column, so this is
-    the engine's own rule (fleet_counties, as the scenario seeds it). A row whose zone is not the
-    one the engine gave that id gets null, never a guess."""
+    the engine's own rule (fleet_counties, as the scenario seeds it) on the Supabase seed's zone
+    order (seed_settings, South first), which is the order the table's rows carry. A row whose zone
+    is not the one the seed gave that id gets null, never a guess."""
     zone, fips = _live_counties(_fleet_n(fleet_size)).get(home.get("home_id"), (None, None))
     known = fips is not None and home.get("zone") == zone
     home["county"] = fips if known else None

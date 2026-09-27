@@ -8,4 +8,6 @@ The Fleet page says where its homes come from. "Live fleet from Supabase: 100 of
 
 Each region has a "Split by county" button that groups its batteries by county.
 
+Known gap: every view has 25 homes per region, but one home can sit in a different region on the Fleet page's Live view (Supabase) than in Replay or the Live wall (the engine). For example home-001 is South in Supabase and Houston in the engine.
+
 Detail: `docs/agents/demo-fleet.md`.

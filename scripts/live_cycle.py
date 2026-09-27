@@ -134,7 +134,8 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
     if http_get is not None:
         hydrate_local_mode(state_path, url or "", key or "", http_get=http_get)
     # Live allocates the one demo fleet: settings["fleet_size"] (FLEET_SIZE, default 100),
-    # so its ids match new_fleet(FLEET_SIZE) like Replay and Fleet. loop.run scales
+    # so its ids are the same home-001.. ids as Replay and Fleet. Zones follow ZONES (Houston
+    # first), like Replay; the Supabase seed is South first (docs/agents/demo-fleet.md). loop.run scales
     # the 0.40 frame to call_target_mw for this fleet.
     live_settings = dict(settings)
     outage, price_raw, zones_raw = fetch_live(settings, now)

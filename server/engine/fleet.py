@@ -201,7 +201,10 @@ def fleet_counties(settings):
 
     The same rule scenario.seed_fleet uses: each zone's homes take its roster counties
     round-robin (assign_county) by their place within the zone. No randomness. `settings`
-    may be that dict, or an int n (seed_settings, the live fleet's zone order).
+    may be that dict, or an int n (seed_settings: the Supabase seed's ZONE_ORDER, South first,
+    as scripts/seed_homes.py wrote public.homes). The engine (Live worker and Replay) uses the
+    ZONES order instead, Houston first, so per-id zones differ; counts per zone and county do not.
+    See docs/agents/demo-fleet.md, Counties.
     """
     if isinstance(settings, int):
         settings = seed_settings(settings)
