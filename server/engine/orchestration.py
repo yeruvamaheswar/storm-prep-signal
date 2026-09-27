@@ -391,6 +391,10 @@ def build_jobs(homes, plan, rt, fractions):
         rt.workers[home.home_id] = HomeWorker(home, rt, sup, fractions.get(home.home_id, 1.0))
         if home.home_id in plan.per_home_kw:
             kw = plan.per_home_kw[home.home_id]
+            # The plan may use a reported SOC that is still above the floor while
+            # the real battery is not. Do not send a discharge order it cannot fill.
+            if kw > 0 and safe_kw(home, rt.policy, rt.settings) <= 0:
+                continue
             rt.planned_kw[home.home_id] = kw
             cmd = Command(f"{home.home_id}:{rt.tick}", home.home_id, kw)
             (sup.charges if kw < 0 else sup.shares).append(cmd)

@@ -1041,6 +1041,12 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/policy-intent.md` ("How a charge tick runs").
 - Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.164/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q` after merging main: 573 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
 
+## 2026-09-26: Homes under the floor show HOLDING
+
+- Named gap: the fleet table showed SOC 0.5–1.4 kWh against a 6.0 kWh floor with charge state DISCHARGING, while `TickResult.breaches` stayed 0.
+- A live run still loads `var/fleet/homes.json` when its length matches `FLEET_SIZE`. `home_caps` and `discharge` skip headroom at or under 0, and a discharge order is not sent to a real battery that cannot fill it. `tick_emit` and `GET /v1/homes` write those rows as HOLDING with assigned 0 and power 0. Charge is unchanged. A live run writes `homes.json` after every tick so the drain is what the next load reads. Tape replays still do not touch that file.
+- `pytest -q` was not run.
+
 ## 2026-09-26: One end-to-end test per tick path (Rajat's lane)
 
 - `tests/test_tick_paths.py`: 20 tests, each one real `loop.run` tick (storm rule, price intent, `allocate`, `orchestrate_tick`, scoreboard, run file); a spy only keeps each tick's fleet copy and `CycleResult`. Settings pinned in the test (100 homes, 25 kWh / 11.4 kW, feed on), so a local `.env` cannot change the answer. `-s` prints one line per path.

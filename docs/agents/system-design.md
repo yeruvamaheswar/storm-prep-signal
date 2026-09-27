@@ -101,7 +101,7 @@ flowchart TB
   STREAM --> SB
   STREAM --> FILES
   ENGINE -->|"run file, every tick"| FILES
-  ENGINE <-->|"var/fleet/homes.json, live runs only, save once after the last tick"| FILES
+  ENGINE <-->|"var/fleet/homes.json, live runs only, save after every tick"| FILES
   ENGINE -.->|"--persist"| SB
   FILES --> API
   SB --> API
