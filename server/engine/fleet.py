@@ -304,7 +304,7 @@ def safe_kw(home, policy, settings):
 
 
 def room_kw(home, settings):
-    """The most this home can absorb this tick: room to capacity, capped by its max kW."""
+    """The most this home can take in this tick: room left to full, capped by its max kW."""
     room = max(0.0, home.capacity_kwh - home.soc_kwh)
     return min(home.max_kw, room * 60 / settings["tick_minutes"])
 
@@ -327,9 +327,13 @@ def discharge(homes, alloc, policy, settings):
         if kw < 0:
             home.soc_kwh += min(-kw, room_kw(home, settings)) * settings["tick_minutes"] / 60
             continue
+        # Headroom <= 0 means the home is already at or under its floor. Skip it.
+        # That is not a breach: breaches counts a discharge that crosses the floor.
+        if safe_kw(home, policy, settings) <= 0:
+            continue
         actual_kw = min(kw, safe_kw(home, policy, settings))
         if actual_kw <= 0:
-            continue  # already at or under its floor: it gives nothing, and that is not a breach
+            continue
         home.soc_kwh -= actual_kw * settings["tick_minutes"] / 60
         if home.soc_kwh < floor_kwh(home, policy) - 1e-9:
             breaches += 1  # only possible if the clamp above is removed (the mutation demo)

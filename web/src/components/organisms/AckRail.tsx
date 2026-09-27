@@ -3,6 +3,7 @@ import { isLoadZone, type LoadZone } from "../../zonePaint"
 import { Button } from "../atoms/Button"
 import { Key } from "../atoms/Key"
 import { ackSummary, barSegments, totalsToMarks, zoneAckTotals } from "./ackTicks"
+import { telemetryLine } from "./telemetryLine"
 
 type AckRailProps = {
   tick: TickView
@@ -16,6 +17,7 @@ type AckRailProps = {
 export function AckRail({ tick, zone = null, rollups = null, onSelectZone, onClearZone }: AckRailProps) {
   const rows = zoneAckTotals(tick, rollups)
   const marks = totalsToMarks(rows)
+  const battery = telemetryLine(tick)
 
   return (
     <section className="ack-rail" aria-label="Worker acks">
@@ -27,6 +29,16 @@ export function AckRail({ tick, zone = null, rollups = null, onSelectZone, onCle
         <p className="ack-caption" role="status">
           {ackSummary(marks, tick.delivered_mw)}
         </p>
+        {battery && (
+          <p className="telemetry-line">
+            Battery reports: {battery.live} ·{" "}
+            {/* Red only when a battery's reports disagree with its energy; 0 stays muted. */}
+            <span className={battery.suspect > 0 ? "telemetry-suspect is-flagged" : "telemetry-suspect"}>
+              {battery.suspect} suspect
+            </span>{" "}
+            · {battery.readings} (synthetic)
+          </p>
+        )}
       </div>
       <div className="ack-zones">
         {rows.map((row) => {

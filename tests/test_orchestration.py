@@ -299,7 +299,7 @@ def test_hold_sends_nothing_and_still_closes():
 
 # --- charge: negative kW absorbs, is clamped to room, and has its own book ----------
 
-def charge_policy(pct=30.0, zone_intent=None):
+def floored_charge_policy(pct=30.0, zone_intent=None):
     p = policy(pct)
     p.intent = "charge"
     if zone_intent:
@@ -311,7 +311,7 @@ def test_a_charge_tick_raises_charge_and_books_it_apart_from_delivery():
     s = settings(**FAST)
     homes = new_fleet(s)
     before = {h.home_id: h.soc_kwh for h in homes}
-    result = orchestrate_tick(homes, frame(0.2), charge_policy(), "AUTO", s, 1)
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
     absorbed_kwh = sum(h.soc_kwh - before[h.home_id] for h in homes)
     assert result.charging_mw * 1000 * s["tick_minutes"] / 60 == pytest.approx(absorbed_kwh)
     assert result.charging_mw > 0
@@ -328,7 +328,7 @@ def test_charge_never_fills_past_capacity():
     homes = new_fleet(s)
     homes[0].soc_kwh = homes[0].capacity_kwh - 0.1   # room for 1.2 kW over 5 minutes, not 5 kW
     homes[1].soc_kwh = homes[1].capacity_kwh          # full: gets no order at all
-    result = orchestrate_tick(homes, frame(0.2), charge_policy(), "AUTO", s, 1)
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
     assert homes[0].soc_kwh == pytest.approx(homes[0].capacity_kwh)
     assert result.home_charged_kw[homes[0].home_id] == pytest.approx(1.2, abs=1e-5)
     assert homes[1].home_id not in result.allocation.per_home_kw
@@ -346,7 +346,7 @@ def test_a_worker_clamps_a_charge_order_bigger_than_its_room():
     real = orch.allocate
     try:
         orch.allocate = lambda *a, **k: Allocation({home.home_id: -5.0}, 0.0, 0.2, ["charging"])
-        result = orchestrate_tick(homes, frame(0.2), charge_policy(), "AUTO", s, 1)
+        result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(), "AUTO", s, 1)
     finally:
         orch.allocate = real
     assert home.soc_kwh == pytest.approx(home.capacity_kwh)
@@ -358,7 +358,7 @@ def test_a_charging_home_under_its_floor_is_not_a_breach():
     homes = new_fleet(s)
     for h in homes:
         h.soc_kwh = 0.1 * h.capacity_kwh             # every home under a 60% floor
-    result = orchestrate_tick(homes, frame(0.2), charge_policy(60.0), "AUTO", s, 1)
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(60.0), "AUTO", s, 1)
     assert result.charging_mw > 0
     assert result.breaches == 0
     check_books(result, 0.2)
@@ -368,20 +368,11 @@ def test_mixed_zones_sell_and_charge_in_one_tick_and_only_selling_is_credited():
     s = settings(**FAST)
     homes = new_fleet(s)
     zi = {"Houston": "charge", "North": "discharge", "South": "discharge", "West": "discharge"}
-    result = orchestrate_tick(homes, frame(0.2), charge_policy(zone_intent=zi), "AUTO", s, 1)
+    result = orchestrate_tick(homes, frame(0.2), floored_charge_policy(zone_intent=zi), "AUTO", s, 1)
     assert result.zone_charging_mw["Houston"] > 0
     assert result.zone_delivered_mw["Houston"] == 0
     assert result.credited_mw == pytest.approx(0.2)
     assert all(result.zone_charging_mw[z] == 0 for z in ("North", "South", "West"))
-    check_books(result, 0.2)
-
-
-def test_a_late_charge_order_is_retried_but_never_reassigned():
-    s = settings(channel_drop_rate=0.6)
-    homes = new_fleet(s)
-    result = orchestrate_tick(homes, frame(0.2), charge_policy(), "AUTO", s, 4)
-    assert result.timed_out > 0 and result.retried == result.timed_out
-    assert result.reassigned == 0
     check_books(result, 0.2)
 
 
@@ -574,3 +565,130 @@ def test_zone_acks_puts_a_home_with_no_zone_under_unassigned():
     acks = zone_acks(homes, result)
     check_acks(acks, homes)
     assert sum(acks["unassigned"].values()) == 1
+
+
+# --- charging: negative kW absorbs, is never delivery, never overfills ----------
+
+def charge_policy(intent="charge", zone_intent=None):
+    p = policy()
+    p.intent = intent
+    if zone_intent is not None:
+        p.zone_intent = zone_intent
+    return p
+
+
+def charge_cycle(target_mw=0.2, seed=1, p=None, soc_pct=None, **over):
+    """One cycle under a charge policy. soc_pct sets every home's start charge."""
+    s = settings(**over)
+    homes = new_fleet(s)
+    if soc_pct is not None:
+        for h in homes:
+            h.soc_kwh = h.capacity_kwh * soc_pct / 100
+    before = {h.home_id: h.soc_kwh for h in homes}
+    result = orchestrate_tick(homes, frame(target_mw), p or charge_policy(), "AUTO", s, seed)
+    return result, homes, before
+
+
+def test_a_charge_tick_delivers_nothing_and_books_the_charge_apart():
+    result, homes, before = charge_cycle(0.2, **FAST)
+    check_books(result, 0.2)
+    assert result.confirmed_mw == 0 and result.credited_mw == 0
+    assert result.missed_mw == pytest.approx(0.2)
+    assert planned(result) == 0
+    absorbed = sum(h.soc_kwh - before[h.home_id] for h in homes) * 60 / 5 / 1000
+    assert result.charged_mw > 0
+    assert result.charged_mw == pytest.approx(absorbed)
+    assert result.home_confirmed_kw == {}
+    assert "charging" in result.allocation.reasons
+
+
+def test_charging_never_fills_a_battery_past_full():
+    faults = {"channel_drop_rate": 0.3, "channel_dup_rate": 0.3, "channel_late_rate": 0.2}
+    for seed in range(1, 40):
+        result, homes, _ = charge_cycle(0.2, seed=seed, soc_pct=98.5, **faults)
+        over = [h.home_id for h in homes if h.soc_kwh > h.capacity_kwh + 1e-9]
+        assert not over, f"seed {seed}: {over} past full"
+        assert result.breaches == 0
+
+
+def test_charging_a_home_still_under_a_raised_floor_is_not_a_breach():
+    # 40% charge under a 60% floor: charging moves it up toward the floor, never below it.
+    p = charge_policy()
+    p.zone_reserve_pct = {z: 60.0 for z in ZONES}
+    result, homes, before = charge_cycle(0.2, p=p, soc_pct=40.0, **FAST)
+    assert all(h.soc_kwh > before[h.home_id] for h in homes)
+    assert result.breaches == 0
+
+
+def test_a_lost_charge_order_is_not_retried_or_reassigned():
+    result, _, _ = charge_cycle(0.2, seed=3, channel_drop_rate=0.5)
+    assert result.timed_out == 0 and result.retried == 0 and result.reassigned == 0
+    assert not kinds(result, "reassigned")
+    assert "unconfirmed" in result.command_states.values()
+
+
+def test_an_oversized_charge_order_is_clamped_at_full(monkeypatch):
+    import server.engine.orchestration as orch
+    from server.engine.contracts import Allocation
+
+    def huge_charge(homes, frame, policy, mode, settings):
+        return Allocation({h.home_id: -50.0 for h in homes}, 0.0, frame.target_mw, ["charging"])
+
+    monkeypatch.setattr(orch, "allocate", huge_charge)
+    result, homes, _ = charge_cycle(0.2, soc_pct=99.0, **FAST)
+    assert all(h.soc_kwh <= h.capacity_kwh + 1e-9 for h in homes)
+    assert kinds(result, "clamped")
+
+
+def test_a_charging_home_is_never_handed_discharge_work(monkeypatch):
+    import server.engine.orchestration as orch
+    from server.engine.contracts import Allocation
+
+    def mixed(homes, frame, policy, mode, settings):
+        # One zone with both directions: Houston's discharge orders get lost and must move.
+        houston = [h for h in homes if h.zone == "Houston"]
+        per_home = {h.home_id: 1.0 for h in houston[:5]}
+        per_home.update({h.home_id: -1.0 for h in houston[5:]})
+        return Allocation(per_home, 0.005, frame.target_mw - 0.005, [])
+
+    monkeypatch.setattr(orch, "allocate", mixed)
+    result, _, _ = charge_cycle(0.2, seed=3, channel_drop_rate=0.5)
+    charging = {home_id for home_id, kw in result.allocation.per_home_kw.items() if kw < 0}
+    assert kinds(result, "reassigned"), "the seed should move some lost discharge work"
+    moved_to = {e["home_id"] for e in kinds(result, "reassigned")}
+    assert not moved_to & charging
+
+
+def test_a_battery_that_overstates_its_charge_is_booked_at_what_it_took():
+    p = charge_policy()
+    result, homes, before = charge_cycle(0.2, p=p, _misreport={"home-010": 2.0}, **FAST)
+    assert "charge_mismatch:1" in result.allocation.reasons
+    absorbed = sum(h.soc_kwh - before[h.home_id] for h in homes) * 60 / 5 / 1000
+    assert result.charged_mw == pytest.approx(absorbed)
+
+
+def test_zone_intent_books_discharge_and_charge_apart():
+    p = charge_policy("discharge", {"Houston": "discharge", "North": "charge"})
+    result, homes, before = charge_cycle(0.05, p=p, **FAST)
+    check_books(result, 0.05)
+    zone_of = {h.home_id: h.zone for h in homes}
+    assert result.credited_mw == pytest.approx(0.05)
+    assert {zone_of[h] for h in result.home_confirmed_kw} == {"Houston"}
+    north_took = sum(h.soc_kwh - before[h.home_id] for h in homes if h.zone == "North")
+    assert result.charged_mw == pytest.approx(north_took * 60 / 5 / 1000)
+    acks = zone_acks(homes, result)
+    assert acks["North"]["acked"] == 25
+
+
+def test_a_charging_battery_is_not_flagged_as_a_liar_by_the_feed():
+    from server.engine.telemetry import TelemetryState
+
+    quiet = {"telemetry_outage_rate": 0.0, "telemetry_dup_rate": 0.0,
+             "telemetry_late_rate": 0.0, "telemetry_liar_ids": ()}
+    s = settings(**quiet, **FAST)
+    homes = new_fleet(s)
+    state = TelemetryState(homes, s, 1)
+    for tick in (1, 2):
+        orchestrate_tick(homes, frame(0.2, tick=tick), charge_policy(), "AUTO", s, 100 + tick,
+                         telemetry=state)
+    assert not [i for i, hs in state.homes.items() if hs.suspect]

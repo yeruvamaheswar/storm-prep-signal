@@ -38,7 +38,7 @@ Requests left over from an earlier worker are not replayed; the page asks again.
 
 - A battery never sells below its floor. It refills only when the zone price is at or below `CHARGE_BELOW_USD` ($25), the same rule as the wall. At other prices a below-floor battery waits. The user chose this on 2026-09-26; there is no "refill at any price".
 - The worker clamps a charge order to `fleet.room_kw` = `min(max_kw, (capacity − soc) × 60 / tick_minutes)`, so a pack never fills past capacity. Charge is booked apart from delivery: `TickResult.charging_mw` and `zone_charging_mw`. It is never a breach.
-- Charge orders are retried but never reassigned. Telemetry reports `CHARGING` for negative power.
+- A charge order is sent once: never retried, never reassigned (kept from `main` #34 when this branch merged, chosen by the user on 2026-09-26). `CycleResult.charged_mw` (from #34) equals `charging_mw`. Telemetry reports `CHARGING` for negative power.
 - Detail of the controller side: `docs/agents/policy-intent.md` and `docs/agents/epic-3-controller.md`.
 
 ## Weather alerts

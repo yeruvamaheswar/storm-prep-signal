@@ -168,13 +168,21 @@ def status_suffixes(homes, policy):
 
 
 def home_caps(homes, policy, settings, down=frozenset()):
-    """The safe kW cap of every live home in a known zone whose grid is up, keyed by home_id."""
+    """The safe kW cap of every live home in a known zone whose grid is up and that still has headroom.
+
+    A home at or under its floor is left out. Assigning it discharge kW would
+    show DISCHARGING on the fleet table while the floor clamp gives it nothing
+    and breaches stays 0.
+    """
     caps = {}
     for home in homes:
         # Dead and stale homes get nothing: we don't send work to a home we can't hear from.
         if home.status != "live" or has_unknown_zone(home, policy) or home.zone in down:
             continue
-        caps[home.home_id] = round_down(safe_kw(home, policy, settings))
+        cap = round_down(safe_kw(home, policy, settings))
+        if cap <= 0:
+            continue
+        caps[home.home_id] = cap
     return caps
 
 

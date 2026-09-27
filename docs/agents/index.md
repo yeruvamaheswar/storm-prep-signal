@@ -48,3 +48,4 @@ Open this index, then the one file the task needs.
 | `telemetry-vpp.md` | You are changing the battery telemetry feed, per-home state, zone or plant rollups, grid-down backup, or charge planning |
 | `grid-flow.md` | You are changing the `/flow` page, the scenario session worker, scenario tapes, archived NWS alerts, JEV readings, or grid down |
 | `mode-stale-hold.md` | You are changing snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path |
+| `operator-settings.md` | You are changing the operator settings table, the mode POST persist, or how the live worker reads HOLD / AUTO |

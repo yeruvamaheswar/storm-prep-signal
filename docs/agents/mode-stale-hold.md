@@ -2,7 +2,7 @@
 
 **Decision (2026-09-26).** `GET /v1/snapshot` strips a stale `operator_hold` when it overlays a requested AUTO onto the last dispatched HOLD tick, and the wall reads an AUTO full miss with no reason codes as "next dispatch pending" instead of Hold. `POST /v1/fleet/mode` only flips the wall to Auto after the write succeeds.
 
-Open this file when you change snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path.
+Open this file when you change snapshot mode overlay, the fleet intent banner, or the Hold/Auto POST path. The shared HOLD / AUTO row is `docs/agents/operator-settings.md`.
 
 ## What the wall showed
 

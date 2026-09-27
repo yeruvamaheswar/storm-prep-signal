@@ -17,6 +17,7 @@ from server.api.archive import event_for_clock
 from server.api.feeds import FEED_EVENTS, list_feeds, serve_outage, serve_price
 from server.api.fixtures import LIVE_SCENES, FixtureStore
 from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offset, read_home, read_home_history, table_rollups
+from server.api.operator_settings import persist_mode, table_config
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
 from server.engine.fleet import current_rollups
 from server.engine.fleet_state import write_fleet_mode
@@ -251,6 +252,29 @@ def get_fleet_rollups():
         return current_rollups()
 
 
+def _current_floor():
+    # Snapshot/policy floor for the fleet table: TickResult.reserve_pct plus
+    # the per-zone override TickResult.zone_reserve_pct. None means no run
+    # file yet, so as_console_home falls back to BASE_RESERVE_PCT.
+    try:
+        run = load_latest_run()
+    except FileNotFoundError:
+        return None, None
+    ticks = run.get("ticks") if isinstance(run, dict) else None
+    if not ticks:
+        return None, None
+    last = ticks[-1] if isinstance(ticks[-1], dict) else {}
+    reserve = last.get("reserve_pct")
+    try:
+        reserve_pct = float(reserve) if reserve is not None else None
+    except (TypeError, ValueError):
+        reserve_pct = None
+    zone_reserve = last.get("zone_reserve_pct")
+    if not isinstance(zone_reserve, dict):
+        zone_reserve = None
+    return reserve_pct, zone_reserve
+
+
 @router.get("/homes")
 def get_homes(
     request: Request,
@@ -261,10 +285,15 @@ def get_homes(
     offset: int = 0,
 ):
     # public.homes when configured; console fixtures otherwise. Never 10k in one body.
+    # Floor comes from the snapshot tick so HIGH shows 60% (12 kWh on 20 kWh),
+    # not the hardcoded 30% (6.0 kWh). SOC is untouched: it rides the same
+    # emit upsert as assigned_kw.
     limit = page_limit(limit)
     offset = page_offset(offset)
+    reserve_pct, zone_reserve_pct = _current_floor()
     try:
-        return list_homes(zone=zone, status=status, q=q, limit=limit, offset=offset)
+        return list_homes(zone=zone, status=status, q=q, limit=limit, offset=offset,
+                          reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
     except HomesUnavailable:
         homes = _store(request).load("homes")
         if status is not None:
@@ -279,8 +308,9 @@ def get_homes(
 
 @router.get("/homes/{home_id}")
 def get_home(request: Request, home_id: str):
+    reserve_pct, zone_reserve_pct = _current_floor()
     try:
-        home = read_home(home_id)
+        home = read_home(home_id, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
     except HomesUnavailable:
         home = None
         for row in _store(request).load("homes"):
@@ -333,8 +363,10 @@ def post_mode(request: Request, body: ModeBody, x_operator_id: Optional[str] = H
     state = _state(request)
     if state.playback:
         raise ApiError(409, "playback_running", "Mode cannot change during playback.")
-    # Persist so the next allocate() and GET /v1/snapshot share this mode.
+    # Local file for this process; table so the laptop live worker sees it.
     write_fleet_mode(body.mode)
+    url, key, timeout_s = table_config()
+    persist_mode(body.mode, url=url, key=key, operator_id=x_operator_id, timeout_s=timeout_s)
     state.mode_requested = body.mode
     return {"mode_requested": body.mode}
 

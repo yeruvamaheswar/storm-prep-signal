@@ -140,12 +140,37 @@ def as_last_command(row):
     }
 
 
-def as_console_home(row):
-    """Console Home JSON, add-only. `zone` is the one new field."""
+def _floor_pct_for_zone(zone, reserve_pct=None, zone_reserve_pct=None):
+    # Snapshot/policy floor wins; a zone override wins for its own zone.
+    # None means no snapshot was available, so fall back to BASE_RESERVE_PCT.
+    if isinstance(zone_reserve_pct, dict) and zone in zone_reserve_pct:
+        try:
+            return float(zone_reserve_pct[zone])
+        except (TypeError, ValueError):
+            pass
+    if reserve_pct is not None:
+        try:
+            return float(reserve_pct)
+        except (TypeError, ValueError):
+            pass
+    return BASE_RESERVE_PCT
+
+
+def as_console_home(row, reserve_pct=None, zone_reserve_pct=None):
+    """Console Home JSON, add-only. `zone` is the one new field.
+
+    Floor comes from the snapshot/policy reserve_pct, with a per-zone
+    override when zone_reserve_pct names this home's zone. BASE_RESERVE_PCT
+    is only the fallback when no snapshot is available. SOC is copied from
+    the row as-is: the row already carries the emit upsert's soc_kwh next to
+    assigned_kw (see scripts/stream_telemetry.py rows_for_homes), so this
+    function never invents a charge number.
+    """
     capacity = _as_float(row.get("capacity_kwh"))
     soc = _as_float(row.get("soc_kwh"))
     status = row.get("status") or "live"
-    floor = capacity * BASE_RESERVE_PCT / 100
+    pct = _floor_pct_for_zone(row.get("zone"), reserve_pct, zone_reserve_pct)
+    floor = capacity * pct / 100
     skip = None
     if status in ("stale", "dead", "unconfirmed"):
         skip = status
@@ -169,7 +194,26 @@ def as_console_home(row):
     zone = row.get("zone")
     if zone:
         home["zone"] = zone
+    _hold_below_floor(home)
     return home
+
+
+def _hold_below_floor(home):
+    """A stored DISCHARGING label on a home under the floor is stale.
+
+    The engine clamp does not count that home as a breach, so the table must
+    not keep the discharge. Charge (power below 0) is left as stored.
+    """
+    if home["soc_kwh"] >= home["floor_kwh"]:
+        return
+    power = home["power_kw"]
+    discharging = home["charge_state"] == "DISCHARGING" or (power is not None and power > 0)
+    if discharging:
+        home["charge_state"] = "HOLDING"
+        home["assigned_kw"] = 0.0
+        home["power_kw"] = 0.0
+    elif home["assigned_kw"] > 0:
+        home["assigned_kw"] = 0.0
 
 
 def _table_get(table, params, settings=None, http_get=None, extra_headers=None):
@@ -319,7 +363,8 @@ def exact_count(params, settings=None, http_get=None):
     return _content_range_total(reply)
 
 
-def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings=None, http_get=None):
+def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings=None, http_get=None,
+             reserve_pct=None, zone_reserve_pct=None):
     params = {
         "select": HOME_SELECT,
         "order": "home_id.asc",
@@ -333,10 +378,11 @@ def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings
     needle = SEARCH_SAFE.sub("", q or "")
     if needle:
         params["home_id"] = f"ilike.*{needle}*"
-    return [as_console_home(row) for row in fetch_home_rows(params, settings=settings, http_get=http_get)]
+    return [as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+            for row in fetch_home_rows(params, settings=settings, http_get=http_get)]
 
 
-def read_home(home_id, settings=None, http_get=None):
+def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_reserve_pct=None):
     rows = fetch_home_rows(
         {"select": HOME_SELECT, "home_id": f"eq.{home_id}", "limit": "1"},
         settings=settings,
@@ -344,7 +390,7 @@ def read_home(home_id, settings=None, http_get=None):
     )
     if not rows:
         return None
-    home = as_console_home(rows[0])
+    home = as_console_home(rows[0], reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
     # Fill last_command from the newest command. A missing history table or
     # missing config keeps null instead of raising, so the home still returns.
     try:

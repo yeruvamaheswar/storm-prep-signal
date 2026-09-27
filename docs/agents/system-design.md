@@ -90,7 +90,7 @@ flowchart TB
   end
 
   FILES[("Local files<br/>tapes/, data/, var/")]
-  SB[("Supabase<br/>ercot_postings, ercot_prices, runs, homes")]
+  SB[("Supabase<br/>ercot_postings, ercot_prices, runs, homes, operator_settings")]
   ERCOT["ERCOT API"]
 
   SCRIPTS --> SB
@@ -105,13 +105,14 @@ flowchart TB
   SESSION -->|"one tick per step"| ENGINE
   SESSION <-->|"var/scenario/: requests in, state out"| FILES
   ENGINE -->|"run file, every tick"| FILES
-  ENGINE <-->|"var/fleet/homes.json, live runs only, save once after the last tick"| FILES
+  ENGINE <-->|"var/fleet/homes.json, live runs only, save after every tick"| FILES
   ENGINE -.->|"--persist"| SB
   FILES --> API
   SB --> API
   ERCOT -->|"Live fallback"| API
   API -->|"/v1 JSON"| WALL
   WALL -->|"POST /v1/fleet/mode"| API
+  API -.->|"operator_settings"| SB
 ```
 
 | Part | Job | Never does |
@@ -182,7 +183,7 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events. |
 | `Policy` | The floors (fleet and per zone), the reason, the risk level, the intent. |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -194,7 +195,8 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | `data/` | Baselines, saved storm fixtures, evidence (`margin_check.json`), replay CSVs under `data/events/`, archived NWS alerts (`fixtures/nws/`) and their JEV shadow readings (`fixtures/jev/`). | Committed, except raw zips |
 | `var/runs/` | Run files. The source of truth. | Local, gitignored |
 | `var/logs/` | One JSONL event log per run, 7 fields per line. | Local, gitignored |
-| `var/state.json` | Operator mode, `AUTO` or `HOLD`, shared by the API and the live engine. | Local, gitignored |
+| `var/state.json` | Operator mode, `AUTO` or `HOLD`, local cache for this process. | Local, gitignored |
+| Supabase `operator_settings` | One fleet-wide HOLD / AUTO row so Render and the laptop worker share the mode. | Remote, optional |
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
 | `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
 | `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
@@ -228,11 +230,11 @@ How the mode is chosen and what each shows: [runtime-mode.md](runtime-mode.md).
 | A home goes dead or stale | It gets 0 kW. Reasons `homes_dead:n`, `homes_stale:n`. The rest keep working. | `controller.py` |
 | Not enough headroom | Target missed, reason `fleet_headroom_short` or `storm_reserve`. Never a breach. | `controller.py` |
 | An order or a home's answer is lost on the simulated network | Retry at 60 s with the same id, reassign the work to another home, close at 120 s. An order never answered is `unconfirmed` and not counted as delivered; reasons such as `timed_out:n`. | `orchestration.py`, `channel.py` |
-| Operator presses HOLD | 0 kW to every home, reason `operator_hold` | `controller.py`, `fleet_state.py` |
+| Operator presses HOLD | 0 kW to every home, reason `operator_hold`. The wall writes `var/state.json` and `public.operator_settings`; the live worker hydrates the table onto the local file before allocate. | `controller.py`, `fleet_state.py`, `operator_settings.py` |
 | Weather warning names an unknown zone | Ignored, reason `unknown_weather_zone`, logged | `loop.py` |
 | A zone's grid is down (`events["grid_down"]`) | Its homes get 0 kW both ways and back up their own homes; reason `grid_down:<zone>`. An unknown zone name stops the tick with `ValueError`. | `controller.py`, `orchestration.py` |
 | `/flow` scenario worker not running, or a tick fails | The page says the worker is not running (state older than 10 s), or names the failed tick and stops playback; the worker keeps serving. | `scenario.py`, `scenario_session.py` |
-| Supabase down or unset | Engine unaffected. Writes print `..._skipped`. Live falls back to ERCOT; archive Demo fails safe. | `persist_run.py`, `archive.py` |
+| Supabase down or unset | Engine unaffected. Writes print `..._skipped`. Live falls back to ERCOT; archive Demo fails safe. Mode stays on the local `var/state.json` of the process that wrote it. | `persist_run.py`, `archive.py`, `operator_settings.py` |
 | API unreachable | Wall shows `api down · <reason>`. If Live never got a first snapshot, the wall falls back to Demo. | `web/src/api/health.ts`, `runtimeMode.ts` |
 | API restarts (Render free plan sleeps) | In-memory state resets. `var/` is empty on a fresh Render instance, so the API reads Supabase `runs`, then `layout-run.json`. | `snapshot.py` |
 

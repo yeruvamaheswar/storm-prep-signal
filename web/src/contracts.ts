@@ -25,8 +25,15 @@ export type TickResult = {
   zone_acks?: Record<string, ZoneAckCounts>
   /** Simulated battery feed rollups; empty objects when TELEMETRY_FEED=0. */
   plant?: Record<string, unknown>
-  feed?: Record<string, unknown>
   zone_telemetry?: Record<string, Record<string, unknown>>
+  /** The snapshot bundles plant and the engine's feed counts here. `feed` stays the ERCOT text. */
+  telemetry?: TickTelemetry
+}
+
+/** Built from battery reports only (docs/agents/telemetry-vpp.md). All numbers are synthetic. */
+export type TickTelemetry = {
+  plant: { homes: { total: number; live: number; suspect: number } }
+  readings: { received: number; accepted: number; duplicates: number; late: number }
 }
 
 export type ZoneAckCounts = {

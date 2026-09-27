@@ -1018,6 +1018,44 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/price-live.md`, `docs/humans/price-live.md`, `docs/agents/code-flow.md`, `docs/agents/PROJECT_CONTEXT.md`.
 - Tests: 10 in `tests/test_live_zone_prices.py`. `pytest -q`: 511 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
 
+## 2026-09-26: Persist operator HOLD / AUTO for the live worker
+
+- Named gap: Hold/Auto lived only in `var/state.json`. The wall on Render and the laptop `live_cycle` worker do not share that file, so a wall HOLD never reached `allocate()`.
+- `supabase/migrations/20260926_operator_settings.sql`: one-row `public.operator_settings` (`id=fleet`, `AUTO`|`HOLD`). No default insert. RLS on, no policies.
+- `POST /v1/fleet/mode` still writes `var/state.json`, then best-effort upserts the table. `scripts/live_cycle.py` hydrates the table onto the local file before `loop.run()`, so HOLD delivers 0 on the next tick. The engine never imports Supabase. Empty or failed table leaves the local file.
+- Tests: `tests/test_operator_settings.py`; `tests/test_live_cycle.py` table HOLD overrides local AUTO; `tests/test_server.py` POST upsert. `pytest -q`: 563 passed. Notes: `docs/agents/operator-settings.md`, `docs/humans/operator-settings.md`.
+
+## 2026-09-26: Battery telemetry line on the wall (Rajat)
+
+- `server/api/snapshot.py`: `_with_telemetry` bundles the engine tick's `plant` and `feed` dict as `telemetry: {plant, readings}` (unscaled) and moves the dict off `feed`, which stays the ERCOT status text. One call on the loaded tick covers Live, Archive and fail-safe.
+- Wall: `telemetryLine.ts` builds `Battery reports: 69 of 100 live · 1 suspect · 2,930 of 3,005 readings accepted (synthetic)`, shown under the Worker acks caption in `AckRail.tsx`. Hidden with no telemetry or a missing count; suspect in `--dead` only above 0. `contracts.ts`: removed the clashing `feed?: Record`, added `telemetry?: TickTelemetry`.
+- Demo: `layout-run.json` ticks 1 to 9 carry `telemetry` from an engine run of `tapes/demo.json` (feed on, 100 homes). Ticks 10 to 12 have none: the file was hand-edited off the tape there. Detail: `docs/agents/wall-snapshot.md#battery-telemetry-line`.
+- Docs: `wall-snapshot.md`, `telemetry-vpp.md` (Asks), `code-flow.md` (web diagram, snapshot step 2, limits), `system-design.md` (`TickResult` row).
+- Tests: 3 in `tests/test_snapshot_telemetry.py`, 7 in `web/tests/telemetryLine.test.ts`. `pytest -q`: 566 passed after merging main (with the 25 kWh / 11.4 kW pack from `.env.example`). Web: 257 passed; `tsc --noEmit` clean.
+
+## 2026-09-26: Charge orders run safely in the runtime (Rajat's lane)
+
+- Found after PR #31: a charge tick (negative kW) went through `orchestrate_tick` as if it were delivery. One 0.2 MW call booked credited -0.515 MW and missed 0.715 MW; with a lossy channel, retries and reassignments charged homes past full (824 cases over 39 seeds). No test set `intent` to charge, so CI stayed green. Live runs charge when the LZ price is at or below $25/MWh.
+- `fleet.room_kw` (room to full, capped by `max_kw`). `HomeWorker.run` caps charge at it (second guard, logs `clamped`); breaches count discharge only, so charging a home under a newly raised floor is not a breach.
+- `orchestration.py`: charge commands sit in `ZoneSupervisor.charges`, sent once, never timed out, retried or reassigned; a home with a charge order is never picked for reassigned work. Reports log `charge_confirmed`. The charge-drop check books the amount nearer zero. Add-only `CycleResult.charged_mw` (positive MW absorbed). Charge stays out of planned, confirmed, credited, `home_confirmed_kw` and rollups; telemetry gets it as negative confirmed kW, so a charging battery is not flagged suspect.
+- Docs: `docs/agents/policy-intent.md` ("How a charge tick runs").
+- Tests: 9 in `tests/test_orchestration.py`; `tests/test_invariants.py` now draws fleet and per-zone intents (own seeded stream) and checks never past full, `charged_mw` never above what homes took, and that dead or stale homes never move. Demo 0.164/0.317, failures 0.146/0.317, Heather 0.589/2.417 MWh: unchanged. `pytest -q` after merging main: 573 passed, 2 failed locally; the 2 are the fleet-cap meta tests, which read a local `.env` still pinned to the old 20 kWh / 5 kW pack (they also fail on main with that `.env`). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
+## 2026-09-26: Homes under the floor show HOLDING
+
+- Named gap: the fleet table showed SOC 0.5–1.4 kWh against a 6.0 kWh floor with charge state DISCHARGING, while `TickResult.breaches` stayed 0.
+- A live run still loads `var/fleet/homes.json` when its length matches `FLEET_SIZE`. `home_caps` and `discharge` skip headroom at or under 0, and a discharge order is not sent to a real battery that cannot fill it. `tick_emit` and `GET /v1/homes` write those rows as HOLDING with assigned 0 and power 0. Charge is unchanged. A live run writes `homes.json` after every tick so the drain is what the next load reads. Tape replays still do not touch that file.
+- `pytest -q` was not run.
+
+## 2026-09-26: One end-to-end test per tick path (Rajat's lane)
+
+- `tests/test_tick_paths.py`: 20 tests, each one real `loop.run` tick (storm rule, price intent, `allocate`, `orchestrate_tick`, scoreboard, run file); a spy only keeps each tick's fleet copy and `CycleResult`. Settings pinned in the test (100 homes, 25 kWh / 11.4 kW, feed on), so a local `.env` cannot change the answer. `-s` prints one line per path.
+- Paths: hold / discharge / charge / no price on a calm day; storm, storm + cheap, missing signal, one-zone weather alert; operator HOLD, zero target, call too big; dead and stale homes, a whole zone dead; lost, duplicated and late messages, crashing homes, lying homes, short delivery; charge then discharge across two ticks.
+- Every tick also checks: 0 breaches, delivered + missed = target, no home past full, no home that gave charge ends under its floor, non-live homes never move, every home once in `zone_acks`, run file = returned record.
+- Seen: a charge tick draws the fleet's full 1.14 MW while the call asks 0.2 MW, storm or not (rules hold; a product question). With every report late, the fleet gives 0.2 MW and 0 is credited (honest books by design). The feed's planted liar (`home-042`, seed 1) is caught on a charge tick; no honest charging battery is flagged.
+- Not reachable end to end: per-zone `zone_intent` (no `Policy` field, `loop.py` never sets it); `TickResult` has no `charged_mw`.
+- `pytest -q`: 593 passed, 2 failed locally (the fleet-cap meta tests read a local `.env` pinned to the old pack). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
+
 ## 2026-09-26: Grid flow page (`/flow`), tracer
 
 - `scripts/scenario_session.py` (new laptop worker) and `server/engine/scenario.py` (`Session`): one tick per step through `loop.play_frame` with a seeded fleet (100 homes, starting charge uniform 10–95%). `server/api/scenario.py`: `GET /v1/scenarios`, `/v1/scenario/state`, POST `start`, `reset`, `play`, `speed`; POSTs only append to `var/scenario/requests.json`.
@@ -1045,3 +1083,7 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Docs: `docs/agents/grid-flow.md`, `docs/humans/grid-flow.md`, index row, `code-flow.md`, `system-design.md`, `epics.md` (agents and humans).
 - `pytest -q`: 613 passed. `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches. Web: `tsc --noEmit` clean, vitest 267 passed.
 - Plan audit afterwards found two gaps, now filled. The per-zone contribution bar was missing: `ZoneContribution.tsx` shows each zone's homes selling, charging, keeping backup, idle, or grid down, with labeled MW and its share of fleet delivery. And the "Overlays (hand-placed)" panel said "None" during withheld postings, faults, and HOLD; it now shows the tick's overlay text from the sidecar. Web: `tsc` clean, vitest 272 passed.
+
+## 2026-09-26: Grid flow merged with main
+
+- Merged `origin/main` (#32–#37) into `feature/grid-flow`. Charge orders follow main #34: sent once, never retried or reassigned (the user chose this; the branch's retry test was dropped). Charges live in `ZoneSupervisor.charges`; `close()` books `home_charged_kw` from that list. `CycleResult.charged_mw` (main) and `charging_mw` (this branch) are set from the same number. `home_caps` keeps both the grid-down skip and main's zero-headroom skip. The invariant check on per-home charge books now reads `charge_confirmed` events.

@@ -296,8 +296,9 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
 
     Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → TickResult.
     Only live=True carries SOC between runs: it loads var/fleet/homes.json when its length matches
-    fleet_size (else reseeds) and saves it once after the last tick. A tape or synthetic replay
-    starts from new_fleet and never reads or writes that file, so two replays give the same totals.
+    fleet_size (else reseeds) and saves it after every tick, so a drained home is what the next
+    tick and the fleet table read. A tape or synthetic replay starts from new_fleet and never
+    reads or writes that file, so two replays give the same totals.
     """
     settings = with_fleet_defaults(settings)
     run_id = start_run(log_dir)
@@ -346,7 +347,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         # Whole-fleet controller emit for writers: confirmed kW only, null when unsent.
         emit_path = fleet_emit_path(runs_dir)
         emit_path.parent.mkdir(parents=True, exist_ok=True)
-        emit_path.write_text(json.dumps(build_tick_emit(frame, homes, cycle)))
+        emit_path.write_text(json.dumps(build_tick_emit(frame, homes, cycle, policy)))
         record = {
             "run_id": run_id,
             "tape": str(tape_path) if tape_path else "synthetic",
@@ -358,9 +359,10 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         }
         # Each cycle, so /runs/latest.json and /v1/snapshot stay aligned during --live.
         write_run_files(runs_dir, run_id, record)
-
-    if live:
-        persist_discharged_homes(homes, fleet_path)
+        # Write the drained SOC this tick. The next live process loads this file,
+        # and a reader of homes.json sees the drain before the run ends.
+        if live:
+            persist_discharged_homes(homes, fleet_path)
 
     if not ticks:
         record = {
