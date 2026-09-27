@@ -1,5 +1,5 @@
 import { reasonLabel, type Point } from "../flow/flowMath"
-import type { BatteryState, FlowHome, OrderTimelineEntry } from "../flow/types"
+import type { ActiveAlert, BatteryState, FlowHome, OrderTimelineEntry } from "../flow/types"
 import { keyMoments } from "./keyMoments"
 import { NOT_REPORTED } from "./format"
 import { OPERATOR_HOLD_TEXT, isOperatorHold, planNotLive } from "./reasonCodes"
@@ -217,19 +217,35 @@ export function underFloorWords(why: FlowHome["under_floor_why"]): string {
   return ""
 }
 
+/** The home's county floor reason in words. A county a sent alert names (`alerts[].named_counties`) with reason
+ * `weather_alert` reads "Named in the {event} (storm reserve)"; anything else is its reason label, e.g.
+ * "County not named by the alert (base floor)". Empty when the home reports no floor reason. */
+export function homeFloorWords(
+  home: Pick<FlowHome, "floor_reason" | "county">,
+  alerts?: readonly ActiveAlert[] | null,
+): string {
+  if (!home.floor_reason) return ""
+  if (home.floor_reason === "weather_alert" && home.county) {
+    const alert = alerts?.find((sent) => sent.named_counties?.some((county) => county.fips === home.county))
+    if (alert?.event) return `Named in the ${alert.event} (storm reserve)`
+  }
+  return reasonLabel(home.floor_reason)
+}
+
 /** Why a home got no order. An operator HOLD sends nothing (controller.py); a home the planner saw as stale or
  * dead gets nothing; since #41 a live home under its floor always refills, so one that did not names that.
  * Empty when nothing reported gives a reason. */
 export function notAskedReason(
-  home: Pick<FlowHome, "state" | "under_floor_why" | "plan_status" | "floor_reason">,
+  home: Pick<FlowHome, "state" | "under_floor_why" | "plan_status" | "floor_reason" | "county">,
   mode?: string | null,
+  alerts?: readonly ActiveAlert[] | null,
 ): string {
   if (isOperatorHold({ mode })) return OPERATOR_HOLD_TEXT
   if (planNotLive(home)) return `${NO_FRESH_READING}.`
   if (home.state === "at_floor") return "Its charge is at its floor, so it keeps it all for backup."
   if (home.state === "reserved") {
-    // #47: what raised it (e.g. "NWS alert, JEV yes"), from the home's own county floor reason.
-    const by = home.floor_reason ? ` (${reasonLabel(home.floor_reason)})` : ""
+    // What raised it (e.g. "Named in the Tropical Storm Warning (storm reserve)"), from its county floor reason.
+    const by = home.floor_reason ? ` (${homeFloorWords(home, alerts)})` : ""
     return `Its floor was raised${by}, so it keeps its energy for backup.`
   }
   if (home.state === "below_floor") {

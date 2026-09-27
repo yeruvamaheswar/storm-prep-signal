@@ -2,11 +2,9 @@ import type { FlowRequest } from "./api"
 import type {
   ActiveAlert,
   BatteryState,
-  CountyJev,
   FlowCounty,
   FlowHome,
   FlowZoneRow,
-  JevDecision,
   NamedCounty,
   Provenance,
   SessionState,
@@ -180,9 +178,6 @@ export const REASON_LABEL: Record<string, string> = {
   storm_risk_high: "ERCOT outage rule HIGH",
   weather_alert: "NWS weather alert",
   signal_unavailable: "Outage report unreadable (fail safe)",
-  weather_alert_jev_yes: "NWS alert, JEV yes",
-  weather_alert_no_jev: "NWS alert, no JEV reading (fail safe)",
-  jev_no: "NWS alert, JEV no (base floor)",
   not_in_alert: "County not named by the alert (base floor)",
 }
 
@@ -250,29 +245,6 @@ export function countyFloorNote(group: CountyGroup, zoneReason: string | undefin
 /** The roster counties an alert names, in the roster order the worker sends. */
 export function namedCountyRows(alert: ActiveAlert): NamedCounty[] {
   return alert.named_counties ?? []
-}
-
-export type AlertCountyRow = CountyJev & { fips: string }
-
-/** An alert's per-county JEV decisions in roster order (FIPS keys would otherwise sort numerically). */
-export function alertCountyRows(alert: ActiveAlert, counties: FlowCounty[]): AlertCountyRow[] {
-  const byFips = alert.jev_by_county ?? {}
-  const rank = new Map(counties.map((county, i) => [county.fips, i]))
-  return Object.keys(byFips)
-    .sort((a, b) => (rank.get(a) ?? counties.length) - (rank.get(b) ?? counties.length))
-    .map((fips) => ({ fips, ...byFips[fips] }))
-}
-
-const JEV_FLOOR_WORDS: Record<JevDecision, string> = {
-  raise: "storm reserve",
-  keep_base: "base floor",
-  raise_no_reading: "storm reserve (fail safe)",
-}
-
-/** The floor a county's JEV decision gave: "60%", "30%", "60% (fail safe)"; words when the tick has no number yet. */
-export function jevFloorText(decision: JevDecision, pct: number | undefined): string {
-  if (typeof pct !== "number") return JEV_FLOOR_WORDS[decision] ?? decision
-  return decision === "raise_no_reading" ? `${pct}% (fail safe)` : `${pct}%`
 }
 
 export function fmtMw(mw: number | null | undefined, digits = 3): string {

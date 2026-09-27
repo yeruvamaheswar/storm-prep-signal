@@ -236,14 +236,6 @@
   font-weight: 700;
 }
 
-/* Task 12 (#47): an NWS alert JEV said no to. Muted words only: no weather, no amber, the floor did not move. */
-.replay-chip-jev-no {
-  display: block;
-  margin-top: 4px;
-  color: var(--rg-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
 
 .replay-crumb {
   left: 320px;
@@ -1156,7 +1148,7 @@
   opacity: 0.6;
 }
 
-/* About this data: labelled start-charge bins, JEV reading, zone shares, session log. */
+/* About this data: labelled start-charge bins, alert counties, zone shares, session log. */
 .replay-hist {
   gap: 3px;
   height: 110px;
@@ -1196,14 +1188,14 @@
   text-align: center;
 }
 
-.replay-jev {
+.replay-alert-counties {
   margin-top: 8px;
   padding: 10px 12px;
   border-radius: var(--rg-list-radius);
   background: var(--rg-clay-tile);
 }
 
-.replay-jev .replay-jev-title {
+.replay-alert-counties .replay-alert-counties-title {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
@@ -1278,7 +1270,7 @@
   color: var(--rg-focus);
 }
 
-/* About this data: county floors under their zone, and the per-county JEV gate table. */
+/* About this data: county floors under their zone, and the per-county alert table. */
 .replay-data-row.is-sub {
   padding: 3px 0;
 }
@@ -1286,12 +1278,6 @@
 .replay-data-row.is-sub dt {
   padding-left: 14px;
   font-weight: 500;
-}
-
-.replay-jev .replay-jev-sub {
-  margin: 10px 0 0;
-  font-size: 12.5px;
-  font-weight: 700;
 }
 
 .replay-county-table {

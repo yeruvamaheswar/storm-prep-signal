@@ -222,7 +222,7 @@ describe("flow views", () => {
 
 describe("weather step (grid-down overlay)", () => {
   const beryl = { id: "beryl-hurricane-warning", event: "Hurricane Warning", zones: ["Houston"] }
-  const sent: ActiveAlert = { ...beryl, sent_at_tick: 3, jev: null }
+  const sent: ActiveAlert = { ...beryl, sent_at_tick: 3 }
   function stepState(alerts: ActiveAlert[], down: string[]) {
     return {
       alerts, grid_down_zones: down,
@@ -303,7 +303,7 @@ describe("alert county floor", () => {
     home("home-006", "48201", "Harris", 30, "not_in_alert"),
   ]
   const freeze: ActiveAlert = {
-    id: "heather-harris-hard-freeze-warning", event: "Hard Freeze Warning", zones: ["Houston"], sent_at_tick: 2, jev: null,
+    id: "heather-harris-hard-freeze-warning", event: "Hard Freeze Warning", zones: ["Houston"], sent_at_tick: 2,
     named_counties: [
       { fips: "48157", county_name: "Fort Bend", zone: "Houston" },
       { fips: "48167", county_name: "Galveston", zone: "Houston" },

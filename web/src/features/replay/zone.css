@@ -36,14 +36,6 @@
   width: fit-content;
 }
 
-/* Task 12 (#47): an NWS alert JEV said no to. Muted words only: the floor did not move. */
-.zone-jev-no {
-  margin: 10px 0 0;
-  color: var(--rg-muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .zone-grain {
   position: absolute;
   inset: 0;
