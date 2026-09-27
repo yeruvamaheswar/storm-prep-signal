@@ -464,13 +464,19 @@ export function readHomesSource(headers: { get(name: string): string | null }): 
   return { source, fleetSize: headerInt(headers.get("x-fleet-size")), total: headerInt(headers.get("x-homes-total")) }
 }
 
-/** Supabase: the live fleet, N of FLEET_SIZE. Fixture: sample rows, never called live. */
+/** Supabase: the live fleet, N of FLEET_SIZE. Fixture: sample rows, never called live.
+ *  A full page (LIVE_LIMIT rows) with more fleet homes than that says only the first ones are shown. */
 export function liveFleetNote(src: HomesSource, rows: number): string {
   if (src.source === "fixture") {
     return `${rows === 1 ? "1 sample row" : `${rows} sample rows`} (no Supabase connection), not live data.`
   }
   if (src.source === "supabase" && src.fleetSize !== null) {
-    return `${fleetLabel(src.fleetSize)}. Live fleet from Supabase: ${src.total ?? rows} of ${src.fleetSize} homes.`
+    const label = `${fleetLabel(src.fleetSize)}. Live fleet from Supabase:`
+    const cut = rows >= LIVE_LIMIT && (src.total ?? src.fleetSize) > rows
+    if (!cut) return `${label} ${src.total ?? rows} of ${src.fleetSize} homes.`
+    return src.total === null
+      ? `${label} the first ${LIVE_LIMIT} homes shown.`
+      : `${label} ${src.total} of ${src.fleetSize} homes, the first ${LIVE_LIMIT} shown.`
   }
   return liveSourceNote(rows)
 }

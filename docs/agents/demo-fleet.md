@@ -34,5 +34,5 @@
 ## Fleet page (`web/src/features/fleetgrid/`)
 
 - Opens on Scenario when `GET /v1/scenario/state` answers and is not `worker_not_running`, else Live. A click before that check wins.
-- Source note: `100-home demo fleet. Live fleet from Supabase: N of 100 homes.` or `3 sample rows (no Supabase connection), not live data.`; Scenario: `100-home demo fleet. Scenario: …`. The size comes from `X-Fleet-Size` or the scenario's home count, never a constant.
+- Source note: `100-home demo fleet. Live fleet from Supabase: N of 100 homes.` or `3 sample rows (no Supabase connection), not live data.`; Scenario: `100-home demo fleet. Scenario: …`. The size comes from `X-Fleet-Size` or the scenario's home count, never a constant. When the page is full (`LIVE_LIMIT` 200 rows) and the fleet has more homes, the note says so: `… 500 of 500 homes, the first 200 shown.`
 - Four regions, each titled `Houston · 25 homes · 5 counties`, with a `Split by county` toggle (`aria-pressed`). Split regions show one block per roster county, `Harris County (48201) · 5 homes`, including counties with 0 homes. The choice lives in `?split=Houston,North`.

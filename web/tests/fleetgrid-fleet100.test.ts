@@ -41,6 +41,17 @@ describe("fleet size and source notes", () => {
       .toBe("100-home demo fleet. Live fleet from Supabase: 98 of 100 homes.")
   })
 
+  it("says only the first 200 are shown when the page is full (fix 1, M3)", () => {
+    // FLEET_SIZE 500: the table has all 500, GET /v1/homes?limit=200 returns 200 of them.
+    expect(liveFleetNote({ source: "supabase", fleetSize: 500, total: 500 }, 200))
+      .toBe("500-home demo fleet. Live fleet from Supabase: 500 of 500 homes, the first 200 shown.")
+    expect(liveFleetNote({ source: "supabase", fleetSize: 500, total: null }, 200))
+      .toBe("500-home demo fleet. Live fleet from Supabase: the first 200 homes shown.")
+    // Exactly 200 homes, all shown: nothing is hidden, so no caveat.
+    expect(liveFleetNote({ source: "supabase", fleetSize: 200, total: 200 }, 200))
+      .toBe("200-home demo fleet. Live fleet from Supabase: 200 of 200 homes.")
+  })
+
   it("never calls the fixture fallback live", () => {
     const note = liveFleetNote({ source: "fixture", fleetSize: 100, total: null }, 3)
     expect(note).toBe("3 sample rows (no Supabase connection), not live data.")
