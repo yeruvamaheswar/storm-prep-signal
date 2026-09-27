@@ -91,6 +91,37 @@ describe("fromScenarioHomes", () => {
   })
 })
 
+describe("a home the planner treated as stale does not read as live (Task 12: W5)", () => {
+  // Real heather tick 74 row (merged engine, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25): the engine's home is live,
+  // but the reading the planner used was stale, so it got no refill order.
+  const row: FlowHome = {
+    id: "home-012", name: "West-TomGreen-012", zone: "West", county: "48451", county_name: "Tom Green", soc_pct: 52.0, soc_before_pct: 52.0,
+    kw: 0.0, state: "below_floor", status: "live", floor_pct: 60.0, floor_reason: "storm_risk_high", under_floor_why: "floor_raised", plan_status: "stale",
+  }
+
+  it("says no fresh reading, so no order, with the stale look", () => {
+    const [h] = fromScenarioHomes([row])
+    expect(h.planStale).toBe(true)
+    expect(h.action).toBeNull()
+    expect(nowText(h)).toBe("No fresh reading, so no order")
+    expect(shortState(h)).toBe("No fresh reading")
+    expect(cellLook(h).fill).toBe("var(--rg-not-counted)")
+    expect(cellLook(h).dash).toBe("4 3")
+    // Its status is still the engine's: it counts as live, and its charge really is under its floor.
+    expect(matchesFilter(h, "live")).toBe(true)
+    expect(isUnderFloor(h)).toBe(true)
+  })
+
+  it("a live plan, or no plan_status from an older worker, reads as before", () => {
+    const [live] = fromScenarioHomes([{ ...row, plan_status: "live" }])
+    expect(live.planStale).toBe(false)
+    expect(nowText(live)).toBe("Under its floor, holding")
+    const { plan_status: _p, ...old } = row
+    expect(fromScenarioHomes([old])[0].planStale).toBe(false)
+    expect(fromLiveRows(liveRows).every((h) => h.planStale === false)).toBe(true)
+  })
+})
+
 describe("filter counts", () => {
   it("counts each filter from the loaded homes and All is the real total", () => {
     const counts = filterCounts(homes)

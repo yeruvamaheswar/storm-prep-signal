@@ -52,10 +52,23 @@ export function ZonePanel({ zone, homes, orders, tick, tSeconds }: Props) {
         <span>{summary.openLabel}</span>
         <b className="is-muted">{kwText(summary.openKw)}</b>
       </div>
+      {tick?.mode === "HOLD" ? <p className="replay-note">Operator hold: no orders this tick.</p> : null}
       <div className="zone-row">
         <span>Not asked, at their floor</span>
         <b>{homesText(summary.notAskedAtFloor)}</b>
       </div>
+      {summary.notAskedUnderFloor ? (
+        <div className="zone-row">
+          <span>Not asked, under their floor</span>
+          <b>{homesText(summary.notAskedUnderFloor)}</b>
+        </div>
+      ) : null}
+      {summary.notAskedNoReading ? (
+        <div className="zone-row">
+          <span>Not asked, no fresh reading</span>
+          <b>{homesText(summary.notAskedNoReading)}</b>
+        </div>
+      ) : null}
       {summary.notAskedOther ? (
         <div className="zone-row">
           <span>Not asked, other reasons</span>

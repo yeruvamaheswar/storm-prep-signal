@@ -138,6 +138,7 @@ export function ReplayPage({
           orders={session?.orders}
           tSeconds={tSeconds}
           tickMinutes={session?.tick_minutes}
+          mode={session?.tick?.mode}
           onClose={onCloseHome ?? (() => {})}
         />
       ) : (

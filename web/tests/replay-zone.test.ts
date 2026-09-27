@@ -10,7 +10,8 @@ import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { ZonePanel } from "../src/features/replay/ZonePanel"
 import { OrderPaths } from "../src/features/replay/OrderPaths"
 import {
-  askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, orderPath, storyHomes, trustMarks, zoneLots, zonePaths, zoneSummary,
+  askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, notAskedLabel, notAskedReason, orderPath, storyHomes,
+  trustMarks, zoneLots, zonePaths, zoneSummary,
 } from "../src/features/replay/zoneModel"
 
 // Real tick-3 order timelines for the 12 North homes that got an order (failures tape, seed 1), as in mockup/Zone.dc.html.
@@ -420,5 +421,98 @@ describe("fix round 1", () => {
     expect(early).toContain('<div class="zone-step later"><span class="tm">1:00</span><span>Order sent: 0.97 kW')
     const later = renderToStaticMarkup(createElement(HomePanel, { homeId: "home-003", home, orders, tSeconds: 90, onClose: () => {} }))
     expect(later).toContain('<p class="replay-label">Asked</p><p class="v">0.97 kW</p>')
+  })
+})
+
+// Real rows from the merged engine (in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25).
+// heather tick 74, West: the planner saw home-012 as stale (plan_status), so it got no refill; the rest of West refilled.
+const west74: FlowHome[] = [
+  { id: "home-004", name: "West-Midland-004", zone: "West", county: "48329", county_name: "Midland", soc_pct: 33.8, soc_before_pct: 30.0,
+    kw: -11.4, state: "charging", status: "live", floor_pct: 60.0, floor_reason: "storm_risk_high", under_floor_why: "floor_raised", plan_status: "live" },
+  { id: "home-008", name: "West-Ector-008", zone: "West", county: "48135", county_name: "Ector", soc_pct: 33.8, soc_before_pct: 30.0,
+    kw: -11.4, state: "charging", status: "live", floor_pct: 60.0, floor_reason: "storm_risk_high", under_floor_why: "floor_raised", plan_status: "live" },
+  { id: "home-012", name: "West-TomGreen-012", zone: "West", county: "48451", county_name: "Tom Green", soc_pct: 52.0, soc_before_pct: 52.0,
+    kw: 0.0, state: "below_floor", status: "live", floor_pct: 60.0, floor_reason: "storm_risk_high", under_floor_why: "floor_raised", plan_status: "stale" },
+]
+const west74Orders: Record<string, OrderTimelineEntry[]> = {
+  "home-004": [[0, "sent", -11.4, "own"], [9.2, "exec", -11.4, "own"], [11.2, "conf", -11.4, "own"]],
+  "home-008": [[0, "sent", -11.4, "own"], [31.2, "exec", -11.4, "own"], [44.1, "conf", -11.4, "own"]],
+}
+// operator-hold tick 4 (mode HOLD): nothing was sent, and home-002 sat under its floor.
+const hold4Home: FlowHome = {
+  id: "home-002", name: "North-Dallas-002", zone: "North", county: "48113", county_name: "Dallas", soc_pct: 23.52, soc_before_pct: 23.52,
+  kw: 0.0, state: "below_floor", status: "live", floor_pct: 30.0, floor_reason: "normal", under_floor_why: "started_under", plan_status: "live",
+}
+
+describe("why a home got no order names the real cause (Task 12: W2, W5)", () => {
+  it("an operator hold, a stale plan, or an under-floor home with no refill", () => {
+    expect(notAskedReason(hold4Home, "HOLD")).toBe("Operator hold: no orders this tick.")
+    expect(notAskedReason(west74[2], "AUTO")).toBe("No fresh reading, so no order.")
+    // No longer "keeps it all for backup": a live under-floor home refills unless something stopped it.
+    expect(notAskedReason(hold4Home, "AUTO")).toBe("Under its floor (started under it) and got no refill order this tick.")
+    expect(notAskedReason({ ...west74[2], plan_status: "live" })).toBe("Under its floor (the floor rose) and got no refill order this tick.")
+    expect(notAskedReason({ ...hold4Home, under_floor_why: null })).toBe("Under its floor and got no refill order this tick.")
+    expect(notAskedReason({ ...hold4Home, state: "at_floor", under_floor_why: null })).toBe("Its charge is at its floor, so it keeps it all for backup.")
+    // A home the planner did not see as live is named so whatever its state.
+    expect(notAskedReason({ ...west74[2], state: "holding", under_floor_why: null, plan_status: "dead" })).toBe("No fresh reading, so no order.")
+  })
+
+  it("labels a stale-plan lot and an under-floor lot apart from a lot at its floor", () => {
+    expect(notAskedLabel(west74[2])).toBe("No fresh reading, so no order")
+    expect(notAskedLabel(hold4Home)).toBe("Not asked, under its floor")
+    expect(notAskedLabel({ ...hold4Home, state: "at_floor" })).toBe("Not asked, at its floor")
+    // An older worker sends no plan_status: the home reads by its state.
+    const { plan_status: _p, ...old } = west74[2]
+    expect(notAskedLabel(old)).toBe("Not asked, under its floor")
+    const html = renderToStaticMarkup(createElement(ZoneBoard, {
+      zone: "West", homes: west74, orders: west74Orders, tSeconds: 120, lens: "send", openHome: null, onHome: () => {}, onBack: () => {},
+    }))
+    expect(html).toContain('aria-label="home-012, No fresh reading, so no order"')
+  })
+
+  it("the home panel reads the stale plan and the hold, not a choice to keep energy", () => {
+    const stale = renderToStaticMarkup(createElement(HomePanel, {
+      homeId: "home-012", home: west74[2], orders: west74Orders, tSeconds: 120, mode: "AUTO", onClose: () => {},
+    }))
+    expect(stale).toContain("No fresh reading, so no order")
+    expect(stale).toContain("Not asked this tick. No fresh reading, so no order.")
+    expect(stale).not.toContain("keeps it all for backup")
+    const hold = renderToStaticMarkup(createElement(HomePanel, {
+      homeId: "home-002", home: hold4Home, orders: {}, tSeconds: 120, mode: "HOLD", onClose: () => {},
+    }))
+    expect(hold).toContain("Not asked this tick. Operator hold: no orders this tick.")
+  })
+
+  it("the zone panel counts a stale-plan home and an under-floor home apart from 'at their floor'", () => {
+    const s = zoneSummary("West", west74, west74Orders, 120, 2)
+    expect(s.notAskedAtFloor).toBe(0)
+    expect(s.notAskedNoReading).toBe(1)
+    expect(s.notAskedUnderFloor).toBe(0)
+    const html = renderToStaticMarkup(createElement(ZonePanel, {
+      zone: "West", homes: west74, orders: west74Orders, tick: { mode: "AUTO", breaches: 0 } as never, tSeconds: 120,
+    }))
+    expect(html).toContain("<span>Not asked, no fresh reading</span><b>1 home</b>")
+    expect(html).toContain("<span>Not asked, at their floor</span><b>0 homes</b>")
+
+    const north = [hold4Home, { ...hold4Home, id: "home-006", soc_pct: 30, state: "at_floor" as const, under_floor_why: null }]
+    const held = zoneSummary("North", north, {}, 120, 0)
+    expect(held).toMatchObject({ notAskedAtFloor: 1, notAskedUnderFloor: 1, notAskedNoReading: 0 })
+    const heldHtml = renderToStaticMarkup(createElement(ZonePanel, {
+      zone: "North", homes: north, orders: {}, tick: { mode: "HOLD", breaches: 0 } as never, tSeconds: 120,
+    }))
+    expect(heldHtml).toContain("Operator hold: no orders this tick.")
+    expect(heldHtml).toContain("<span>Not asked, under their floor</span><b>1 home</b>")
+  })
+
+  it("the Replay page hands the tick's mode to the home panel", () => {
+    const session = {
+      status: "paused", error: null, updated_at: "", scenario: null, seed: 42, speed: 60, speeds: [15, 60, 300], step_seconds: 2,
+      tick_minutes: 5, tick_index: 4, tick_count: 61, start: {}, tick: { tick: 4, mode: "HOLD", breaches: 0 }, homes: [hold4Home], orders: {},
+      zones: {}, charging_mw: 0, provenance: null, alerts: [], grid_down_zones: [], history: [], totals: null, log: [], honest_limits: [],
+    }
+    const html = renderToStaticMarkup(createElement(ReplayPage, {
+      scenarios: null, state: session as never, nowMs: 0, selectedZone: "North", selectedHome: "home-002",
+    }))
+    expect(html).toContain("Not asked this tick. Operator hold: no orders this tick.")
   })
 })

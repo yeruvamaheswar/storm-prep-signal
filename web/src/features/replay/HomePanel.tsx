@@ -20,6 +20,8 @@ type Props = {
   orders?: Record<string, OrderTimelineEntry[]>
   tSeconds: number
   tickMinutes?: number
+  /** The tick's mode (`tick.mode`). HOLD means nothing was sent this tick. */
+  mode?: string | null
   onClose: () => void
 }
 
@@ -37,7 +39,7 @@ function Steps({ steps }: { steps: JourneyStep[] }) {
 }
 
 /** One home's order journey, opened from its lot (`?home=`). Escape or Close shuts it. */
-export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose }: Props) {
+export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, onClose }: Props) {
   const ref = useDrawerFocus<HTMLElement>(onClose)
   const timeline = orders?.[homeId]
   const unit = lotUnit(timeline)
@@ -114,7 +116,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose
         ) : home ? (
           <div className="zone-step">
             <span className="tm">0:00</span>
-            <span>{["Not asked this tick.", notAskedReason(home)].filter(Boolean).join(" ")}</span>
+            <span>{["Not asked this tick.", notAskedReason(home, mode)].filter(Boolean).join(" ")}</span>
           </div>
         ) : (
           <p className="replay-empty-small">The session reports no home with this id.</p>

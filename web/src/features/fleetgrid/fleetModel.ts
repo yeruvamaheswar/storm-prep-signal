@@ -29,6 +29,8 @@ export type GridHome = {
   kw: number | null
   /** What the battery is doing, only for a home whose reading is current. */
   action: GridAction | null
+  /** Scenario only: the planner used a reading that was not live (`plan_status`), so the home got no order. */
+  planStale?: boolean
 }
 
 export type SourceKey = "live" | "scenario"
@@ -85,6 +87,7 @@ export function fromLiveRows(body: unknown): GridHome[] {
       floorPct: pctOf(num(row.floor_kwh), capacity),
       kw: num(row.power_kw),
       action: status === "live" ? cs : null,
+      planStale: false,
     })
   }
   return out
@@ -107,7 +110,9 @@ export function fromScenarioHomes(homes: FlowHome[]): GridHome[] {
   return homes.filter((h) => isRecord(h) && typeof h.id === "string").map((h) => {
     const rawStatus = typeof h.status === "string" ? h.status : ""
     const status = statusOf(rawStatus)
-    const action = status === "live" ? SCENARIO_ACTIONS[h.state as string] ?? null : null
+    // The engine's home may be live while the reading the planner used was not (scenario.py plan_status).
+    const planStale = typeof h.plan_status === "string" && h.plan_status !== "live"
+    const action = status === "live" && !planStale ? SCENARIO_ACTIONS[h.state as string] ?? null : null
     return {
       id: h.id,
       zone: zoneOf(h.zone),
@@ -117,6 +122,7 @@ export function fromScenarioHomes(homes: FlowHome[]): GridHome[] {
       floorPct: num(h.floor_pct),
       kw: num(h.kw),
       action,
+      planStale,
     }
   })
 }
@@ -166,6 +172,7 @@ export function shortState(h: GridHome): string {
   if (h.status === "offline") return "Offline"
   if (h.status === "stale") return "No reading"
   if (h.status === "other") return statusLabel(h)
+  if (h.planStale) return "No fresh reading"
   if (h.action === "selling") return `Selling${kwText(h.kw)}`
   if (h.action === "charging") return `Charging${kwText(h.kw)}`
   if (h.action === "full") return "Full"
@@ -182,6 +189,7 @@ export function nowText(h: GridHome): string {
   if (h.status === "offline") return "Offline, gets no work"
   if (h.status === "stale") return "No reading"
   if (h.status === "other") return statusLabel(h)
+  if (h.planStale) return "No fresh reading, so no order"
   const kw = h.kw === null ? "" : `${kwText(h.kw)} kW`
   if (h.action === "selling") return `Selling${kw}`
   if (h.action === "charging") return `Charging${kw}`
@@ -223,7 +231,7 @@ export type CellLook = {
 }
 
 export function fillColor(h: GridHome): string {
-  if (h.status !== "live") return "var(--rg-not-counted)"
+  if (h.status !== "live" || h.planStale) return "var(--rg-not-counted)"
   if (h.action === "selling") return "var(--rg-order-way)"
   if (h.action === "charging") return "var(--rg-charging)"
   // Islanded is a battery rightly backing up its own home in an outage: never the red "lost" colour.
@@ -239,7 +247,8 @@ export function fillColor(h: GridHome): string {
 
 export function cellLook(h: GridHome): CellLook {
   const off = h.status === "offline"
-  const stale = h.status === "stale"
+  // A home the planner read as stale wears the stale edge too, so it never reads as a live battery.
+  const stale = h.status === "stale" || h.planStale === true
   return {
     fill: fillColor(h),
     shell: off ? "var(--rg-fleet-off-shell)" : "var(--rg-fleet-shell)",

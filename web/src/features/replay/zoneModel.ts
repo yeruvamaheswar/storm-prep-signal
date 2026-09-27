@@ -174,7 +174,8 @@ export function lotUnit(timeline: OrderTimelineEntry[] | undefined): { key: Unit
   return null
 }
 
-const AT_FLOOR_STATES: BatteryState[] = ["at_floor", "below_floor", "reserved"]
+/** Not asked and at its floor. below_floor is counted apart: a live home under its floor now always refills. */
+const AT_FLOOR_STATES: BatteryState[] = ["at_floor", "reserved"]
 
 export type LotLook = {
   state: ReplayOrderState | null
@@ -203,19 +204,39 @@ export function orderColor(state: ReplayOrderState, charging: boolean): string {
   return charging && !failed ? "var(--rg-charging)" : stateColor(state)
 }
 
-/** Why a home got no order, from its reported state only. Empty when the state gives no reason. */
-export function notAskedReason(home: Pick<FlowHome, "state" | "under_floor_why">): string {
+/** The planner used a reading that was not live (scenario.py `plan_status`, from telemetry.reported_homes).
+ * False when the row carries no `plan_status` (an older worker). */
+export function planNotLive(home: Pick<FlowHome, "plan_status">): boolean {
+  return typeof home.plan_status === "string" && home.plan_status !== "live"
+}
+
+export const NO_FRESH_READING = "No fresh reading, so no order"
+
+/** Why the home sits under its floor, in words (scenario.py `under_floor_why`). Empty when not reported. */
+export function underFloorWords(why: FlowHome["under_floor_why"]): string {
+  if (why === "started_under") return "started under it"
+  if (why === "floor_raised") return "the floor rose"
+  return ""
+}
+
+/** Why a home got no order. An operator HOLD sends nothing (controller.py); a home the planner saw as stale or
+ * dead gets nothing; since #41 a live home under its floor always refills, so one that did not names that.
+ * Empty when nothing reported gives a reason. */
+export function notAskedReason(home: Pick<FlowHome, "state" | "under_floor_why" | "plan_status">, mode?: string | null): string {
+  if (mode === "HOLD") return "Operator hold: no orders this tick."
+  if (planNotLive(home)) return `${NO_FRESH_READING}.`
   if (home.state === "at_floor") return "Its charge is at its floor, so it keeps it all for backup."
   if (home.state === "reserved") return "Its floor was raised, so it keeps its energy for backup."
   if (home.state === "below_floor") {
-    if (home.under_floor_why === "started_under") return "It started under its floor, so it keeps it all for backup."
-    if (home.under_floor_why === "floor_raised") return "Its floor rose above its charge, so it keeps it all for backup."
-    return "Its charge is under its floor, so it keeps it all for backup."
+    const why = underFloorWords(home.under_floor_why)
+    return `Under its floor${why ? ` (${why})` : ""} and got no refill order this tick.`
   }
   return ""
 }
 
-export function notAskedLabel(home: Pick<FlowHome, "state">): string {
+export function notAskedLabel(home: Pick<FlowHome, "state" | "plan_status">): string {
+  if (planNotLive(home)) return NO_FRESH_READING
+  if (home.state === "below_floor") return "Not asked, under its floor"
   return AT_FLOOR_STATES.includes(home.state) ? "Not asked, at its floor" : "Not asked"
 }
 
@@ -347,6 +368,10 @@ export type ZoneSummary = {
   openLabel: "Still open" | "Not counted"
   openKw: number | typeof NOT_REPORTED
   notAskedAtFloor: number | null
+  /** Not asked and under its floor (below_floor) with a live plan: it got no refill order. */
+  notAskedUnderFloor: number | null
+  /** Not asked because the planner's reading of it was not live (plan_status), whatever its state. */
+  notAskedNoReading: number | null
   notAskedOther: number | null
 }
 
@@ -367,7 +392,10 @@ export function zoneSummary(
   const inZone = zoneHomes(homes, zone)
   const openLabel = tSeconds >= 120 ? "Not counted" : "Still open"
   if (!orders || asked === null) {
-    return { homes: inZone.length, sellHomes: null, sellKw: NOT_REPORTED, chargeHomes: null, chargeKw: NOT_REPORTED, openLabel, openKw: NOT_REPORTED, notAskedAtFloor: null, notAskedOther: null }
+    return {
+      homes: inZone.length, sellHomes: null, sellKw: NOT_REPORTED, chargeHomes: null, chargeKw: NOT_REPORTED, openLabel, openKw: NOT_REPORTED,
+      notAskedAtFloor: null, notAskedUnderFloor: null, notAskedNoReading: null, notAskedOther: null,
+    }
   }
   const sell: Array<number | undefined> = []
   const charge: Array<number | undefined> = []
@@ -375,6 +403,8 @@ export function zoneSummary(
   const chargeIds = new Set<string>()
   const sellIds = new Set<string>()
   let notAskedAtFloor = 0
+  let notAskedUnderFloor = 0
+  let notAskedNoReading = 0
   let notAskedOther = 0
   for (const home of inZone) {
     const split = splitOrders(orders[home.id])
@@ -393,7 +423,9 @@ export function zoneSummary(
       if (homeOrderState(timeline, tSeconds).s !== "ok") open.push(kw)
     }
     if (!askedHere) {
-      if (AT_FLOOR_STATES.includes(home.state)) notAskedAtFloor += 1
+      if (planNotLive(home)) notAskedNoReading += 1
+      else if (AT_FLOOR_STATES.includes(home.state)) notAskedAtFloor += 1
+      else if (home.state === "below_floor") notAskedUnderFloor += 1
       else notAskedOther += 1
     }
   }
@@ -407,6 +439,8 @@ export function zoneSummary(
     openLabel,
     openKw: strictSum(open),
     notAskedAtFloor,
+    notAskedUnderFloor,
+    notAskedNoReading,
     notAskedOther,
   }
 }
