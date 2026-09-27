@@ -69,14 +69,14 @@ describe("ledger rows", () => {
   })
 })
 
-// Real post-#41 history points (engine in-process, seed 42, HOME_MAX_KW=11.4; main-impact-audit.md S3).
+// Real post-#41 history points (engine in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25; main-impact-audit.md S3).
 // History points carry no mode; intent and intent_reason are copied from the tick (scenario.py, Task 12).
 const heather74: HistoryPoint = {
   tick: 74, ts: "t74", target_mw: 0.2, delivered_mw: 0, charging_mw: 1.1286, missed_mw: 0.2, unconfirmed_mw: 0,
   reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0, intent: "charge", intent_reason: "reserve_refill",
 }
 const beryl1: HistoryPoint = {
-  tick: 1, ts: "t1", target_mw: 0.02, delivered_mw: 0.02, charging_mw: 0.908, missed_mw: 0, unconfirmed_mw: 0,
+  tick: 1, ts: "t1", target_mw: 0.02, delivered_mw: 0.02, charging_mw: 0.9102599990000001, missed_mw: 0, unconfirmed_mw: 0,
   reasons: ["charging", "reserve_refill"], breaches: 0, intent: "charge", intent_reason: "grid_call_served",
 }
 const hold4: HistoryPoint = {
@@ -152,9 +152,9 @@ describe("ledger on post-#41 history (B2, B3, W3)", () => {
     const html = renderToStaticMarkup(createElement(LedgerDrawer, { title: "Ledger", history: realHistory, onClose: () => {} }))
     expect(html).toContain(">Charged<")
     expect(html).toContain('<td class="n is-charge">1.129 MW</td>')
-    expect(html).toContain('<td class="n is-charge">0.908 MW</td>')
-    expect(html).toMatch(/Charged from the grid over 3 ticks<\/p><b class="is-charge">2\.037 MW<\/b>/)
-    // Asked 0.768 and sold 0.020 over the run; the 2.037 bought never enters either.
+    expect(html).toContain('<td class="n is-charge">0.910 MW</td>')
+    expect(html).toMatch(/Charged from the grid over 3 ticks<\/p><b class="is-charge">2\.039 MW<\/b>/)
+    // Asked 0.768 and sold 0.020 over the run; the 2.039 bought never enters either.
     expect(html).toMatch(/Asked over 3 ticks<\/p><b>0\.768 MW<\/b>/)
     expect(html).toMatch(/Sold and confirmed<\/p><b class="is-confirmed">0\.020 MW<\/b>/)
     expect(html).toContain("Fleet did: Hold, operator hold")

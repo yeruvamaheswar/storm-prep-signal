@@ -330,13 +330,13 @@ describe("feedLines kW honesty and plurals", () => {
   })
 })
 
-// Real post-#41 ticks (engine in-process, seed 42, HOME_MAX_KW=11.4; main-impact-audit.md S3).
+// Real post-#41 ticks (engine in-process, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25; main-impact-audit.md S3).
 const heather74 = {
   tick: 74, mode: "AUTO", target_mw: 0.2, delivered_mw: 0, missed_mw: 0.2, unconfirmed_mw: 0, charging_mw: 1.1286,
   intent: "charge", intent_reason: "reserve_refill", reasons: ["storm_reserve", "reserve_refill", "homes_stale:1"], breaches: 0,
 } satisfies ReplayPromiseResult
 const beryl1 = {
-  tick: 1, mode: "AUTO", target_mw: 0.02, delivered_mw: 0.02, missed_mw: 0, unconfirmed_mw: 0, charging_mw: 0.908,
+  tick: 1, mode: "AUTO", target_mw: 0.02, delivered_mw: 0.02, missed_mw: 0, unconfirmed_mw: 0, charging_mw: 0.9102599990000001,
   intent: "charge", intent_reason: "grid_call_served", reasons: ["charging", "reserve_refill"], breaches: 0,
 } satisfies ReplayPromiseResult
 const hold4 = {
@@ -359,7 +359,7 @@ describe("promiseBreakdown on post-#41 ticks (B1, B3)", () => {
   test("beryl tick 1: a served call still names the energy bought", () => {
     const rows = promiseBreakdown(beryl1)
     expect(rows).toContainEqual({ key: "sold_confirmed", label: "Sold and confirmed", mw: 0.02 })
-    expect(rows).toContainEqual({ key: "charged", label: "Charged from the grid", mw: 0.908 })
+    expect(rows).toContainEqual({ key: "charged", label: "Charged from the grid", mw: 0.9102599990000001 })
     // Asked still splits into sold + not counted + not sold; charged is outside that sum.
     const mwOf = (key: string) => {
       const row = rows.find((r) => r.key === key)
