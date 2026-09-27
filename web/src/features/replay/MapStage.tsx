@@ -5,9 +5,10 @@ import geo from "../../../../geo/ercot-load-zones.json"
 import type { Point } from "../flow/flowMath"
 import { FLOW_ZONES, type FlowHome, type FlowTick, type FlowZoneRow, type OrderTimelineEntry } from "../flow/types"
 import {
-  CONTROLLER_LATLNG, arcPath, arcPoint, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity, zoneGeos, zoneRaised,
+  CONTROLLER_LATLNG, arcPath, arcPoint, chipLines, chipPlacement, clusterRadius, geoBounds, zoneActivity, zoneGeos,
   type LatLng, type ZoneActivity,
 } from "./mapModel"
+import { ISLANDED_TEXT, clipPolygon, cloudBlobs, fleetWeather, ringBox } from "./weatherModel"
 import type { Lens } from "./ScenarioRail"
 
 export type StageNotice = "worker_down" | "api_down" | null
@@ -35,7 +36,12 @@ const PAD_RIGHT = 20 + 292 + 28
 const PAD_TOP = 76
 const PAD_BOTTOM = 20 + 96 + 24
 
-type Projected = { node: Point; zones: Record<string, Point> }
+/** Screen points from Leaflet: the controller node, each zone's anchor and each zone's outline. */
+type Projected = { node: Point; zones: Record<string, Point>; rings: Record<string, Point[]> }
+
+function ringPath(points: Point[]): string {
+  return `M${points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L")} Z`
+}
 
 function noticeText(notice: StageNotice, apiBase: string): ReactNode {
   if (notice === "api_down") {
@@ -61,7 +67,9 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
     for (const zone of FLOW_ZONES) out[zone] = orders ? zoneActivity(zone, homes, orders, tSeconds) : null
     return out
   }, [homes, orders, tSeconds])
-  const raised = useMemo(() => Object.fromEntries(FLOW_ZONES.map((zone) => [zone, zoneRaised(zone, tick, baseFloorPct)])), [tick, baseFloorPct])
+  // Weather at the playhead's tick: the same rule the zone board reads (weatherModel).
+  const weather = useMemo(() => fleetWeather(FLOW_ZONES, tick, zones, baseFloorPct), [tick, zones, baseFloorPct])
+  const raised = useMemo(() => Object.fromEntries(FLOW_ZONES.map((zone) => [zone, weather[zone].raised])), [weather])
   const homeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const home of homes) counts[home.zone] = (counts[home.zone] ?? 0) + 1
@@ -132,6 +140,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
         setProjected({
           node: toPoint(CONTROLLER_LATLNG),
           zones: Object.fromEntries(geos.map((z) => [z.zone, toPoint(z.anchor)])),
+          rings: Object.fromEntries(geos.map((z) => [z.zone, z.ring.map(([lng, lat]) => toPoint({ lat, lng }))])),
         })
       }
       m.on("zoomend moveend", reproject)
@@ -204,6 +213,11 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
         {projected ? (
           <>
             {FLOW_ZONES.map((zone) => {
+              const ring = projected.rings[zone]
+              if (!weather[zone].gridDown || !ring?.length) return null
+              return <path key={`i-${zone}`} className="replay-wx-islanded" data-zone={zone} d={ringPath(ring)} />
+            })}
+            {FLOW_ZONES.map((zone) => {
               const at = projected.zones[zone]
               if (!at || !homeCounts[zone]) return null
               return <circle key={`c-${zone}`} className="replay-cluster" cx={at[0]} cy={at[1]} r={clusterRadius(homeCounts[zone])} />
@@ -227,6 +241,35 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
         ) : null}
         <rect width="100%" height="100%" filter="url(#replay-grain)" />
       </svg>
+      {projected ? (
+        <svg className="replay-wx" aria-hidden="true">
+          <defs>
+            <filter id="replay-cloud" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18" /></filter>
+          </defs>
+          {FLOW_ZONES.map((zone) => {
+            const ring = projected.rings[zone]
+            const box = ring ? ringBox(ring) : null
+            const at = projected.zones[zone]
+            if (!weather[zone].raised || !box || !at) return null
+            return (
+              <g key={zone} className="replay-wx-clouds" data-zone={zone} filter="url(#replay-cloud)">
+                {cloudBlobs(box, at).map((blob, k) => <ellipse key={k} cx={blob.cx} cy={blob.cy} rx={blob.rx} ry={blob.ry} />)}
+              </g>
+            )
+          })}
+        </svg>
+      ) : null}
+      {projected ? FLOW_ZONES.map((zone) => {
+        const ring = projected.rings[zone]
+        const box = ring ? ringBox(ring) : null
+        if (!weather[zone].raised || !box) return null
+        return (
+          <div key={`r-${zone}`} className="replay-wx-rain" data-zone={zone} aria-hidden="true"
+            style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: clipPolygon(ring, box) }}>
+            <div className="replay-wx-rain-sheet" />
+          </div>
+        )
+      }) : null}
       <div className="replay-crumb replay-panel"><b>Texas</b><span>{notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
       {notice ? (
         <div className={`replay-panel replay-worker-empty is-${notice}`} role="status">
@@ -248,6 +291,7 @@ export function MapStage({ zones, homes, orders, tick, baseFloorPct, tSeconds, l
             onClick={() => onZone(zone)}
           >
             <b>{zone}</b>{line1}<br />{line2}
+            {weather[zone].gridDown ? <span className="replay-chip-islanded">{ISLANDED_TEXT}</span> : null}
           </button>
         )
       }) : null}

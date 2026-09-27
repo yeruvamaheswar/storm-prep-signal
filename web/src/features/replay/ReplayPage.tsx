@@ -12,6 +12,7 @@ import { PromisePanel } from "./PromisePanel"
 import { ScenarioRail, type Lens } from "./ScenarioRail"
 import { ZoneBoard } from "./ZoneBoard"
 import { ZonePanel } from "./ZonePanel"
+import { zoneWeather } from "./weatherModel"
 
 type Props = {
   scenarios: ScenarioList | null
@@ -105,6 +106,7 @@ export function ReplayPage({
           onHome={onHome ?? (() => {})}
           onBack={onBack ?? (() => {})}
           backHref={backHref}
+          weather={zoneWeather(zoneView, session?.tick, session?.zones?.[zoneView], baseFloor(session))}
         />
       ) : (
         <MapStage

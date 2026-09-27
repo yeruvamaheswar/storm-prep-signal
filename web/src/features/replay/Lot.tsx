@@ -14,6 +14,8 @@ type Props = {
   trust: { mark: string | null; mismatch: string | null }
   open: boolean
   onOpen: (homeId: string) => void
+  /** The zone's floor is raised this tick: the window lights up. */
+  lit?: boolean
 }
 
 const GAUGE_TOP = -46
@@ -33,7 +35,7 @@ function ariaText(look: LotLook, lens: Lens, gauge: Props["gauge"], trust: Props
 }
 
 /** One clay lot: lawn, slab, battery box with its state top, house, roof, window, pole and cable. */
-export function Lot({ homeId, look, left, top, lens, gauge, trust, open, onOpen }: Props) {
+export function Lot({ homeId, look, left, top, lens, gauge, trust, open, onOpen, lit = false }: Props) {
   const low = gauge.charge !== null && gauge.floor !== null && gauge.charge <= gauge.floor
   return (
     <button
@@ -56,7 +58,11 @@ export function Lot({ homeId, look, left, top, lens, gauge, trust, open, onOpen 
         <path d="M-16,-2 L6,10 L6,-12 L-16,-24 Z" fill="#F4F3EF" />
         <path d="M6,10 L28,-2 L28,-24 L6,-12 Z" fill="#E1E0DA" />
         <path d="M-6,3 L-2,5 L-2,-6 L-6,-8 Z" fill="#2B302D" />
-        <path d="M12.6,-1.3 L21.4,-6.1 L21.4,-13.8 L12.6,-9 Z" fill="#9AA8A3" />
+        {lit ? (
+          <path className="zone-lot-window is-lit" d="M12.6,-1.3 L21.4,-6.1 L21.4,-13.8 L12.6,-9 Z" style={{ fill: "var(--rg-window-lit)" }} />
+        ) : (
+          <path className="zone-lot-window" d="M12.6,-1.3 L21.4,-6.1 L21.4,-13.8 L12.6,-9 Z" fill="#9AA8A3" />
+        )}
         <path d="M-18,-23 L6,-11 L6,-42 Z" fill="#848A86" />
         <path d="M6,-11 L30,-23 L6,-42 Z" fill="#6F7571" />
         <line x1="36" y1="-8" x2="36" y2="-46" stroke="#5E645F" strokeWidth="2" />

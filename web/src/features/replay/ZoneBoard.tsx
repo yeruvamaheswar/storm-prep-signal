@@ -6,6 +6,7 @@ import type { Lens } from "./ScenarioRail"
 import {
   SUBSTATION, WORLD, boardPath, keepGauge, lotLook, storyHomes, streetsPath, trustMarks, zoneLots, zonePaths,
 } from "./zoneModel"
+import { ISLANDED_TEXT, type ZoneWeather } from "./weatherModel"
 import "./zone.css"
 
 type Props = {
@@ -19,6 +20,8 @@ type Props = {
   onHome: (homeId: string) => void
   onBack: () => void
   backHref?: string
+  /** This zone's weather at the playhead's tick (weatherModel.zoneWeather). Missing shows no weather. */
+  weather?: ZoneWeather
 }
 
 const BOARD = boardPath()
@@ -54,7 +57,9 @@ const LEGEND: Array<{ label: string; stroke: string; width: number; dash?: strin
 ]
 
 /** The clay isometric neighbourhood of one zone's homes, ported from the approved Zone mockup. */
-export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/" }: Props) {
+export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, openHome, onHome, onBack, backHref = "/", weather }: Props) {
+  const raised = weather?.raised === true
+  const islanded = weather?.gridDown === true
   const fitRef = useRef<HTMLDivElement | null>(null)
   const fit = useFit(fitRef)
   const lots = useMemo(() => zoneLots(homes, zone), [homes, zone])
@@ -85,77 +90,81 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
 
   return (
     <div className={`zone-stage${openHome ? " has-home" : ""}`}>
-      <svg className="zone-grain" aria-hidden="true">
-        <defs>
-          <filter id="zone-clay-grain" x="0" y="0" width="100%" height="100%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="5" />
-            <feColorMatrix values="0 0 0 0 0.3  0 0 0 0 0.34  0 0 0 0 0.3  0 0 0 0.05 0" />
-          </filter>
-        </defs>
-        <rect width="100%" height="100%" filter="url(#zone-clay-grain)" />
-      </svg>
+      <div className={`zone-scene${raised ? " is-weather" : ""}${islanded ? " is-islanded" : ""}`}>
+        <svg className="zone-grain" aria-hidden="true">
+          <defs>
+            <filter id="zone-clay-grain" x="0" y="0" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="5" />
+              <feColorMatrix values="0 0 0 0 0.3  0 0 0 0 0.34  0 0 0 0 0.3  0 0 0 0.05 0" />
+            </filter>
+          </defs>
+          <rect width="100%" height="100%" filter="url(#zone-clay-grain)" />
+        </svg>
 
-      <div className="zone-fit" ref={fitRef}>
-        <div className="zone-world" style={{ width: WORLD.w, height: WORLD.h, transform: `translate(${fit.dx}px, ${fit.dy}px) scale(${fit.scale})` }}
->
-          <svg className="zone-layer" width={WORLD.w} height={WORLD.h} viewBox={`${WORLD.x} ${WORLD.y} ${WORLD.w} ${WORLD.h}`} aria-hidden="true">
-            <path d={BOARD} style={{ fill: "var(--rg-clay-board)" }} />
-            <path d={STREETS} fill="none" style={{ stroke: "var(--rg-clay-street)" }} strokeWidth="16" strokeLinecap="round" />
-            <path d={STREETS} fill="none" stroke="#E6E8E3" strokeWidth="1.5" strokeDasharray="6 8" />
-            <g transform={`translate(${SUBSTATION[0]},${SUBSTATION[1]})`}>
-              <path d="M-26,0 L0,14 L0,-8 L-26,-22 Z" fill="#9EA39C" />
-              <path d="M0,14 L26,0 L26,-22 L0,-8 Z" fill="#8B908A" />
-              <path d="M-26,-22 L0,-36 L26,-22 L0,-8 Z" fill="#B7BBB4" />
-              <path d="M2,-30 L-4,-21 H3 L-2,-13" fill="none" stroke="#0E6F78" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-            </g>
-          </svg>
-          <div className="zone-sub-label" style={{ left: subLabel[0], top: subLabel[1] }}>{zone} substation</div>
+        <div className="zone-fit" ref={fitRef}>
+          <div className="zone-world" style={{ width: WORLD.w, height: WORLD.h, transform: `translate(${fit.dx}px, ${fit.dy}px) scale(${fit.scale})` }}
+  >
+            <svg className="zone-layer" width={WORLD.w} height={WORLD.h} viewBox={`${WORLD.x} ${WORLD.y} ${WORLD.w} ${WORLD.h}`} aria-hidden="true">
+              <path d={BOARD} style={{ fill: "var(--rg-clay-board)" }} />
+              <path d={STREETS} fill="none" style={{ stroke: "var(--rg-clay-street)" }} strokeWidth="16" strokeLinecap="round" />
+              <path d={STREETS} fill="none" stroke="#E6E8E3" strokeWidth="1.5" strokeDasharray="6 8" />
+              <g transform={`translate(${SUBSTATION[0]},${SUBSTATION[1]})`}>
+                <path d="M-26,0 L0,14 L0,-8 L-26,-22 Z" fill="#9EA39C" />
+                <path d="M0,14 L26,0 L26,-22 L0,-8 Z" fill="#8B908A" />
+                <path d="M-26,-22 L0,-36 L26,-22 L0,-8 Z" fill="#B7BBB4" />
+                <path d="M2,-30 L-4,-21 H3 L-2,-13" fill="none" stroke="#0E6F78" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </g>
+            </svg>
+            <div className="zone-sub-label" style={{ left: subLabel[0], top: subLabel[1] }}>{zone} substation</div>
 
-          <OrderPaths paths={paths} />
+            <OrderPaths paths={paths} />
 
-          {lots.slots.map((lot) => {
-            const left = lot.cx - 60 - WORLD.x
-            const top = lot.cy - 70 - WORLD.y
-            if (!lot.home) {
+            {lots.slots.map((lot) => {
+              const left = lot.cx - 60 - WORLD.x
+              const top = lot.cy - 70 - WORLD.y
+              if (!lot.home) {
+                return (
+                  <div key={`empty-${lot.slot}`} className="zone-lot is-empty" style={{ left, top }} aria-hidden="true">
+                    <svg width="120" height="110" viewBox="-60 -70 120 110">
+                      <path d="M-48,0 L0,26 L0,32 L-48,6 Z" fill="#B3B7AF" />
+                      <path d="M0,26 L48,0 L48,6 L0,32 Z" fill="#A3A79F" />
+                      <path d="M0,-26 L48,0 L0,26 L-48,0 Z" style={{ fill: "var(--rg-clay-lawn)" }} opacity="0.5" />
+                    </svg>
+                  </div>
+                )
+              }
+              const home = lot.home
+              const timeline = orders?.[home.id]
               return (
-                <div key={`empty-${lot.slot}`} className="zone-lot is-empty" style={{ left, top }} aria-hidden="true">
-                  <svg width="120" height="110" viewBox="-60 -70 120 110">
-                    <path d="M-48,0 L0,26 L0,32 L-48,6 Z" fill="#B3B7AF" />
-                    <path d="M0,26 L48,0 L48,6 L0,32 Z" fill="#A3A79F" />
-                    <path d="M0,-26 L48,0 L0,26 L-48,0 Z" style={{ fill: "var(--rg-clay-lawn)" }} opacity="0.5" />
-                  </svg>
+                <Lot
+                  key={home.id}
+                  homeId={home.id}
+                  look={lotLook(home, timeline, tSeconds, openHome === home.id)}
+                  left={left}
+                  top={top}
+                  lens={lens}
+                  gauge={keepGauge(home)}
+                  trust={trustMarks(home, timeline, tSeconds, tickMinutes)}
+                  open={openHome === home.id}
+                  onOpen={onHome}
+                  lit={raised}
+                />
+              )
+            })}
+
+            {story.map((id) => {
+              const lot = lots.slots.find((slot) => slot.home?.id === id)
+              if (!lot?.home) return null
+              const look = lotLook(lot.home, orders?.[id], tSeconds, false)
+              return (
+                <div key={`tag-${id}`} className="zone-tag" style={{ left: lot.cx - 20 - WORLD.x, top: lot.cy - 104 - WORLD.y, borderColor: look.ring === "rgba(0,0,0,0)" ? "var(--rg-ink)" : look.ring }}>
+                  {id}: {look.label}
                 </div>
               )
-            }
-            const home = lot.home
-            const timeline = orders?.[home.id]
-            return (
-              <Lot
-                key={home.id}
-                homeId={home.id}
-                look={lotLook(home, timeline, tSeconds, openHome === home.id)}
-                left={left}
-                top={top}
-                lens={lens}
-                gauge={keepGauge(home)}
-                trust={trustMarks(home, timeline, tSeconds, tickMinutes)}
-                open={openHome === home.id}
-                onOpen={onHome}
-              />
-            )
-          })}
-
-          {story.map((id) => {
-            const lot = lots.slots.find((slot) => slot.home?.id === id)
-            if (!lot?.home) return null
-            const look = lotLook(lot.home, orders?.[id], tSeconds, false)
-            return (
-              <div key={`tag-${id}`} className="zone-tag" style={{ left: lot.cx - 20 - WORLD.x, top: lot.cy - 104 - WORLD.y, borderColor: look.ring === "rgba(0,0,0,0)" ? "var(--rg-ink)" : look.ring }}>
-                {id}: {look.label}
-              </div>
-            )
-          })}
+            })}
+          </div>
         </div>
+        {islanded ? <div className="zone-islanded-tint" aria-hidden="true" /> : null}
       </div>
 
       <div className="replay-panel zone-crumb">
@@ -181,6 +190,7 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
             </span>
           ) : null}
         </div>
+        {islanded ? <p className="zone-islanded" role="status">{ISLANDED_TEXT}</p> : null}
       </div>
     </div>
   )

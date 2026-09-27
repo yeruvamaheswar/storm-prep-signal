@@ -6,6 +6,36 @@
   background: var(--rg-clay-scene);
 }
 
+/* The clay scene behind the crumb panel. Weather dims its light (Task 7), so the panels stay at full contrast. */
+.zone-scene {
+  position: absolute;
+  inset: 0;
+  background: var(--rg-clay-scene);
+}
+
+.zone-scene.is-weather {
+  filter: brightness(0.82);
+}
+
+/* Grid down: the zone's homes only back up themselves. A dark tint over the board. */
+.zone-islanded-tint {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 26, 22, 0.32);
+  pointer-events: none;
+}
+
+.zone-islanded {
+  margin: 10px 0 0;
+  padding: 6px 12px;
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-ink);
+  color: var(--rg-panel-map);
+  font-size: 13px;
+  font-weight: 700;
+  width: fit-content;
+}
+
 .zone-grain {
   position: absolute;
   inset: 0;
