@@ -391,3 +391,17 @@ def test_zone_hours_needed_rounds_up_and_skips_homes_that_cannot_charge():
              home("w", 0.0, zone="West")]                            # West: grid down
     needed = zone_hours_needed(homes, settings(), grid_down={"West"})
     assert needed == {"Houston": 3, "North": 0, "South": 0, "West": 0}
+
+
+def test_new_fleet_with_no_zones_is_a_clear_error():
+    with pytest.raises(ValueError, match="zone"):
+        new_fleet(settings(zones={}))
+
+
+def test_assign_zone_with_no_zones_is_a_clear_error():
+    with pytest.raises(ValueError, match="zone"):
+        assign_zone(1, [])
+
+
+def test_new_fleet_of_zero_homes_is_empty():
+    assert new_fleet(settings(fleet_size=0)) == []

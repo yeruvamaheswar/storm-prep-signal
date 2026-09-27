@@ -88,10 +88,11 @@ def test_mixed_zone_intents_skip_the_down_zone_both_ways():
     assert alloc.reasons[-1] == "grid_down:Houston"
 
 
-def test_hold_and_zero_target_are_unchanged():
+def test_hold_is_unchanged_and_a_zero_target_still_names_the_down_zone():
     homes = new_fleet(settings())
     assert allocate(homes, frame(0.2, DOWN), policy(), "HOLD", settings()).reasons == ["operator_hold"]
-    assert allocate(homes, frame(0.0, DOWN), policy(), "AUTO", settings()).reasons == []
+    # CONSTRAINTS allocation rule 7: grid_down:<zone> on every tick the zone is down, call or not.
+    assert allocate(homes, frame(0.0, DOWN), policy(), "AUTO", settings()).reasons == ["grid_down:Houston"]
 
 
 def test_a_zone_name_typo_is_refused():
