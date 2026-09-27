@@ -21,6 +21,16 @@
   --rg-charging: #c98a1b;
   --rg-charging-text: #a4640c;
   --rg-not-counted: #8a928c;
+  /* Zone board and home panel UI (ported from mockup/Zone.dc.html). */
+  --rg-focus: #0e6f78;
+  --rg-surface: #ffffff;
+  --rg-clay-text: #3c4641;
+  --rg-clay-rule: #e1e4dd;
+  --rg-clay-tile: #e3e6df;
+  --rg-clay-art-bg: #d4d8d0;
+  --rg-later-text: #6f7772;
+  --rg-on-ink-muted: #b9c2bc;
+  --rg-batt-idle: #e9eae6;
   --rg-panel-radius: 16px;
   --rg-pill-radius: 999px;
   --rg-list-radius: 12px;

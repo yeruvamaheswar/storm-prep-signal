@@ -108,8 +108,9 @@ export function ReplayRoot() {
           setUrl(readUrlState())
         }}
         onCloseHome={() => {
+          // Replace, not push: Back after Close must not reopen the panel.
           const next = { ...readUrlState(), home: null }
-          writeUrlState(next, { push: true })
+          writeUrlState(next)
           setUrl(next)
         }}
         onZone={(zone) => {

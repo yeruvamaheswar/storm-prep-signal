@@ -42,7 +42,7 @@ export function Lot({ homeId, look, left, top, lens, gauge, trust, open, onOpen 
       style={{ left, top }}
       data-home={homeId}
       aria-label={ariaText(look, lens, gauge, trust)}
-      aria-pressed={open}
+      aria-expanded={open}
       onClick={() => onOpen(homeId)}
     >
       <svg width="120" height="110" viewBox="-60 -70 120 110" aria-hidden="true">

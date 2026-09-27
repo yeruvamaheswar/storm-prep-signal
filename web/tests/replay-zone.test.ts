@@ -10,7 +10,7 @@ import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { ZonePanel } from "../src/features/replay/ZonePanel"
 import { OrderPaths } from "../src/features/replay/OrderPaths"
 import {
-  askedText, countedText, homeFacts, iso, journeySteps, lossPoint, lotLook, orderPath, storyHomes, zoneLots, zonePaths, zoneSummary,
+  askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, orderPath, storyHomes, trustMarks, zoneLots, zonePaths, zoneSummary,
 } from "../src/features/replay/zoneModel"
 
 // Real tick-3 order timelines for the 12 North homes that got an order (failures tape, seed 1), as in mockup/Zone.dc.html.
@@ -90,7 +90,7 @@ describe("zone lot layout and geometry", () => {
     expect(lossPoint(2, 3, -4)).toEqual([480, 433])
   })
 
-  it("shows the story tag note when a zone has more than 25 homes", () => {
+  it('notes "Showing 25 of N" in the breadcrumb when a zone has more than 25 homes', () => {
     const extra = Array.from({ length: 3 }, (_, k) => ({ ...northHomes[0], id: `home-99${k}` }))
     const html = renderToStaticMarkup(createElement(ZoneBoard, {
       zone: "North", homes: [...northHomes, ...extra], orders: northOrders, tSeconds: 0, lens: "send",
@@ -314,5 +314,100 @@ describe("Replay page zone view", () => {
       await act(async () => lot?.click())
       expect(onHome).toHaveBeenCalledWith("home-070")
     })
+  })
+})
+
+describe("fix round 1", () => {
+  // Engine logs reported_kwh = actual_kw * hours, so a charge report is negative (orchestration.py check_charge_drop).
+  const chargeMismatch: OrderTimelineEntry[] = [[0, "sent", -4, "own"], [10, "exec", -4, "own"], [20, "mismatch", -0.5, "own"], [20, "conf", -4, "own"]]
+  const sellMismatch: OrderTimelineEntry[] = [[0, "sent", 3, "own"], [10, "exec", 3, "own"], [20, "mismatch", 0.5, "own"], [20, "conf", 3, "own"]]
+  const live = { zone: "North", kw: 0, status: "live", floor_pct: 30, soc_pct: 55 } as const
+
+  it("words a charge mismatch as charged and taken in, unsigned", () => {
+    const marks = trustMarks({ state: "charging" }, chargeMismatch, 30, 5)
+    expect(marks.mismatch).toBe("Reported 0.50 kWh charged, took in 0.33 kWh")
+    const step = journeySteps(chargeMismatch, 30, 5).find((s) => s.at === 20 && s.x.startsWith("Its"))
+    expect(step?.x).toBe("Its report said it charged 0.50 kWh, but it took in 0.33 kWh. Booked at the truth.")
+    expect(journeySteps(chargeMismatch, 30).some((s) => s.x === "Its charge report did not match what the battery did. Booked at the truth.")).toBe(true)
+    expect(JSON.stringify(journeySteps(chargeMismatch, 30, 5))).not.toContain("-")
+  })
+
+  it("words a discharge mismatch as reported and gave", () => {
+    expect(trustMarks({ state: "selling" }, sellMismatch, 30, 5).mismatch).toBe("Reported 0.50 kWh, gave 0.25 kWh")
+    expect(trustMarks({ state: "selling" }, sellMismatch, 19, 5).mismatch).toBeNull()
+    expect(journeySteps(sellMismatch, 30, 5).map((s) => s.x)).toContain("Its report said 0.50 kWh, but it gave 0.25 kWh. Booked at the truth.")
+  })
+
+  it("finds a mismatch on a reassigned-in order", () => {
+    const timeline: OrderTimelineEntry[] = [
+      [0, "sent", 1, "own"], [10, "exec", 1, "own"], [20, "conf", 1, "own"],
+      [60, "sent", 3, "r"], [70, "exec", 3, "r"], [80, "mismatch", 0.5, "r"], [80, "conf", 3, "r"],
+    ]
+    expect(trustMarks({ state: "selling" }, timeline, 79, 5).mismatch).toBeNull()
+    expect(trustMarks({ state: "selling" }, timeline, 90, 5).mismatch).toBe("Reported 0.50 kWh, gave 0.25 kWh")
+  })
+
+  it("keep lens draws each battery's charge and floor, and says when they are not reported", () => {
+    expect(keepGauge({ soc_pct: 55, floor_pct: 30 })).toEqual({ charge: 0.55, floor: 0.3 })
+    expect(keepGauge({} as never)).toEqual({ charge: null, floor: null })
+    const homes = northHomes.map((h) => (h.id === "home-010" ? { ...h, soc_pct: undefined as unknown as number, floor_pct: undefined as unknown as number } : h))
+    const html = renderToStaticMarkup(createElement(ZoneBoard, {
+      zone: "North", homes, orders: northOrders, tSeconds: 90, lens: "keep", openHome: null, onHome: () => {}, onBack: () => {},
+    }))
+    expect(html.match(/class="zone-gauge"/g)).toHaveLength(25)
+    expect(html).toContain('aria-label="home-066, Confirmed, counted, charge 55%, floor 30%"')
+    expect(html).toContain('aria-label="home-010, Not asked, at its floor, charge not reported, floor not reported"')
+    const send = renderToStaticMarkup(createElement(ZoneBoard, {
+      zone: "North", homes, orders: northOrders, tSeconds: 90, lens: "send", openHome: null, onHome: () => {}, onBack: () => {},
+    }))
+    expect(send).not.toContain("zone-gauge")
+  })
+
+  it("trust lens marks stale, dead and unconfirmed homes and shows a mismatch", () => {
+    const homes: FlowHome[] = [
+      { ...live, id: "home-002", state: "stale" },
+      { ...live, id: "home-006", state: "dead" },
+      { ...live, id: "home-010", state: "unconfirmed" },
+      { ...live, id: "home-014", state: "selling" },
+    ]
+    const html = renderToStaticMarkup(createElement(ZoneBoard, {
+      zone: "North", homes, orders: { "home-014": sellMismatch }, tSeconds: 30, lens: "trust", tickMinutes: 5,
+      openHome: null, onHome: () => {}, onBack: () => {},
+    }))
+    expect(html).toContain(">Stale</span>")
+    expect(html).toContain(">Dead</span>")
+    expect(html).toContain(">Unconfirmed</span>")
+    expect(html).toContain(">Reported 0.50 kWh, gave 0.25 kWh</span>")
+    expect(html).toContain('aria-label="home-002, Not asked, stale"')
+    expect(html).toContain("home-014, Confirmed, counted, Reported 0.50 kWh, gave 0.25 kWh")
+    expect(html.match(/stroke-dasharray="3 4"/g)).toHaveLength(3)
+  })
+
+  it("counts a home with both a sell and a charge order as asked to sell", () => {
+    const homes: FlowHome[] = [{ ...live, id: "home-002", state: "selling" }, { ...live, id: "home-006", state: "charging" }]
+    const orders: Record<string, OrderTimelineEntry[]> = {
+      "home-002": [[0, "sent", 2, "own"], [60, "sent", -1, "r"]],
+      "home-006": [[0, "sent", -3, "own"]],
+    }
+    const s = zoneSummary("North", homes, orders, 90, 2)
+    expect(s.sellHomes).toBe(1)
+    expect(s.chargeHomes).toBe(2)
+    expect(s.sellKw).toBe(2)
+    expect(s.chargeKw).toBe(4)
+  })
+
+  it("does not show an asked kW before the order is sent", () => {
+    const timeline: OrderTimelineEntry[] = [[60, "sent", 0.97, "r"], [74.6, "exec", 0.97, "r"], [87.7, "conf", 0.97, "r"]]
+    expect(askedText(timeline, 30)).toBe("Not yet")
+    expect(askedText(timeline, 60)).toBe("0.97 kW")
+    const home: FlowHome = { ...live, id: "home-003", zone: "Houston", state: "selling" }
+    const orders = { "home-003": timeline, "home-071": [[60, "reassigned", "home-003", "own"]] as OrderTimelineEntry[] }
+    const early = renderToStaticMarkup(createElement(HomePanel, { homeId: "home-003", home, orders, tSeconds: 30, onClose: () => {} }))
+    // The tile waits for `sent`; the 0.97 kW appears only in the greyed (later) journey steps.
+    expect(early).toContain('<p class="replay-label">Asked</p><p class="v">Not yet</p>')
+    expect(early).not.toContain('<p class="v">0.97 kW</p>')
+    expect(early).toContain('<div class="zone-step later"><span class="tm">1:00</span><span>Order sent: 0.97 kW')
+    const later = renderToStaticMarkup(createElement(HomePanel, { homeId: "home-003", home, orders, tSeconds: 90, onClose: () => {} }))
+    expect(later).toContain('<p class="replay-label">Asked</p><p class="v">0.97 kW</p>')
   })
 })

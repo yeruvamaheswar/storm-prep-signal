@@ -1,9 +1,9 @@
 import type { FlowHome, OrderTimelineEntry } from "../flow/types"
 import { HouseArt } from "./HouseArt"
-import { splitOrders, stateColor } from "./orderState"
+import { splitOrders } from "./orderState"
 import { useDrawerFocus } from "./useDrawer"
 import {
-  askedText, countedText, homeFacts, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, type JourneyStep,
+  BATT_IDLE, TRANSPARENT, askedText, orderColor, countedText, homeFacts, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, type JourneyStep,
 } from "./zoneModel"
 
 type Props = {
@@ -41,7 +41,8 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose
   const counted = unit ? countedText(unit.timeline, tSeconds) : null
   const from = takenOver || unit?.key === "r" ? reassignedFrom(orders, homeId) : null
   const chip = look ? (look.tookOver ? `${look.label}. Also took over ${from ?? "another home"}'s order` : look.label) : "Not reported in this session"
-  const dot = look?.state ? (look.charging && look.state.s !== "lost" && look.state.s !== "rlost" && look.state.s !== "nc" ? "var(--rg-charging)" : stateColor(look.state)) : "var(--rg-not-counted)"
+  const dot = look?.state ? orderColor(look.state, look.charging) : "var(--rg-not-counted)"
+  const asked = unit ? askedText(unit.timeline, tSeconds) : "Not asked"
 
   return (
     <section className="replay-panel zone-home" aria-label="Home detail" ref={ref} tabIndex={-1}>
@@ -56,7 +57,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose
         <button type="button" className="replay-pill" onClick={onClose}>Close</button>
       </div>
       <div className="zone-home-art">
-        <HouseArt batt={look?.batt ?? "#E9EAE6"} cable={look?.cable ?? "rgba(0,0,0,0)"} />
+        <HouseArt batt={look?.batt ?? BATT_IDLE} cable={look?.cable ?? TRANSPARENT} />
         <div className="zone-chip">
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" style={{ fill: dot }} /></svg>
           {chip}
@@ -65,7 +66,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, onClose
       <div className="zone-tiles">
         <div className="zone-tile">
           <p className="replay-label">Asked</p>
-          <p className={unit && askedText(unit.timeline).startsWith("Charging") ? "v is-charge" : "v"}>{unit ? askedText(unit.timeline) : "Not asked"}</p>
+          <p className={asked.startsWith("Charging") ? "v is-charge" : "v"}>{asked}</p>
         </div>
         <div className="zone-tile">
           <p className="replay-label">Counted as sold</p>

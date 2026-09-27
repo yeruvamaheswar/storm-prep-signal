@@ -189,6 +189,16 @@ export type LotLook = {
 }
 
 const CLEAR = "rgba(0,0,0,0)"
+/** Battery top colour of a battery that has not run this tick. */
+export const BATT_IDLE = "var(--rg-batt-idle)"
+export const TRANSPARENT = CLEAR
+
+/** One colour rule for a lot's ring and the home chip's dot: amber for a charge order while it is on its way,
+ * running or confirmed; otherwise the state colour (a lost or not-counted charge keeps red or grey). */
+export function orderColor(state: ReplayOrderState, charging: boolean): string {
+  const failed = state.s === "lost" || state.s === "rlost" || state.s === "nc"
+  return charging && !failed ? "var(--rg-charging)" : stateColor(state)
+}
 
 /** Why a home got no order, from its reported state only. Empty when the state gives no reason. */
 export function notAskedReason(home: Pick<FlowHome, "state" | "under_floor_why">): string {
@@ -220,8 +230,8 @@ export function lotLook(home: FlowHome, timeline: OrderTimelineEntry[] | undefin
   return {
     state: active,
     glow: active?.gave ? "rgba(127,227,232,0.30)" : CLEAR,
-    ring: open ? "var(--rg-ink)" : active ? (charging && active.s !== "lost" && active.s !== "rlost" && active.s !== "nc" ? "var(--rg-charging)" : stateColor(active)) : CLEAR,
-    batt: ran ? (charging ? "var(--rg-charging)" : "var(--rg-battery-glow)") : "#E9EAE6",
+    ring: open ? "var(--rg-ink)" : active ? orderColor(active, charging) : CLEAR,
+    batt: ran ? (charging ? "var(--rg-charging)" : "var(--rg-battery-glow)") : BATT_IDLE,
     cable: flowing ? (charging ? "var(--rg-charging)" : "var(--rg-gave-energy)") : CLEAR,
     aria: `${home.id}, ${label}${suffix}`,
     label,
@@ -249,15 +259,44 @@ export function trustMarks(
   tickMinutes: number | undefined,
 ): { mark: string | null; mismatch: string | null } {
   const mark = TRUST_MARKS[home.state] ?? null
-  const unit = lotUnit(timeline)
-  const hit = unit?.timeline.find(([at, kind]) => kind === "mismatch" && at <= tSeconds)
-  if (!hit || !unit) return { mark, mismatch: null }
-  const reported = typeof hit[2] === "number" ? `Reported ${hit[2].toFixed(2)} kWh` : "Reported kWh not logged"
-  const execKw = unit.timeline.find(([, kind]) => kind === "exec")?.[2]
-  const gave = typeof execKw === "number" && typeof tickMinutes === "number" && tickMinutes > 0
-    ? `gave ${Math.abs((execKw * tickMinutes) / 60).toFixed(2)} kWh`
-    : "gave not reported"
-  return { mark, mismatch: `${reported}, ${gave}` }
+  // The lot's own order and any reassigned-in order both count; the earliest mismatch by the playhead wins.
+  const split = splitOrders(timeline)
+  let found: { unit: OrderTimelineEntry[]; entry: OrderTimelineEntry } | null = null
+  for (const unit of [split.own, split.r]) {
+    const entry = unit.find(([at, kind]) => kind === "mismatch" && at <= tSeconds)
+    if (entry && (!found || entry[0] < found.entry[0])) found = { unit, entry }
+  }
+  if (!found) return { mark, mismatch: null }
+  return { mark, mismatch: mismatchText(found.unit, found.entry, tickMinutes).short }
+}
+
+/** The kWh the battery really moved: the exec kW over one tick, unsigned. Undefined when not logged. */
+function ranKwh(unit: OrderTimelineEntry[], tickMinutes: number | undefined): number | undefined {
+  const execKw = unit.find(([, kind]) => kind === "exec")?.[2]
+  return isNum(execKw) && isNum(tickMinutes) && tickMinutes > 0 ? Math.abs((execKw * tickMinutes) / 60) : undefined
+}
+
+/** Mismatch wording for a lot badge (`short`) and a journey step (`step`). The engine logs `reported_kwh`
+ * signed like the order (negative for a charge), so both sides are shown unsigned and worded by direction. */
+export function mismatchText(unit: OrderTimelineEntry[], entry: OrderTimelineEntry, tickMinutes: number | undefined): { short: string; step: string } {
+  const charging = isChargeUnit(unit)
+  const reported = isNum(entry[2]) ? `${Math.abs(entry[2]).toFixed(2)} kWh` : null
+  const truthKwh = ranKwh(unit, tickMinutes)
+  const truth = truthKwh === undefined ? null : `${truthKwh.toFixed(2)} kWh`
+  if (charging) {
+    return {
+      short: `${reported ? `Reported ${reported} charged` : "Reported charge not logged"}, ${truth ? `took in ${truth}` : "took in not reported"}`,
+      step: reported && truth
+        ? `Its report said it charged ${reported}, but it took in ${truth}. Booked at the truth.`
+        : "Its charge report did not match what the battery did. Booked at the truth.",
+    }
+  }
+  return {
+    short: `${reported ? `Reported ${reported}` : "Reported kWh not logged"}, ${truth ? `gave ${truth}` : "gave not reported"}`,
+    step: reported && truth
+      ? `Its report said ${reported}, but it gave ${truth}. Booked at the truth.`
+      : "Its report did not match what the battery did. Booked at the truth.",
+  }
 }
 
 function firstAt(orders: Record<string, OrderTimelineEntry[]>, match: (timeline: OrderTimelineEntry[]) => number | undefined): string | null {
@@ -330,6 +369,7 @@ export function zoneSummary(
   const charge: Array<number | undefined> = []
   const open: Array<number | undefined> = []
   const chargeIds = new Set<string>()
+  const sellIds = new Set<string>()
   let notAskedAtFloor = 0
   let notAskedOther = 0
   for (const home of inZone) {
@@ -345,6 +385,7 @@ export function zoneSummary(
         continue
       }
       sell.push(kw)
+      sellIds.add(home.id)
       if (homeOrderState(timeline, tSeconds).s !== "ok") open.push(kw)
     }
     if (!askedHere) {
@@ -354,7 +395,8 @@ export function zoneSummary(
   }
   return {
     homes: inZone.length,
-    sellHomes: Math.max(0, asked - chargeIds.size),
+    // Counted directly: a home with both a sell and a charge unit is still a home asked to sell.
+    sellHomes: sellIds.size,
     sellKw: strictSum(sell),
     chargeHomes: chargeIds.size,
     chargeKw: strictSum(charge),
@@ -400,12 +442,7 @@ export function journeySteps(timeline: OrderTimelineEntry[], tSeconds: number, t
     if (kind === "rdrop") push(at, "Its report was lost on the way back.")
     if (kind === "dup") push(at, "A duplicate copy arrived and was ignored.")
     if (kind === "timeout") push(at, "No report by the retry deadline.")
-    if (kind === "mismatch") {
-      const gaveKw = timeline.find(([, k]) => k === "exec")?.[2]
-      const reported = isNum(extra) ? `${extra.toFixed(2)} kWh` : "an amount not logged"
-      const truth = isNum(gaveKw) && isNum(tickMinutes) && tickMinutes > 0 ? `${Math.abs((gaveKw * tickMinutes) / 60).toFixed(2)} kWh` : null
-      push(at, truth ? `Its report said ${reported}, but it gave ${truth}. Booked at the truth.` : `Its report said ${reported}, more than its charge fell. Booked at the truth.`)
-    }
+    if (kind === "mismatch") push(at, mismatchText(timeline, [at, kind, extra], tickMinutes).step)
     if (kind === "late") push(at, "A late report arrived after the books closed.")
     if (kind === "conf") push(at, charging ? "Charge confirmed." : "Confirmed. Counted as sold.")
   }
@@ -440,7 +477,10 @@ export function homeFacts(home: Partial<Pick<FlowHome, "soc_before_pct" | "soc_p
 }
 
 /** The Asked tile: the planned kW, or "Charging X kW" for a charge order. */
-export function askedText(timeline: OrderTimelineEntry[]): string {
+export function askedText(timeline: OrderTimelineEntry[], tSeconds = Infinity): string {
+  // Nothing is asked before its `sent` (a reassigned-in order arrives at 1:00).
+  const sent = timeline.find(([, kind]) => kind === "sent")
+  if (sent && sent[0] > tSeconds) return "Not yet"
   const kw = plannedKw(timeline)
   if (kw === undefined) return NOT_REPORTED
   return kw < 0 ? `Charging ${Math.abs(kw).toFixed(2)} kW` : `${kw.toFixed(2)} kW`

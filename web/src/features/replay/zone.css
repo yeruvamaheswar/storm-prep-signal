@@ -44,7 +44,7 @@
 
 .zone-sub-label {
   position: absolute;
-  color: #3c4641;
+  color: var(--rg-clay-text);
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
@@ -107,7 +107,7 @@
 
 .zone-loss {
   fill: var(--rg-lost);
-  stroke: #ffffff;
+  stroke: var(--rg-surface);
   stroke-width: 2;
 }
 
@@ -144,7 +144,7 @@
 }
 
 .zone-lot:focus-visible {
-  outline: 3px solid #0e6f78;
+  outline: 3px solid var(--rg-focus);
   outline-offset: 2px;
   border-radius: 12px;
 }
@@ -166,7 +166,7 @@
   padding: 3px 8px;
   transform: translate(-50%, -14px);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--rg-surface);
   box-shadow: 0 3px 8px rgba(40, 52, 46, 0.18);
   color: var(--rg-ink);
   font: inherit;
@@ -182,7 +182,7 @@
   padding: 5px 11px;
   border: 2px solid var(--rg-ink);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--rg-surface);
   box-shadow: 0 4px 12px rgba(40, 52, 46, 0.18);
   font-size: 12.5px;
   font-weight: 600;
@@ -223,17 +223,17 @@
 }
 
 .zone-crumb a:hover {
-  color: #0e6f78;
+  color: var(--rg-focus);
 }
 
 .zone-crumb a:focus-visible {
-  outline: 3px solid #0e6f78;
+  outline: 3px solid var(--rg-focus);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 .zone-crumb .sep {
-  color: #6f7772;
+  color: var(--rg-later-text);
 }
 
 .zone-more {
@@ -252,7 +252,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #3c4641;
+  color: var(--rg-clay-text);
   font-size: 12.5px;
   white-space: nowrap;
 }
@@ -275,7 +275,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
-  border-top: 1px solid #e1e4dd;
+  border-top: 1px solid var(--rg-clay-rule);
   font-size: 14px;
 }
 
@@ -308,7 +308,7 @@
 .zone-breaches small {
   display: block;
   margin-top: 2px;
-  color: #b9c2bc;
+  color: var(--rg-on-ink-muted);
   font-size: 12px;
   font-weight: 500;
 }
@@ -337,7 +337,7 @@
 }
 
 .zone-home:focus-visible {
-  outline: 3px solid #0e6f78;
+  outline: 3px solid var(--rg-focus);
   outline-offset: 2px;
 }
 
@@ -366,7 +366,7 @@
   margin-top: 10px;
   overflow: hidden;
   border-radius: 14px;
-  background: #d4d8d0;
+  background: var(--rg-clay-art-bg);
 }
 
 .zone-house-art {
@@ -384,7 +384,7 @@
   max-width: calc(100% - 28px);
   padding: 7px 14px;
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--rg-surface);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
   font-size: 13.5px;
   font-weight: 700;
@@ -401,7 +401,7 @@
   flex: 1 1 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #e3e6df;
+  background: var(--rg-clay-tile);
 }
 
 .zone-tile .v {
@@ -433,7 +433,7 @@
   display: flex;
   gap: 12px;
   padding: 8px 0;
-  border-top: 1px solid #e1e4dd;
+  border-top: 1px solid var(--rg-clay-rule);
   font-size: 14px;
   line-height: 1.4;
 }
@@ -445,7 +445,7 @@
 }
 
 .zone-step.later {
-  color: #6f7772;
+  color: var(--rg-later-text);
 }
 
 /* The playback bar makes room for the wider home panel. */

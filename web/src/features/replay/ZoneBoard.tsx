@@ -77,6 +77,8 @@ export function ZoneBoard({ zone, homes, orders, tSeconds, lens, tickMinutes, op
   const subLabel = [SUBSTATION[0] - 64 - WORLD.x, SUBSTATION[1] + 27 - WORLD.y]
 
   function back(event: MouseEvent<HTMLAnchorElement>) {
+    // Let ctrl/cmd/shift/middle clicks open the link the browser's way.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
     onBack()
   }
