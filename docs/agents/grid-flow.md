@@ -71,7 +71,7 @@ Requests left over from an earlier worker are not replayed; the page asks again.
 
 `tapes/scenarios/catalog.json` is the list (id, window, summary, label, tape, baseline, provenance sidecar, alerts, `grid_down_overlay`). Heather reuses `tapes/heather.json`; the rest are built by `scripts/build_scenarios.py [--only <id>]` from Supabase (`SUPABASE_URL`, `SUPABASE_SECRET_KEY` in the root `.env`). If Supabase fails it prints `build_scenarios_skipped: <reason>` and writes nothing.
 
-- The grid ask on built tapes is `synthetic:price-shaped`: straight lines through $25 → 0.02 MW, $60 → 0.2 MW, $500 → 1.0 MW, flat beyond; 0.2 MW with no price. A cheap hour asks 0.02 MW, not 0, because `allocate` returns before its charge step on a zero target. Heather keeps its flat 0.2 MW `synthetic` target.
+- The grid ask on built tapes is `synthetic:price-shaped`: straight lines through $25 → 0.02 MW, $60 → 0.2 MW, $500 → 1.0 MW, flat beyond; 0.2 MW with no price. A cheap hour asks 0.02 MW; a few homes serve it and the rest charge (`docs/agents/policy-intent.md`). Heather keeps its flat 0.2 MW `synthetic` target.
 - Hand-placed events (withheld postings, faults, operator HOLD, grid down) are labeled as overlays in the sidecar, the catalog label, and the tape label.
 - `price-spike` and `operator-hold` start at the price run-up on purpose. Starting earlier, the fleet sold into the $100–$400 run-up and reached its floor before the peak, because the rules do not look ahead.
 - Real posting gaps never read as `signal_unavailable` (the builder uses the newest earlier posting), so `feed-failure` withholds postings by hand.
