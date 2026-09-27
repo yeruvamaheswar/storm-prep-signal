@@ -1,5 +1,6 @@
 import { TopBar } from "./TopBar"
 import { ReplayRoot } from "../replay/ReplayRoot"
+import { FleetGridRoot } from "../fleetgrid/FleetGridRoot"
 
 function LiveSlot() {
   return <span className="rg-pill">Live feed not connected yet</span>
@@ -38,7 +39,7 @@ export function FleetGridApp() {
   return (
     <div className="rg-shell is-clay">
       <TopBar current="fleet" />
-      <Placeholder title="Fleet">The fleet grid, zone districts, filters, and home detail panel will be here.</Placeholder>
+      <FleetGridRoot />
     </div>
   )
 }
