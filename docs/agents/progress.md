@@ -1088,6 +1088,13 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 - Merged `origin/main` (#32–#37) into `feature/grid-flow`. Charge orders follow main #34: sent once, never retried or reassigned (the user chose this; the branch's retry test was dropped). Charges live in `ZoneSupervisor.charges`; `close()` books `home_charged_kw` from that list. `CycleResult.charged_mw` (main) and `charging_mw` (this branch) are set from the same number. `home_caps` keeps both the grid-down skip and main's zero-headroom skip. The invariant check on per-home charge books now reads `charge_confirmed` events.
 
+## 2026-09-26: Deploy the wall to Vercel, API to Render
+
+- Render: created `reservegate-api` (free, Oregon, auto-deploys `main`) with the `render.yaml` build and start commands. Live at `https://reservegate-api.onrender.com`; `/health` and `/v1/meta` return 200. Health check path and `ERCOT_*` / `SUPABASE_*` still to be set in the dashboard.
+- Vercel: `web/vercel.json` (new) builds with Vite and rewrites `/health` and `/v1/*` to the Render API, with an `index.html` fallback for `/fleet` and `/flow`. Project import (root `web`, branch `main`) is done in the Vercel dashboard.
+- Verified: `npm run build` clean; `vite preview` proxied to Render served `/health`, `/v1/meta`, `/v1/snapshot`, `/geo/ercot-load-zones.json`, `/fleet`, `/flow` with 200. Vercel rewrites themselves not verified until the first Vercel deploy.
+- Docs: `backend.md` (Deploy the wall on Vercel), `system-design.md` section 9 diagram, `index.md`, `README.md`.
+
 ## 2026-09-26: Cheap power serves the call, then charges (Rajat)
 
 - Bug: on `intent == charge` with a call, `allocate_charge` dropped the whole call and charged every home (100 homes, 0.2 MW call at $10: delivered 0, missed 0.2, absorbed 1.14 MW). With no call, `allocate` returned empty before looking at intent, so idle charging never ran.

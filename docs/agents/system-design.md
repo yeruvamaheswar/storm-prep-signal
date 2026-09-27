@@ -251,6 +251,9 @@ flowchart LR
   subgraph render["Render, free plan"]
     RAPI["reservegate-api<br/>uvicorn on 0.0.0.0:$PORT<br/>health check /health"]
   end
+  subgraph vercel["Vercel"]
+    VWALL["Wall, static web/dist<br/>rewrites /health and /v1"]
+  end
   SB[("Supabase")]
   ERCOT["ERCOT API"]
   GH["GitHub"]
@@ -260,8 +263,10 @@ flowchart LR
   ENG --> ERCOT
   RAPI --> SB
   RAPI --> ERCOT
+  VWALL -->|"/health, /v1"| RAPI
   GH --> CI
   GH -->|"autoDeploy"| RAPI
+  GH -->|"push to main"| VWALL
 ```
 
 Commands a newcomer needs:
@@ -274,7 +279,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (10k last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/scenario_session.py` (the `/flow` scenario worker, laptop only; on Render the page says the worker is not running). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall itself is not deployed yet.
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (10k last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/scenario_session.py` (the `/flow` scenario worker, laptop only; on Render the page says the worker is not running). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
 
 ### Settings
 
