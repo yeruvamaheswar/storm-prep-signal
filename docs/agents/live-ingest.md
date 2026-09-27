@@ -6,6 +6,16 @@
 
 `latest.json` was a 2026-09-25 stub (`delivered_mw` 0, `reasons: ["temp_stub"]`). Snapshot copied that tick. Auto only wrote `var/state.json`. The wall stayed at 0.00 MW.
 
+## Where it runs (checked 2026-09-27)
+
+Only on a laptop, started by hand. Nothing in production runs it:
+
+- `render.yaml` and the Render account have one service, `reservegate-api`. Its start command runs `scripts/scenario_session.py` and uvicorn, never `live_cycle.py`. There is no Render cron job or worker.
+- `.github/workflows/ci.yml` only runs tests. Supabase has no `pg_cron`, no `pg_net` and no Edge Functions.
+- Supabase `runs`: all 51 `source=live` rows fall between 2026-09-26 19:46 and 2026-09-27 00:34 UTC, one `--loop` session at the 5-minute cadence.
+
+So every `var/` file the worker keeps (`var/dam/`, `var/fleet/homes.json`, `var/state.json`) sits on the laptop disk and survives each cycle and a restart of `--loop`. Run it from the repo root: `var/` is relative to the working folder. If the worker ever moves to a host with a fresh filesystem per run (Render cron, GitHub Actions), those files reset every run. Before that move, keep the DAM days in a durable store that `live_cycle.py` reads and writes and passes to `loop.run(live_dam=...)`, so the tick still never imports Supabase; the fleet's charge needs the same treatment.
+
 ## Cycle
 
 `run_cycle(settings)`:

@@ -198,7 +198,7 @@ The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. Th
 | `var/state.json` | Operator mode, `AUTO` or `HOLD`, local cache for this process. | Local, gitignored |
 | Supabase `operator_settings` | One fleet-wide HOLD / AUTO row so Render and the laptop worker share the mode. | Remote, optional |
 | `var/signal/` | Last good ERCOT bodies, for the stale-window fallback. | Local, gitignored |
-| `var/dam/` | Live DAM cache: one file per delivery day, fetched once and reused by every live cycle that day. | Local, gitignored, ephemeral (refetched after a restart) |
+| `var/dam/` | Live DAM cache: one file per delivery day, fetched once and reused by every live cycle that day. | Local to the laptop live worker, gitignored; survives cycles and worker restarts ([live-ingest.md, Where it runs](live-ingest.md#where-it-runs-checked-2026-09-27)) |
 | `var/fleet/rollups.json` | Zone counts and MW for large fleets. Written every tick, read only by the API. | Local, gitignored |
 | `var/fleet/homes.json` | Each home's charge, status, and zone. Written and read only by live runs, once per run; a tape replay never touches it. | Local, gitignored |
 | `var/scenario/` | `/flow` inbox and output: `requests.json` (appended by the API), `state.json` (rewritten by the scenario worker), `logs/`. | Local, gitignored |
