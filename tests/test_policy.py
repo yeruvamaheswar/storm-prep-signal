@@ -119,3 +119,59 @@ def test_home_defaults_include_zone_and_updated_at():
     home = Home("home-001", 20.0, 10.0, 5.0)
     assert home.zone == ""
     assert home.updated_at == ""
+
+
+# --- each load zone decides from its own price ---------------------------------------------
+
+ZONE_INTENT_SETTINGS = {**INTENT_SETTINGS, "zones": ZONE_SETTINGS["zones"]}
+# Houston cheap, West expensive, North and South in between.
+ZONE_PRICES = {"Houston": 10.0, "North": 40.0, "South": 40.0, "West": 80.0}
+
+
+def zoned(risk, zone_prices=ZONE_PRICES, alerted=None, mode="AUTO", price=40.0, label="ercot"):
+    return reserve_policy(risk, ZONE_INTENT_SETTINGS, alerted, mode=mode, price_usd_mwh=price,
+                          price_label=label, zone_prices=zone_prices)
+
+
+def test_each_zone_uses_the_fleet_bands_on_its_own_price():
+    policy = zoned(make_risk("LOW"))
+    # Cheap Houston charges, expensive West is in the discharge band, the rest hold.
+    assert policy.zone_intent == {"Houston": "charge", "North": "hold", "South": "hold",
+                                  "West": "discharge"}
+    # The headline (North) price still sets the fleet band.
+    assert policy.intent == "hold"
+
+
+def test_an_expensive_zone_under_a_weather_alert_holds():
+    policy = zoned(make_risk("LOW"), alerted={"West": "Winter Storm Warning"})
+    assert policy.zone_reasons["West"] == "weather_alert"
+    assert policy.zone_intent["West"] == "hold"
+    assert policy.zone_intent["Houston"] == "charge"
+
+
+def test_a_storm_or_missing_signal_never_gives_a_zone_the_discharge_band():
+    for risk in (make_risk("HIGH"), None):
+        policy = zoned(risk)
+        assert policy.zone_intent == {"Houston": "charge", "North": "hold", "South": "hold",
+                                      "West": "hold"}
+
+
+def test_a_zone_with_no_price_follows_the_headline_price():
+    policy = zoned(make_risk("LOW"), zone_prices={"Houston": 10.0, "West": None}, price=80.0)
+    assert policy.intent == "discharge"
+    assert policy.zone_intent == {"Houston": "charge", "North": "discharge", "South": "discharge",
+                                  "West": "discharge"}
+
+
+def test_operator_hold_sets_no_zone_intent():
+    policy = zoned(make_risk("LOW"), mode="HOLD")
+    assert policy.zone_intent == {}
+    assert (policy.intent, policy.intent_reason) == ("hold", "operator_hold")
+
+
+def test_no_zone_prices_keeps_one_fleet_decision():
+    for missing in (None, {}, {"Houston": None}):
+        assert zoned(make_risk("LOW"), zone_prices=missing).zone_intent == {}
+    # Floor-only callers (no price label) get no zone intent either.
+    floor_only = reserve_policy(make_risk("LOW"), ZONE_INTENT_SETTINGS, zone_prices=ZONE_PRICES)
+    assert floor_only.zone_intent == {} and floor_only.intent == "hold"

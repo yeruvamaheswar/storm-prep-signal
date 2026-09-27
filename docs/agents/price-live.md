@@ -1,5 +1,7 @@
 # Live price: LZ_NORTH headline and four zone prices (NP6-905-CD)
 
+**Decision (2026-09-26, later): zone prices drive zone decisions.** `play_frame` passes the tick's `zone_prices` (the live fetch, or the tape's recorded map) to `reserve_policy(..., zone_prices=...)`, which sets `Policy.zone_intent` per zone from that zone's own price. The headline (LZ_NORTH) price still sets the fleet `Policy.intent` and fills any zone with no number. No zone prices: one fleet decision, as before. Rules: `docs/agents/policy-intent.md` "Each zone decides from its own price".
+
 **Decision (2026-09-26).** The engine and `/v1/snapshot` share one Python price reader. The wall's `readPrice()` in `web/src/liveStamp.ts` stays the browser path. The headline live price stays `settlementPoint=LZ_NORTH`. Live runs also fetch the four load zones (`fetch_zone_prices`, below) so each zone's dollars use its own live price. Archive and the snapshot bind the four load zones from `ercot_prices` rows at that interval. DAM NP4-190 stays out.
 
 ## Reader
@@ -20,9 +22,8 @@ The engine carries the same map. `TapeFrame.zone_prices` / `zone_price_label` (a
 
 ## Failure
 
-A failed live price must not paint tape 185. The tick shows no $/MWh and label `none`. Price picks `Policy.intent` (`docs/agents/policy-intent.md`). It does not pick allocate. The 185 in console fixtures stays a Demo number.
+A failed live price must not paint tape 185. The tick shows no $/MWh and label `none`. Price picks `Policy.intent`, and zone prices pick `Policy.zone_intent` (`docs/agents/policy-intent.md`); `allocate` reads those bands. A failed zone fetch leaves `zone_prices` `{}`, so every zone follows the headline band. The 185 in console fixtures stays a Demo number.
 
 ## Not this pass
 
 - DAM NP4-190-CD
-- A charge controller (`allocate` still only discharges)
