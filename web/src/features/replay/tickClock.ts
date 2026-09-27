@@ -86,15 +86,15 @@ export function nudgeSpeed(speed: number, speeds: readonly number[] | undefined 
 
 /**
  * Where the playhead is anchored. "play" runs the window while the session plays; "step" runs it once after a
- * Next tick and then holds at 2:00; "hold" rests at 2:00. A speed change re-anchors at the current position, so
- * the playhead never jumps backwards or skips.
+ * Next tick and then holds at 2:00; "frozen" rests where a pause caught it; "hold" rests at 2:00. A speed change,
+ * a pause and a resume all re-anchor at the current position, so the playhead never jumps backwards or skips.
  */
 export type Playhead = {
   tickIndex: number | null
   atMs: number
   fromT: number
   stepSeconds: number
-  mode: "play" | "step" | "hold"
+  mode: "play" | "step" | "frozen" | "hold"
 }
 
 export type PlayheadObservation = { tickIndex: number; playing: boolean; stepSeconds: number; nowMs: number }
@@ -104,24 +104,35 @@ export function initialPlayhead(nowMs: number): Playhead {
 }
 
 function runningT(p: Playhead, nowMs: number): number {
-  if (!(p.stepSeconds > 0)) return p.fromT
+  if (p.mode === "hold") return HOLD_T
+  if (p.mode === "frozen" || !(p.stepSeconds > 0)) return p.fromT
   const elapsedSeconds = Math.max(0, (nowMs - p.atMs) / 1000)
   const cap = p.mode === "step" ? HOLD_T : WINDOW_T
   return Math.min(cap, Math.max(0, p.fromT + (elapsedSeconds / p.stepSeconds) * WINDOW_T))
 }
 
-export function playheadSeconds(p: Playhead, nowMs: number, playing: boolean): number {
-  if (p.mode === "hold") return HOLD_T
-  if (p.mode === "play" && !playing) return HOLD_T
-  if (!(p.stepSeconds > 0)) return p.mode === "step" ? HOLD_T : 0
+/** The playhead now. Pause and play are read from the playhead's mode (set by `advancePlayhead`), so `_playing` is unused. */
+export function playheadSeconds(p: Playhead, nowMs: number, _playing?: boolean): number {
+  if (p.mode === "step" && !(p.stepSeconds > 0)) return HOLD_T
   return runningT(p, nowMs)
 }
 
 export function advancePlayhead(p: Playhead, obs: PlayheadObservation): Playhead {
   if (obs.tickIndex !== p.tickIndex) {
-    const stepped = p.tickIndex !== null && obs.tickIndex === p.tickIndex + 1 && !obs.playing
-    const mode = obs.playing ? "play" : stepped ? "step" : "hold"
+    const forward = p.tickIndex !== null && obs.tickIndex > p.tickIndex && !obs.playing
+    // A tick that played just before a pause freezes at its start, as the worker keeps its whole step.
+    const pausedAfterPlay = forward && p.mode === "play"
+    // Any other forward move while paused is Next tick (two quick presses can land in one poll).
+    const mode = obs.playing ? "play" : pausedAfterPlay ? "frozen" : forward ? "step" : "hold"
     return { tickIndex: obs.tickIndex, atMs: obs.nowMs, fromT: 0, stepSeconds: obs.stepSeconds, mode }
+  }
+  if (p.mode === "play" && !obs.playing) {
+    // Pause freezes the playhead where it is.
+    return { ...p, atMs: obs.nowMs, fromT: runningT(p, obs.nowMs), stepSeconds: obs.stepSeconds, mode: "frozen" }
+  }
+  if (obs.playing && (p.mode === "frozen" || p.mode === "step")) {
+    // Play resumes from where the playhead rests; the paused time is not played.
+    return { ...p, atMs: obs.nowMs, fromT: runningT(p, obs.nowMs), stepSeconds: obs.stepSeconds, mode: "play" }
   }
   if (obs.stepSeconds !== p.stepSeconds) {
     return { ...p, atMs: obs.nowMs, fromT: runningT(p, obs.nowMs), stepSeconds: obs.stepSeconds }

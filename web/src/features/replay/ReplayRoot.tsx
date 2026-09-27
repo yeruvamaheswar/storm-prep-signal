@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { apiBaseUrl } from "../../api/health"
 import { TopBar } from "../shell/TopBar"
 import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomToHome, zoomToZone } from "../shell/urlState"
@@ -7,7 +7,7 @@ import { isWorkerDown, type ScenarioList, type StateReply } from "../flow/types"
 import { canStep } from "./PlaybackBar"
 import { ReplayPage } from "./ReplayPage"
 import { advancePlayhead, initialPlayhead, playheadSeconds } from "./tickClock"
-import { useReplayKeys } from "./useReplayKeys"
+import { rememberSpeed, useReplayKeys, type SentSpeed } from "./useReplayKeys"
 import "./replay.css"
 
 function safeUrlState() {
@@ -29,6 +29,8 @@ export function ReplayRoot() {
   // Where the playhead sits inside the current tick; re-anchored on each new tick and each speed change.
   const [playhead, setPlayhead] = useState(() => initialPlayhead(Date.now()))
   const [url, setUrl] = useState(safeUrlState)
+  // The last speed sent (slider or keys), so [ and ] nudge from it before the next poll reports it.
+  const sentSpeed = useRef<SentSpeed | null>(null)
 
   useEffect(() => subscribeUrlState(setUrl), [])
 
@@ -77,6 +79,7 @@ export function ReplayRoot() {
   }, [])
 
   function post(request: FlowRequest) {
+    rememberSpeed(sentSpeed, request, live?.speed ?? null, Date.now())
     sendRequest(fetch, base, request)
       .then(() => setPostError(null))
       .catch((err: unknown) => setPostError(`Could not send "${request.kind}": ${errorText(err)}.`))
@@ -88,8 +91,9 @@ export function ReplayRoot() {
     speed: live?.speed ?? null,
     speeds: scenariosFailed ? null : live?.speeds,
     canStep: canStep(live),
+    sent: sentSpeed,
   }, post)
-  const playheadT = live ? playheadSeconds(playhead, nowMs, live.status === "playing") : undefined
+  const playheadT = live ? playheadSeconds(playhead, nowMs) : undefined
   const rightSlot = live ? (
     <>
       <span>Scenario</span>

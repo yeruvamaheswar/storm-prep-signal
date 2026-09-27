@@ -10,7 +10,9 @@ import {
   advancePlayhead, availableStops, initialPlayhead, nudgeSpeed, playheadSeconds, SPEED_STOPS, speedLabel,
   type Playhead,
 } from "../src/features/replay/tickClock"
-import { replayKeyRequest, useReplayKeys, type ReplayKeyContext } from "../src/features/replay/useReplayKeys"
+import {
+  rememberSpeed, replayKeyRequest, useReplayKeys, type ReplayKeyContext, type SentSpeed,
+} from "../src/features/replay/useReplayKeys"
 
 const ALL_SPEEDS = [2.4, 4.8, 12, 15, 30, 60, 150, 300, 600]
 
@@ -166,6 +168,50 @@ describe("keyboard shortcuts", () => {
     expect(replayKeyRequest(key("]", button), paused)).toEqual({ kind: "speed", body: { x: 30 } })
   })
 
+  it("keeps working after a click on the speed slider or a checkbox, which are not typing", () => {
+    const range = document.createElement("input")
+    range.type = "range"
+    expect(replayKeyRequest(key(" ", range), paused)).toEqual({ kind: "play", body: { playing: true } })
+    expect(replayKeyRequest(key("]", range), paused)).toEqual({ kind: "speed", body: { x: 30 } })
+    expect(replayKeyRequest(key(".", range), paused)).toEqual({ kind: "step", body: {} })
+    for (const type of ["checkbox", "radio", "button", "submit"]) {
+      const el = document.createElement("input")
+      el.type = type
+      expect(replayKeyRequest(key("[", el), paused)).toEqual({ kind: "speed", body: { x: 4.8 } })
+      // Space toggles or presses these by itself.
+      expect(replayKeyRequest(key(" ", el), paused)).toBeNull()
+    }
+    const text = document.createElement("input")
+    text.type = "search"
+    expect(replayKeyRequest(key("]", text), paused)).toBeNull()
+  })
+
+  it("ignores key auto-repeat for [ and ]", () => {
+    expect(replayKeyRequest(key("]", body, { repeat: true }), paused)).toBeNull()
+    expect(replayKeyRequest(key("[", body, { repeat: true }), paused)).toBeNull()
+  })
+
+  it("nudges from the speed last sent while the session still reports the old one", () => {
+    const sent = { current: { x: 30, from: 12, atMs: 1_000 } }
+    // Second ] before the next poll: 30 -> 60, not 12 -> 30 again.
+    expect(replayKeyRequest(key("]"), { ...paused, sent }, 1_500)).toEqual({ kind: "speed", body: { x: 60 } })
+    // Once the session reports a new speed, that wins.
+    expect(replayKeyRequest(key("]"), { ...paused, speed: 30, sent }, 1_500)).toEqual({ kind: "speed", body: { x: 60 } })
+    expect(replayKeyRequest(key("]"), { ...paused, speed: 60, sent }, 1_500)).toEqual({ kind: "speed", body: { x: 300 } })
+    // A send the session never took is forgotten after a while.
+    expect(replayKeyRequest(key("]"), { ...paused, sent }, 10_000)).toEqual({ kind: "speed", body: { x: 30 } })
+  })
+
+  it("remembers each speed sent, with the speed the session reported at the time", () => {
+    const sent: { current: SentSpeed | null } = { current: null }
+    rememberSpeed(sent, { kind: "play", body: { playing: true } }, 12, 0)
+    expect(sent.current).toBeNull()
+    rememberSpeed(sent, { kind: "speed", body: { x: 30 } }, 12, 100)
+    expect(sent.current).toEqual({ x: 30, from: 12, atMs: 100 })
+    rememberSpeed(sent, { kind: "speed", body: { x: 60 } }, 12, 200)
+    expect(sent.current).toEqual({ x: 60, from: 12, atMs: 200 })
+  })
+
   describe("on the page", () => {
     let host: HTMLDivElement
     let root: Root
@@ -241,11 +287,54 @@ describe("playhead", () => {
     expect(playheadSeconds(p, 90_000, false)).toBe(120)
   })
 
-  it("holds at 2:00 while paused without a step, and restarts on a reset", () => {
+  it("freezes where it is when paused mid-tick", () => {
     let p = observe(initialPlayhead(0), 0, 3, 25)
-    expect(playheadSeconds(p, 5_000, false)).toBe(120)
+    p = observe(p, 12_500, 3, 25, false)
+    expect(playheadSeconds(p, 12_500, false)).toBe(62.5)
+    expect(playheadSeconds(p, 60_000, false)).toBe(62.5)
+    // A speed change while frozen keeps the frozen position.
+    p = observe(p, 70_000, 3, 1, false)
+    expect(playheadSeconds(p, 71_000, false)).toBe(62.5)
+  })
+
+  it("resumes from the frozen position on play, without skipping the paused time", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    p = observe(p, 12_500, 3, 25, false)
+    p = observe(p, 72_500, 3, 25, true)
+    expect(playheadSeconds(p, 72_500, true)).toBe(62.5)
+    expect(playheadSeconds(p, 72_500 + 6_250, true)).toBe(93.75)
+    expect(playheadSeconds(p, 72_500 + 12_500, true)).toBe(125)
+  })
+
+  it("freezes at the start of a tick that arrived just before a pause, instead of playing it as a step", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
+    p = observe(p, 25_000, 4, 25, false)
+    expect(playheadSeconds(p, 25_000, false)).toBe(0)
+    expect(playheadSeconds(p, 40_000, false)).toBe(0)
+  })
+
+  it("holds at 2:00 after a reset while paused", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25)
     p = observe(p, 6_000, 0, 25, false)
     expect(playheadSeconds(p, 7_000, false)).toBe(120)
+  })
+
+  it("does not cut a stepped tick short when play is pressed during it", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25, false)
+    p = observe(p, 10_000, 4, 25, false)
+    expect(playheadSeconds(p, 20_000, false)).toBe(50)
+    p = observe(p, 20_000, 4, 25, true)
+    expect(playheadSeconds(p, 20_000, true)).toBe(50)
+    expect(playheadSeconds(p, 20_000 + 12_500, true)).toBe(112.5)
+    // The worker's next tick is due 25 s after the step (35 s): the head reaches the end of the window then.
+    expect(playheadSeconds(p, 35_000, true)).toBe(125)
+  })
+
+  it("treats two steps landing in one poll as a step, not a jump to 2:00", () => {
+    let p = observe(initialPlayhead(0), 0, 3, 25, false)
+    p = observe(p, 10_000, 5, 25, false)
+    expect(playheadSeconds(p, 10_000, false)).toBe(0)
+    expect(playheadSeconds(p, 20_000, false)).toBe(50)
   })
 })
 
