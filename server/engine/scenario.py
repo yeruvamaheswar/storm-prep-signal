@@ -18,7 +18,7 @@ from pathlib import Path
 from server.engine.baseline import load_baseline
 from server.engine.brief import write_brief
 from server.engine.events import start_run
-from server.engine.fleet import assign_county, county_name, home_label, new_fleet, zone_counties
+from server.engine.fleet import STATUSES, assign_county, county_name, home_label, new_fleet, zone_counties
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
 from server.engine.order_log import order_timelines
 from server.engine.policy import JEV_YES_AT
@@ -456,12 +456,12 @@ class Session:
         frame = self.overlay(self.frames[self.index])
         self.mode = frame.events.get("operator", self.mode)
         soc_before = {home.home_id: round(100 * home.soc_kwh / home.capacity_kwh, 2) for home in self.homes}
-        feed_status = self.feed_statuses()
+        planned = self.plan_statuses(frame)
         result, cycle, policy, scaled, risk = play_frame(
             frame, self.homes, self.settings, self.baseline, self.mode, telemetry=self.telemetry)
         self.board = update(self.board, result, self.homes)
         emit = build_tick_emit(scaled, self.homes, cycle)
-        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before, feed_status)
+        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before, planned_status=planned)
         self.history = (self.history + [{
             "tick": result.tick, "ts": result.ts, "target_mw": result.target_mw,
             "delivered_mw": result.delivered_mw, "charging_mw": self.last["charging_mw"],
@@ -488,7 +488,25 @@ class Session:
         return {home_id: data_status(hs, self.telemetry.base_s, self.telemetry.settings)
                 for home_id, hs in self.telemetry.homes.items()}
 
-    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before, feed_status=None):
+    def plan_statuses(self, frame):
+        """Each home's status as the planner will read it this tick, taken before play_frame.
+
+        play_frame applies the frame's status events first (fleet.apply_events), then plans; with the feed
+        on it plans from telemetry.reported_homes, which combines that status with the report age. A home
+        can then die mid-tick (orchestration worker_error) after it got its order, so the end-of-tick
+        status is not what the planner saw. This works on the frame's events only; no home is changed.
+        """
+        feed = self.feed_statuses()
+        planned = {}
+        for home in self.homes:
+            status = home.status
+            for event_status in STATUSES:  # apply_events order: a later list wins
+                if home.home_id in frame.events.get(event_status, []):
+                    status = event_status
+            planned[home.home_id] = status if feed is None else plan_status(status, feed[home.home_id])
+        return planned
+
+    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before, feed_status=None, planned_status=None):
         tick = {**asdict(result), "brief": write_brief(result)}
         grid_down = set(frame.events.get("grid_down", []))
         homes, zones = [], {}
@@ -505,7 +523,8 @@ class Session:
                           "floor_reason": floor_reason,
                           "under_floor_why": self.under_floor_why(home, state, floor_pct),
                           # What allocate saw: the reported status with the feed, else the home's own.
-                          "plan_status": (home.status if feed_status is None
+                          "plan_status": (planned_status[home.home_id] if planned_status is not None
+                                          else home.status if feed_status is None
                                           else plan_status(home.status, feed_status[home.home_id]))})
             row = zones.setdefault(home.zone, {
                 "selling_mw": result.zone_delivered_mw.get(home.zone, 0.0),

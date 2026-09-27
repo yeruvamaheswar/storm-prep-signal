@@ -246,3 +246,21 @@ def test_home_rows_carry_the_status_the_planner_used(tmp_path):
             assert sum(h["plan_status"] == status for h in s.last["homes"]) == count
         differs += sum(h["plan_status"] != h["status"] for h in s.last["homes"])
     assert differs > 0
+
+
+@pytest.mark.parametrize("feed", [False, True])
+def test_plan_status_is_the_status_at_plan_time_not_after_a_mid_tick_crash(tmp_path, feed):
+    # faults (seed 42): injected worker errors kill homes mid-tick (orchestration.py set_status "dead") after the
+    # planner already sent them orders, e.g. tick 139 home-010/015/020/025. The row must still say what was planned.
+    s = Session({**SETTINGS, "telemetry_feed": feed},
+                load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"), log_dir=tmp_path / f"faults-{feed}")
+    s.start("faults", 42)
+    crashed = 0
+    while s.step():
+        orders = s.last["orders"] or {}
+        for h in s.last["homes"]:
+            own = [e for e in orders.get(h["id"], []) if e[1] == "sent" and e[0] == 0.0 and e[3] == "own"]
+            if own:
+                assert h["plan_status"] == "live", (s.last["result"]["tick"], h)
+                crashed += h["status"] == "dead"
+    assert crashed > 0
