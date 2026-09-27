@@ -1329,4 +1329,4 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Gap: at phone width the Day view playback card covered the Scenario / This tick dock, so the controls rendered but could not be tapped.
 - Replay now positions the phone dock and sheets from the measured playback height. Day view uses a compact phone-only grid; play, seek, pace, view, and marks stay reachable. Scenario and This tick sheets have visible Close buttons, and a scenario choice closes the setup sheet immediately.
 - All geometry changes stay inside the existing `max-width: 720px` band; desktop Replay remains unchanged.
-- Browser: 390×844 with a full Day view, Scenario opened and a scenario choice dismissed the sheet; 1440×900 kept the dual rails and inset playback. Web: `vitest` 863 passed (58 files), `tsc --noEmit` and Vite build clean. Python: `pytest -q` 943 passed.
+- Browser: 390×844 with a full Day view, Scenario opened and a scenario choice dismissed the sheet; 1440×900 kept the dual rails and inset playback. Clean PR checkout: `vitest` 862 passed (58 files), `tsc --noEmit` and Vite build clean. Python: `pytest -q` 943 passed.
