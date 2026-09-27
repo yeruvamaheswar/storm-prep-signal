@@ -989,3 +989,206 @@
   border-radius: 3px 3px 0 0;
   background: var(--rg-gave-energy);
 }
+
+/* Task 9b */
+/* Scenario rail: seed, reshuffle, alert pick and the worker's tick error. */
+.replay-rail-error {
+  flex-shrink: 0;
+  margin: 10px 8px 0;
+  padding: 8px 10px;
+  border-radius: var(--rg-list-radius);
+  background: var(--rg-surface);
+  color: var(--rg-lost);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.replay-seed,
+.replay-alert-pick {
+  display: grid;
+  gap: 6px;
+}
+
+.replay-seed {
+  flex-shrink: 0;
+  margin: 12px 8px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rg-clay-scene);
+}
+
+.replay-alert-pick {
+  margin: 8px 0 4px;
+}
+
+.replay-seed-row {
+  display: flex;
+  gap: 6px;
+}
+
+.replay-seed input,
+.replay-alert-pick select {
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-surface);
+  color: var(--rg-ink);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding: 7px 10px;
+}
+
+.replay-seed input {
+  flex: 1 1 auto;
+  width: 0;
+}
+
+.replay-seed .replay-pill {
+  flex-shrink: 0;
+  padding: 7px 10px;
+}
+
+.replay-seed-now {
+  margin: 0;
+  color: var(--rg-muted);
+  font-size: 12.5px;
+}
+
+.replay-seed input:focus-visible,
+.replay-alert-pick select:focus-visible,
+.replay-data a:focus-visible {
+  outline: 3px solid var(--rg-focus);
+  outline-offset: 2px;
+}
+
+.replay-pill:disabled,
+.replay-pill:disabled:hover {
+  border-color: var(--rg-line);
+  color: var(--rg-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* About this data: labelled start-charge bins, JEV reading, zone shares, session log. */
+.replay-hist {
+  gap: 3px;
+  height: 110px;
+}
+
+/* The bar row takes the height left after the label, so a full bar never pushes its label down. */
+.replay-hist-bin {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-width: 0;
+}
+
+.replay-hist .replay-hist-bar {
+  display: block;
+  align-self: end;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--rg-gave-energy);
+}
+
+.replay-hist .replay-hist-bar.is-under {
+  background: var(--rg-charging);
+}
+
+.replay-hist .replay-hist-label {
+  display: block;
+  width: auto;
+  min-height: 0;
+  margin-top: 4px;
+  border-radius: 0;
+  background: none;
+  color: var(--rg-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.replay-jev {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--rg-list-radius);
+  background: var(--rg-clay-tile);
+}
+
+.replay-jev .replay-jev-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.replay-shares {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.replay-shares li {
+  display: grid;
+  grid-template-columns: 70px 120px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.replay-shares li > .replay-shares-text:nth-child(2) {
+  grid-column: 2 / 4;
+}
+
+.replay-shares-track {
+  display: block;
+  overflow: hidden;
+  height: 8px;
+  border-radius: var(--rg-pill-radius);
+  background: var(--rg-clay-tile);
+}
+
+.replay-shares-fill {
+  display: block;
+  height: 100%;
+  background: var(--rg-gave-energy);
+  transform-origin: left center;
+}
+
+.replay-shares-text {
+  color: var(--rg-muted);
+}
+
+.replay-log {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.replay-log li {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 12px;
+}
+
+.replay-log time {
+  color: var(--rg-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.replay-data code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.replay-data a {
+  color: var(--rg-focus);
+}
