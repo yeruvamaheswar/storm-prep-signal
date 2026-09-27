@@ -19,13 +19,22 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 
 ## How one step flows
 
-1. The page POSTs `start`, `reset`, `play`, `speed`, `alert`, or `grid-down` with `X-Operator-Id`. `server/api/scenario.py` appends it to `var/scenario/requests.json` and returns 202.
-2. The worker reads new requests (by `seq`), applies them to its `Session` (`server/engine/scenario.py`), and when the time-lapse clock says so, plays one frame through `loop.play_frame` with the session's own fleet.
+1. The page POSTs `start`, `reset`, `play`, `speed`, `step`, `alert`, or `grid-down` with `X-Operator-Id`. `server/api/scenario.py` appends it to `var/scenario/requests.json` and returns 202. `POST /v1/scenario/step` (Replay's Next tick) is recorded only while `state.json` reports `paused`: a missing or stale worker gets 409 `worker_not_running` first, any other status 409 `not_paused`.
+2. The worker reads new requests (by `seq`), applies them to its `Session` (`server/engine/scenario.py`), and when the time-lapse clock says so, plays one frame through `loop.play_frame` with the session's own fleet. A `step` request plays exactly one frame and leaves the session paused (`Session.step_paused`; refused with no scenario, while playing, or after the last tick). Pace: see "Playback pace" below.
 3. Active alert zones are added to that frame's `events["weather"]`; grid-down zones go to `events["grid_down"]`. The engine then decides the tick with the usual rules.
 4. The worker writes `var/scenario/state.json`: the tick, each home's `{soc_pct, kw, state, zone}`, zone MW selling and charging, floors and reasons, that tick's provenance rows, active alerts with their JEV reading, overlays, the seed and starting-charge histogram, and a short history.
 5. The page polls `GET /v1/scenario/state` every 500 ms. A state file older than 10 s reads as `worker_not_running`.
 
 Requests left over from an earlier worker are not replayed; the page asks again.
+
+## Playback pace
+
+Decision (Rajat): pause freezes the playhead where it is, and Play resumes the rest of that tick. Control follows the operator's orders; the clock never runs on behind a pause.
+
+- One tick waits `tick_minutes*60 / speed` real seconds. `SPEEDS = (2.4, 4.8, 12, 15, 30, 60, 150, 300, 600)`, `DEFAULT_SPEED = 12` (25 s per 5-minute tick). 2.4 is real time: the 125 s order window plays at true speed. `POST /v1/scenario/speed` takes a float and returns 422 `bad_speed` for anything not in `SPEEDS`.
+- Worker (`scripts/scenario_session.py`, `run`): a speed change mid-tick rescales only the time left (`rescale_next_step`), so the share already played is kept. Pause stores the time left in the tick; Play waits that remainder (rescaled if the speed changed while paused), so a pause never skips or shortens a tick and is never counted as play time. A `step` starts the stepped tick's full step at the step itself; Play during it waits only what is left of that step, and Play after it ran out goes straight on. A reset or new scenario forgets the remainder.
+- Replay's playhead (`web/src/features/replay/tickClock.ts`, `advancePlayhead`) matches the worker: a speed change, a pause and a resume all re-anchor at the current position. Pause freezes the playhead (mode `frozen`); Play resumes from there. After Next tick the stepped tick's window plays once at the slider speed and holds at 2:00 (mode `step`); any forward move while paused counts as a step, so two quick steps in one poll do not jump to 2:00. A tick that lands just before a pause freezes at 0:00.
+- Keys (`useReplayKeys.ts`): Space play/pause, `[` / `]` one stop slower/faster, `.` Next tick. They work with the speed slider focused (only text-entry fields block them), ignore key auto-repeat, and nudge from the speed just sent until the session reports it.
 
 ## Order timelines
 
