@@ -4,11 +4,14 @@ import { isWorkerDown, type ScenarioList, type SessionState, type StartSummary, 
 import { replayTickSeconds } from "./tickClock"
 import { AboutDataDrawer, AboutDataDrawerEmpty } from "./AboutDataDrawer"
 import { FeedPanel } from "./FeedPanel"
+import { HomePanel } from "./HomePanel"
 import { LedgerDrawer } from "./LedgerDrawer"
 import { MapStage, type StageNotice } from "./MapStage"
 import { PlaybackBar } from "./PlaybackBar"
 import { PromisePanel } from "./PromisePanel"
 import { ScenarioRail, type Lens } from "./ScenarioRail"
+import { ZoneBoard } from "./ZoneBoard"
+import { ZonePanel } from "./ZonePanel"
 
 type Props = {
   scenarios: ScenarioList | null
@@ -23,8 +26,14 @@ type Props = {
   nowMs: number
   tickArrivedAtMs?: number
   selectedZone?: string | null
+  /** `?home=`: the open home panel inside the zone view. */
+  selectedHome?: string | null
   onZone?: (zone: string) => void
   onBack?: () => void
+  onHome?: (homeId: string) => void
+  onCloseHome?: () => void
+  /** Where the "Texas" breadcrumb link points (the URL without zone and home). */
+  backHref?: string
   onSend?: (request: FlowRequest) => void
 }
 
@@ -53,13 +62,15 @@ function promiseTick(session: SessionState | null) {
 
 export function ReplayPage({
   scenarios, scenariosFailed = false, state, apiDown = false, apiBase = "", postError = null, nowMs, tickArrivedAtMs,
-  selectedZone, onZone, onBack, onSend = noopSend,
+  selectedZone, selectedHome = null, onZone, onBack, onHome, onCloseHome, backHref, onSend = noopSend,
 }: Props) {
   const [lens, setLens] = useState<Lens>("send")
   const [drawer, setDrawer] = useState<Drawer>(null)
   const opener = useRef<HTMLElement | null>(null)
   const previousDrawer = useRef<Drawer>(null)
   const session = sessionOrNull(state)
+  const zoneView = selectedZone || null
+  const openHome = zoneView ? selectedHome : null
   const notice: StageNotice = apiDown ? "api_down" : state && isWorkerDown(state) ? "worker_down" : null
   const tSeconds = session ? replayTickSeconds({
     playing: session.status === "playing",
@@ -81,34 +92,65 @@ export function ReplayPage({
   }
 
   return (
-    <main className="replay-scene">
-      <MapStage
-        zones={session?.zones ?? {}}
-        homes={session?.homes ?? []}
-        orders={session?.orders}
-        tick={session?.tick ?? null}
-        baseFloorPct={baseFloor(session)}
-        tSeconds={tSeconds}
-        lens={lens}
-        notice={notice}
-        apiBase={apiBase}
-        onZone={onZone ?? (() => {})}
-      />
-      {selectedZone ? (
-        <section className="replay-panel replay-zone-next" aria-label="Zone view">
-          <h1>{selectedZone}</h1>
-          <p>Zone view coming next.</p>
-          <button className="replay-pill" type="button" onClick={onBack}>Back to Texas</button>
-        </section>
+    <main className={`replay-scene${zoneView && openHome ? " has-home" : ""}`}>
+      {zoneView ? (
+        <ZoneBoard
+          zone={zoneView}
+          homes={session?.homes ?? []}
+          orders={session?.orders}
+          tSeconds={tSeconds}
+          lens={lens}
+          tickMinutes={session?.tick_minutes}
+          openHome={openHome}
+          onHome={onHome ?? (() => {})}
+          onBack={onBack ?? (() => {})}
+          backHref={backHref}
+        />
+      ) : (
+        <MapStage
+          zones={session?.zones ?? {}}
+          homes={session?.homes ?? []}
+          orders={session?.orders}
+          tick={session?.tick ?? null}
+          baseFloorPct={baseFloor(session)}
+          tSeconds={tSeconds}
+          lens={lens}
+          notice={notice}
+          apiBase={apiBase}
+          onZone={onZone ?? (() => {})}
+        />
+      )}
+      {zoneView && notice ? (
+        <div className={`replay-panel replay-worker-empty is-${notice}`} role="status">
+          <p>{notice === "api_down" ? "Cannot reach the ReserveGate API, so this zone has no homes to show." : "The scenario worker is not running, so this zone has no homes to show."}</p>
+        </div>
       ) : null}
       <div className="replay-left">
         <ScenarioRail scenarios={scenarios} scenariosFailed={scenariosFailed} state={session} lens={lens} onLens={setLens} onSend={onSend} />
       </div>
-      <div className="replay-right">
-        <PromisePanel tick={promiseTick(session)}
-          onOpenLedger={(from) => openDrawer("ledger", from)} onOpenData={(from) => openDrawer("data", from)} />
-        <FeedPanel orders={session?.orders} homes={session?.homes ?? []} tick={session?.tick ?? null} tSeconds={tSeconds} />
-      </div>
+      {zoneView && openHome ? (
+        <HomePanel
+          key={openHome}
+          homeId={openHome}
+          home={session?.homes.find((home) => home.id === openHome) ?? null}
+          orders={session?.orders}
+          tSeconds={tSeconds}
+          tickMinutes={session?.tick_minutes}
+          onClose={onCloseHome ?? (() => {})}
+        />
+      ) : (
+        <div className="replay-right">
+          {zoneView ? (
+            <ZonePanel zone={zoneView} homes={session?.homes ?? []} orders={session?.orders} tick={session?.tick ?? null} tSeconds={tSeconds} />
+          ) : (
+            <>
+              <PromisePanel tick={promiseTick(session)}
+                onOpenLedger={(from) => openDrawer("ledger", from)} onOpenData={(from) => openDrawer("data", from)} />
+              <FeedPanel orders={session?.orders} homes={session?.homes ?? []} tick={session?.tick ?? null} tSeconds={tSeconds} />
+            </>
+          )}
+        </div>
+      )}
       {drawer === "ledger" ? (
         <LedgerDrawer title={`Ledger, ${session?.scenario?.name ?? "scenario"}`} history={session?.history ?? []} onClose={() => setDrawer(null)} />
       ) : null}

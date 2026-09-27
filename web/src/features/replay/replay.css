@@ -924,21 +924,3 @@
   border-radius: 3px 3px 0 0;
   background: var(--rg-gave-energy);
 }
-
-.replay-zone-next {
-  left: 320px;
-  top: 84px;
-  z-index: 5;
-  width: 360px;
-  padding: 20px 24px;
-}
-
-.replay-zone-next h1 {
-  margin: 0;
-  font-size: 26px;
-}
-
-.replay-zone-next p {
-  margin: 8px 0 16px;
-  color: var(--rg-muted);
-}

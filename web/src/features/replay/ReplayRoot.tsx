@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiBaseUrl } from "../../api/health"
 import { TopBar } from "../shell/TopBar"
-import { readUrlState, subscribeUrlState, writeUrlState, zoomToZone } from "../shell/urlState"
+import { hrefForUrlState, readUrlState, subscribeUrlState, writeUrlState, zoomToHome, zoomToZone } from "../shell/urlState"
 import { fetchScenarios, fetchState, sendRequest, type FlowRequest } from "../flow/api"
 import { isWorkerDown, type ScenarioList, type StateReply } from "../flow/types"
 import { ReplayPage } from "./ReplayPage"
@@ -101,6 +101,17 @@ export function ReplayRoot() {
         nowMs={nowMs}
         tickArrivedAtMs={tickArrivedAtMs}
         selectedZone={url.zone}
+        selectedHome={url.home}
+        backHref={typeof window === "undefined" ? "/" : hrefForUrlState(window.location.pathname, { ...url, zone: null, home: null })}
+        onHome={(home) => {
+          zoomToHome(home)
+          setUrl(readUrlState())
+        }}
+        onCloseHome={() => {
+          const next = { ...readUrlState(), home: null }
+          writeUrlState(next, { push: true })
+          setUrl(next)
+        }}
         onZone={(zone) => {
           zoomToZone(zone)
           setUrl(readUrlState())
