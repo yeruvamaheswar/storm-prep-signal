@@ -56,11 +56,28 @@ def check_charge_books(alloc, target_mw):
     assert all(kw < 0 for kw in alloc.per_home_kw.values())
 
 
+def check_refill_books(alloc, target_mw, homes, p):
+    """check_books when homes under their floor refill: those charge, every other order sells."""
+    assert alloc.missed_mw == pytest.approx(target_mw - alloc.delivered_mw, abs=1e-9)
+    assert 0 <= alloc.delivered_mw <= target_mw + 1e-12
+    under = {h.home_id for h in homes if h.soc_kwh < floor_kwh(h, p)}
+    for home_id, kw in alloc.per_home_kw.items():
+        assert (kw < 0) if home_id in under else (kw > 0)
+
+
+def check_under_floor_only_rise(homes, start, p):
+    """After the tick: no home under its floor lost charge, none passed its floor, and none breached."""
+    for h in homes:
+        assert h.soc_kwh >= min(start[h.home_id], floor_kwh(h, p)) - 1e-9
+        if start[h.home_id] <= floor_kwh(h, p):
+            assert start[h.home_id] - 1e-9 <= h.soc_kwh <= floor_kwh(h, p) + 1e-9
+
+
 def assert_real_reasons(alloc):
     """Wall codes only. A TEMP stub must never leak `temp_stub` onto the tick."""
     assert "temp_stub" not in alloc.reasons
     for code in alloc.reasons:
-        ok = code in ("operator_hold", "holding_spare_energy", "charging",
+        ok = code in ("operator_hold", "holding_spare_energy", "charging", "reserve_refill",
                       "storm_reserve", "fleet_headroom_short", "unknown_zone")
         ok = ok or code.startswith("homes_dead:") or code.startswith("homes_stale:")
         assert ok, f"unexpected reason {code!r}"
@@ -130,13 +147,13 @@ def test_home_exactly_at_its_floor_gets_nothing():
     check_books(alloc, 0.001)
 
 
-def test_home_under_a_raised_zone_floor_gets_nothing():
+def test_home_under_a_raised_zone_floor_sells_nothing_and_refills():
     homes = [home("a", 9.0)]                           # 45%, under a 60% floor of 12 kWh
     alloc = allocate(homes, frame(0.1), policy(60.0, "storm_risk_high"), "AUTO", settings())
-    assert alloc.per_home_kw == {}
+    assert alloc.per_home_kw == {"a": pytest.approx(-36.0)}   # 3 kWh short, over a 5-minute tick
     assert alloc.delivered_mw == 0.0
-    assert alloc.reasons == ["storm_reserve"]
-    check_books(alloc, 0.1)
+    assert alloc.missed_mw == pytest.approx(0.1)
+    assert alloc.reasons == ["storm_reserve", "reserve_refill"]
 
 
 def test_per_zone_floors_are_honored_houston_60_others_30():
@@ -241,13 +258,10 @@ def test_discharge_of_an_allocation_never_breaches(pct, reason, target_mw):
     p = policy(pct, reason)
     start = {h.home_id: h.soc_kwh for h in homes}
     alloc = allocate(homes, frame(target_mw), p, "AUTO", settings())
-    check_books(alloc, target_mw)
+    check_refill_books(alloc, target_mw, homes, p)
     assert discharge(homes, alloc, p, settings()) == 0
-    # At 60% about half the fleet starts under the floor; those homes must simply not move.
-    for h in homes:
-        assert h.soc_kwh >= min(start[h.home_id], floor_kwh(h, p)) - 1e-9
-        if start[h.home_id] <= floor_kwh(h, p):
-            assert h.soc_kwh == start[h.home_id]
+    # At 60% about half the fleet starts under the floor; those homes only refill toward it.
+    check_under_floor_only_rise(homes, start, p)
 
 
 # --- archive 0.40 MW wall cases (HOLD / AUTO under cap / storm 60% miss) ---
@@ -288,14 +302,11 @@ def test_storm_60_floor_misses_040_mw_without_breaches():
     alloc = allocate(homes, frame(0.40), p, "AUTO", s)
     assert 0 < alloc.delivered_mw < 0.40
     assert alloc.missed_mw == pytest.approx(0.40 - alloc.delivered_mw)
-    assert alloc.reasons == ["storm_reserve"]
+    assert alloc.reasons == ["storm_reserve", "reserve_refill"]
     assert_real_reasons(alloc)
-    check_books(alloc, 0.40)
+    check_refill_books(alloc, 0.40, homes, p)
     assert discharge(homes, alloc, p, s) == 0
-    for h in homes:
-        assert h.soc_kwh >= min(start[h.home_id], floor_kwh(h, p)) - 1e-9
-        if start[h.home_id] <= floor_kwh(h, p):
-            assert h.soc_kwh == start[h.home_id]
+    check_under_floor_only_rise(homes, start, p)
 
 
 # --- intent: hold still serves the call, discharge sells, charge absorbs ---------
@@ -753,3 +764,112 @@ def test_acted_intent_reads_what_allocate_planned():
     alloc = allocate([home("a", 15.0), home("b", 15.0)], frame(0.004), p, "AUTO", settings())
     assert sum(alloc.per_home_kw.values()) > 0
     assert acted_intent(alloc, p, "AUTO") == ("discharge", "grid_call")
+
+
+# --- reserve refill: a battery under its floor charges from the grid at any price ------------
+
+def test_storm_home_under_the_raised_floor_refills_at_any_price_with_no_call():
+    # Storm raised the floor to 60% (12 kWh); the home holds 9 kWh. Price is a hold $40.
+    for intent in ("hold", "discharge"):
+        alloc = allocate([home("a", 9.0, max_kw=5.0)], frame(0.0), policy(60.0, "storm_risk_high", intent=intent),
+                         "AUTO", settings())
+        assert alloc.per_home_kw == {"a": -5.0}
+        assert alloc.delivered_mw == 0.0 and alloc.missed_mw == 0.0
+        assert alloc.reasons == ["reserve_refill"]
+
+
+def test_refill_stops_at_the_floor_not_at_full():
+    # 11.9 of a 12 kWh floor: 0.1 kWh short is 1.2 kW over a 5-minute tick, then it holds there.
+    homes = [home("a", 11.9)]
+    p, s = policy(60.0, "storm_risk_high", intent="hold"), settings()
+    alloc = allocate(homes, frame(0.0), p, "AUTO", s)
+    assert alloc.per_home_kw["a"] == pytest.approx(-1.2)
+    assert discharge(homes, alloc, p, s) == 0
+    assert homes[0].soc_kwh == pytest.approx(12.0)
+    assert allocate(homes, frame(0.0), p, "AUTO", s).per_home_kw == {}
+
+
+def test_calm_home_under_the_base_floor_refills_on_a_high_price():
+    # 2 kWh under a 6 kWh base floor on a $60+ discharge band: backup comes first.
+    alloc = allocate([home("a", 2.0), home("b", 10.0)], frame(0.0), policy(intent="discharge"), "AUTO", settings())
+    assert alloc.per_home_kw == {"a": pytest.approx(-48.0)}
+    assert alloc.reasons == ["reserve_refill"]
+
+
+def test_refill_runs_beside_a_served_call_and_never_on_a_seller():
+    homes = [home("low", 9.0), home("full", 20.0)]
+    alloc = allocate(homes, frame(0.05), policy(60.0, "storm_risk_high", intent="hold"), "AUTO", settings())
+    assert alloc.per_home_kw["full"] == pytest.approx(50.0)
+    assert alloc.per_home_kw["low"] == pytest.approx(-36.0)
+    assert alloc.delivered_mw == pytest.approx(0.05) and alloc.missed_mw == pytest.approx(0.0, abs=1e-9)
+    assert alloc.reasons == ["reserve_refill"]
+
+
+def test_refill_keeps_the_shortfall_code_first():
+    homes = [home("low", 9.0), home("mid", 13.0)]
+    alloc = allocate(homes, frame(1.0), policy(60.0, "storm_risk_high", intent="hold"), "AUTO", settings())
+    assert alloc.per_home_kw == {"mid": pytest.approx(12.0), "low": pytest.approx(-36.0)}
+    assert alloc.reasons == ["storm_reserve", "reserve_refill"]
+
+
+def test_no_refill_for_dead_stale_grid_down_or_operator_hold():
+    p = policy(60.0, "storm_risk_high", intent="hold")
+    homes = [home("d", 2.0, status="dead"), home("s", 2.0, status="stale"), home("n", 2.0, zone="North")]
+    down = TapeFrame(1, "2026-09-25T12:00:00-05:00", 0.0, "synthetic", 40.0, "synthetic",
+                     events={"grid_down": ["North"]})
+    assert allocate(homes, down, p, "AUTO", settings()).per_home_kw == {}
+    held = allocate([home("a", 2.0)], frame(0.0), p, "HOLD", settings())
+    assert held.per_home_kw == {} and held.reasons == ["operator_hold"]
+
+
+def test_zoned_hold_zone_refills_while_the_cheap_zone_charges_to_full():
+    p = policy(30.0, intent="hold", Houston=60.0)
+    p.zone_intent = {"Houston": "hold", "North": "charge"}
+    homes = [home("h", 9.0), home("n", 10.0, zone="North"), home("h2", 15.0)]
+    alloc = allocate(homes, frame(0.0), p, "AUTO", settings())
+    assert alloc.per_home_kw == {"h": pytest.approx(-36.0), "n": pytest.approx(-100.0)}
+    assert alloc.reasons == ["charging", "reserve_refill"]
+
+
+def test_zoned_no_charge_zone_still_refills_a_home_under_its_floor():
+    p = policy(30.0, intent="hold", Houston=60.0)
+    p.zone_intent = {"Houston": "hold", "North": "discharge"}
+    alloc = allocate([home("h", 9.0), home("n", 10.0, zone="North")], frame(0.0), p, "AUTO", settings())
+    assert alloc.per_home_kw == {"h": pytest.approx(-36.0)}
+    assert alloc.reasons == ["reserve_refill"]
+
+
+def test_weather_alert_zone_refills_before_the_storm_while_calm_zones_wait():
+    from types import SimpleNamespace
+    from server.engine.policy import reserve_policy
+    s = settings(charge_threshold_usd_mwh=25, discharge_threshold_usd_mwh=60)
+    p = reserve_policy(SimpleNamespace(level="LOW"), s, alerted={"Houston": ["alert"]}, mode="AUTO",
+                       price_usd_mwh=40.0, price_label="synthetic",
+                       zone_prices={z: 40.0 for z in ZONES})
+    homes = [home("h", 8.0), home("n", 8.0, zone="North")]   # 40%: under Houston's 60%, over North's 30%
+    alloc = allocate(homes, frame(0.0), p, "AUTO", s)
+    assert alloc.per_home_kw == {"h": pytest.approx(-48.0)}
+    assert acted_intent(alloc, p, "AUTO") == ("charge", "reserve_refill")
+
+
+def test_acted_intent_refill_only_tick_says_reserve_refill():
+    for band in ("hold", "discharge"):
+        p = labelled(band)
+        alloc = allocate([home("a", 2.0), home("b", 10.0)], frame(0.0), p, "AUTO", settings())
+        assert acted_intent(alloc, p, "AUTO") == ("charge", "reserve_refill")
+
+
+def test_acted_intent_cheap_tick_keeps_the_policy_reason_when_a_floor_home_charges_too():
+    p = labelled("charge", "")
+    alloc = allocate([home("a", 2.0), home("b", 10.0)], frame(0.0), p, "AUTO", settings())
+    assert alloc.reasons == ["charging"]
+    assert acted_intent(alloc, p, "AUTO") == ("charge", "")
+
+
+def test_acted_intent_zoned_refill_only_on_a_cheap_headline_says_reserve_refill():
+    # Headline band says charge, but every zone's own price says hold: only the floor refill ran.
+    p = labelled("charge", "")
+    p.zone_intent = {z: "hold" for z in ZONES}
+    alloc = allocate([home("a", 2.0), home("b", 10.0)], frame(0.0), p, "AUTO", settings())
+    assert alloc.reasons == ["reserve_refill"]
+    assert acted_intent(alloc, p, "AUTO") == ("charge", "reserve_refill")

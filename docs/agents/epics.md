@@ -13,7 +13,7 @@ Checked against the code on 2026-09-26. The code-level list of stubs is `docs/ag
 - Wall: Live / Demo / archive modes, one snapshot for the header, Quality and Reports drawer, zone drill-in, ack rollup bars, interval strip, Hold/Auto writing `var/state.json`.
 - Supabase archive of Beryl, Heather and tuning-2026; archive snapshots rated by `compute_risk`; `persist_run.py` behind `--persist`.
 - Heather replay tape: the floor rises to 60% only after the 13:03 posting (`tapes/heather.json`, `scripts/build_tape.py`).
-- Epic 7, charging (done 2026-09-26). Signed charge per `CONSTRAINTS.md` allocation step 6: the worker clamps to room below capacity, charge is booked in `charging_mw` apart from delivery, and `breaches == 0` holds (`FUZZ_SEEDS=50`). Refill is price-only (at or below `CHARGE_BELOW_USD`). Grid-down zones neither sell nor charge (allocation step 7). Shown on `/flow`: `grid-flow.md`.
+- Epic 7, charging (done 2026-09-26). Signed charge per `CONSTRAINTS.md` allocation step 6: the worker clamps to room below capacity, charge is booked in `charging_mw` apart from delivery, and `breaches == 0` holds (`FUZZ_SEEDS=50`). A home under its floor refills to it at any price (`CONSTRAINTS.md` allocation step 10); filling past the floor is price-only (at or below `CHARGE_BELOW_USD`). Grid-down zones neither sell nor charge (allocation step 7). Shown on `/flow`: `grid-flow.md`.
 
 ## Open epics
 

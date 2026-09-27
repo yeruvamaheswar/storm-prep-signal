@@ -146,6 +146,7 @@ Reassignment at the 60 s deadline (`ZoneSupervisor.pick_home`) also reads the pl
 ### P1: charge planner (cut line 3)
 
 **R11. `plan_charge(homes, frame, policy, settings) -> dict[home_id, kw]`**, a pure function in `controller.py` (no I/O, no clock, never mutates homes). Charging draws from the grid at `max_kw` or less, and at 89% round-trip efficiency (Powerwall 3 datasheet). It charges a live, grid-up home that is not dispatched this tick when either condition holds:
+  - Built so far (2026-09-26): a home under its zone floor refills to the floor at any price (`CONSTRAINTS.md` allocation step 10), and (b) below. Filling to `storm_fill_pct` is not built.
   - (a) **Storm prep:** the zone floor is raised (a storm, weather or signal-unavailable reason), and the home is below `storm_fill_pct` (default 95). This mirrors Base keeping batteries fuller when outage risk is high.
   - (b) **Cheap power:** `frame.price_label != "none"` and `frame.price_usd_mwh < charge_below_usd_mwh` (default 25, labeled example).
 - [ ] With no price and no storm, it charges nobody.

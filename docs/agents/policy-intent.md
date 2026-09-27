@@ -1,5 +1,7 @@
 # Charge / hold / discharge intent
 
+**Decision (2026-09-26, latest): a battery under its reserve floor charges back to that floor from the grid, at any price.** Rajat chose this; it replaces "refill is price-only". The point is to have the reserve in place before a storm lands: a weather alert or HIGH risk raises the floor to `storm_reserve_pct`, and every live, grid-up home under it refills, even at $60+. See "Refill to the floor" below.
+
 **Decision (2026-09-26, later): the tick's label shows what the fleet was ordered to do this tick.** It is the order, not the result: if every discharge order times out, the tick still says discharge and `delivered_mw` shows the shortfall. `TickResult.intent` / `intent_reason` come from `controller.acted_intent(alloc, policy, mode)`, which reads the planned `cycle.allocation`, not the price band. `Policy.intent` is still the price band below and is still what `allocate` reads; `policy.py` is unchanged. Before this, a HIGH-risk $80 call sold 0.2 MW while the wall said "hold", and a LOW $80 tick with no call said "discharge" while nothing moved.
 
 | Tick | `intent` | `intent_reason` |
@@ -8,6 +10,7 @@
 | Charged kW > sold kW, something sold (mixed, charge-heavy) | charge | `grid_call_served` |
 | Charged kW > 0, nothing sold, band said charge | charge | policy reason |
 | Charged kW > 0, nothing sold, band not charge (only zone prices said charge, e.g. headline missing and Houston $10) | charge | `zone_price` |
+| Charged kW > 0, nothing sold, only homes under their floor charged (`reserve_refill` code, no `charging` code) | charge | `reserve_refill` |
 | Sold kW > 0 and sold kW >= charged kW | discharge | policy reason if the band said discharge, else `grid_call` |
 | Nothing moved, band said hold | hold | policy reason (`""`, `price_unavailable`) |
 | Nothing moved, band said charge/discharge, target 0 | hold | `no_grid_call` (for the charge band only when every home is full: idle charging otherwise makes it a charge tick) |
@@ -56,6 +59,18 @@ Tapes (origin/main -> this rule, 0 breaches): heather 24.4 -> 35.5%, heather-tha
 
 Tests: zone-band cases in `tests/test_policy.py`, `allocate_zoned` tier cases in `tests/test_controller.py`, path 24 in `tests/test_tick_paths.py`.
 
+## Refill to the floor
+
+**Decision (2026-09-26, latest).** After every other step, `allocate` calls `add_refill` (`server/engine/controller.py`). Every live home in a known zone whose grid is up, is under its zone floor (`fleet.floor_kwh`), and has no other order this tick gets a charge order of `min(max_kw, (floor − soc) × 60 / tick_minutes)`, as negative kW. It stops at the floor: filling to full stays the cheap-power path's job. Operator HOLD still wins (no orders at all). Dead, stale, unknown-zone and grid-down homes get nothing.
+
+- Why "no other order": a home under its floor has no headroom, so it is never a seller; a home the cheap path already charges takes its full room cap, which covers the floor.
+- Reason code `reserve_refill`, after the shortfall and `charging` codes and before the status codes. `charging` now means cheap power charged some home; `reserve_refill` means a home under its floor did.
+- Label: a tick where only refill charged reads charge / `reserve_refill`. A storm tick with a call where refill outweighs the sold kW reads charge / `grid_call_served` (net flow, as before).
+- Before this, only `price_band` (at or below `CHARGE_BELOW_USD`) ever ordered a charge, so at $26+ a battery under a raised storm floor sat idle through the whole storm window.
+- Seen on Heather (seed 42, `/flow`): when the storm floor rises at step 74, all 100 batteries charge (1.14 MW); before, all 100 sat "below floor" at 0 kW. 0 breaches.
+
+Tests: the reserve refill block in `tests/test_controller.py`.
+
 ## Settings
 
 Simulation knobs, not Base specs. In `.env.example`: `CHARGE_BELOW_USD=25`, `DISCHARGE_ABOVE_USD=60`. `read_settings()` stores them as `charge_threshold_usd_mwh` and `discharge_threshold_usd_mwh`.
@@ -68,6 +83,7 @@ Simulation knobs, not Base specs. In `.env.example`: `CHARGE_BELOW_USD=25`, `DIS
 2. Every other live home with room charges at its `charge_caps` cap (negative kW). A home never sells and charges in one tick.
 3. With `target_mw == 0`, every live home with room charges (idle charging). With `zone_intent` set, only homes in `charge` zones charge; a zoned policy with no `charge` zone returns an empty plan. Other intents with no call still return an empty plan; operator HOLD still wins.
 4. Reasons: the shortfall head code if missed, then `charging` if any home charges, then dead/stale/unknown-zone, then `grid_down:<zone>`. Grid-down zones neither sell nor charge.
+5. Then `add_refill` charges any other home under its floor ("Refill to the floor").
 
 Before this, a charge tick dropped the whole call and charged every home, adding load when the grid asked for power back.
 

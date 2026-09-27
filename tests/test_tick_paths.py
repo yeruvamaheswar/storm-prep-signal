@@ -355,7 +355,9 @@ def test_path_21_storm_call_at_a_high_price_is_labelled_discharge(tmp_path, monk
     story(21, "storm call ($80)", tick, data, f" | intent_reason {tick['intent_reason']}")
     assert data["policy"].intent == "hold"
     assert sold_kw(data) > 0 and tick["delivered_mw"] > 0
-    assert (tick["intent"], tick["intent_reason"]) == ("discharge", "grid_call")
+    # Homes under the 60% floor refill at $80 too; that outweighs the call, so net flow says charge.
+    assert "reserve_refill" in tick["reasons"]
+    assert (tick["intent"], tick["intent_reason"]) == ("charge", "grid_call_served")
 
 
 def test_path_22_high_price_with_no_call_is_labelled_hold(tmp_path, monkeypatch):

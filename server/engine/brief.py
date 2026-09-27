@@ -8,6 +8,7 @@ REASON_LINES = {
     "operator_hold": "Operator hold",
     "signal_unavailable": "Storm signal could not be read",
     "holding_spare_energy": "Holding spare energy",
+    "reserve_refill": "Refilling batteries under their reserve floor",
 }
 
 

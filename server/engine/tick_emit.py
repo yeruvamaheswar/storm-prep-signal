@@ -38,10 +38,14 @@ def charge_state(confirmed_kw, soc_kwh, capacity_kwh):
 
 
 def _actual_by_command(events):
-    """command_id to the kW booked for it, from the tick's confirmed reports."""
+    """command_id to the kW booked for it, from the tick's confirmed reports.
+
+    A charge report is logged as `charge_confirmed` (negative kW) so delivery sums skip it;
+    it is still what the home did, so a charging battery reads CHARGING, not HOLDING at 0.
+    """
     actual = {}
     for event in events or []:
-        if event.get("kind") == "confirmed" and "command_id" in event:
+        if event.get("kind") in ("confirmed", "charge_confirmed") and "command_id" in event:
             actual[event["command_id"]] = float(event.get("actual_kw") or 0.0)
     return actual
 

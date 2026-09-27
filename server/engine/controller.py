@@ -7,7 +7,7 @@ changes a home, reads a file, looks at the clock, or uses randomness. The floor 
 import math
 
 from server.engine.contracts import Allocation
-from server.engine.fleet import has_unknown_zone, room_kw, safe_kw
+from server.engine.fleet import floor_kwh, has_unknown_zone, room_kw, safe_kw
 
 # Policy reasons that mean "we are keeping extra backup on purpose".
 STORM_REASONS = ("storm_risk_high", "signal_unavailable", "weather_alert")
@@ -26,6 +26,8 @@ def allocate(homes, frame, policy, mode, settings):
     call, cheap power still charges. `delivered_mw` counts discharge only.
     The tick's label comes from this plan via `acted_intent`, so a served call on a hold
     price reads discharge.
+    Whatever the price or the call, a live home under its zone floor that got no other order
+    charges back up to that floor (`add_refill`): backup is kept before a storm arrives.
     Homes in a zone named by the frame's `grid_down` event get 0 kW both ways (they back up
     their own homes); each such zone adds reason `grid_down:<zone>` after the other codes.
     """
@@ -43,7 +45,7 @@ def allocate(homes, frame, policy, mode, settings):
     # With no call only cheap power has work to do: it refills the fleet (per zone if zoned).
     wants_charge = "charge" in zone_intent.values() if zoned else intent == "charge"
     if target_mw == 0 and not wants_charge:
-        return Allocation({}, 0.0, 0.0, [])
+        return add_refill(Allocation({}, 0.0, 0.0, []), homes, policy, settings, down)
     if zoned:
         alloc = allocate_zoned(homes, frame, policy, settings, zone_intent)
     elif intent == "charge":
@@ -53,8 +55,47 @@ def allocate(homes, frame, policy, mode, settings):
     else:
         # Unknown intent holds rather than selling on a tick we do not understand.
         return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
+    alloc = add_refill(alloc, homes, policy, settings, down)
     alloc.reasons += [f"grid_down:{zone}" for zone in sorted(down)]
     return alloc
+
+
+def refill_kw(homes, policy, settings, down=frozenset()):
+    """What each live, grid-up home under its zone floor draws to get back to that floor this tick.
+
+    Backup comes before price: the floor is the energy a home needs in a blackout, and a storm
+    or weather alert raises it before the storm lands. So refill runs at any price. It stops
+    at the floor (room to full is the cheap-power path's job) and is capped by `max_kw`.
+    Dead, stale, unknown-zone and grid-down homes are left out, as in `charge_caps`.
+    """
+    kw = {}
+    for home in homes:
+        if home.status != "live" or has_unknown_zone(home, policy) or home.zone in down:
+            continue
+        short_kwh = floor_kwh(home, policy) - home.soc_kwh
+        if short_kwh <= 0:
+            continue
+        # The floor is never above capacity, so this never asks for more than room_kw.
+        cap = round_down(min(home.max_kw, short_kwh * 60 / settings["tick_minutes"]))
+        if cap > 0:
+            kw[home.home_id] = cap
+    return kw
+
+
+def add_refill(alloc, homes, policy, settings, down):
+    """Add a refill charge for every home under its floor that has no order yet, plus `reserve_refill`.
+
+    A home under its floor has no headroom, so it is never a seller; a home the cheap path
+    already charges takes its full room cap, which covers the floor. The code goes after the
+    shortfall and `charging` codes and before the status codes.
+    """
+    extra = {home_id: -kw for home_id, kw in refill_kw(homes, policy, settings, down).items()
+             if home_id not in alloc.per_home_kw}
+    if not extra:
+        return alloc
+    head = sum(code in ("storm_reserve", "fleet_headroom_short", "charging") for code in alloc.reasons)
+    reasons = alloc.reasons[:head] + ["reserve_refill"] + alloc.reasons[head:]
+    return Allocation({**alloc.per_home_kw, **extra}, alloc.delivered_mw, alloc.missed_mw, reasons)
 
 
 def acted_intent(alloc, policy, mode):
@@ -72,8 +113,10 @@ def acted_intent(alloc, policy, mode):
         mode HOLD                        -> hold, operator_hold
         charged > sold                   -> charge; grid_call_served if anything sold (the
                                             call was met while the fleet mostly charged),
-                                            else policy reason on a charge band, or
-                                            zone_price when only zone prices said charge
+                                            else policy reason on a charge band,
+                                            zone_price when a zone's own price charged
+                                            (`charging` code), else reserve_refill (only
+                                            homes under their floor charged)
         sold >= charged, sold > 0        -> discharge, policy reason if policy said discharge
                                             else grid_call (the grid called, not the price)
         nothing moved, policy said hold  -> hold, policy reason (e.g. price_unavailable)
@@ -97,6 +140,9 @@ def acted_intent(alloc, policy, mode):
     if charged_kw > noise_kw and charged_kw - sold_kw > noise_kw:
         if sold:
             return "charge", "grid_call_served"
+        # Only homes under their floor charged (no `charging` code): backup, not price.
+        if "reserve_refill" in alloc.reasons and "charging" not in alloc.reasons:
+            return "charge", "reserve_refill"
         # Charging without a charge band means a zone's own price was cheap.
         return "charge", policy.intent_reason if policy.intent == "charge" else "zone_price"
     if sold:
