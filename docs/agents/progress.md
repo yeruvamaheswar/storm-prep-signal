@@ -1103,3 +1103,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tests: 8 new in `test_controller.py`, 2 new in `test_orchestration.py`. Tests that asserted "charge drops the call" were switched to target 0 (idle charging) or to the new served numbers; no safety assertion was weakened.
 - `pytest -q` (HOME_KWH=25 HOME_MAX_KW=11.4): 665 passed. `FUZZ_SEEDS=50`: 50 seeds, 600 ticks, 0 floor breaches.
 - Tapes: `demo.json` unchanged (0.182 of 0.317 MWh, 57.6%). `calm-charge.json` 1.711 → 1.785 of 1.826 MWh (93.7% → 97.8%), 0 breaches.
+
+## 2026-09-26: /flow worker on Render, wall links to /flow
+
+- `render.yaml` start command now runs `scripts/scenario_session.py` in the background and `exec`s uvicorn in the same instance, so the deployed `/flow` page has its session worker (they share `var/scenario/`). The live Render service was created by hand, so its Start Command is also changed in the dashboard. Limits: sleep after 15 idle minutes resets the session; one shared session for all viewers. Detail: `grid-flow.md`, "Run it on Render".
+- The wall masthead gets a "Grid flow" link to `/flow` beside "Fleet" (`TopStrip.tsx`, test in `web/tests/topStrip.test.ts`).
+- Verified locally: the combined start command on port 8765 accepted `start` and `play` through the API and reported `status: playing`; about 30 MB each for API and worker. Web: vitest 280 passed, build clean.
+- Docs: `grid-flow.md`, `system-design.md` (section 9 diagram), `code-flow.md`, `backend.md`, `docs/humans/grid-flow.md`.

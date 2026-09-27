@@ -1,4 +1,4 @@
-"""Scenario session worker for the /flow page. Laptop only, like scripts/live_cycle.py.
+"""Scenario session worker for the /flow page. Runs on the laptop, or beside uvicorn on Render (render.yaml).
 
 Usage: python scripts/scenario_session.py [--scenario heather] [--seed 42] [--steps N]
 

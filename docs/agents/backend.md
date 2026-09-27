@@ -85,7 +85,7 @@ Live service (2026-09-26): `reservegate-api` at `https://reservegate-api.onrende
 
 1. To recreate it: Render dashboard, then New, then Blueprint. Pick this repo. Render reads `render.yaml` and creates `reservegate-api`.
 2. Set `ERCOT_*` and, if you want history, `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the dashboard. `render.yaml` lists the names with `sync: false`. Without them, feeds report quality `auth` and archive Demo fails safe.
-3. Set the health check path to `/health` in the dashboard (Settings, Health Checks) if the service was not made from the Blueprint.
+3. Set the health check path to `/health` in the dashboard (Settings, Health Checks) if the service was not made from the Blueprint. Likewise copy `startCommand` from `render.yaml` into Settings, Start Command; it also starts the `/flow` session worker ([grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)).
 4. `CORS_ORIGINS` needs the wall's origin only when the wall calls the API cross-origin. The Vercel wall uses rewrites, so it does not.
 
 Python is pinned to 3.12 through `PYTHON_VERSION`, to match CI. The free plan sleeps when idle, so the first request after a pause is slow and in-memory state is gone.
