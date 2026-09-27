@@ -6,10 +6,11 @@ back to fixtures / current_rollups(). This module never raises a 500.
 
 import os
 import re
+from functools import lru_cache
 
 import requests
 
-from server.engine.fleet import CLUSTER_CENTROIDS, ZONE_ORDER, new_fleet
+from server.engine.fleet import CLUSTER_CENTROIDS, ZONE_ORDER, county_name, fleet_counties, new_fleet
 from server.env import load_env
 
 HOME_SELECT = (
@@ -80,6 +81,22 @@ def fleet_filter(fleet_size=None):
 def in_fleet(home_id, fleet_size=None):
     n = _fleet_n(fleet_size)
     return n > FLEET_FILTER_MAX_IDS or home_id in set(fleet_ids(n))
+
+
+@lru_cache(maxsize=4)
+def _live_counties(n):
+    return fleet_counties(n)
+
+
+def with_county(home, fleet_size=None):
+    """Add-only `county` (FIPS) and `county_name`. public.homes has no county column, so this is
+    the engine's own rule (fleet_counties, as the scenario seeds it). A row whose zone is not the
+    one the engine gave that id gets null, never a guess."""
+    zone, fips = _live_counties(_fleet_n(fleet_size)).get(home.get("home_id"), (None, None))
+    known = fips is not None and home.get("zone") == zone
+    home["county"] = fips if known else None
+    home["county_name"] = county_name(fips) if known else None
+    return home
 
 
 def page_limit(limit):
@@ -413,7 +430,7 @@ def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings
     needle = SEARCH_SAFE.sub("", q or "")
     if needle:
         params["home_id"] = f"ilike.*{needle}*"
-    return [as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+    return [with_county(as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct), fleet_size)
             for row in fetch_home_rows(params, settings=settings, http_get=http_get)]
 
 
@@ -429,7 +446,7 @@ def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_rese
     )
     if not rows:
         return None
-    home = as_console_home(rows[0], reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+    home = with_county(as_console_home(rows[0], reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct), fleet_size)
     # Fill last_command from the newest command. A missing history table or
     # missing config keeps null instead of raising, so the home still returns.
     try:

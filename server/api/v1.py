@@ -20,7 +20,7 @@ from server.api.homes import HomesUnavailable, list_homes, page_limit, page_offs
 from server.api.homes import fleet_count, fleet_size_setting
 from server.api.operator_settings import persist_mode, table_config
 from server.api.snapshot import archive_ingest, build_meta, build_snapshot, load_latest_run, tick_clock
-from server.engine.fleet import FLEET_DIR, current_rollups
+from server.engine.fleet import FLEET_DIR, current_rollups, seed_settings, zone_counties
 from server.engine.fleet_state import write_fleet_mode
 
 router = APIRouter(prefix="/v1")
@@ -266,6 +266,12 @@ def get_fleet_rollups():
         return table_rollups(fleet_size=fleet_size_setting())
     except HomesUnavailable:
         return current_rollups()
+
+
+@router.get("/fleet/counties")
+def get_fleet_counties():
+    # Task 13 item 7: the county roster per zone, so the Fleet page shows a county with 0 homes too.
+    return [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(seed_settings(1))]
 
 
 def _current_floor():

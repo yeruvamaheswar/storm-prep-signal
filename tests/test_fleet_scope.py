@@ -171,3 +171,61 @@ def test_cross_origin_page_can_read_the_source_headers(monkeypatch):
     exposed = reply.headers.get("access-control-expose-headers", "").lower()
     for name in ("x-homes-source", "x-fleet-size", "x-homes-total"):
         assert name in exposed
+
+
+# Item 7: counties. public.homes has no county column, so the API derives it with the engine's own
+# deterministic rule (fleet.assign_county, round-robin by place within the zone), add-only on each row.
+
+def test_fleet_counties_follow_the_scenario_seed_rule():
+    from server.engine.cli import read_settings
+    from server.engine.fleet import fleet_counties
+    from server.engine.loop import with_fleet_defaults
+    from server.engine.scenario import seed_fleet
+
+    settings = with_fleet_defaults({**read_settings(), "fleet_size": 100, "home_kwh": 25.0, "home_max_kw": 11.4})
+    seeded = {home.home_id: (home.zone, home.county) for home in seed_fleet(settings, 7)}
+    assert fleet_counties(settings) == seeded
+
+
+def test_live_fleet_counties_use_the_live_zones():
+    from server.engine.fleet import ZONE_COUNTIES, fleet_counties, seed_settings
+
+    counties = fleet_counties(seed_settings(100))
+    assert [home.home_id for home in new_fleet(100)] == list(counties)
+    for home in new_fleet(100):
+        zone, fips = counties[home.home_id]
+        assert zone == home.zone
+        assert fips in {f for f, _ in ZONE_COUNTIES[zone]}
+    # Every roster county gets homes in a 100-home fleet (25 per zone over 4 or 5 counties).
+    used = {fips for _zone, fips in counties.values()}
+    assert used == {f for rows in ZONE_COUNTIES.values() for f, _ in rows}
+
+
+def test_homes_rows_carry_a_derived_county(monkeypatch):
+    from server.engine.fleet import fleet_counties, seed_settings
+
+    client = api(monkeypatch, [row(home.home_id, home.zone) for home in new_fleet(100)])
+    homes = client.get("/v1/homes", params={"limit": 200}).json()
+    expected = fleet_counties(seed_settings(100))
+    assert len(homes) == 100
+    for home in homes:
+        assert home["county"] == expected[home["home_id"]][1]
+        assert home["county_name"]
+    one = client.get("/v1/homes/home-005").json()
+    assert (one["county"], one["county_name"]) == ("48029", "Bexar")
+
+
+def test_row_in_a_zone_the_engine_did_not_give_it_has_no_county(monkeypatch):
+    # home-001 is South in the live fleet. A table row that says North is not relabelled with a guess.
+    client = api(monkeypatch, [row("home-001", "North")])
+    home = client.get("/v1/homes").json()[0]
+    assert home["county"] is None and home["county_name"] is None
+
+
+def test_fleet_counties_route_is_the_roster(monkeypatch):
+    from server.engine.fleet import ZONE_COUNTIES
+
+    monkeypatch.setattr("server.api.homes.homes_settings", lambda: {"url": "", "key": "", "timeout_s": 3})
+    body = TestClient(create_app(FixtureStore())).get("/v1/fleet/counties").json()
+    assert body == [{"zone": zone, "fips": fips, "name": name}
+                    for zone, rows in ZONE_COUNTIES.items() for fips, name in rows]
