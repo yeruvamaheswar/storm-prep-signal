@@ -31,6 +31,9 @@ export type GridHome = {
   action: GridAction | null
   /** Scenario only: the planner used a reading that was not live (`plan_status`), so the home got no order. */
   planStale?: boolean
+  /** Scenario only (#47): display name, e.g. "Houston-FortBend-005", and county name. Search and URLs use `id`. */
+  name?: string | null
+  countyName?: string | null
 }
 
 export type SourceKey = "live" | "scenario"
@@ -123,6 +126,8 @@ export function fromScenarioHomes(homes: FlowHome[]): GridHome[] {
       kw: num(h.kw),
       action,
       planStale,
+      name: typeof h.name === "string" && h.name !== "" ? h.name : null,
+      countyName: typeof h.county_name === "string" && h.county_name !== "" ? h.county_name : null,
     }
   })
 }

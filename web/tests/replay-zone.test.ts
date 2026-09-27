@@ -574,6 +574,21 @@ describe("a home says why its floor is what it is (Task 12 / #47: W3)", () => {
   })
 })
 
+describe("the home panel shows the home's display name and county (Task 12 / #47: C1)", () => {
+  it("names Houston-FortBend-005 in Fort Bend County, and an older row by its id", () => {
+    const home = berylHoustonHomes22.find((h) => h.id === "home-005") as FlowHome
+    const html = renderToStaticMarkup(createElement(HomePanel, {
+      homeId: "home-005", home, orders: berylHoustonOrders22, tSeconds: 120, mode: "AUTO", onClose: () => {},
+    }))
+    expect(html).toContain("<h2>Houston-FortBend-005</h2>")
+    expect(html).toContain("Houston zone, Fort Bend County. Backup floor 30% this tick.")
+    const { name: _n, county_name: _c, ...old } = home
+    const bare = renderToStaticMarkup(createElement(HomePanel, { homeId: "home-005", home: old, orders: {}, tSeconds: 120, onClose: () => {} }))
+    expect(bare).toContain("<h2>home-005</h2>")
+    expect(bare).toContain("Houston zone. Backup floor 30% this tick.")
+  })
+})
+
 describe("a reserved home well above its floor is kept for backup, not at its floor (Task 12 / #47: W4)", () => {
   // beryl tick 22: home-021 (Harris) is full at 100% on a 60% floor and got no order.
   const home021 = berylHoustonHomes22.find((h) => h.id === "home-021") as FlowHome

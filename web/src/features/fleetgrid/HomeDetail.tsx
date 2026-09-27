@@ -30,10 +30,12 @@ export function HomeDetail({ home, onClose }: HomeDetailProps) {
       }}
     >
       <div className="fg-detail-head">
-        <h2>{home.id}</h2>
+        <h2>{home.name || home.id}</h2>
         <button type="button" className="fg-pill" onClick={onClose}>Close</button>
       </div>
-      <p className="fg-detail-zone">{home.zone === null ? NO_ZONE : `${home.zone} zone`}</p>
+      <p className="fg-detail-zone">
+        {home.zone === null ? NO_ZONE : `${home.zone} zone`}{home.countyName ? `, ${home.countyName} County` : ""}
+      </p>
       <div className="fg-row first"><span>Status</span><b>{statusLabel(home)}</b></div>
       <div className="fg-row"><span>Charge</span><b>{chargeText(home)}</b></div>
       <div className="fg-row"><span>Backup floor</span><b>{floorText(home)}</b></div>

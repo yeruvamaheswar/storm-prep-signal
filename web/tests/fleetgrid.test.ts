@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import type { FlowHome } from "../src/features/flow/types"
 import { FleetGridPage, type FleetGridPageProps } from "../src/features/fleetgrid/FleetGridPage"
+import { HomeDetail } from "../src/features/fleetgrid/HomeDetail"
 import {
   NOT_REPORTED, cellGeometry, cellLook, filterCounts, findHome, floorLegend, fromLiveRows, fromScenarioHomes,
   errorText, focusZoneFromSearch, isUnderFloor, otherNote, liveSourceNote, matchesFilter, scenarioSourceNote, nowText, pctLabel, replayHref, shortId, shortState, statusLabel, zoneBanks,
@@ -132,6 +133,34 @@ describe("a battery charging back to its floor says so (Task 12: W4)", () => {
     expect(shortState(h)).toBe("Charging 11.4")
     // Charging above its floor reads as before.
     expect(nowText({ ...h, socPct: 45 })).toBe("Charging 11.4 kW")
+  })
+})
+
+describe("a scenario home shows its display name and county (Task 12 / #47: C1)", () => {
+  // beryl tick 22 row (merged engine, seed 42, HOME_MAX_KW=11.4, HOME_KWH=25).
+  const row: FlowHome = {
+    id: "home-005", name: "Houston-FortBend-005", zone: "Houston", county: "48157", county_name: "Fort Bend", soc_pct: 100.0,
+    soc_before_pct: 100.0, kw: 0.0, state: "holding", status: "live", floor_pct: 30.0, floor_reason: "not_in_alert", under_floor_why: null,
+    plan_status: "live",
+  }
+
+  it("keeps the name and county, and search and links still use the id", () => {
+    const grid = fromScenarioHomes([row])
+    expect(grid[0]).toMatchObject({ id: "home-005", name: "Houston-FortBend-005", countyName: "Fort Bend" })
+    expect(findHome(grid, "home-005")?.id).toBe("home-005")
+    expect(findHome(grid, "5")?.id).toBe("home-005")
+    expect(replayHref(grid[0])).toContain("home=home-005")
+    const html = renderToStaticMarkup(createElement(HomeDetail, { home: grid[0], onClose: () => {} }))
+    expect(html).toContain("<h2>Houston-FortBend-005</h2>")
+    expect(html).toContain("Houston zone, Fort Bend County")
+  })
+
+  it("an older worker's row with no name or county reads as before", () => {
+    const { name: _n, county: _c, county_name: _cn, ...old } = row
+    const [h] = fromScenarioHomes([old])
+    const html = renderToStaticMarkup(createElement(HomeDetail, { home: h, onClose: () => {} }))
+    expect(html).toContain("<h2>home-005</h2>")
+    expect(html).toContain(">Houston zone<")
   })
 })
 

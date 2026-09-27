@@ -61,9 +61,10 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
     <section className="replay-panel zone-home" aria-label="Home detail" ref={ref} tabIndex={-1}>
       <div className="zone-home-head">
         <div>
-          <h2>{homeId}</h2>
+          {/* #47: the display name (e.g. Houston-FortBend-005) and county; the id stays for search and ?home=. */}
+          <h2>{home?.name || homeId}</h2>
           <p>
-            {home ? `${home.zone} zone. ` : ""}
+            {home ? `${home.zone} zone${home.county_name ? `, ${home.county_name} County` : ""}. ` : ""}
             {facts.floor === "Not reported" ? "Backup floor not reported." : `Backup floor ${facts.floor} this tick.`}
             {/* #47: the county floor's reason, e.g. "NWS alert, JEV yes" or "County not named by the alert (base floor)". */}
             {home?.floor_reason ? ` ${reasonLabel(home.floor_reason)}.` : ""}
