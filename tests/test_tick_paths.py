@@ -108,7 +108,9 @@ def test_path_01_hold_on_a_calm_day_still_serves_the_call(tmp_path, monkeypatch)
     record, seen = play(tmp_path, monkeypatch, [frame(price=35.0)])
     tick, data = record["ticks"][0], seen[0]
     story(1, "hold ($35)", tick, data)
-    assert tick["intent"] == "hold" and tick["reserve_pct"] == 30.0
+    # The price band says hold; the fleet sold for the call, so the tick says discharge.
+    assert data["policy"].intent == "hold" and tick["reserve_pct"] == 30.0
+    assert (tick["intent"], tick["intent_reason"]) == ("discharge", "grid_call")
     assert tick["delivered_mw"] == pytest.approx(0.2)
     assert moved_kwh(data) < 0
 
@@ -136,7 +138,9 @@ def test_path_04_no_price_holds_and_still_serves(tmp_path, monkeypatch):
     record, seen = play(tmp_path, monkeypatch, [frame(price=None, price_label="none")])
     tick, data = record["ticks"][0], seen[0]
     story(4, "no price", tick, data, f" | intent_reason {tick['intent_reason']}")
-    assert tick["intent"] == "hold" and tick["intent_reason"] == "price_unavailable"
+    # No price means a hold band (price_unavailable); the fleet still served the call.
+    assert (data["policy"].intent, data["policy"].intent_reason) == ("hold", "price_unavailable")
+    assert (tick["intent"], tick["intent_reason"]) == ("discharge", "grid_call")
     assert tick["delivered_mw"] == pytest.approx(0.2)
 
 
@@ -314,3 +318,38 @@ def test_path_20_charge_then_discharge_across_two_ticks(tmp_path, monkeypatch):
     feed = seen[1]["feed"]
     assert [i for i, hs in feed.homes.items() if hs.suspect] == list(feed.liar_ids)
     assert "homes_stale:1" in second["reasons"]
+
+
+# --- the label says what the fleet did, not what the price band said -------------------------
+
+def sold_kw(data):
+    return sum(kw for kw in data["cycle"].allocation.per_home_kw.values() if kw > 0)
+
+
+def test_path_21_storm_call_at_a_high_price_is_labelled_discharge(tmp_path, monkeypatch):
+    # HIGH risk never discharges on price, but the fleet still serves a grid call from headroom.
+    record, seen = play(tmp_path, monkeypatch, [frame(price=80.0, risk=STORM)])
+    tick, data = record["ticks"][0], seen[0]
+    story(21, "storm call ($80)", tick, data, f" | intent_reason {tick['intent_reason']}")
+    assert data["policy"].intent == "hold"
+    assert sold_kw(data) > 0 and tick["delivered_mw"] > 0
+    assert (tick["intent"], tick["intent_reason"]) == ("discharge", "grid_call")
+
+
+def test_path_22_high_price_with_no_call_is_labelled_hold(tmp_path, monkeypatch):
+    record, seen = play(tmp_path, monkeypatch, [frame(target_mw=0.0, price=80.0)])
+    tick, data = record["ticks"][0], seen[0]
+    story(22, "no call ($80)", tick, data, f" | intent_reason {tick['intent_reason']}")
+    assert data["policy"].intent == "discharge"
+    assert data["cycle"].allocation.per_home_kw == {}
+    assert (tick["intent"], tick["intent_reason"]) == ("hold", "no_grid_call")
+
+
+def test_path_23_cheap_price_with_no_call_is_not_labelled_charge(tmp_path, monkeypatch):
+    record, seen = play(tmp_path, monkeypatch, [frame(target_mw=0.0, price=20.0)])
+    tick, data = record["ticks"][0], seen[0]
+    story(23, "no call ($20)", tick, data, f" | intent_reason {tick['intent_reason']}")
+    assert data["policy"].intent == "charge"
+    assert data["cycle"].allocation.per_home_kw == {}
+    assert moved_kwh(data) == pytest.approx(0.0)
+    assert (tick["intent"], tick["intent_reason"]) == ("hold", "no_grid_call")

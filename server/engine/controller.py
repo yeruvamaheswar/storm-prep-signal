@@ -21,8 +21,8 @@ def allocate(homes, frame, policy, mode, settings):
 
     The price bands in `reserve_policy` set `Policy.intent`. HOLD mode wins over everything.
     Charge absorbs (negative kW). Discharge and hold both serve `target_mw` from
-    headroom: hold is a label for the wall, not a dispatch stop (CONSTRAINTS
-    allocation rule; contracts.py says allocate still only discharges).
+    headroom: a hold price is not a dispatch stop (CONSTRAINTS allocation rule). The tick's
+    label comes from this plan via `acted_intent`, so a served call on a hold price reads discharge.
     `delivered_mw` counts discharge only, so a charge tick delivers 0 and misses the call.
     Homes in a zone named by the frame's `grid_down` event get 0 kW both ways (they back up
     their own homes); each such zone adds reason `grid_down:<zone>` after the other codes.
@@ -50,6 +50,37 @@ def allocate(homes, frame, policy, mode, settings):
         return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
     alloc.reasons += [f"grid_down:{zone}" for zone in sorted(down)]
     return alloc
+
+
+def acted_intent(alloc, policy, mode):
+    """The tick's (intent, intent_reason): what the fleet was ordered to do, not the price band.
+
+    `Policy.intent` is the price band and is what `allocate` reads. Hold and discharge both
+    serve the call, so a hold price can still sell. The wall and run file show this instead.
+    Pure: reads the planned allocation and the policy, returns a pair.
+
+        mode HOLD                        -> hold, operator_hold
+        any kW > 0 (sold)                -> discharge, policy reason if policy said discharge
+                                            else grid_call (the grid called, not the price)
+        else any kW < 0 (charged)        -> charge, policy reason
+        nothing moved, policy said hold  -> hold, policy reason (e.g. price_unavailable)
+        nothing moved, charge/discharge  -> hold, no_grid_call when the target was 0,
+                                            else policy reason (a call nobody could serve)
+
+    A tick that both sells and charges is labelled discharge; the `charging` reason code on
+    the allocation shows the charge.
+    """
+    if mode == "HOLD":
+        return "hold", "operator_hold"
+    planned = alloc.per_home_kw.values()
+    if any(kw > 0 for kw in planned):
+        return "discharge", policy.intent_reason if policy.intent == "discharge" else "grid_call"
+    if any(kw < 0 for kw in planned):
+        return "charge", policy.intent_reason
+    target_mw = alloc.delivered_mw + alloc.missed_mw
+    if policy.intent in ("charge", "discharge") and target_mw <= 0:
+        return "hold", "no_grid_call"
+    return "hold", policy.intent_reason
 
 
 def grid_down_zones(frame):

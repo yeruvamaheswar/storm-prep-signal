@@ -1,10 +1,23 @@
 # Charge / hold / discharge intent
 
+**Decision (2026-09-26, later): the tick's label shows what the fleet did.** `TickResult.intent` / `intent_reason` come from `controller.acted_intent(alloc, policy, mode)`, which reads the planned `cycle.allocation`, not the price band. `Policy.intent` is still the price band below and is still what `allocate` reads; `policy.py` is unchanged. Before this, a HIGH-risk $80 call sold 0.2 MW while the wall said "hold", and a LOW $80 tick with no call said "discharge" while nothing moved.
+
+| Tick | `intent` | `intent_reason` |
+|---|---|---|
+| Mode HOLD | hold | `operator_hold` |
+| Any home planned `> 0` kW (sold) | discharge | policy reason if the band said discharge, else `grid_call` |
+| Else any home `< 0` kW (charged) | charge | policy reason |
+| Nothing moved, band said hold | hold | policy reason (`""`, `price_unavailable`) |
+| Nothing moved, band said charge/discharge, target 0 | hold | `no_grid_call` |
+| Nothing moved, band said charge/discharge, target > 0 | hold | policy reason (a call nobody could serve; `reasons` says why) |
+
+A tick that both sells and charges ("serve the call, charge the rest") is labelled discharge; the `charging` code in `reasons` shows the charge. `/v1/snapshot`'s AUTO overlay still clears `operator_hold`. The wall's banner (`web/src/fleetIntent.ts`) reads `delivered_mw`, not `intent`; `/flow` prints `intent (intent_reason)` as text. Tests: `acted_intent` cases in `tests/test_controller.py`, paths 21 to 23 in `tests/test_tick_paths.py`.
+
 **Decision (2026-09-26).** Fields were added, never renamed. `Policy` and `TickResult` carry `intent` (`charge` \| `discharge` \| `hold`) and `intent_reason`. `Allocation.per_home_kw` stays one dict and is signed: `>0` discharge, `<0` charge. Do not add `per_home_charge_kw` / `per_home_discharge_kw`. `Home.zone` was already present; `Home.updated_at` is the empty-string default until the fleet stamps a write. Charge raises `soc_kwh`. Discharge still never crosses the floor. `breaches == 0`. Since PR #31, `allocate` writes negative kW on `intent == charge` (and per zone with `zone_intent`); hold still serves the call from headroom. The runtime rules for charge orders are in "How a charge tick runs" below.
 
 Open this file when you change the intent rule, the signed allocation contract, the charge/discharge price bands, or how intent is stamped on the tick.
 
-## Rule (say it out loud)
+## Rule (say it out loud): the price band on `Policy.intent`
 
 1. Operator HOLD → hold.
 2. `price_label` `none` (or a missing number) → hold, `intent_reason` `price_unavailable`.
@@ -42,6 +55,6 @@ The fuzzer (`tests/test_invariants.py`) draws random fleet and per-zone intents 
 
 ## Callers
 
-`loop.py` stamps price, then calls `reserve_policy(..., mode, price_usd_mwh, price_label)`, then `allocate`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
+`loop.py` stamps price, then calls `reserve_policy(..., mode, price_usd_mwh, price_label)`, then `allocate` (inside `orchestrate_tick`), then stamps the tick with `acted_intent`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
 
 People page: `docs/humans/policy-intent.md`.

@@ -12,7 +12,8 @@ File ownership is retired. The desired end state and the next gap live in `docs/
 
 | Function | Signature and promise |
 |---|---|
-| `reserve_policy` | `(risk: RiskResult \| None, settings, alerted=None, mode="AUTO", price_usd_mwh=None, price_label=None) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). `Policy.intent` is `charge` \| `hold` \| `discharge` when `price_label` is passed. HOLD is hold. Missing price (`none`) is hold with `intent_reason` `price_unavailable`. HIGH or a missing signal may charge when the LZ price is at or below `charge_threshold_usd_mwh`; they never discharge. LOW + AUTO uses the charge and discharge bands. Floor-only callers omit `price_label` and stay hold. `allocate` still only discharges. |
+| `reserve_policy` | `(risk: RiskResult \| None, settings, alerted=None, mode="AUTO", price_usd_mwh=None, price_label=None) -> Policy`. HIGH gives `storm_reserve_pct`, LOW gives `base_reserve_pct`, and None gives `storm_reserve_pct` with reason `signal_unavailable` (fail safe means keep more backup). `Policy.intent` is `charge` \| `hold` \| `discharge` when `price_label` is passed. HOLD is hold. Missing price (`none`) is hold with `intent_reason` `price_unavailable`. HIGH or a missing signal may charge when the LZ price is at or below `charge_threshold_usd_mwh`; they never discharge. LOW + AUTO uses the charge and discharge bands. Floor-only callers omit `price_label` and stay hold. `Policy.intent` is the price band that `allocate` reads; it is not the tick's label. The tick's `intent` is what the fleet was ordered to do (`controller.acted_intent`, below). |
+| `acted_intent` | `(alloc, policy, mode) -> (intent, intent_reason)`. Pure. HOLD mode is hold / `operator_hold`. Any planned `>0` kW is discharge (policy reason if the band said discharge, else `grid_call`); else any `<0` kW is charge; else hold (`no_grid_call` when the band said charge or discharge and the target was 0, otherwise the policy reason). A tick that sells and charges is discharge, with `charging` in `reasons`. Table: `docs/agents/policy-intent.md`. |
 | `new_fleet` | `(settings) -> list[Home]`: `fleet_size` homes, ids `home-001`, and so on. |
 | `apply_events` | `(homes, events) -> None`: sets status only. |
 | `allocate` | `(homes, frame, policy, mode, settings) -> Allocation`. Pure function: no I/O, no clock, never mutates homes. |
@@ -91,7 +92,7 @@ New contract fields, all with defaults:
 - `Home.zone: str = ""`
 - `Home.updated_at: str = ""` (ISO 8601 with UTC offset; empty until the fleet stamps a write)
 - `Policy.intent: str = "hold"` and `Policy.intent_reason: str = ""` (`charge` \| `discharge` \| `hold`)
-- `TickResult.intent: str = "hold"` and `TickResult.intent_reason: str = ""`
+- `TickResult.intent: str = "hold"` and `TickResult.intent_reason: str = ""` (from `acted_intent`, so it matches what the fleet did; reasons add `grid_call` and `no_grid_call`)
 - `Allocation.per_home_kw` stays one dict; values are now signed (`>0` discharge, `<0` charge)
 - `TapeFrame.weather_fixture: Optional[str] = None`
 - `Policy.zone_reserve_pct: dict` and `Policy.zone_reasons: dict` (both `default_factory=dict`)

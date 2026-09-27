@@ -1087,3 +1087,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 ## 2026-09-26: Grid flow merged with main
 
 - Merged `origin/main` (#32–#37) into `feature/grid-flow`. Charge orders follow main #34: sent once, never retried or reassigned (the user chose this; the branch's retry test was dropped). Charges live in `ZoneSupervisor.charges`; `close()` books `home_charged_kw` from that list. `CycleResult.charged_mw` (main) and `charging_mw` (this branch) are set from the same number. `home_caps` keeps both the grid-down skip and main's zero-headroom skip. The invariant check on per-home charge books now reads `charge_confirmed` events.
+
+## 2026-09-26: Intent label shows what the fleet did (Rajat)
+
+- Bug: `TickResult.intent` copied the price band, but hold and discharge both serve the call. HIGH $80 with a 0.2 MW call sold 0.2 MW labelled hold; LOW $80 with no call was labelled discharge with nothing sold.
+- Fix: `controller.acted_intent(alloc, policy, mode)` (pure) labels the tick from the planned `cycle.allocation`; `loop.play_frame` uses it. New reasons `grid_call` (sold on a non-discharge band) and `no_grid_call` (charge/discharge band, target 0). `Policy.intent` and `policy.py` unchanged. Table: `docs/agents/policy-intent.md`.
+- Files: `server/engine/controller.py`, `server/engine/loop.py`, `server/engine/contracts.py` (comment), `CONSTRAINTS.md`, `docs/agents/policy-intent.md`, `docs/humans/policy-intent.md`. No web or API change: the wall banner reads `delivered_mw`, `/flow` prints the string, snapshot's `operator_hold` rewrite still applies.
+- Tests: 11 `acted_intent` cases in `tests/test_controller.py`; paths 21 to 23 in `tests/test_tick_paths.py`. Updated old-label assertions in `test_engine.py` (tiny tape) and `test_tick_paths.py` paths 1 and 4; they now also assert the policy band.
+- `pytest -q` (HOME_KWH=25, HOME_MAX_KW=11.4): 666 passed, 3 failed in `tests/test_homes_api.py` (they fail on main too, only in the full run; pass alone). `FUZZ_SEEDS=50`: 600 ticks, 0 floor breaches.
