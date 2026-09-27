@@ -46,7 +46,7 @@ LOG_LINES = 12
 KW_EPS = 1e-6
 # A battery within this many percent of its floor is "at floor", not holding spare charge.
 FLOOR_BAND_PCT = 0.5
-REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down", "step")
+REQUEST_KINDS = ("start", "reset", "play", "speed", "alert", "grid_down", "step", "seek")
 HONEST_LIMITS = (
     "The fleet is simulated. Each battery's starting charge is a seeded random draw.",
     "The grid ask (target MW) is synthetic; no public dispatch target exists.",
@@ -269,6 +269,12 @@ class Session:
         self.start_summary, self.last, self.history = {}, None, []
         self.started_under = set()   # home ids whose random starting charge was under the base floor
         self.active_alerts, self.grid_down_zones = [], []
+        # Operator actions that change engine input, each with the tick index it took effect at, so a seek can
+        # re-run them (Task 16). Kept across a seek; start and reset clear it. `applied` holds the ids already
+        # applied in the current run of the tape.
+        self.actions, self.applied, self.next_action_id = [], set(), 1
+        # Set while a seek re-runs ticks: its replayed operator actions are not noted on the page again.
+        self.replaying = False
         self.messages = []
         self.error = None
 
@@ -292,6 +298,8 @@ class Session:
                 self.set_grid_down(body.get("zone"), bool(body.get("down", True)))
             elif kind == "step":
                 self.step_paused()
+            elif kind == "seek":
+                self.seek(body.get("tick"))
             else:
                 raise ValueError(f"unknown request {kind!r}")
         except ValueError as exc:
@@ -312,10 +320,17 @@ class Session:
         self.playing = True
 
     def reset(self, seed=None):
-        """New random fleet (same scenario), back to the first tick. Overlays are cleared."""
+        """New random fleet (same scenario), back to the first tick. Overlays and the action log are cleared."""
         if self.scenario is None:
             raise ValueError("pick a scenario first")
-        self.seed = int(seed) if seed else random.SystemRandom().randrange(1, 1_000_000)
+        self.rebuild(int(seed) if seed else random.SystemRandom().randrange(1, 1_000_000))
+        self.actions, self.next_action_id = [], 1
+        self.note(f"fleet seeded (seed {self.seed})")
+
+    def rebuild(self, seed):
+        """The fleet, feed, board and overlays as they were before the first tick, from `seed`. The action log is
+        left alone (a seek keeps it)."""
+        self.seed = seed
         self.settings["seed"] = self.seed
         self.homes = seed_fleet(self.settings, self.seed)
         self.telemetry = (TelemetryState(self.homes, self.settings, self.seed)
@@ -323,10 +338,10 @@ class Session:
         self.board = new_board(self.settings)
         self.index, self.mode, self.last, self.history = 0, "AUTO", None, []
         self.active_alerts, self.grid_down_zones, self.error = [], [], None
+        self.applied = set()
         self.start_summary = self.summarize_start()
         self.started_under = {h.home_id for h in self.homes
                               if 100 * h.soc_kwh / h.capacity_kwh < self.settings["base_reserve_pct"]}
-        self.note(f"fleet seeded (seed {self.seed})")
 
     def set_playing(self, playing):
         if self.scenario is None:
@@ -377,6 +392,11 @@ class Session:
         self.active_alerts.append({**alert_summary(alert), "zones": zones, "sent_at_tick": sent_tick,
                                    "named_counties": named})
         self.note(f"alert sent: {alert.get('event')} for {', '.join(zones)}, applies from the next tick")
+        if not self.replaying:
+            # Sent again earlier than its logged tick (after a rewind): the earlier send replaces the later one.
+            self.actions = [a for a in self.actions
+                            if not (a["kind"] == "alert" and a["alert_id"] == alert_id and a["index"] > self.index)]
+            self.log_action({"kind": "alert", "alert_id": alert_id})
 
     def set_grid_down(self, zone, down):
         if self.scenario is None:
@@ -392,6 +412,65 @@ class Session:
             zones.discard(zone)
         self.grid_down_zones = sorted(zones)
         self.note(f"overlay: grid {'down' if down else 'restored'} in {zone}, applies from the next tick")
+        if not self.replaying:
+            self.log_action({"kind": "grid_down", "zone": zone, "down": bool(down)})
+
+    # the operator action log and seeking (Task 16)
+
+    def log_action(self, action):
+        """Log an operator action that changes engine input, at the tick index it takes effect from. HOLD is not
+        logged: the mode comes from the tape's `operator` events, not from the operator."""
+        tick = self.frames[self.index].tick if self.index < len(self.frames) else None
+        entry = {**action, "id": self.next_action_id, "index": self.index, "tick": tick}
+        self.next_action_id += 1
+        # Kept in tick order (a send after a rewind can land before later entries); same index keeps send order.
+        self.actions = sorted(self.actions + [entry], key=lambda a: a["index"])
+        self.applied.add(entry["id"])
+
+    def apply_logged_actions(self):
+        """Re-apply the logged actions that take effect at the current index and are not applied in this run."""
+        for action in self.actions:
+            if action["index"] != self.index or action["id"] in self.applied:
+                continue
+            self.applied.add(action["id"])
+            self.replaying = True
+            try:
+                if action["kind"] == "alert":
+                    self.send_alert(action["alert_id"])
+                elif action["kind"] == "grid_down":
+                    self.set_grid_down(action["zone"], action["down"])
+            except ValueError as exc:
+                self.replaying = False
+                self.note(f"replayed {action['kind']} refused: {exc}")
+            finally:
+                self.replaying = False
+
+    def seek(self, tick):
+        """Go to tick index `tick` by re-running the engine: the same seed and the logged actions at their ticks.
+
+        Back: rebuild from the seed, then step to it. Forward: step to it. Every tick is a real engine tick. The
+        action log is kept, and `playing` is left as it was.
+        """
+        if self.scenario is None:
+            raise ValueError("pick a scenario first")
+        if isinstance(tick, bool) or not isinstance(tick, int):
+            raise ValueError(f"tick must be a whole tick index, not {tick!r}")
+        target = max(0, min(tick, len(self.frames) - 1))
+        if target == self.index:
+            return
+        playing = self.playing
+        if target < self.index:
+            self.rebuild(self.seed)
+            self.apply_logged_actions()
+        try:
+            while self.index < target:
+                self.step()
+        except Exception as exc:
+            # Same as a crashed tick in the worker loop: named on the page, never raised.
+            self.error = f"{type(exc).__name__}: {exc}"
+            self.note(f"tick failed: {self.error}")
+        self.playing = playing
+        self.note(f"moved to tick {self.index} of {len(self.frames)}")
 
     # ticks
 
@@ -451,6 +530,8 @@ class Session:
             "events": sorted(frame.events),
         }])[-HISTORY_POINTS:]
         self.index += 1
+        # After a rewind, an action logged at this index is sent again here, as the operator sent it the first time.
+        self.apply_logged_actions()
         if self.index >= len(self.frames):
             self.playing = False
             self.note("scenario finished")
@@ -578,6 +659,8 @@ class Session:
                 "pack": {"kwh": self.settings["home_kwh"], "kw": self.settings["home_max_kw"]}}
 
     def note(self, text):
+        if self.replaying:
+            return  # a seek re-applying a logged action: the page already showed it the first time
         self.messages = (self.messages + [{"at": utc_now(), "text": text}])[-LOG_LINES:]
 
     def status(self):
@@ -619,7 +702,10 @@ class Session:
             "provenance": self.last["provenance"] if self.last else None,
             "alerts": self.active_alerts,
             "grid_down_zones": self.grid_down_zones,
-            "counties": [{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
+            # Task 16: the operator actions a seek re-runs (for marks), and whether a seek is running. The worker
+            # writes one state with seeking true before it runs a seek; this ordinary state is never mid-seek.
+            "actions": [dict(action) for action in self.actions], "seeking": False,
+            "counties":[{"zone": zone, "fips": fips, "name": name} for zone, fips, name in zone_counties(self.settings)],
             "history": self.history, "totals": self.board, "log": self.messages,
             "honest_limits": list(HONEST_LIMITS),
         }

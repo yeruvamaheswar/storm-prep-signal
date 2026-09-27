@@ -65,9 +65,19 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
         changed = False
         step_before = session.step_seconds()
         playing_before, index_before = session.playing, session.index
+        # A start, reset or seek begins a new tick window, even when the index does not move (the old run sat at
+        # tick 0 with its next tick still due).
+        restarted = False
         for request in read_requests(last_seq, scenario_dir):
+            if request.get("kind") == "seek" and session.scenario is not None:
+                # Tell the page before a long re-run; it shows the tick it has until the new one is written.
+                seeking = session.state()
+                seeking["seeking"] = True
+                seeking["tick_left_s"] = tick_left(session, next_step, paused_left, clock())
+                write_state(seeking, scenario_dir)
             session.apply(request)
             last_seq, changed = request["seq"], True
+            restarted = restarted or request.get("kind") in ("start", "reset", "seek")
         now = clock()
         step_after = session.step_seconds()
         # A speed change mid-tick keeps the share of the tick already played; only the rest changes pace.
@@ -77,8 +87,8 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
         if playing_before and not session.playing:
             # Pause keeps the time left in this tick instead of letting the clock run on.
             paused_left = max(0.0, next_step - now)
-        if session.index < index_before:
-            # A reset or a new scenario: nothing is left of the old tick.
+        if restarted or session.index < index_before:
+            # A reset, a new scenario or a seek: nothing is left of the old tick.
             next_step, paused_left = now, None
         elif session.index > index_before:
             # Only Next tick moves the index here. The page plays the stepped tick from now, so its window runs
