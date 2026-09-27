@@ -2,6 +2,7 @@ import { reasonLabel, type Point } from "../flow/flowMath"
 import type { BatteryState, FlowHome, OrderTimelineEntry } from "../flow/types"
 import { keyMoments } from "./keyMoments"
 import { NOT_REPORTED } from "./format"
+import { OPERATOR_HOLD_TEXT, isOperatorHold, planNotLive } from "./reasonCodes"
 import { homeOrderState, splitOrders, stateColor, stateLabel, type ReplayOrderState } from "./orderState"
 import { fmtClock } from "./tickClock"
 
@@ -205,11 +206,7 @@ export function orderColor(state: ReplayOrderState, charging: boolean): string {
   return charging && !failed ? "var(--rg-charging)" : stateColor(state)
 }
 
-/** The planner used a reading that was not live (scenario.py `plan_status`, from telemetry.reported_homes).
- * False when the row carries no `plan_status` (an older worker). */
-export function planNotLive(home: Pick<FlowHome, "plan_status">): boolean {
-  return typeof home.plan_status === "string" && home.plan_status !== "live"
-}
+export { planNotLive }
 
 export const NO_FRESH_READING = "No fresh reading, so no order"
 
@@ -227,7 +224,7 @@ export function notAskedReason(
   home: Pick<FlowHome, "state" | "under_floor_why" | "plan_status" | "floor_reason">,
   mode?: string | null,
 ): string {
-  if (mode === "HOLD") return "Operator hold: no orders this tick."
+  if (isOperatorHold({ mode })) return OPERATOR_HOLD_TEXT
   if (planNotLive(home)) return `${NO_FRESH_READING}.`
   if (home.state === "at_floor") return "Its charge is at its floor, so it keeps it all for backup."
   if (home.state === "reserved") {

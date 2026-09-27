@@ -4,6 +4,9 @@ import { keyMoments } from "../src/features/replay/keyMoments"
 import { feedLines } from "../src/features/replay/narrate"
 import { intentLine } from "../src/features/replay/intentCopy"
 import { promiseBreakdown, type ReplayPromiseResult } from "../src/features/replay/promise"
+import { OPERATOR_HOLD_TEXT, isOperatorHold, planNotLive } from "../src/features/replay/reasonCodes"
+import { planNotLive as zoneModelPlanNotLive } from "../src/features/replay/zoneModel"
+import { countyFloorRange } from "../src/features/flow/flowMath"
 import { fmtClock, replayTickSeconds, stepSeconds } from "../src/features/replay/tickClock"
 
 const northOrders: Record<string, OrderTimelineEntry[]> = {
@@ -400,6 +403,35 @@ describe("intentLine (B1, B2 shared copy)", () => {
     expect(intentLine("idle_mode", undefined)).toBe("Fleet did: Idle mode")
     expect(intentLine(undefined, "grid_call")).toBeNull()
     expect(intentLine("", "")).toBeNull()
+  })
+})
+
+describe("one home for the shared rules (Task 12 fix 1: M5)", () => {
+  test("isOperatorHold reads the mode or the operator_hold reason; one sentence for it", () => {
+    expect(isOperatorHold(hold4)).toBe(true)
+    expect(isOperatorHold({ mode: "HOLD" })).toBe(true)
+    expect(isOperatorHold({ reasons: ["operator_hold"] })).toBe(true)
+    expect(isOperatorHold(heather74)).toBe(false)
+    expect(isOperatorHold(null)).toBe(false)
+    expect(OPERATOR_HOLD_TEXT).toBe("Operator hold: no orders this tick.")
+  })
+
+  test("planNotLive is true only for a reported plan_status that is not live", () => {
+    expect(planNotLive({ plan_status: "stale" })).toBe(true)
+    expect(planNotLive({ plan_status: "dead" })).toBe(true)
+    expect(planNotLive({ plan_status: "live" })).toBe(false)
+    expect(planNotLive({})).toBe(false)
+  })
+
+  test("the Replay and fleet views use the shared helpers", () => {
+    expect(zoneModelPlanNotLive).toBe(planNotLive)
+  })
+
+  test("countyFloorRange is the rule behind /flow's zoneFloorText and the keep chip", () => {
+    const homes = [{ floor_pct: 30 }, { floor_pct: 60 }, { floor_pct: 30 }] as FlowHome[]
+    expect(countyFloorRange(60, homes)).toEqual({ low: 30, high: 60 })
+    expect(countyFloorRange(30, homes.map((h) => ({ ...h, floor_pct: 30 })))).toBeNull()
+    expect(countyFloorRange(60, [])).toBeNull()
   })
 })
 

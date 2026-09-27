@@ -1,4 +1,4 @@
-import { centroid, type Point } from "../flow/flowMath"
+import { centroid, countyFloorRange, countyFloorRangeText, type Point } from "../flow/flowMath"
 import type { FlowHome, FlowTick, FlowZoneRow, OrderTimelineEntry } from "../flow/types"
 import { kw, plainReason } from "./format"
 import { splitOrders } from "./orderState"
@@ -186,15 +186,14 @@ export function chipLines(
   if (lens === "keep") {
     const floor = tick?.zone_reserve_pct?.[zone] ?? row?.reserve_pct
     const reason = tick?.zone_reasons?.[zone] ?? row?.reason
-    // The zone floor is its highest county floor (policy.py _zone_floor). When some homes keep less, say so:
-    // the same rule as /flow's zoneFloorText. "Raised" counts homes above the zone's lowest (base) floor.
-    const floors = (homes ?? []).filter((home) => home.zone === zone).map((home) => home.floor_pct)
-      .filter((pct): pct is number => typeof pct === "number" && Number.isFinite(pct))
-    const low = floors.length ? Math.min(...floors) : undefined
-    if (typeof floor === "number" && low !== undefined && low < floor) {
-      const raised = floors.filter((pct) => pct > low).length
-      const count = `${raised} of ${floors.length} homes raised`
-      return [`Floor ${low}–${floor}% by county`, reason ? `${plainReason(reason)}: ${count}` : count]
+    // The zone floor is its highest county floor (policy.py _zone_floor). When some homes keep less, say so with
+    // /flow's rule (countyFloorRange, behind zoneFloorText). "Raised" counts homes above the zone's lowest floor.
+    const inZone = (homes ?? []).filter((home) => home.zone === zone && typeof home.floor_pct === "number" && Number.isFinite(home.floor_pct))
+    const range = typeof floor === "number" ? countyFloorRange(floor, inZone) : null
+    if (range) {
+      const raised = inZone.filter((home) => home.floor_pct > range.low).length
+      const count = `${raised} of ${inZone.length} homes raised`
+      return [`Floor ${countyFloorRangeText(range)}`, reason ? `${plainReason(reason)}: ${count}` : count]
     }
     return [
       typeof floor === "number" ? `Floor ${floor}%` : "Floor not reported",

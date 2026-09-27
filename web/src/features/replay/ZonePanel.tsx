@@ -2,6 +2,7 @@ import type { FlowHome, FlowTick, OrderTimelineEntry } from "../flow/types"
 import { NOT_REPORTED, count } from "./format"
 import { zoneActivity } from "./mapModel"
 import { feedLines } from "./narrate"
+import { OPERATOR_HOLD_TEXT, isOperatorHold } from "./reasonCodes"
 import { zoneHomes, zoneSummary } from "./zoneModel"
 
 type Props = {
@@ -52,7 +53,7 @@ export function ZonePanel({ zone, homes, orders, tick, tSeconds }: Props) {
         <span>{summary.openLabel}</span>
         <b className="is-muted">{kwText(summary.openKw)}</b>
       </div>
-      {tick?.mode === "HOLD" ? <p className="replay-note">Operator hold: no orders this tick.</p> : null}
+      {isOperatorHold(tick) ? <p className="replay-note">{OPERATOR_HOLD_TEXT}</p> : null}
       <div className="zone-row">
         <span>Not asked, at their floor</span>
         <b>{homesText(summary.notAskedAtFloor)}</b>

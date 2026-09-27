@@ -4,6 +4,7 @@
  * Honesty: a missing charge, floor or zone stays null and is shown as "Not reported".
  */
 import type { FlowHome } from "../flow/types"
+import { planNotLive } from "../replay/reasonCodes"
 import { hrefForUrlState, readUrlState } from "../shell/urlState"
 
 export const NOT_REPORTED = "Not reported"
@@ -114,7 +115,7 @@ export function fromScenarioHomes(homes: FlowHome[]): GridHome[] {
     const rawStatus = typeof h.status === "string" ? h.status : ""
     const status = statusOf(rawStatus)
     // The engine's home may be live while the reading the planner used was not (scenario.py plan_status).
-    const planStale = typeof h.plan_status === "string" && h.plan_status !== "live"
+    const planStale = planNotLive(h)
     const action = status === "live" && !planStale ? SCENARIO_ACTIONS[h.state as string] ?? null : null
     return {
       id: h.id,

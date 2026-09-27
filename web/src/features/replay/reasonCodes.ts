@@ -27,6 +27,20 @@ export function isWeatherReason(reason: string | null | undefined): boolean {
   return matches(WEATHER_REASONS, reason)
 }
 
+/** An operator HOLD sends nothing (controller.py: Allocation({}, 0, target, ["operator_hold"])). History points
+ * carry no mode, so the reason alone also counts. The one HOLD rule for the promise panel, ledger and zone views. */
+export function isOperatorHold(tick: { mode?: string | null; reasons?: readonly string[] | null } | null | undefined): boolean {
+  return tick?.mode === "HOLD" || (tick?.reasons ?? []).includes("operator_hold")
+}
+
+export const OPERATOR_HOLD_TEXT = "Operator hold: no orders this tick."
+
+/** The planner used a reading that was not live (scenario.py `plan_status`, from telemetry.reported_homes).
+ * False when the row carries no `plan_status` (an older worker). Shared by the Replay and the fleet grid. */
+export function planNotLive(home: { plan_status?: string | null }): boolean {
+  return typeof home.plan_status === "string" && home.plan_status !== "live"
+}
+
 /** This home's own floor was raised by weather (#47: floors are set per county). Its `floor_reason` says why:
  * `weather_alert_jev_yes` / `weather_alert_no_jev` / `weather_alert` / `storm_risk_high` raise it; `jev_no`,
  * `not_in_alert` and `normal` keep the base floor. An older worker sends no `floor_reason`: trust the zone. */

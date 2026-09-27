@@ -1,5 +1,5 @@
 import type { FlowTick } from "../flow/types"
-import { isFloorRaisingReason } from "./reasonCodes"
+import { isFloorRaisingReason, isOperatorHold } from "./reasonCodes"
 
 export type ReplayPromiseResult = Partial<FlowTick> & {
   unconfirmed_mw?: number
@@ -17,19 +17,13 @@ function floorRaised(result: ReplayPromiseResult): boolean {
   return (result.reasons ?? []).some(isFloorRaisingReason)
 }
 
-/** An operator HOLD sends nothing (controller.py: Allocation({}, 0, target, ["operator_hold"])).
- * History points carry no mode, so the reason alone also counts. */
-function operatorHold(result: ReplayPromiseResult): boolean {
-  return result.mode === "HOLD" || (result.reasons ?? []).includes("operator_hold")
-}
-
 /** The smallest MW that shows as more than 0.000 MW (mw() prints 3 decimals). */
 export const SHOWN_MW = 0.0005
 
 function notSoldLabel(result: ReplayPromiseResult, notSold: number): string {
   // A call served to within float residue left nothing unsold on screen: name no cause for a 0.000 MW row.
   if (notSold < SHOWN_MW) return "Not sold"
-  if (operatorHold(result)) return "Not sent, operator hold"
+  if (isOperatorHold(result)) return "Not sent, operator hold"
   return floorRaised(result) ? "Kept for backup, floor raised" : "Not sent, no spare energy above floors"
 }
 
