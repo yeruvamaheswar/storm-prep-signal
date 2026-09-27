@@ -374,3 +374,10 @@
     padding-right: 16px;
   }
 }
+
+/* Phone portrait only. */
+@media (max-width: 720px) {
+  .wall-page {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}

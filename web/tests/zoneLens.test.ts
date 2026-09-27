@@ -28,9 +28,9 @@ describe("zone lens", () => {
     expect(facts.discharging).toBe(10)
     expect(facts.reserved).toBe(0)
     expect(zoneBrief(facts)).toBe(
-      "North. Outage 9,429 MW. Price 42 $/MWh (synthetic tape price, not an LZ settlement). Floor 30% (fleet floor, not a zone floor). 10 homes discharging, 0 homes reserved.",
+      "North. Outage 9,429 MW. Price 42 $/MWh (synthetic tape price, not an LZ settlement). Floor 30% (fleet floor, not a zone floor). Intent unread. 10 homes discharging, 0 homes reserved.",
     )
-    expect(zoneCallout(facts)).toBe("North · outage 9,429 MW · 42 $/MWh · floor 30% · 10 discharging · 0 reserved")
+    expect(zoneCallout(facts)).toBe("North · outage 9,429 MW · 42 $/MWh · intent unread · floor 30% · 10 discharging · 0 reserved")
   })
 
   it("keeps a live North-only price unread on the other zones", () => {
@@ -59,6 +59,18 @@ describe("zone lens", () => {
       priceUsdMwh: null,
       priceCaption: "no LZ price for this interval",
     })
+  })
+
+  it("shows the selected zone's own intent when the tick carries one", () => {
+    const live = {
+      ...tapeTick(1),
+      zone_prices: { Houston: 20.63, North: 42.25, South: 18.5, West: 80.0 },
+      zone_intent: { Houston: "charge", North: "hold", South: "charge", West: "discharge" },
+    } as TickView
+    const facts = zoneFacts(live, "West")
+    expect(facts.intent).toBe("discharge")
+    expect(zoneBrief(facts)).toContain("Intent discharge")
+    expect(zoneCallout(facts)).toContain("West · outage 4,474 MW · 80 $/MWh · discharge")
   })
 
   it("counts reserved and discharging homes inside the storm zone", () => {

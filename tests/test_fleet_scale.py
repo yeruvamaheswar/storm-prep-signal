@@ -61,6 +61,35 @@ def test_scale_tick_counts_follow_fleet_size():
     assert sized["zone_acks"]["North"]["acked"] == 1200
 
 
+def test_scaled_books_close_when_the_target_hits_the_fleet_cap():
+    # 1.0 MW on the 0.40 demo tape is 100 MW at 10k homes / 114 MW call: capped at 114.
+    tick = {"live_homes": 100, "stale_homes": 0, "dead_homes": 0,
+            "target_mw": 1.0, "delivered_mw": 0.3, "missed_mw": 0.7}
+    sized = scale_tick_to_fleet(tick, _settings(10_000, call=114))
+    assert sized["target_mw"] == pytest.approx(114.0)
+    assert sized["delivered_mw"] == pytest.approx(85.5)
+    assert sized["missed_mw"] == pytest.approx(114.0 - 85.5)
+    assert sized["delivered_mw"] + sized["missed_mw"] == pytest.approx(sized["target_mw"])
+
+
+def test_scaled_delivered_never_passes_the_scaled_target():
+    tick = {"live_homes": 100, "stale_homes": 0, "dead_homes": 0,
+            "target_mw": 1.2, "delivered_mw": 1.2, "missed_mw": 0.0}
+    sized = scale_tick_to_fleet(tick, _settings(10_000, call=114))
+    assert sized["delivered_mw"] <= sized["target_mw"]
+    assert sized["missed_mw"] == pytest.approx(0.0)
+
+
+def test_scaled_charging_follows_the_same_factor():
+    tick = {"live_homes": 100, "stale_homes": 0, "dead_homes": 0,
+            "target_mw": 0.0, "delivered_mw": 0.0, "missed_mw": 0.0,
+            "charging_mw": 0.12, "zone_charging_mw": {"North": 0.05, "Houston": 0.07}}
+    sized = scale_tick_to_fleet(tick, _settings(10_000))
+    assert sized["charging_mw"] == pytest.approx(12.0)
+    assert sized["zone_charging_mw"] == {"North": pytest.approx(5.0), "Houston": pytest.approx(7.0)}
+    assert sized["missed_mw"] == 0.0
+
+
 def test_scale_tick_is_noop_when_already_sized():
     tick = {"live_homes": 200, "stale_homes": 0, "dead_homes": 0, "target_mw": 0.8}
     assert scale_tick_to_fleet(tick, _settings(200))["target_mw"] == 0.8

@@ -82,14 +82,50 @@ def _read_run(path: Path) -> Optional[dict]:
 
 
 def run_from_table_rows(rows):
-    """None when PostgREST /runs is empty or not a run file. Empty is not source of truth."""
+    """None when PostgREST /runs is empty or not a run file. Empty is not source of truth.
+
+    A run with no `settings` of its own takes the ones persist_run stored in `summary.settings` (Task 9c).
+    """
     if isinstance(rows, dict):
         rows = [rows]
     if not isinstance(rows, list) or not rows:
         return None
-    row = rows[0]
-    if not isinstance(row, dict):
+    runs = [_run_with_stored_settings(row) for row in rows if isinstance(row, dict)]
+    runs = [run for run in runs if run is not None]
+    if not runs:
         return None
+    return max(runs, key=_run_sort_key)
+
+
+def _run_with_stored_settings(row):
+    run = _run_from_table_row(row)
+    if run is None or isinstance(run.get("settings"), dict):
+        return run
+    summary = row.get("summary")
+    stored = summary.get("settings") if isinstance(summary, dict) else None
+    if not isinstance(stored, dict):
+        return run
+    return {**run, "settings": dict(stored)}
+
+
+def _run_sort_key(run):
+    """Newest by last tick time, not by run_id text.
+
+    Probe rows such as "persist-probe-20260926" sort above timestamp-like run ids in PostgREST,
+    so the API reads a page and chooses the newest actual tick itself.
+    """
+    ticks = run.get("ticks")
+    last = ticks[-1] if isinstance(ticks, list) and ticks else {}
+    ts = last.get("ts") if isinstance(last, dict) else None
+    if isinstance(ts, str):
+        try:
+            return (1, datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp(), str(run.get("run_id", "")))
+        except ValueError:
+            pass
+    return (0, 0.0, str(run.get("run_id", "")))
+
+
+def _run_from_table_row(row):
     result = row.get("result")
     if isinstance(result, str):
         return None
@@ -124,7 +160,7 @@ def fetch_runs_table(get=None, url=None, key=None, timeout_s=None):
     except ValueError:
         timeout = 3.0
     endpoint = f"{host.rstrip('/')}/rest/v1/runs"
-    params = {"select": "run_id,source,result", "order": "run_id.desc", "limit": "1"}
+    params = {"select": "run_id,source,result,summary", "order": "run_id.desc", "limit": "25"}
     caller = requests.get if get is None else get
     try:
         reply = caller(endpoint, params=params, headers={"apikey": secret}, timeout=timeout)
@@ -428,11 +464,29 @@ def _price_stamp(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
     return priced
 
 
+def _policy_with_prices(risk, tick: dict, priced: dict):
+    """Rebuild the policy label with the same prices the snapshot just stamped.
+
+    Routes do not allocate. This only exposes the price band and per-zone bands that the engine
+    would use, so the wall can explain a selected zone without guessing from $/MWh.
+    """
+    mode = tick.get("mode") if tick.get("mode") in ("AUTO", "HOLD") else "AUTO"
+    return reserve_policy(
+        risk,
+        read_settings(),
+        mode=mode,
+        price_usd_mwh=priced.get("price_usd_mwh"),
+        price_label=priced.get("price_label"),
+        zone_prices=priced.get("zone_prices") or None,
+    )
+
+
 def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Optional[str] = None) -> dict:
     start = current_hour_index(signal)
     peak = signal["rows"][start + risk.peak_lead]
     columns = {field: peak[field] for name in ZONES for field in zone_fields(name)}
     priced = _price_stamp(tick, live, zone)
+    policy = _policy_with_prices(risk, tick, priced)
     priced.update({
         **columns,
         "peak_mw": risk.peak_mw,
@@ -450,6 +504,7 @@ def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Option
         "west_mw": risk.zone_mw["West"],
         "zone_mw": risk.zone_mw[risk.driving_zone],
         "zone_delivered_mw": tick.get("zone_delivered_mw") or {},
+        "zone_intent": tick.get("zone_intent") or dict(policy.zone_intent),
         "as_of": live["as_of"],
         "stress_as_of": live["as_of"],
         "stress_age_min": live["age_min"],
@@ -467,6 +522,9 @@ def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Option
 def _stamp_totals(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
     totals = live["zone_totals"]
     priced = _price_stamp(tick, live, zone)
+    risk_level = tick.get("risk_level")
+    risk = _ReplayRisk(risk_level) if risk_level in ("LOW", "HIGH") else None
+    policy = _policy_with_prices(risk, tick, priced)
     priced.update({
         **live["zone_columns"],
         "outage_mw": live["outage_mw"],
@@ -480,6 +538,7 @@ def _stamp_totals(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
         "south_mw": totals["South"],
         "west_mw": totals["West"],
         "zone_delivered_mw": tick.get("zone_delivered_mw") or {},
+        "zone_intent": tick.get("zone_intent") or dict(policy.zone_intent),
         "as_of": live["as_of"],
         "stress_as_of": live["as_of"],
         "stress_age_min": live["age_min"],

@@ -113,6 +113,7 @@ export type FlowTick = {
   breaches: number
   zone_reserve_pct: Record<string, number>
   zone_reasons: Record<string, string>
+  zone_intent?: Record<string, string>
   county_reserve_pct?: Record<string, number>
   county_reasons?: Record<string, string>
   brief: string

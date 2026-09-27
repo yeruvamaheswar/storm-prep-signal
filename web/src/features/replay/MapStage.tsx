@@ -35,6 +35,8 @@ type Props = {
   notice: StageNotice
   apiBase?: string
   onZone: (zone: string) => void
+  /** The breadcrumb's hint. Live (Task 9) passes its own; unset keeps Replay's words. */
+  crumbHint?: string
 }
 
 const TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -65,6 +67,7 @@ function noticeText(notice: StageNotice, apiBase: string): ReactNode {
 
 export function MapStage({
   zones, homes, orders, tick, baseFloorPct, provenance, alerts, padBottom, tSeconds, lens, notice, apiBase = "", onZone,
+  crumbHint,
 }: Props) {
   // Read by fit() at call time, so a taller or shorter playback bar refits the map (the effect below).
   const padBottomRef = useRef(padBottom ?? PAD_BOTTOM)
@@ -115,9 +118,11 @@ export function MapStage({
       if (!el) return
       const L = await import("leaflet")
       if (cancelled || !leafletRef.current) return
+      // Phone portrait only: pan and pinch. Desktop stays click-to-select with locked map chrome.
+      const phone = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 720px)").matches
       const m = L.map(el, {
-        zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false,
-        doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0.1,
+        zoomControl: false, attributionControl: false, dragging: phone, scrollWheelZoom: false,
+        doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: phone, zoomSnap: 0.1,
       })
       map = m
 
@@ -319,7 +324,7 @@ export function MapStage({
           </div>
         )
       }) : null}
-      <div className="replay-crumb replay-panel"><b>Texas</b><span>{notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in."}</span></div>
+      <div className="replay-crumb replay-panel"><b>Texas</b><span>{crumbHint ?? (notice ? "No live session. Click a zone to zoom in." : "Click a zone to zoom in.")}</span></div>
       <p className="replay-map-legend replay-panel">
         <span>Shading: night and twilight at the tick's time (sun position, NOAA equations).</span>
         <span>Rain: counties an NWS storm alert names this tick (Census outlines, simplified).</span>

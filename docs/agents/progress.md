@@ -2,6 +2,20 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 
 # Progress
 
+## 2026-09-27: Mobile portrait parity + judge README
+
+- Named gap: all routed pages usable in phone portrait with desktop feature parity; desktop layout unchanged; README judge-ready.
+- Phone CSS only under `max-width: 720px` (and fleet-grid 640px extensions): shell TopBar, Replay/Live rails and drawers, wall stress/feeds, fleet table stacked cards, fleetgrid tiles, flow controls. MapStage enables touch pan/zoom only when the phone media query matches.
+- Docs: `docs/agents/mobile-layout.md`, `docs/humans/mobile.md`, index row; root `README.md` rewritten for judges.
+- Verification: `cd web && npm test && npm run build`, `pytest -q`.
+
+## 2026-09-27: Render starts the live worker for `/live`
+
+- Found from production: `/v1/snapshot` reached ERCOT with `quality: ok`, so ERCOT keys and routing were not the blocker. `/v1/runs/latest` returned the stale Supabase probe row `persist-probe-20260926`, with no `settings`, so the Live page correctly said the run could not be checked against the demo fleet.
+- `render.yaml` now starts `scripts/live_cycle.py --loop` beside `scripts/scenario_session.py` and uvicorn, so the Render API instance writes fresh `var/runs/latest.json`, `var/fleet/*`, and persisted `public.runs` rows.
+- `run_from_table_rows` reads a page of Supabase run rows and picks the one with the newest last tick timestamp, not the largest `run_id` string, so a stale probe row cannot beat real timestamp run ids.
+- Docs updated: `docs/agents/live-ingest.md`, `docs/agents/backend.md`, `docs/agents/system-design.md`.
+
 ## 2026-09-27: Task 4 Replay Texas view
 
 - Built the redesigned Replay page at `/` from the approved `Main.dc.html` look, driven by the scenario session APIs and existing Replay logic.
@@ -1187,6 +1201,11 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Tapes (100 homes, 25 kWh / 11.4 kW, main -> this change): storm-rule-high 36.0 -> 45.6% delivered, storm-rule-night 40.3 -> 45.4%, feed-failure charged 0.788 -> 0.879 MWh; the other seven unchanged. 0 breaches on every tape.
 - 8 old tests asserted the old rule (under-floor homes get no order / never move / storm ticks label discharge); Rajat approved updating them. 13 new tests.
 - `pytest -q`: 719 passed. `FUZZ_SEEDS=50`: passed, 0 breaches. Web: `tsc` clean, `vitest` 280 passed.
+## 2026-09-27: Zone intent reaches the tick, wall, and flow
+
+- Filled gap: `Policy.zone_intent` now copies to `TickResult.zone_intent`, so run files, `/v1/snapshot`, the wall zone drill-in, and `/flow` can name each zone's own charge / hold / discharge band.
+- Snapshot does not allocate. It rebuilds the same labels from the already-stamped LZ price rows and carries old tick values when present.
+- Tests: engine tick path 24, run-file copy, snapshot price intent, wall zone lens, and `/flow` data panel.
 
 ## 2026-09-26: JEV gates the alert floor per county (/flow)
 
@@ -1261,3 +1280,10 @@ Storm Prep signal notes (risk rule v2). Still current for the risk rule and even
 - Browser: heather seed 42, both freeze alerts sent after tick 1, paused at tick 2; the drawer lists four North and five Houston counties at "60% · NWS weather alert" and no JEV text.
 - Docs: `docs/agents/grid-flow.md` ("Named-county rule", "Tests").
 - `pytest -q` (merged with main after the DAM cache and stop-at-spike entries above): 838 passed. Web: `vitest` 650 passed (50 files), `tsc --noEmit` clean.
+
+## 2026-09-27: Engine fixes (grid_down on no-call ticks, scaled books, empty fleet)
+
+- `controller.allocate`: a no-call tick on a hold or discharge price now carries the status codes (`homes_dead:n`, `homes_stale:n`, `unknown_zone`) and `grid_down:<zone>` (allocation rule 7), in the main path's order: `reserve_refill`, status codes, `grid_down`. The unknown-intent hold also adds `grid_down`. `tests/test_controller.py::test_zero_target_is_a_no_op` and `tests/test_grid_down.py` (renamed `test_hold_is_unchanged_and_a_zero_target_still_names_the_down_zone`) had encoded the old empty list and now expect the codes. Side effect: an AUTO no-call tick with a dead/stale home or a down zone no longer reads as "Auto requested — next dispatch pending" (`isPendingAuto` needs zero reasons).
+- `fleet.scale_tick_to_fleet`: `missed_mw = max(0, target − delivered)` after scaling (delivered capped at target), so the books close when the fleet cap clips the target; `charging_mw` and `zone_charging_mw` scale with the same factor.
+- `TelemetryState([])` picks no liar instead of raising; `new_fleet` / `assign_zone` with no zones raise `ValueError`. Seeded picks for a real fleet are unchanged (test pins seed 7).
+- `pytest -q`: 917 passed; `FUZZ_SEEDS=50`: 917 passed.

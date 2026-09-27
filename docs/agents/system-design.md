@@ -183,7 +183,7 @@ The order of calls in one tick, and how the API rebuilds a tick for the wall, ar
 | `TapeFrame` | One tick of a tape: time, target, price, which outage posting to read, events, and which DAM day files were published (`dam_fixtures`). |
 | `Policy` | The floors (fleet, per zone, and per county of an alerted zone), the reasons, the risk level, the intent, and for zones with DAM hours the chosen charge hours and why (`zone_charge_hours`, `zone_charge_why`). |
 | `Allocation` | Signed kW per home (positive sells, negative charges), delivered MW, missed MW, reasons. |
-| `TickResult` | Everything the tick decided and why. One per tick in the run file. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. `county_reserve_pct` and `county_reasons` give each county of an alerted zone its floor and reason (named-county rule, [grid-flow.md](grid-flow.md#named-county-rule)). `dam_hours`, `dam_label`, `dam_as_of`, `zone_hours_needed`, `zone_charge_hours` and `zone_charge_why` carry the next 24 DAM hours and each zone's charge plan, which the Live wall's Next 24 h price panel shows ([dam-forecast.md](dam-forecast.md)). |
+| `TickResult` | Everything the tick decided and why. One per tick in the run file. `zone_intent` copies the policy's per-zone price band so the wall and `/flow` can explain why a zone charged, held, or discharged. With the battery feed on, it also carries `plant`, `feed` and `zone_telemetry`, built from what the batteries reported. `GET /v1/snapshot` sends `plant` and `feed` to the wall as `telemetry: {plant, readings}`, because the snapshot's own `feed` is the ERCOT status text. Confirmed charge is booked apart from delivery in `charging_mw` and `zone_charging_mw` (MW absorbed, never counted in `delivered_mw`). `grid_down_zones` lists the zones whose grid is down this tick; their batteries back up their own homes and neither sell nor charge. `county_reserve_pct` and `county_reasons` give each county of an alerted zone its floor and reason (named-county rule, [grid-flow.md](grid-flow.md#named-county-rule)). `dam_hours`, `dam_label`, `dam_as_of`, `zone_hours_needed`, `zone_charge_hours` and `zone_charge_why` carry the next 24 DAM hours and each zone's charge plan, which the Live wall's Next 24 h price panel shows ([dam-forecast.md](dam-forecast.md)). |
 
 The web copy is `web/src/contracts.ts`; `contracts.py` wins if they disagree. The run file shape is in [CONSTRAINTS.md, Engine output](../../CONSTRAINTS.md#engine-output-read-by-web).
 
@@ -253,7 +253,9 @@ flowchart LR
   subgraph render["Render, free plan"]
     RAPI["reservegate-api<br/>uvicorn on 0.0.0.0:$PORT<br/>health check /health"]
     RSESS["scripts/scenario_session.py<br/>same instance, background"]
+    RLIVE["scripts/live_cycle.py --loop<br/>same instance, background"]
     RSESS <-->|"var/scenario/"| RAPI
+    RLIVE -->|"var/runs, var/fleet"| RAPI
   end
   subgraph vercel["Vercel"]
     VWALL["Wall, static web/dist<br/>rewrites /health and /v1"]
@@ -265,6 +267,8 @@ flowchart LR
 
   ENG -.-> SB
   ENG --> ERCOT
+  RLIVE --> SB
+  RLIVE --> ERCOT
   RAPI --> SB
   RAPI --> ERCOT
   VWALL -->|"/health, /v1"| RAPI
@@ -283,7 +287,7 @@ cd web && npm install && npm run dev             # wall on http://localhost:5173
 pytest -q                                        # Python tests
 ```
 
-Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/fetch_dam_prices.py` and `python scripts/backtest_dam.py` (save ERCOT DAM days, and score DAM against real-time; [dam-forecast.md, Scripts](dam-forecast.md#scripts)), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
+Other entry points: `python -m server.engine.cli --fixture` (rate one posting), `python scripts/live_cycle.py --loop` (Live worker; on Render it starts beside uvicorn in the same instance, see [live-ingest.md](live-ingest.md)), `python scripts/stream_telemetry.py --loop` (`FLEET_SIZE` last-reading stream onto `public.homes`), `python -m server.engine.orchestration --tape PATH --seed N` (lossy-channel runtime), `python scripts/fetch_dam_prices.py` and `python scripts/backtest_dam.py` (save ERCOT DAM days, and score DAM against real-time; [dam-forecast.md, Scripts](dam-forecast.md#scripts)), `python scripts/scenario_session.py` (the `/flow` scenario worker; on Render it starts beside uvicorn in the same instance, see [grid-flow.md, Run it on Render](grid-flow.md#run-it-on-render)). Details: [code-flow.md, Other entry points](code-flow.md#2-other-entry-points). Render setup: [backend.md, Deploy on Render](backend.md#deploy-on-render). The wall deploys to Vercel from `main` and reaches the API through rewrites in `web/vercel.json`: [backend.md, Deploy the wall on Vercel](backend.md#deploy-the-wall-on-vercel).
 ### Settings
 
 Names and example values live in `.env.example`; `cli.read_settings()` and `server/env.py` read them. Values go in `.env` or `server/.env`, never in git.

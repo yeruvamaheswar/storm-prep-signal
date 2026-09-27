@@ -44,19 +44,24 @@ def allocate(homes, frame, policy, mode, settings):
     zoned = isinstance(zone_intent, dict) and bool(zone_intent)
     # With no call only cheap power has work to do: it refills the fleet (per zone if zoned).
     wants_charge = "charge" in zone_intent.values() if zoned else intent == "charge"
+    grid_down_codes = [f"grid_down:{zone}" for zone in sorted(down)]
     if target_mw == 0 and not wants_charge:
-        return add_refill(Allocation({}, 0.0, 0.0, []), homes, policy, settings, down)
-    if zoned:
+        # No call: nothing sells, but the status and grid_down codes still show (rule 7).
+        idle = Allocation({}, 0.0, 0.0, status_suffixes(homes, policy))
+        alloc = add_refill(idle, homes, policy, settings, down)
+    elif zoned:
         alloc = allocate_zoned(homes, frame, policy, settings, zone_intent)
+        alloc = add_refill(alloc, homes, policy, settings, down)
     elif intent == "charge":
         alloc = allocate_charge(homes, frame, policy, settings)
+        alloc = add_refill(alloc, homes, policy, settings, down)
     elif intent in ("discharge", "hold"):
         alloc = allocate_discharge(homes, frame, policy, settings)
+        alloc = add_refill(alloc, homes, policy, settings, down)
     else:
         # Unknown intent holds rather than selling on a tick we do not understand.
-        return Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
-    alloc = add_refill(alloc, homes, policy, settings, down)
-    alloc.reasons += [f"grid_down:{zone}" for zone in sorted(down)]
+        alloc = Allocation({}, 0.0, target_mw, ["holding_spare_energy"] + status_suffixes(homes, policy))
+    alloc.reasons += grid_down_codes
     return alloc
 
 

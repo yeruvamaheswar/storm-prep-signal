@@ -105,7 +105,7 @@ New contract fields, all with defaults:
 - `TickResult.plant`, `feed`, `zone_telemetry: dict` (all `default_factory=dict`; empty when `TELEMETRY_FEED=0`). Shapes: `docs/agents/telemetry-vpp.md`.
 - `TickResult.charging_mw: float = 0.0` and `zone_charging_mw: dict` (confirmed MW absorbed from the grid; never counted in `delivered_mw`), and `TickResult.grid_down_zones: list` (sorted zone names from the frame's `grid_down` event). Added 2026-09-26.
 
-- `Policy.zone_intent: dict` (`default_factory=dict`; zone name to `charge` \| `hold` \| `discharge`, set only from zone prices). Added 2026-09-26.
+- `Policy.zone_intent: dict` and `TickResult.zone_intent: dict` (`default_factory=dict`; zone name to `charge` \| `hold` \| `discharge`, set only from zone prices). Added 2026-09-26 / copied to ticks 2026-09-27.
 - `Home.county: str = ""` (county FIPS from `fleet.ZONE_COUNTIES`, a simulation roster; the `/flow` session assigns it, `new_fleet` leaves it empty). Added 2026-09-26.
 - `Policy.county_reserve_pct: dict`, `Policy.county_reasons: dict`, `TickResult.county_reserve_pct: dict`, `TickResult.county_reasons: dict` (all `default_factory=dict`; county FIPS to the floor percent that county's homes keep and its reason, for every roster county of a zone an active alert names; empty with no county alert). Added 2026-09-26.
 - `TapeFrame.dam_fixtures: list` (`default_factory=list`; paths of the NP4-190-CD day files published at that tick: today's, plus tomorrow's from 13:30 CT). Added 2026-09-27.

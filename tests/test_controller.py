@@ -217,7 +217,8 @@ def test_zero_target_is_a_no_op():
     homes = [home("a", 10.0), home("b", 10.0, status="dead")]
     alloc = allocate(homes, frame(0.0), policy(), "AUTO", settings())
     assert alloc.per_home_kw == {} and alloc.delivered_mw == 0.0 and alloc.missed_mw == 0.0
-    assert alloc.reasons == []
+    # No call is still a tick: the dead home is named, as on any tick with a call.
+    assert alloc.reasons == ["homes_dead:1"]
     check_books(alloc, 0.0)
 
 
@@ -946,3 +947,45 @@ def test_acted_intent_dam_wait_keeps_price_unavailable():
     p = dam_waiting("hold", {z: "cheaper_hour_later" for z in ZONES})
     p.intent_reason = "price_unavailable"
     assert acted_intent(Allocation({}, 0.0, 0.0, []), p, "AUTO") == ("hold", "price_unavailable")
+
+
+# --- no-call ticks keep the status and grid_down codes (CONSTRAINTS allocation rule 7) ---
+
+def down_frame(target_mw, zones=("North",)):
+    return TapeFrame(1, "2026-09-25T12:00:00-05:00", target_mw, "synthetic", 40.0, "synthetic",
+                     events={"grid_down": list(zones)})
+
+
+def eight_homes_one_dead():
+    return [home(f"h{i}", 15.0) for i in range(7)] + [home("dead", 15.0, status="dead")]
+
+
+@pytest.mark.parametrize("intent", ["hold", "discharge"])
+def test_no_call_tick_still_names_dead_homes_and_grid_down_zones(intent):
+    alloc = allocate(eight_homes_one_dead(), down_frame(0.0), policy(intent=intent), "AUTO", settings())
+    assert alloc.per_home_kw == {}
+    assert alloc.reasons == ["homes_dead:1", "grid_down:North"]
+    assert acted_intent(alloc, policy(intent=intent), "AUTO")[0] == "hold"
+
+
+@pytest.mark.parametrize("intent", ["hold", "discharge"])
+def test_no_call_reasons_match_a_small_call_on_the_same_fleet(intent):
+    homes = eight_homes_one_dead()
+    idle = allocate(homes, down_frame(0.0), policy(intent=intent), "AUTO", settings())
+    called = allocate(homes, down_frame(0.01), policy(intent=intent), "AUTO", settings())
+    assert idle.reasons == called.reasons
+
+
+def test_no_call_refill_keeps_the_main_path_reason_order():
+    homes = [home("low", 2.0), home("ok", 15.0), home("dead", 15.0, status="dead")]
+    alloc = allocate(homes, down_frame(0.0), policy(intent="hold"), "AUTO", settings())
+    assert alloc.per_home_kw == {"low": pytest.approx(-48.0)}
+    assert alloc.reasons == ["reserve_refill", "homes_dead:1", "grid_down:North"]
+    assert acted_intent(alloc, policy(intent="hold"), "AUTO") == ("charge", "reserve_refill")
+
+
+def test_unknown_intent_still_names_grid_down_zones():
+    homes = [home("a", 15.0), home("dead", 15.0, status="dead")]
+    alloc = allocate(homes, down_frame(0.5), policy(intent="mystery"), "AUTO", settings())
+    assert alloc.per_home_kw == {} and alloc.missed_mw == pytest.approx(0.5)
+    assert alloc.reasons == ["holding_spare_energy", "homes_dead:1", "grid_down:North"]
