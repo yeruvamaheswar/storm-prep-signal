@@ -9,7 +9,8 @@ import {
 import "./fleetgrid.css"
 
 export type FleetGridPageProps = {
-  source: SourceKey
+  /** Null while the source is still being picked: then neither source button reads as selected. */
+  source: SourceKey | null
   /** Null until the first load for this source answers. */
   homes: GridHome[] | null
   loading: boolean

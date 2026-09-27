@@ -174,7 +174,7 @@ export function FleetGridRoot() {
 
   return (
     <FleetGridPage
-      source={source ?? "live"}
+      source={source}
       homes={homes}
       loading={loading}
       error={error}

@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import type { FlowHome } from "../src/features/flow/types"
 import { FleetGridPage, type FleetGridPageProps } from "../src/features/fleetgrid/FleetGridPage"
+import { FleetGridRoot } from "../src/features/fleetgrid/FleetGridRoot"
 import {
   bankTitle, countyGroups, countyTitle, defaultSource, fleetLabel, fromLiveRows, fromScenarioHomes, liveFleetNote,
   readHomesSource, readSplit, scenarioFleetNote, splitSearch, tileAria, toggleSplit, zoneBanks, type CountyRosterRow,
@@ -238,5 +239,44 @@ describe("FleetGridPage regions and the county split", () => {
     const html = render({ source: "live", homes: [plain], counties: [] })
     expect(html).not.toContain("Split by county")
     expect(html).toContain('data-home="home-001"')
+  })
+})
+
+describe("source buttons while the source is being picked (fix 1, M5)", () => {
+  const sourceButtons = (host: HTMLElement) =>
+    Array.from(host.querySelectorAll<HTMLButtonElement>('[aria-label="Source"] button'))
+
+  it("the page marks no source selected when it has none", () => {
+    const host = document.createElement("div")
+    host.innerHTML = renderToStaticMarkup(createElement(FleetGridPage, {
+      source: null, homes: null, loading: true, error: null, sourceNote: "Choosing a source",
+      filter: "all", selectedId: null, foundId: null, focusZone: null, query: "",
+      onSource: () => {}, onFilter: () => {}, onSelect: () => {}, onQuery: () => {}, onFind: () => {},
+    }))
+    const buttons = sourceButtons(host)
+    expect(buttons.map((b) => b.textContent)).toEqual(["Live", "Scenario"])
+    expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "false"])
+    expect(buttons.some((b) => b.classList.contains("on"))).toBe(false)
+  })
+
+  it("FleetGridRoot shows Live and Scenario both unselected until the scenario check answers", async () => {
+    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    const realFetch = globalThis.fetch
+    // The scenario check never answers, so the source stays unpicked.
+    globalThis.fetch = (() => new Promise<Response>(() => {})) as typeof fetch
+    const host = document.createElement("div")
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    try {
+      await act(async () => root.render(createElement(FleetGridRoot)))
+      const buttons = sourceButtons(host)
+      expect(buttons).toHaveLength(2)
+      expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "false"])
+      expect(host.textContent).toContain("Choosing a source")
+    } finally {
+      act(() => root.unmount())
+      host.remove()
+      globalThis.fetch = realFetch
+    }
   })
 })
