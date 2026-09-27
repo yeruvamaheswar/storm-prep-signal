@@ -1,6 +1,6 @@
 """Build geo/tx-roster-counties.json: the roster counties (fleet.ZONE_COUNTIES), simplified from the Census file.
 
-Usage: python scripts/build_roster_counties_geo.py <path to cb_2023_us_county_5m.shp>
+Usage: python geo/build_tx_roster_counties.py <path to cb_2023_us_county_5m.shp>
 
 Source: U.S. Census Bureau, 2023 Cartographic Boundary File, counties, 1:5,000,000
 (https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_county_5m.zip). The Replay map draws rain over
@@ -115,7 +115,7 @@ def main(argv=None):
         "source": SOURCE_URL,
         "comment": ("U.S. Census Bureau 2023 cartographic boundary counties (1:5,000,000), the roster counties "
                     "in fleet.ZONE_COUNTIES only. Largest part of each county, Douglas-Peucker at "
-                    f"{SIMPLIFY_DEG} degrees, 3 decimals. Built by scripts/build_roster_counties_geo.py."),
+                    f"{SIMPLIFY_DEG} degrees, 3 decimals. Built by geo/build_tx_roster_counties.py."),
         "features": features,
     }, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {OUT} ({len(features)} counties)")
