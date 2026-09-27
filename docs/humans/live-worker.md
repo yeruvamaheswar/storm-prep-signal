@@ -1,23 +1,19 @@
-# Live worker (laptop)
+# Live worker
 
-On Live, the wall reads the newest ERCOT posting from Supabase and the last engine tick from `var/runs/latest.json`. A small script on this laptop keeps both fresh.
+On Live, the wall reads the newest ERCOT posting from Supabase and the last engine tick from `var/runs/latest.json`. A small script keeps both fresh. Since PR #60 it runs on Render, in the same service as the API.
 
 **Once per cycle it:**
 
 1. Pulls NP3-233-CD and NP6-905-CD from ERCOT.
 2. Writes those rows into `ercot_postings` and `ercot_prices` with `event=live`. Older storm weeks stay.
-3. Reads Hold or Auto from the `operator_settings` row (so a wall press on Render reaches this laptop), runs one allocate tick, and saves `latest.json`. Hold delivers 0 with `operator_hold`. Auto is what splits the call.
+3. Reads Hold or Auto from the `operator_settings` row, runs one allocate tick, and saves `latest.json`. Hold delivers 0 with `operator_hold`. Auto is what splits the call.
 
-**Run it**
+If one cycle hits an error, the worker logs it and tries again next cycle.
 
-Put ERCOT and Supabase names in `server/.env`. In one terminal:
+**Known gap: the free plan sleeps.** Render's free plan puts the service to sleep after about 15 minutes with no visitors. While asleep, no ticks run, and the Live page says the worker looks stopped or asleep. On wake, the local files (last tick, fleet charge, day-ahead cache) are gone. The fix, a paid plan or an outside ping, is Rajat's call.
 
-```bash
-python scripts/live_cycle.py --loop
-```
+**Run it on a laptop**
 
-Leave that running. In another terminal start the API (`uvicorn server.app:app --reload`) and open the wall on Live. One cycle without the loop: `python scripts/live_cycle.py`. `--dry-run` fetches and allocates but does not write to Supabase.
-
-If the keys or the network fail, the local tick file is still written. A missing posting on Live holds the 60% floor.
+Put ERCOT and Supabase names in `server/.env`, then run `python scripts/live_cycle.py --loop` beside the API (`uvicorn server.app:app --reload`). `--dry-run` fetches and allocates but writes nothing to Supabase.
 
 More: `docs/agents/live-ingest.md`.

@@ -30,3 +30,8 @@ def test_render_pins_every_api_setting():
 def test_render_settings_match_env_example():
     render, example = render_values(), example_values()
     assert {name: render.get(name) for name in PINNED} == {name: example.get(name) for name in PINNED}
+
+
+def test_render_worker_prints_are_unbuffered():
+    # Without it the live worker's prints sit in a pipe buffer and never reach Render's logs.
+    assert render_values().get("PYTHONUNBUFFERED") == "1"

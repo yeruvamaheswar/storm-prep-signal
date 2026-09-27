@@ -139,6 +139,7 @@ export function LivePage({
             key={openHome}
             homeId={openHome}
             home={placed.find((home) => home.id === openHome) ?? null}
+            homes={placed}
             orders={tickOrders?.orders}
             tSeconds={tSeconds}
             tickMinutes={settings.tickMinutes}

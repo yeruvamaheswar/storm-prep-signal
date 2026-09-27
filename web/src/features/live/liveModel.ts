@@ -345,7 +345,7 @@ function minutesAgo(at: number, nowMs: number): number {
   return Math.floor(Math.max(0, nowMs - at) / 60_000)
 }
 
-/** A live tick older than this many tick lengths means the live worker (laptop only, PR #51) is not running.
+/** A live tick older than this many tick lengths means the live worker (on Render since PR #60) is stopped or asleep.
  * `live_cycle --loop` sleeps a whole tick length after each cycle, so one extra tick length is its normal lag. */
 const STALE_TICKS = 2
 
@@ -404,7 +404,18 @@ export function liveStatus(state: SnapshotState, run: RunState, demoFleet: numbe
   if (nowMs - at > STALE_TICKS * minutes * 60_000) {
     return notLive(
       `Not live, last tick ${minutesAgo(at, nowMs)} min ago`,
-      `No new tick since ${ctClock(at, !sameCtDay(at, nowMs))}, so the live worker looks stopped. It runs only when someone starts it.`,
+      `No new tick since ${ctClock(at, !sameCtDay(at, nowMs))}, so the live worker looks stopped or asleep.`,
+    )
+  }
+  // A fresh tick from a failed (or unreported) ERCOT data check is never shown as live: its inputs are not trusted.
+  const quality = text(snapshot.quality)
+  if (quality === undefined) {
+    return notLive(UNCHECKED, "The newest tick does not report its ERCOT data check, so it is not shown as live.")
+  }
+  if (quality !== "ok") {
+    return notLive(
+      "Live tick, ERCOT data check failed",
+      `The newest tick's ERCOT data check failed (${quality.replace(/_/g, " ")}), so it is not shown as live.`,
     )
   }
   return { kind: "live" }
@@ -428,8 +439,10 @@ export function livePill(status: LiveStatus, snapshot: Json | null, nowMs: numbe
 export function tickTiming(snapshot: Json | null, settings: RunSettings, nowMs: number): string {
   const at = parseMs(snapshot?.ts)
   if (!snapshot || at === null) return "Last tick time: Not reported."
-  if (text(snapshot.source) !== "live") {
-    return `Newest tick is stamped ${ctClock(at, true)} (archive clock). Next tick: Not reported, this is not a live run.`
+  const source = text(snapshot.source)
+  if (source !== "live") {
+    const clock = source === "archive" ? " (archive clock)" : ""
+    return `Newest tick is stamped ${ctClock(at, true)}${clock}. Next tick: Not reported, this is not a live run.`
   }
   const last = `Last tick ran at ${ctClock(at, !sameCtDay(at, nowMs))}.`
   const minutes = settings.tickMinutes

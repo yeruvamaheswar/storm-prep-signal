@@ -27,6 +27,7 @@ from server.api.runtime import FIXTURE_CLOCK, discover_runtime, normalize_event,
 from server.engine.baseline import BaselineError, load_baseline
 from server.engine.brief import apply_tick_brief
 from server.engine.cli import read_settings
+from server.engine.controller import STORM_REASONS
 from server.engine.fleet import call_target_mw, fleet_cap_mw, scale_tick_to_fleet
 from server.engine.fleet_state import apply_mode
 from server.engine.policy import reserve_policy
@@ -468,7 +469,8 @@ def _policy_with_prices(risk, tick: dict, priced: dict):
     """Rebuild the policy label with the same prices the snapshot just stamped.
 
     Routes do not allocate. This only exposes the price band and per-zone bands that the engine
-    would use, so the wall can explain a selected zone without guessing from $/MWh.
+    would use, so the wall can explain a selected zone without guessing from $/MWh. Its zone
+    intent is only a fallback for a tick that carries none (see `_zone_plan`).
     """
     mode = tick.get("mode") if tick.get("mode") in ("AUTO", "HOLD") else "AUTO"
     return reserve_policy(
@@ -479,6 +481,27 @@ def _policy_with_prices(risk, tick: dict, priced: dict):
         price_label=priced.get("price_label"),
         zone_prices=priced.get("zone_prices") or None,
     )
+
+
+def _zone_plan(tick: dict, priced: dict, policy) -> dict:
+    """zone_intent and zone_prices as one pair, so the wall never shows a band beside a price that
+    did not produce it.
+
+    A tick with its own zone_intent keeps it together with the tick's own zone_prices (an empty map
+    when the tick did not record them). A tick with none falls back to the price-only recompute and
+    the live prices it read; that recompute never saw the tick's weather alerts, county alerts or DAM
+    hours, so any zone whose tick reason is a storm reason is forced from discharge to hold.
+    """
+    kept = tick.get("zone_intent")
+    if kept:
+        prices = tick.get("zone_prices")
+        return {"zone_intent": dict(kept), "zone_prices": dict(prices) if isinstance(prices, dict) else {}}
+    reasons = tick.get("zone_reasons") if isinstance(tick.get("zone_reasons"), dict) else {}
+    intent = {
+        name: "hold" if band == "discharge" and reasons.get(name) in STORM_REASONS else band
+        for name, band in policy.zone_intent.items()
+    }
+    return {"zone_intent": intent, "zone_prices": priced.get("zone_prices") or {}}
 
 
 def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Optional[str] = None) -> dict:
@@ -504,7 +527,7 @@ def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Option
         "west_mw": risk.zone_mw["West"],
         "zone_mw": risk.zone_mw[risk.driving_zone],
         "zone_delivered_mw": tick.get("zone_delivered_mw") or {},
-        "zone_intent": tick.get("zone_intent") or dict(policy.zone_intent),
+        **_zone_plan(tick, priced, policy),
         "as_of": live["as_of"],
         "stress_as_of": live["as_of"],
         "stress_age_min": live["age_min"],
@@ -538,7 +561,7 @@ def _stamp_totals(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
         "south_mw": totals["South"],
         "west_mw": totals["West"],
         "zone_delivered_mw": tick.get("zone_delivered_mw") or {},
-        "zone_intent": tick.get("zone_intent") or dict(policy.zone_intent),
+        **_zone_plan(tick, priced, policy),
         "as_of": live["as_of"],
         "stress_as_of": live["as_of"],
         "stress_age_min": live["age_min"],

@@ -1,6 +1,7 @@
 """Tick loop: python -m server.engine --tape PATH | --live [--tape PATH] [--baseline PATH]"""
 import argparse
 import json
+import os
 import sys
 from dataclasses import asdict, replace
 from functools import lru_cache
@@ -269,13 +270,28 @@ def write_operator_mode(state_path, mode):
     write_fleet_mode(mode, state_path)
 
 
+def write_atomic(path, text):
+    """Write `text` to a temp file in the same folder, then os.replace it over `path`.
+
+    The API reads latest.json and tick_orders.json while the live worker writes them, so a reader
+    sees the old file or the new one, never a half-written one. The temp file goes if the write fails.
+    """
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(text)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def write_run_files(runs_dir, run_id, record):
     """Write the run and latest.json together so /v1/snapshot can read a mid-run live cycle."""
     runs_dir = Path(runs_dir)
     runs_dir.mkdir(parents=True, exist_ok=True)
     text = json.dumps(record, indent=2)
     (runs_dir / f"{run_id}.json").write_text(text)
-    (runs_dir / "latest.json").write_text(text)
+    write_atomic(runs_dir / "latest.json", text)
 
 
 def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=False,
@@ -450,7 +466,7 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         emit_path.parent.mkdir(parents=True, exist_ok=True)
         emit_path.write_text(json.dumps(build_tick_emit(frame, homes, cycle, policy)))
         # This tick's logged orders, so Live can replay them. Same events as the orchestrator log.
-        fleet_orders_path(runs_dir).write_text(json.dumps({
+        write_atomic(fleet_orders_path(runs_dir), json.dumps({
             "tick": frame.tick, "ts": frame.ts,
             "orders": order_timelines(cycle.events, cycle.allocation.per_home_kw),
         }))
