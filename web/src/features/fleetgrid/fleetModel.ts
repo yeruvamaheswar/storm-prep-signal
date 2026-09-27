@@ -192,7 +192,8 @@ export function nowText(h: GridHome): string {
   if (h.planStale) return "No fresh reading, so no order"
   const kw = h.kw === null ? "" : `${kwText(h.kw)} kW`
   if (h.action === "selling") return `Selling${kw}`
-  if (h.action === "charging") return `Charging${kw}`
+  // Under its floor while charging: the engine refills it to its floor at any price (#41).
+  if (h.action === "charging") return isUnderFloor(h) ? "Charging back to its floor" : `Charging${kw}`
   if (h.action === "full") return "Full, holding"
   if (h.action === "islanded") return "Islanded: backing up its own home"
   if (h.action === "reserved") return "Reserved for backup"

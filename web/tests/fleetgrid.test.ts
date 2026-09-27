@@ -122,6 +122,19 @@ describe("a home the planner treated as stale does not read as live (Task 12: W5
   })
 })
 
+describe("a battery charging back to its floor says so (Task 12: W4)", () => {
+  it("heather tick 1 home-002: charging, still under its 30% floor", () => {
+    const [h] = fromScenarioHomes([{
+      id: "home-002", name: "North-Dallas-002", zone: "North", county: "48113", county_name: "Dallas", soc_pct: 15.92, soc_before_pct: 12.12,
+      kw: -11.4, state: "charging", status: "live", floor_pct: 30.0, floor_reason: "normal", under_floor_why: "started_under", plan_status: "live",
+    }])
+    expect(nowText(h)).toBe("Charging back to its floor")
+    expect(shortState(h)).toBe("Charging 11.4")
+    // Charging above its floor reads as before.
+    expect(nowText({ ...h, socPct: 45 })).toBe("Charging 11.4 kW")
+  })
+})
+
 describe("filter counts", () => {
   it("counts each filter from the loaded homes and All is the real total", () => {
     const counts = filterCounts(homes)

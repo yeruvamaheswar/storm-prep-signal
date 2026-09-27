@@ -234,6 +234,13 @@ export function notAskedReason(home: Pick<FlowHome, "state" | "under_floor_why" 
   return ""
 }
 
+/** A charging home the engine reports still under its floor (`under_floor_why`, set on charging homes since #41).
+ * Null for any other home. */
+export function refillLine(home: Pick<FlowHome, "state" | "under_floor_why">): string | null {
+  if (home.state !== "charging" || !home.under_floor_why) return null
+  return `Refilling to its backup floor (${underFloorWords(home.under_floor_why) || "under its floor"})`
+}
+
 export function notAskedLabel(home: Pick<FlowHome, "state" | "plan_status">): string {
   if (planNotLive(home)) return NO_FRESH_READING
   if (home.state === "below_floor") return "Not asked, under its floor"
@@ -249,7 +256,10 @@ export function lotLook(home: FlowHome, timeline: OrderTimelineEntry[] | undefin
   const charging = unit ? isChargeUnit(unit.timeline) : false
   const ran = active ? active.gave || (active.charging && (active.s === "wait" || active.s === "rlost" || active.s === "ok" || active.s === "nc")) : false
   const flowing = active ? active.s === "wait" || active.s === "ok" : false
-  const label = active ? stateLabel(active, unit ? plannedKw(unit.timeline) : undefined) : notAskedLabel(home)
+  const refilling = charging && refillLine(home) !== null && active !== null && (active.s === "wait" || active.s === "ok")
+  const label = refilling
+    ? active?.s === "ok" ? "Charging to its floor" : "Charging to its floor, waiting for its report"
+    : active ? stateLabel(active, unit ? plannedKw(unit.timeline) : undefined) : notAskedLabel(home)
   const suffix = tookOver ? ", also took over another home's order" : ""
   return {
     state: active,

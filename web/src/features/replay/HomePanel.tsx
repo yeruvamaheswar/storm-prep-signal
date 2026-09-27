@@ -7,7 +7,7 @@ import { useDrawerFocus } from "./useDrawer"
 import { WebGLBoundary } from "./WebGLBoundary"
 import { hasWebGL } from "./webgl"
 import {
-  BATT_IDLE, TRANSPARENT, askedText, orderColor, countedText, homeFacts, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, type JourneyStep,
+  BATT_IDLE, TRANSPARENT, askedText, orderColor, countedText, homeFacts, journeySteps, lotLook, lotUnit, notAskedReason, reassignedFrom, refillLine, type JourneyStep,
 } from "./zoneModel"
 
 /** three.js lives in this chunk only; the flat HouseArt shows while it loads and when WebGL is missing. */
@@ -52,6 +52,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
   const chip = look ? (look.tookOver ? `${look.label}. Also took over ${from ?? "another home"}'s order` : look.label) : "Not reported in this session"
   const dot = look?.state ? orderColor(look.state, look.charging) : "var(--rg-not-counted)"
   const asked = unit ? askedText(unit.timeline, tSeconds) : "Not asked"
+  const refill = home ? refillLine(home) : null
   const [webgl] = useState(hasWebGL)
   const flat = <HouseArt batt={look?.batt ?? BATT_IDLE} cable={look?.cable ?? TRANSPARENT} />
 
@@ -64,6 +65,7 @@ export function HomePanel({ homeId, home, orders, tSeconds, tickMinutes, mode, o
             {home ? `${home.zone} zone. ` : ""}
             {facts.floor === "Not reported" ? "Backup floor not reported." : `Backup floor ${facts.floor} this tick.`}
           </p>
+          {refill ? <p className="zone-refill">{refill}.</p> : null}
         </div>
         <button type="button" className="replay-pill" onClick={onClose}>Close</button>
       </div>

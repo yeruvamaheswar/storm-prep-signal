@@ -487,3 +487,9 @@
 .replay-scene.has-home .replay-tick-stack {
   display: none;
 }
+
+/* Task 12: a battery refilling to its backup floor, in the charging text colour. */
+.zone-home-head p.zone-refill {
+  color: var(--rg-charging-text);
+  font-weight: 700;
+}

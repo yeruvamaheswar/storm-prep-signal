@@ -10,7 +10,7 @@ import { ZoneBoard } from "../src/features/replay/ZoneBoard"
 import { ZonePanel } from "../src/features/replay/ZonePanel"
 import { OrderPaths } from "../src/features/replay/OrderPaths"
 import {
-  askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, notAskedLabel, notAskedReason, orderPath, storyHomes,
+  askedText, countedText, homeFacts, iso, journeySteps, keepGauge, lossPoint, lotLook, notAskedLabel, notAskedReason, orderPath, refillLine, storyHomes,
   trustMarks, zoneLots, zonePaths, zoneSummary,
 } from "../src/features/replay/zoneModel"
 
@@ -514,5 +514,40 @@ describe("why a home got no order names the real cause (Task 12: W2, W5)", () =>
       scenarios: null, state: session as never, nowMs: 0, selectedZone: "North", selectedHome: "home-002",
     }))
     expect(html).toContain("Not asked this tick. Operator hold: no orders this tick.")
+  })
+})
+
+// heather tick 1, North (merged engine): home-002 started under its 30% floor and refilled at full power.
+const refill1: FlowHome = {
+  id: "home-002", name: "North-Dallas-002", zone: "North", county: "48113", county_name: "Dallas", soc_pct: 15.92, soc_before_pct: 12.12,
+  kw: -11.4, state: "charging", status: "live", floor_pct: 30.0, floor_reason: "normal", under_floor_why: "started_under", plan_status: "live",
+}
+const refill1Orders: Record<string, OrderTimelineEntry[]> = {
+  "home-002": [[0, "sent", -11.4, "own"], [21, "exec", -11.4, "own"], [23.3, "conf", -11.4, "own"]],
+}
+
+describe("a battery refilling to its floor says so (Task 12: W4)", () => {
+  it("names why it is under its floor", () => {
+    expect(refillLine(refill1)).toBe("Refilling to its backup floor (started under it)")
+    expect(refillLine(west74[0])).toBe("Refilling to its backup floor (the floor rose)")
+    expect(refillLine({ ...refill1, under_floor_why: "something_new" as never })).toBe("Refilling to its backup floor (under its floor)")
+    expect(refillLine({ ...refill1, under_floor_why: null })).toBeNull()
+    expect(refillLine({ ...refill1, state: "selling" })).toBeNull()
+  })
+
+  it("shows the line on the home panel and names the lot", () => {
+    const html = renderToStaticMarkup(createElement(HomePanel, {
+      homeId: "home-002", home: refill1, orders: refill1Orders, tSeconds: 30, mode: "AUTO", onClose: () => {},
+    }))
+    expect(html).toContain("Refilling to its backup floor (started under it).")
+    expect(lotLook(refill1, refill1Orders["home-002"], 30, false).label).toBe("Charging to its floor")
+    expect(lotLook(refill1, refill1Orders["home-002"], 22, false).label).toBe("Charging to its floor, waiting for its report")
+    expect(lotLook(refill1, refill1Orders["home-002"], 5, false).label).toBe("Order on its way")
+    // A charge that does not leave the battery under its floor keeps the plain label.
+    expect(lotLook({ ...refill1, under_floor_why: null }, refill1Orders["home-002"], 30, false).label).toBe("Charge confirmed")
+    const board = renderToStaticMarkup(createElement(ZoneBoard, {
+      zone: "North", homes: [refill1], orders: refill1Orders, tSeconds: 30, lens: "send", openHome: null, onHome: () => {}, onBack: () => {},
+    }))
+    expect(board).toContain('aria-label="home-002, Charging to its floor"')
   })
 })
