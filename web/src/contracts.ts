@@ -80,6 +80,8 @@ export type TickView = TickResult & {
   feeds?: FeedHealth[]
   /** LZ settlement $/MWh keyed by load zone. Present only when a row exists. */
   zone_prices?: Partial<Record<string, number>>
+  /** Per-zone price band from the engine: charge, hold, or discharge. */
+  zone_intent?: Partial<Record<string, "charge" | "hold" | "discharge">>
 }
 
 /** Per-product health from GET /v1/snapshot. QUALITY/AS OF used to be derived from one stamp. */

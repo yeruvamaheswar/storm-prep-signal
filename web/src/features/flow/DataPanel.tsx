@@ -174,6 +174,9 @@ export function DataPanel({ state, verify }: Props) {
             {FLOW_ZONES.map((zone) => (
               <Row key={zone} k={`${zone} floor`} v={`${tick.zone_reserve_pct[zone] ?? tick.reserve_pct}% · ${reasonLabel(tick.zone_reasons[zone] ?? tick.policy_reason)}`} />
             ))}
+            {FLOW_ZONES.map((zone) => tick.zone_intent?.[zone] ? (
+              <Row key={`${zone}-intent`} k={`${zone} intent`} v={tick.zone_intent[zone]} />
+            ) : null)}
             <Row k="Intent" v={`${tick.intent}${tick.intent_reason ? ` (${tick.intent_reason})` : ""}`} />
             <Row k="Mode" v={tick.mode} />
             <Row k="Reasons" v={tick.reasons.length ? tick.reasons.join(", ") : "none"} />

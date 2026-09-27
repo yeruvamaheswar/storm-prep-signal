@@ -428,11 +428,29 @@ def _price_stamp(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
     return priced
 
 
+def _policy_with_prices(risk, tick: dict, priced: dict):
+    """Rebuild the policy label with the same prices the snapshot just stamped.
+
+    Routes do not allocate. This only exposes the price band and per-zone bands that the engine
+    would use, so the wall can explain a selected zone without guessing from $/MWh.
+    """
+    mode = tick.get("mode") if tick.get("mode") in ("AUTO", "HOLD") else "AUTO"
+    return reserve_policy(
+        risk,
+        read_settings(),
+        mode=mode,
+        price_usd_mwh=priced.get("price_usd_mwh"),
+        price_label=priced.get("price_label"),
+        zone_prices=priced.get("zone_prices") or None,
+    )
+
+
 def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Optional[str] = None) -> dict:
     start = current_hour_index(signal)
     peak = signal["rows"][start + risk.peak_lead]
     columns = {field: peak[field] for name in ZONES for field in zone_fields(name)}
     priced = _price_stamp(tick, live, zone)
+    policy = _policy_with_prices(risk, tick, priced)
     priced.update({
         **columns,
         "peak_mw": risk.peak_mw,
@@ -450,6 +468,7 @@ def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Option
         "west_mw": risk.zone_mw["West"],
         "zone_mw": risk.zone_mw[risk.driving_zone],
         "zone_delivered_mw": tick.get("zone_delivered_mw") or {},
+        "zone_intent": tick.get("zone_intent") or dict(policy.zone_intent),
         "as_of": live["as_of"],
         "stress_as_of": live["as_of"],
         "stress_age_min": live["age_min"],
@@ -467,6 +486,9 @@ def _stamp_risk(tick: dict, live: dict, risk, signal: dict, policy, zone: Option
 def _stamp_totals(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
     totals = live["zone_totals"]
     priced = _price_stamp(tick, live, zone)
+    risk_level = tick.get("risk_level")
+    risk = _ReplayRisk(risk_level) if risk_level in ("LOW", "HIGH") else None
+    policy = _policy_with_prices(risk, tick, priced)
     priced.update({
         **live["zone_columns"],
         "outage_mw": live["outage_mw"],
@@ -480,6 +502,7 @@ def _stamp_totals(tick: dict, live: dict, zone: Optional[str] = None) -> dict:
         "south_mw": totals["South"],
         "west_mw": totals["West"],
         "zone_delivered_mw": tick.get("zone_delivered_mw") or {},
+        "zone_intent": tick.get("zone_intent") or dict(policy.zone_intent),
         "as_of": live["as_of"],
         "stress_as_of": live["as_of"],
         "stress_age_min": live["age_min"],

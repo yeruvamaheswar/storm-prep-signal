@@ -392,6 +392,7 @@ def test_path_24_each_zone_follows_its_own_price(tmp_path, monkeypatch):
     policy, planned = data["policy"], data["cycle"].allocation.per_home_kw
     assert policy.zone_intent == {"Houston": "charge", "North": "hold", "South": "hold",
                                   "West": "discharge"}
+    assert tick["zone_intent"] == policy.zone_intent
     zone_of = {h.home_id: h.zone for h in data["homes"]}
     sellers = {i for i, kw in planned.items() if kw > 0}
     chargers = {i for i, kw in planned.items() if kw < 0}

@@ -84,3 +84,38 @@ def test_snapshot_stamps_selected_zone_from_archive_rows(tmp_path, monkeypatch):
     assert missing["price_label"] == "none"
     assert 48 not in missing.values()
     assert 185 not in missing.values()
+
+
+def test_snapshot_rebuilds_zone_intent_from_stamped_prices(tmp_path, monkeypatch):
+    latest = tmp_path / "latest.json"
+    latest.write_text(
+        '{"run_id":"z","ticks":[{"tick":1,"ts":"2024-07-08T23:55:00-05:00",'
+        '"mode":"AUTO","target_mw":0.2,"delivered_mw":0.2,"missed_mw":0.0,'
+        '"price_usd_mwh":48,"price_label":"synthetic","reserve_pct":30,'
+        '"policy_reason":"normal","risk_level":"LOW","live_homes":100,"stale_homes":0,'
+        '"dead_homes":0,"breaches":0,"reasons":[],"brief":"tape"}]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("server.api.snapshot.LATEST_RUN", latest)
+
+    def ingest(_now):
+        return {
+            "price_usd_mwh": 42.25,
+            "price_as_of": INTERVAL,
+            "price_rows": ROWS,
+            "zone_totals": {"Houston": 3500.0, "North": 9000.0, "South": 2900.0, "West": 2800.0},
+            "zone_columns": {},
+            "outage_mw": 18200.0,
+            "driving_zone": "Houston",
+            "zone_mw": 3500.0,
+            "as_of": "00:00 CT",
+            "age_min": 5,
+        }
+
+    tick = build_snapshot(now=datetime(2024, 7, 9, 0, 5, tzinfo=CENTRAL), ingest=ingest)
+    assert tick["zone_intent"] == {
+        "Houston": "charge",
+        "North": "hold",
+        "South": "charge",
+        "West": "hold",
+    }

@@ -211,6 +211,6 @@ The fuzzer (`tests/test_invariants.py`) draws random fleet and per-zone intents 
 
 ## Callers
 
-`loop.py` stamps price, reads the tick's DAM window (`loop.frame_dam`) and, when there is one, `fleet.zone_hours_needed` on the planner's view, then calls `reserve_policy(..., mode, price_usd_mwh, price_label, zone_prices, county_alerts, dam_hours, zone_hours_needed)`, then `allocate` (inside `orchestrate_tick`), then stamps the tick with `acted_intent`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
+`loop.py` stamps price, reads the tick's DAM window (`loop.frame_dam`) and, when there is one, `fleet.zone_hours_needed` on the planner's view, then calls `reserve_policy(..., mode, price_usd_mwh, price_label, zone_prices, county_alerts, dam_hours, zone_hours_needed)`, then `allocate` (inside `orchestrate_tick`), then copies `policy.zone_intent` onto `TickResult.zone_intent` and stamps the tick with `acted_intent`. `/v1/snapshot` rebuilds the same price-band labels from the already-stamped LZ price rows so Live and Archive zone drill-ins can explain why a zone charged, held, or discharged; it still does not allocate.
 
 People page: `docs/humans/policy-intent.md`.
