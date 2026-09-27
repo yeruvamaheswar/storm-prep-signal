@@ -146,14 +146,17 @@ class Stop(Exception):
     pass
 
 
-def drive(tmp_path, actions, until):
-    """Run the worker on a fake clock ticking 0.25 s per loop; `actions` maps a time to a request."""
+def drive(tmp_path, actions, until, states=None):
+    """Run the worker on a fake clock ticking 0.25 s per loop; `actions` maps a time to a request.
+    `states`, when given, collects {time: the whole state.json} at each loop."""
     now = [0.0]
     seen = []
 
     def sleep(_):
         state = json.loads((tmp_path / "state.json").read_text())
         seen.append((now[0], state["tick_index"], state["status"]))
+        if states is not None:
+            states[now[0]] = state
         now[0] = round(now[0] + 0.25, 2)
         for kind, body in actions.pop(now[0], []):
             store.append_request(kind, body, "op-test", tmp_path)
@@ -241,6 +244,36 @@ def test_reset_while_paused_mid_tick_does_not_carry_the_old_tick_over(tmp_path):
                             30.0: [("play", {"playing": True})]}, until=31)
     assert {index for t, index, _ in seen if 20.0 <= t < 30.0} == {0}
     assert first_time_at([s for s in seen if s[0] >= 30.0], 1) == 30.0
+
+
+def test_next_tick_and_play_in_one_poll_give_the_stepped_tick_a_fresh_step(tmp_path):
+    # Paused at 12.5 s with 12.5 s left of tick 1. Next tick and Play land in one poll at 20 s: tick 2 plays
+    # then, and tick 3 waits its full 25 s (45 s), not the old tick's 12.5 s left over (32.5 s).
+    seen = drive(tmp_path, {12.5: [("play", {"playing": False})],
+                            20.0: [("step", {}), ("play", {"playing": True})]}, until=50)
+    assert first_time_at(seen, 2) == 20.0
+    assert max(index for t, index, _ in seen if t < 45.0) == 2
+    assert first_time_at(seen, 3) == 45.0
+
+
+def test_state_publishes_the_time_left_in_the_tick(tmp_path):
+    # The page anchors its playhead on this when it opens mid-tick or resumes a tick it never saw start.
+    states = {}
+    drive(tmp_path, {12.5: [("play", {"playing": False})], 20.0: [("step", {})]}, until=22, states=states)
+    assert states[5.0]["status"] == "playing" and states[5.0]["tick_left_s"] == pytest.approx(20.0)
+    # Paused: the remainder the pause kept, unchanged while paused.
+    assert states[13.0]["status"] == "paused" and states[13.0]["tick_left_s"] == pytest.approx(12.5)
+    assert states[19.0]["tick_left_s"] == pytest.approx(12.5)
+    # After Next tick nothing is frozen: the stepped tick runs its window.
+    assert states[21.0]["tick_index"] == 2 and states[21.0]["tick_left_s"] is None
+
+
+def test_state_has_no_time_left_once_the_scenario_is_finished(tmp_path):
+    states = {}
+    # Heather has 145 ticks; at 600 (0.5 s per tick) it finishes by about 73 s.
+    drive(tmp_path, {0.25: [("speed", {"x": 600})]}, until=80, states=states)
+    last = states[max(states)]
+    assert last["status"] == "finished" and last["tick_left_s"] is None
 
 
 def test_step_route_names_a_stopped_worker_before_asking_for_a_pause(client, tmp_path):

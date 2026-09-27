@@ -41,6 +41,14 @@ def rescale_next_step(next_step, now, old_step_s, new_step_s):
     return now + (next_step - now) * new_step_s / old_step_s
 
 
+def tick_left(session, next_step, paused_left, now):
+    """Real seconds left in the current tick, for the page's playhead: counting down while playing, the kept
+    remainder while paused mid-tick, None when no tick is running or frozen (idle, finished, after Next tick)."""
+    if session.playing:
+        return round(max(0.0, next_step - now), 3)
+    return None if paused_left is None else round(paused_left, 3)
+
+
 def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, seed=None, steps=None,
         settings=None, poll_s=POLL_S, clock=time.monotonic, sleep=time.sleep, ignore_old_requests=True):
     """The worker loop. Returns the session after `steps` ticks (or never, without --steps)."""
@@ -72,8 +80,9 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
         if session.index < index_before:
             # A reset or a new scenario: nothing is left of the old tick.
             next_step, paused_left = now, None
-        elif not session.playing and session.index > index_before:
-            # Next tick: the page plays the stepped tick from now, so its window runs from now too.
+        elif session.index > index_before:
+            # Only Next tick moves the index here. The page plays the stepped tick from now, so its window runs
+            # from now too, even when Play (or a pause) lands in the same poll; the old tick's remainder is dropped.
             next_step, paused_left = now + step_after, None
         if not playing_before and session.playing:
             # Play resumes the frozen tick, or the rest of a stepped tick (none left if it ran out).
@@ -92,7 +101,9 @@ def run(scenario_dir=SCENARIO_DIR, catalog_path=CATALOG_PATH, scenario=None, see
                 traceback.print_exc()
             next_step, changed = now + session.step_seconds(), True
         if changed or last_write is None or now - last_write >= HEARTBEAT_S:
-            write_state(session.state(), scenario_dir)
+            state = session.state()
+            state["tick_left_s"] = tick_left(session, next_step, paused_left, now)
+            write_state(state, scenario_dir)
             last_write = now
         if steps is not None and (played >= steps or not session.playing):
             return session
