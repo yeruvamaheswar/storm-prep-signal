@@ -9,7 +9,7 @@
 - For Live, `scripts/live_cycle.py` is the laptop worker: each cycle it fetches ERCOT, upserts the posting and price into Supabase as `event=live`, hydrates HOLD / AUTO from `public.operator_settings` onto `var/state.json`, and calls `loop.run()` for one tick with that same posting.
 - The API (`uvicorn server.app:app`) reads the run file and Supabase (through `server/api/archive.py`: the newest `event=live` row in Live, the pinned posting for Demo with an archive event). In Live it falls back to ERCOT directly (through `server/api/feeds.py`) when no worker row is usable. It rates the posting again with the engine's `compute_risk` and `reserve_policy`; it never writes a second rule. See [PROJECT_CONTEXT.md, Supabase](PROJECT_CONTEXT.md#supabase-optional-history-never-required).
 - The wall (`web/index.html`) shows the layout tape in Demo and polls `GET /v1/snapshot` in Live and archive mode. It does not read `var/runs/` directly.
-- For `/flow`, `scripts/scenario_session.py` is the laptop scenario worker: it reads operator requests from `var/scenario/requests.json` (appended by `server/api/scenario.py`), plays one frame of a `tapes/scenarios/` tape through `loop.play_frame` with its own seeded fleet, and writes `var/scenario/state.json` for `GET /v1/scenario/state`. Detail: [grid-flow.md](grid-flow.md).
+- For `/flow`, `scripts/scenario_session.py` is the scenario worker (laptop, or beside uvicorn on Render): it reads operator requests from `var/scenario/requests.json` (appended by `server/api/scenario.py`), plays one frame of a `tapes/scenarios/` tape through `loop.play_frame` with its own seeded fleet, and writes `var/scenario/state.json` for `GET /v1/scenario/state`. Detail: [grid-flow.md](grid-flow.md).
 - A second entry point, `python -m server.engine.cli`, rates one ERCOT posting and prints one decision line. A third, `python -m server.engine.orchestration`, plays a tape through Rajat's lossy-channel runtime on its own; `loop.py` calls the same `orchestrate_tick` every tick.
 
 Keep this file current: `.cursor/rules/code-flow.mdc` says when, and `tests/test_code_flow.py` fails when a module or `web/src/` folder is missing from the file map below. The system-level picture (parts, stores, failures, deploy) is [system-design.md](system-design.md).
@@ -135,7 +135,7 @@ flowchart LR
   LIVEW -->|"hydrate HOLD/AUTO from operator_settings"| SB
   LIVEW -->|"loop.run, one tick"| LOOP
 
-  SESSW["scripts/scenario_session.py<br/>laptop worker for /flow"]
+  SESSW["scripts/scenario_session.py<br/>worker for /flow"]
   SCSTATE["var/scenario/<br/>requests.json, state.json"]
   SCTAPES --> SESSW
   NWSFIX --> SESSW
@@ -546,7 +546,7 @@ Scripts (`scripts/`):
 - `scripts/jev_shadow.py`: asks TypeSafe Jev one question about an NWS alert. With no arguments it writes `data/fixtures/jev_harris.json`; `--alert <id>` reads `data/fixtures/nws/<id>.json` and writes `data/fixtures/jev/<id>.json` (`--out` overrides). Shadow only: the scenario session shows a reading next to a sent alert, and no decision reads it.
 - `scripts/build_scenarios.py`: builds the `/flow` scenarios from Supabase `ercot_postings` and `ercot_prices`. Writes `tapes/scenarios/<id>.json`, `<id>.provenance.json`, posting fixtures and a baseline under `data/fixtures/<event>/`, and rewrites `tapes/scenarios/catalog.json` (keeping each entry's `alerts`). Reuses `build_tape` and `check_margin`. `--only <id>` builds one. A Supabase failure prints `build_scenarios_skipped: <reason>`, writes nothing, and exits 0.
 - `scripts/fetch_nws_alerts.py`: fetches the archived NWS products named in its spec list from the Iowa Environmental Mesonet and writes `data/fixtures/nws/<id>.json` (verbatim text, county FIPS from the NWS zone-county file, `source_url`). `--only <id>` fetches one.
-- `scripts/scenario_session.py`: the `/flow` laptop worker. Reads `var/scenario/requests.json`, applies each request to a `scenario.Session`, plays one tick when the time-lapse clock says so, and rewrites `var/scenario/state.json`. `--scenario`, `--seed`, `--steps N` (play N ticks and exit).
+- `scripts/scenario_session.py`: the `/flow` worker. On Render, `render.yaml` starts it beside uvicorn. Reads `var/scenario/requests.json`, applies each request to a `scenario.Session`, plays one tick when the time-lapse clock says so, and rewrites `var/scenario/state.json`. `--scenario`, `--seed`, `--steps N` (play N ticks and exit).
 
 Wall (`web/src/`, top-level folders):
 

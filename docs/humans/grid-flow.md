@@ -9,6 +9,8 @@ Open `/flow` to watch power move between the grid, the four Texas zones, and 100
 - In Beryl you can mark Houston's grid as down. Its batteries then only power their own homes.
 - JEV gives a second opinion on each alert. It never makes a decision.
 
-Try it: start the API and the wall, run `python scripts/scenario_session.py`, then open `http://localhost:5173/flow`.
+Try it online: open `https://storm-prep-signal.vercel.app/flow`. After 15 quiet minutes the server sleeps, so the first visit can take a minute, and you press Start again.
+
+Try it on your laptop: start the API and the wall, run `python scripts/scenario_session.py`, then open `http://localhost:5173/flow`.
 
 Details: `docs/agents/grid-flow.md`.

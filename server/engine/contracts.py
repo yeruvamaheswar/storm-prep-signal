@@ -71,8 +71,8 @@ class TickResult:
     dead_homes: int
     breaches: int             # homes discharged below their floor this tick; must be 0
     reasons: list = field(default_factory=list)
-    intent: str = "hold"              # "charge" | "discharge" | "hold"
-    intent_reason: str = ""           # policy reason, or "operator_hold" when mode is HOLD
+    intent: str = "hold"              # what the fleet was ordered to do (controller.acted_intent)
+    intent_reason: str = ""           # policy reason, "operator_hold", "grid_call" or "no_grid_call"
     zone_reserve_pct: dict = field(default_factory=dict)   # zone name to floor percent
     zone_reasons: dict = field(default_factory=dict)       # zone name to reason code
     zone_delivered_mw: dict = field(default_factory=dict)  # zone name to MW delivered
