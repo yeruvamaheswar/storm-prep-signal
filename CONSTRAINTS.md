@@ -110,6 +110,8 @@ Rule: zone floors react only to weather alerts; there is no per-zone ERCOT outag
 
 Setting `STALE_AFTER_MIN` in `.env.example`: `STALE_AFTER_MIN=90`. `read_settings()` returns it as `"stale_after_min"` (an int) and defaults to 90.
 
+Setting `HOME_KWH` and `HOME_MAX_KW` in `.env.example`: `HOME_KWH=25`, `HOME_MAX_KW=11.4` (the public base pack, PR #31). `read_settings()` returns them as `"home_kwh"` and `"home_max_kw"` and defaults to the same values. The fleet cap is `fleet_size × home_max_kw`, so 10,000 homes is 114 MW; the fleet-cap meta tests expect that and fail with an older `.env` (for example 20 kWh / 5 kW gives 50 MW). `render.yaml` pins the same values.
+
 Setting `CHARGE_BELOW_USD` and `DISCHARGE_ABOVE_USD` in `.env.example`: `CHARGE_BELOW_USD=25`, `DISCHARGE_ABOVE_USD=60`. `read_settings()` returns them as `"charge_threshold_usd_mwh"` and `"discharge_threshold_usd_mwh"`. Simulation bands, not Base specs. They pick `Policy.intent` and, with zone prices, `Policy.zone_intent`. `allocate` reads those bands (steps 8 and 9).
 
 - `--live` only: if the newest posting is more than `stale_after_min` minutes old, the signal is unavailable with reason `data is <N> min old (limit 90)`. Risk is None, so the floor is `storm_reserve_pct` with reason `signal_unavailable`.
