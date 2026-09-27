@@ -7,10 +7,14 @@ back to fixtures / current_rollups(). This module never raises a 500.
 import os
 import re
 from functools import lru_cache
+from types import SimpleNamespace
 
 import requests
 
-from server.engine.fleet import CLUSTER_CENTROIDS, ZONE_ORDER, county_name, fleet_counties, new_fleet
+from server.engine.fleet import (
+    CLUSTER_CENTROIDS, ZONE_ORDER, county_name, fleet_counties, home_label, new_fleet, seed_settings,
+)
+from server.engine.loop import with_fleet_defaults
 from server.env import load_env
 
 HOME_SELECT = (
@@ -103,11 +107,70 @@ def with_county(home, fleet_size=None):
     """Add-only `county` (FIPS) and `county_name`. public.homes has no county column, so this is
     the engine's own rule (fleet_counties, as the scenario seeds it) on the Supabase seed's zone
     order (seed_settings, South first), which is the order the table's rows carry. A row whose zone
-    is not the one the seed gave that id gets null, never a guess."""
+    is not the one the seed gave that id gets null, never a guess. Since Task 17 only rows outside the
+    engine assignment use this (above FLEET_FILTER_MAX_IDS); the demo fleet goes through as_fleet_home."""
     zone, fips = _live_counties(_fleet_n(fleet_size)).get(home.get("home_id"), (None, None))
     known = fips is not None and home.get("zone") == zone
     home["county"] = fips if known else None
     home["county_name"] = county_name(fips) if known else None
+    return home
+
+
+def engine_zones():
+    """ZONES the way the engine reads it (server/engine/cli.py read_settings: `Zone:FIPS,...`), else the
+    engine's default order (loop._FLEET_DEFAULTS, Houston first). The Live worker and the scenario session
+    (Replay) both seed their fleet from it. Not read_settings() itself: its load_dotenv() would pull the
+    repo-root .env into the API process."""
+    load_env()
+    raw = os.getenv("ZONES", "").strip()
+    try:
+        if raw:
+            return dict(pair.split(":", 1) for pair in raw.split(","))
+    except ValueError:
+        pass  # A malformed ZONES stops the engine too; the API keeps the default order, never a 500.
+    return with_fleet_defaults({})["zones"]
+
+
+@lru_cache(maxsize=8)
+def _engine_homes(n, zones):
+    settings = {**seed_settings(n), "zones": dict(zones)}
+    return {home_id: {"zone": zone, "county": fips, "county_name": county_name(fips),
+                      "name": home_label(SimpleNamespace(home_id=home_id, zone=zone, county=fips))}
+            for home_id, (zone, fips) in fleet_counties(settings).items()}
+
+
+def engine_homes(fleet_size=None):
+    """Task 17: {home_id: {zone, county, county_name, name}} as the engine assigns them (assign_zone and
+    assign_county over the ZONES order, as scenario.seed_fleet and loop.run seed the fleet), so Fleet shows
+    each home in the same zone, county and name as Replay and Live. public.homes keeps the seed's own zone
+    column; only the reported values change. None above FLEET_FILTER_MAX_IDS: those reads are not scoped
+    to the fleet, so they keep the table's zone and with_county (today's behaviour)."""
+    n = _fleet_n(fleet_size)
+    if not fleet_scoped(n):
+        return None
+    return _engine_homes(n, tuple(engine_zones().items()))
+
+
+def engine_zone_filter(zone, fleet_size=None):
+    """`and=(home_id.in.(...))` for the fleet homes the engine puts in `zone`. Replaces `zone=eq.`, which
+    would filter on the seed's zone column. None above FLEET_FILTER_MAX_IDS."""
+    engine = engine_homes(fleet_size)
+    if engine is None:
+        return None
+    ids = [home_id for home_id, who in engine.items() if who["zone"] == zone]
+    return {"and": f"(home_id.in.({','.join(ids)}))"}
+
+
+def as_fleet_home(row, fleet_size=None, reserve_pct=None, zone_reserve_pct=None):
+    """Console home with the engine's zone, county and name for a demo-fleet id. The zone is set before
+    the floor is read, so a zone override applies to the zone the engine planned the home in."""
+    engine = engine_homes(fleet_size)
+    who = engine.get(row.get("home_id")) if engine else None
+    if who is None:
+        return with_county(as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct),
+                           fleet_size)
+    home = as_console_home({**row, "zone": who["zone"]}, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
+    home["county"], home["county_name"], home["name"] = who["county"], who["county_name"], who["name"]
     return home
 
 
@@ -436,13 +499,18 @@ def list_homes(zone=None, status=None, q=None, limit=None, offset=None, settings
         **fleet_filter(fleet_size),
     }
     if zone:
-        params["zone"] = f"eq.{zone}"
+        # Demo fleet: the engine's zone (Task 17), which is an id subset of the fleet filter.
+        by_engine = engine_zone_filter(zone, fleet_size)
+        if by_engine is None:
+            params["zone"] = f"eq.{zone}"
+        else:
+            params.update(by_engine)
     if status:
         params["status"] = f"eq.{status}"
     needle = SEARCH_SAFE.sub("", q or "")
     if needle:
         params["home_id"] = f"ilike.*{needle}*"
-    return [with_county(as_console_home(row, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct), fleet_size)
+    return [as_fleet_home(row, fleet_size, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
             for row in fetch_home_rows(params, settings=settings, http_get=http_get)]
 
 
@@ -458,7 +526,7 @@ def read_home(home_id, settings=None, http_get=None, reserve_pct=None, zone_rese
     )
     if not rows:
         return None
-    home = with_county(as_console_home(rows[0], reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct), fleet_size)
+    home = as_fleet_home(rows[0], fleet_size, reserve_pct=reserve_pct, zone_reserve_pct=zone_reserve_pct)
     # Fill last_command from the newest command. A missing history table or
     # missing config keeps null instead of raising, so the home still returns.
     try:
@@ -505,6 +573,14 @@ def rollups_from_groups(count_rows, discharge_rows=None):
     return {"n": n, "zones": zones, "clusters": [dict(item) for item in CLUSTER_CENTROIDS]}
 
 
+def _zone_scope(zone, fleet_size=None):
+    """Rows of one zone within the fleet: the engine's zone for the demo fleet (Task 17), else the table's."""
+    by_engine = engine_zone_filter(zone, fleet_size)
+    if by_engine is not None:
+        return by_engine
+    return {"zone": f"eq.{zone}", **fleet_filter(fleet_size)}
+
+
 def _discharging_mw(zone, settings=None, http_get=None, fleet_size=None):
     total_kw = 0.0
     offset = 0
@@ -512,12 +588,11 @@ def _discharging_mw(zone, settings=None, http_get=None, fleet_size=None):
         rows = fetch_home_rows(
             {
                 "select": "assigned_kw",
-                "zone": f"eq.{zone}",
                 "status": "eq.live",
                 "assigned_kw": "gt.0",
                 "limit": "200",
                 "offset": str(offset),
-                **fleet_filter(fleet_size),
+                **_zone_scope(zone, fleet_size),
             },
             settings=settings,
             http_get=http_get,
@@ -546,11 +621,12 @@ def table_rollups(settings=None, http_get=None, fleet_size=None):
         raise HomesUnavailable("fleet_unscoped")
     zones = {name: _empty_zone_row() for name in ZONE_ORDER}
     n = 0
-    scope = fleet_filter(fleet_size)
     for zone in ZONE_ORDER:
+        # Task 17: each zone is the engine's (ids), not the seed's zone column.
+        scope = _zone_scope(zone, fleet_size)
         for status in ("live", "stale", "dead"):
             count = exact_count(
-                {"zone": f"eq.{zone}", "status": f"eq.{status}", **scope},
+                {"status": f"eq.{status}", **scope},
                 settings=settings,
                 http_get=http_get,
             )
@@ -559,7 +635,7 @@ def table_rollups(settings=None, http_get=None, fleet_size=None):
             if status == "stale":
                 zones[zone]["silent"] += count
         discharging = exact_count(
-            {"zone": f"eq.{zone}", "status": "eq.live", "assigned_kw": "gt.0", **scope},
+            {"status": "eq.live", "assigned_kw": "gt.0", **scope},
             settings=settings,
             http_get=http_get,
         )
