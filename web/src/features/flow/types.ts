@@ -29,33 +29,18 @@ export type AlertSummary = {
   counties?: string[]
 }
 
-export type JevReading = {
-  question: string
-  answer: string
-  probability: number
-  model: string
-  called_at: string
-  latency_ms: number
-  input_label: string
-  recorded?: boolean
-  county_fips?: string
-}
-
-/** raise: JEV yes. keep_base: JEV no. raise_no_reading: no recorded reading, fail safe. */
-export type JevDecision = "raise" | "keep_base" | "raise_no_reading"
-
-export type CountyJev = {
+/** A roster county the alert names. Its homes keep the storm reserve. */
+export type NamedCounty = {
+  fips: string
   county_name: string
   zone: string
-  reading: JevReading | null
-  decision: JevDecision
 }
 
 export type ActiveAlert = AlertSummary & {
   zones: string[]
   sent_at_tick: number | null
-  jev: JevReading | null
-  jev_by_county?: Record<string, CountyJev>
+  /** Roster order. */
+  named_counties?: NamedCounty[]
 }
 
 export type FlowCounty = { zone: string; fips: string; name: string }

@@ -64,8 +64,12 @@ def _home_id_of(command_id):
     return str(command_id).split(":")[0]
 
 
-def _commands_for_home(command_states, home_id):
-    return sorted(cid for cid in command_states if _home_id_of(cid) == home_id)
+def _commands_by_home(command_states):
+    """home_id to its sorted command ids, built once per tick (a charge tick sends one per home)."""
+    by_home = {}
+    for cid in command_states:
+        by_home.setdefault(_home_id_of(cid), []).append(cid)
+    return {home_id: sorted(cids) for home_id, cids in by_home.items()}
 
 
 def _kw_for_command(command_id, home_id, per_home_kw, reassigned_kw):
@@ -96,10 +100,11 @@ def build_tick_emit(frame, homes, cycle, policy=None):
     delivered_mw = float(getattr(cycle, "credited_mw",
                                  getattr(cycle.allocation, "delivered_mw", 0.0)) or 0.0)
 
+    commands_by_home = _commands_by_home(command_states)
     emit_homes = {}
     for home in homes:
         home_id = home.home_id
-        cids = _commands_for_home(command_states, home_id)
+        cids = commands_by_home.get(home_id, [])
         assigned_kw = sum(_kw_for_command(cid, home_id, per_home_kw, reassigned_kw) for cid in cids)
         # A home that only holds a reassigned child has no per_home_kw entry,
         # so fall back to its share entry when the tick sent nothing extra.

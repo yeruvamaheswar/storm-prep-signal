@@ -36,6 +36,8 @@ services:
         value: "25"
       - key: DISCHARGE_ABOVE_USD
         value: "60"
+      - key: ROUND_TRIP_PCT
+        value: "89"
       # ERCOT Public API. Set these in the Render dashboard; never commit values.
       - key: ERCOT_USERNAME
         sync: false

@@ -568,7 +568,7 @@ body:has(.flow-page),
   font-weight: 600;
 }
 
-.flow-jev {
+.flow-named {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -576,7 +576,7 @@ body:has(.flow-page),
   border-top: 1px solid var(--line);
 }
 
-.flow-jev-title {
+.flow-named-title {
   font-weight: 600;
 }
 

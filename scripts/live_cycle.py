@@ -1,4 +1,4 @@
-"""Fetch newest ERCOT outage and price, upsert event=live, run one allocate tick.
+"""Fetch newest ERCOT outage and price (plus the day's DAM prices), upsert event=live, run one allocate tick.
 
 Usage:
   python scripts/live_cycle.py            # one cycle
@@ -157,6 +157,8 @@ def run_cycle(settings, now=None, runs_dir=RUNS_DIR, log_dir=LOG_DIR, state_path
             zone_prices = read_zone_prices(zones_raw, now)
         except SignalUnavailable:
             zone_prices = {}
+    # run() reads today's DAM hours (plus tomorrow's once posted) through loop.read_live_dam;
+    # var/dam/ keeps each day, so ERCOT is asked for DAM once a day, not every cycle.
     record = run(
         None, live_settings, log_dir=log_dir, runs_dir=runs_dir, live=True,
         state_path=state_path, frames=[one_live_frame(now)],

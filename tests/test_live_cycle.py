@@ -42,6 +42,14 @@ class Reply:
         return self._rows
 
 
+def dam_reply(point):
+    """NP4-190-CD for 2026-09-25 at one point: $30 all day, $12 from 12:00 to 14:00 (HE 13, 14)."""
+    prices = [12.0 if he in (13, 14) else 30.0 for he in range(1, 25)]
+    return {"fields": [{"name": n} for n in ("deliveryDate", "hourEnding", "settlementPoint",
+                                             "settlementPointPrice", "DSTFlag")],
+            "data": [["2026-09-25", f"{he:02d}:00", point, usd, False] for he, usd in enumerate(prices, 1)]}
+
+
 def _fake_ercot(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     for name in ("ERCOT_USERNAME", "ERCOT_PASSWORD", "ERCOT_SUBSCRIPTION_KEY"):
@@ -53,6 +61,8 @@ def _fake_ercot(monkeypatch, tmp_path):
     def get(url, **kwargs):
         if "np6-905-cd" in url:
             return FakeResponse(200, NP6.read_text())
+        if "np4-190-cd" in url:
+            return FakeResponse(200, json.dumps(dam_reply(kwargs["params"]["settlementPoint"])))
         return FakeResponse(200, NP3.read_text())
 
     monkeypatch.setattr(requests, "post", post)
@@ -178,6 +188,48 @@ def test_missing_supabase_still_writes_a_live_tick(tmp_path, monkeypatch):
     assert tick["delivered_mw"] == pytest.approx(40.0)
     assert tick["target_mw"] == pytest.approx(40.0)
     assert tick["target_label"] == "synthetic"
+
+
+def test_live_tick_carries_the_dam_forecast_and_fetches_each_day_once(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    kwargs = dict(now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                  state_path=tmp_path / "state.json", url="", key="", persist=False, send=None)
+    tick = cycle.run_cycle(SETTINGS, **kwargs)["record"]["ticks"][-1]
+    # 12:00 is before tomorrow's DAM posts, so the window runs from 12:00 to midnight.
+    assert sorted(tick["dam_hours"]) == ["Houston", "North", "South", "West"]
+    assert len(tick["dam_hours"]["North"]) == 12
+    assert tick["dam_hours"]["North"][0] == {"hour_start": "2026-09-25T12:00-05:00", "usd_mwh": 12.0}
+    assert (tick["dam_label"], tick["dam_as_of"]) == ("ercot", "2026-09-25")
+    assert set(tick["zone_charge_why"]) == {"Houston", "North", "South", "West"}
+    assert (tmp_path / "var" / "dam" / "np4_190_cd_20260925.json").exists()
+
+    # The next cycle reads var/dam/ and never asks ERCOT for DAM again.
+    real_get = requests.get
+
+    def no_dam(url, **kw):
+        assert "np4-190-cd" not in url, "DAM was fetched twice in one day"
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", no_dam)
+    again = cycle.run_cycle(SETTINGS, **kwargs)["record"]["ticks"][-1]
+    assert len(again["dam_hours"]["North"]) == 12
+
+
+def test_live_tick_without_dam_falls_back_to_the_price_bands(tmp_path, monkeypatch):
+    _fake_ercot(monkeypatch, tmp_path)
+    real_get = requests.get
+
+    def dam_down(url, **kw):
+        if "np4-190-cd" in url:
+            return FakeResponse(503, "busy")
+        return real_get(url, **kw)
+
+    monkeypatch.setattr(requests, "get", dam_down)
+    tick = cycle.run_cycle(SETTINGS, now=NOW, runs_dir=tmp_path / "runs", log_dir=tmp_path / "logs",
+                           state_path=tmp_path / "state.json", url="", key="", persist=False,
+                           send=None)["record"]["ticks"][-1]
+    assert (tick["dam_hours"], tick["dam_label"], tick["zone_charge_why"]) == ({}, "none", {})
+    assert tick["breaches"] == 0
 
 
 def test_one_live_frame_stays_synthetic_demo_peak():

@@ -53,6 +53,8 @@ def read_settings():
         # Simulation price bands for intent, not Base specs.
         "charge_threshold_usd_mwh": float(os.getenv("CHARGE_BELOW_USD", "25")),
         "discharge_threshold_usd_mwh": float(os.getenv("DISCHARGE_ABOVE_USD", "60")),
+        # Share of charged energy that comes back out (Powerwall 3 datasheet). Example, not a Base spec.
+        "round_trip_pct": float(os.getenv("ROUND_TRIP_PCT", "89")),
         "tick_minutes": int(os.getenv("TICK_MINUTES", "5")),
         # Simulated bad network for every tick (0 = clean). A tape "network" event overrides per tick.
         "channel_drop_rate": float(os.getenv("CHANNEL_DROP_RATE", "0")),

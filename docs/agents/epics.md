@@ -14,6 +14,7 @@ Checked against the code on 2026-09-26. The code-level list of stubs is `docs/ag
 - Supabase archive of Beryl, Heather and tuning-2026; archive snapshots rated by `compute_risk`; `persist_run.py` behind `--persist`.
 - Heather replay tape: the floor rises to 60% only after the 13:03 posting (`tapes/heather.json`, `scripts/build_tape.py`).
 - Epic 7, charging (done 2026-09-26). Signed charge per `CONSTRAINTS.md` allocation step 6: the worker clamps to room below capacity, charge is booked in `charging_mw` apart from delivery, and `breaches == 0` holds (`FUZZ_SEEDS=50`). A home under its floor refills to it at any price (`CONSTRAINTS.md` allocation step 10); filling past the floor is price-only (at or below `CHARGE_BELOW_USD`). Grid-down zones neither sell nor charge (allocation step 7). Shown on `/flow`: `grid-flow.md`.
+- Epic 7, look-ahead charging (filled 2026-09-27 for recorded tapes and Live). With a zone's ERCOT DAM hours on the tick, a battery above its floor charges in the zone's cheapest upcoming DAM hours (as many as the zone needs to fill), on a real-time dip, and only when a later hour pays back the round trip. Selling and refill to the floor are unchanged; no DAM falls back to the $25/$60 bands. Tapes carry recorded NP4-190-CD days (`TapeFrame.dam_fixtures`); Live fetches them once a day into `var/dam/`, and the Live wall shows the next 24 hours. Rule and evidence: `policy-intent.md` "Cheapest DAM hours". Panel and data: `dam-forecast.md`.
 
 ## Open epics
 
@@ -50,8 +51,12 @@ Order is rough value toward the one-minute judge story, not a required sequence.
 - Filled: those routes serve the latest run or snapshot, and no operator-facing number comes from a console fixture.
 - End state: Core flow 1 (Watch).
 
-### 7. Charging: done 2026-09-26
-- See "Already built" above.
+### 7. Charging: base done 2026-09-26; look-ahead filled 2026-09-27 for recorded tapes and Live
+- Base and look-ahead: see "Already built" above. The text below is the gap as it was named, kept for the record.
+- Gap: a battery charges past its floor only when the zone's current price is at or below `charge_threshold_usd_mwh` (`CONSTRAINTS.md` allocation step 8, `policy.price_band`). Nothing looks ahead: it charges at $24 even when $5 comes in two hours, and waits at $26 even when every later hour costs more (`grid-flow.md` limits and "Scenarios"; in `price-spike` the fleet is empty by the $1,000 peak). ERCOT's Day-Ahead Market (DAM) settlement point prices are posted the day before, hourly, per load zone (report NP4-190-CD, named out of scope in `price-live.md` "Not this pass"). No code, Supabase table, or tape carries them today.
+- Wanted (user): each zone charges in its cheapest upcoming DAM hours and skips charging when a cheaper hour is coming.
+- Filled: with a zone's DAM hours on the tick (live fetch, or recorded on the tape), a battery above its floor skips a cheap real-time hour when a cheaper DAM hour comes later in the window, and charges in the cheapest DAM hours. Refill to the floor at any price (allocation step 10) is never delayed by DAM. Missing DAM data falls back to today's threshold rule. One test per case, plus a replay showing where charge moved.
+- End state: Outcome step 2 ("Price moves; only surplus energy is sold") and In scope ("Reserve vs target as the money loop"). The rule change lands in `CONSTRAINTS.md` and `policy-intent.md` with the gap; fields add-only.
 
 ### 8. Demo that runs without wifi
 - Gap: no `demo.sh`. `load_tape` in `loop.py` is still TEMP and does not check labels or offsets. `tapes/` is untracked in git. No fault frames (dead zone, straggler, duplicate, split floors).

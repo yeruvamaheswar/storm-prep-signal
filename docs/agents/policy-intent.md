@@ -1,5 +1,7 @@
 # Charge / hold / discharge intent
 
+**Decision (2026-09-27, user): above its floor, each load zone charges in its cheapest upcoming ERCOT day-ahead (DAM) hours, not whenever its price is at or below $25.** Selling, the storm cap and refill to the floor do not change. See "Cheapest DAM hours" below.
+
 **Decision (2026-09-26, latest): a battery under its reserve floor charges back to that floor from the grid, at any price.** Rajat chose this; it replaces "refill is price-only". The point is to have the reserve in place before a storm lands: a weather alert or HIGH risk raises the floor to `storm_reserve_pct`, and every live, grid-up home under it refills, even at $60+. See "Refill to the floor" below.
 
 **Decision (2026-09-26, later): the tick's label shows what the fleet was ordered to do this tick.** It is the order, not the result: if every discharge order times out, the tick still says discharge and `delivered_mw` shows the shortfall. `TickResult.intent` / `intent_reason` come from `controller.acted_intent(alloc, policy, mode)`, which reads the planned `cycle.allocation`, not the price band. `Policy.intent` is still the price band below and is still what `allocate` reads; `policy.py` is unchanged. Before this, a HIGH-risk $80 call sold 0.2 MW while the wall said "hold", and a LOW $80 tick with no call said "discharge" while nothing moved.
@@ -11,6 +13,7 @@
 | Charged kW > 0, nothing sold, band said charge | charge | policy reason |
 | Charged kW > 0, nothing sold, band not charge (only zone prices said charge, e.g. headline missing and Houston $10) | charge | `zone_price` |
 | Charged kW > 0, nothing sold, only homes under their floor charged (`reserve_refill` code, no `charging` code) | charge | `reserve_refill` |
+| Charged kW > 0, nothing sold, a `charge` zone was set by the DAM rule (checked after `reserve_refill`; wins over the policy-reason and `zone_price` rows) | charge | `dam_cheap_hour`, else `rt_dip` |
 | Sold kW > 0 and sold kW >= charged kW | discharge | policy reason if the band said discharge, else `grid_call` |
 | Nothing moved, band said hold | hold | policy reason (`""`, `price_unavailable`) |
 | Nothing moved, band said charge/discharge, target 0 | hold | `no_grid_call` (for the charge band only when every home is full: idle charging otherwise makes it a charge tick) |
@@ -59,6 +62,65 @@ Tapes (origin/main -> this rule, 0 breaches): heather 24.4 -> 35.5%, heather-tha
 
 Tests: zone-band cases in `tests/test_policy.py`, `allocate_zoned` tier cases in `tests/test_controller.py`, path 24 in `tests/test_tick_paths.py`.
 
+## Cheapest DAM hours
+
+**Decision (2026-09-27, user): with DAM hours on the tick, a zone charges above its floor in its cheapest upcoming DAM hours, sized by how much charge it needs, and only when a later hour pays back the round-trip loss.** Before this nothing looked ahead: a zone charged at $24 with $5 two hours away, and waited at $26 when every later hour cost more. Only the charge test changes. The discharge band, the storm cap and refill to the floor (step 10) stay as they were. Contract: `CONSTRAINTS.md`, `reserve_policy` row. Where the hours come from and what the Live wall shows: [dam-forecast.md](dam-forecast.md).
+
+Why arithmetic and not a model: these are published prices, so the rule is exact, repeatable and free of network calls in the tick. JEV was removed on 2026-09-27 for the same reason. Accuracy is measured by the backtest below instead.
+
+The rule, per zone (`policy._set_zone_intent` calls `policy.dam_charge`):
+
+1. **Window.** The DAM hours already published at the tick, from the current hour up to 24 hours ahead (`signal.dam_window`). A zone whose window lacks the current hour has no DAM hours.
+2. **Hours needed.** `fleet.zone_hours_needed` = `ceil(Σ room_kwh / Σ max_kw)` over the zone's live homes whose grid is up, where `room_kwh` is capacity minus charge. It reads the planner's view (`telemetry.reported_homes` when the battery feed is on), never the simulator's truth. Example: 25 homes at 10% of 25 kWh, 11.4 kW each: 562.5 kWh / 285 kW = 1.97, so 2 hours. There is no fixed hours setting.
+3. **Chosen hours.** The `hours_needed` cheapest hours in the window, ties to the earlier hour. `P_k` is the dearest of them.
+4. **Charge now** when both hold:
+   - this hour is chosen, or the zone's real-time price now is at or below `P_k` (a dip the forecast missed);
+   - payback: some later hour's DAM price × `ROUND_TRIP_PCT` / 100 is above the price now (real-time, or this hour's DAM when the zone has no real-time price).
+5. The price band runs first. A `discharge` band (at or above $60, not a storm zone) wins, and the chosen hours are still recorded. A storm-reason zone never gets `discharge`.
+6. No DAM hours for a zone (no fixture, failed live fetch, current hour missing) keeps the $25/$60 bands. HOLD leaves `zone_intent`, `zone_charge_hours` and `zone_charge_why` empty.
+
+What the zone records (`Policy.zone_charge_why`, copied to `TickResult`):
+
+| `zone_charge_why` | `zone_intent` | When |
+|---|---|---|
+| `dam_cheap_hour` | charge | This hour is chosen and a later hour pays back |
+| `rt_dip` | charge | Not chosen, but real-time now is at or below `P_k`, and a later hour pays back |
+| `cheaper_hour_later` | hold | Not chosen, and real-time is above `P_k` or missing |
+| `no_payback` | hold | Would charge, but no later hour × round trip beats the price now |
+| `full` | hold | Hours needed is 0 |
+| `sell_band` | discharge | The price band said discharge; DAM never stops a sale |
+
+A tick that charged because of this rule reads charge / `dam_cheap_hour` (or `rt_dip`) from `acted_intent` (table at the top). `ROUND_TRIP_PCT` (89) is an example setting: `CONSTRAINTS.md`, "Stale data". Honest limits (sized per zone, payback on DAM not the real-time that happens, one fetch a day, 89% example): `HONEST_LIMITS` in `server/engine/scenario.py`.
+
+### Backtest: is DAM a good forecast of the cheap real-time hours?
+
+`scripts/backtest_dam.py` (commands: [dam-forecast.md](dam-forecast.md#scripts)). For each saved DAM day and load zone, it compares the k cheapest DAM hours with the k cheapest real-time hours (NP6-905-CD 15-minute prices from Supabase `ercot_prices`, averaged to hours). "Hit" is the share of DAM-chosen hours that really were among the k cheapest. The dollar columns are the average real-time $/MWh actually paid.
+
+First run: 8 zone-days (4 load zones × 2026-08-30 and 2026-08-31).
+
+| k hours | Hit | DAM-chosen, real-time $/MWh | Hindsight, real-time $/MWh |
+|---|---|---|---|
+| 1 | 12% | 18.47 | 17.53 |
+| 2 | 62% | 18.12 | 17.93 |
+| 3 | 75% | 18.78 | 18.30 |
+| 4 | 78% | 19.26 | 18.74 |
+
+Today's $25 band (the first k hours at or under $25) paid about $22 to $23/MWh real-time.
+
+- DAM rarely names the single cheapest real-time hour (12% at k = 1). From 2 hours up it finds most of them (62% to 78%).
+- The price paid is what matters: the DAM-chosen hours cost $0.19 to $0.94/MWh more than perfect hindsight, and roughly $3 to $5/MWh less than the $25 band.
+- Two late-summer days are not enough to call this a win across seasons or storms.
+
+<!-- numbers: all-days backtest + replay pending -->
+All saved DAM days: pending.
+
+### Replay
+
+<!-- numbers: all-days backtest + replay pending -->
+Pending: `calm-charge`, `heather-spike`, `heather-thaw` and `beryl-landfall`, seed 42, before and after the rule. For each: kWh charged by hour, average price paid to charge, dollars delivered, ticks per `zone_charge_why` reason, and breaches (must be 0).
+
+Tests: `tests/test_dam.py` (parser, window, fetch, backtest scoring), `tests/test_fleet.py` (`zone_hours_needed`), the `test_dam_*` cases in `tests/test_policy.py` (one per row above, plus no DAM and HOLD), and in `tests/test_controller.py` a home under its floor still refills on a DAM hold hour and `acted_intent` names the DAM reason.
+
 ## Refill to the floor
 
 **Decision (2026-09-26, latest).** After every other step, `allocate` calls `add_refill` (`server/engine/controller.py`). Every live home in a known zone whose grid is up, is under its zone floor (`fleet.floor_kwh`), and has no other order this tick gets a charge order of `min(max_kw, (floor − soc) × 60 / tick_minutes)`, as negative kW. It stops at the floor: filling to full stays the cheap-power path's job. Operator HOLD still wins (no orders at all). Dead, stale, unknown-zone and grid-down homes get nothing.
@@ -73,7 +135,7 @@ Tests: the reserve refill block in `tests/test_controller.py`.
 
 ## Settings
 
-Simulation knobs, not Base specs. In `.env.example`: `CHARGE_BELOW_USD=25`, `DISCHARGE_ABOVE_USD=60`. `read_settings()` stores them as `charge_threshold_usd_mwh` and `discharge_threshold_usd_mwh`.
+Simulation knobs, not Base specs. In `.env.example`: `CHARGE_BELOW_USD=25`, `DISCHARGE_ABOVE_USD=60`. `read_settings()` stores them as `charge_threshold_usd_mwh` and `discharge_threshold_usd_mwh`. `ROUND_TRIP_PCT=89` (`round_trip_pct`) is the DAM payback share; its home is `CONSTRAINTS.md`, "Stale data".
 
 ## How a charge tick runs
 
@@ -109,6 +171,6 @@ The fuzzer (`tests/test_invariants.py`) draws random fleet and per-zone intents 
 
 ## Callers
 
-`loop.py` stamps price, then calls `reserve_policy(..., mode, price_usd_mwh, price_label, zone_prices)`, then `allocate` (inside `orchestrate_tick`), then stamps the tick with `acted_intent`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
+`loop.py` stamps price, reads the tick's DAM window (`loop.frame_dam`) and, when there is one, `fleet.zone_hours_needed` on the planner's view, then calls `reserve_policy(..., mode, price_usd_mwh, price_label, zone_prices, county_alerts, dam_hours, zone_hours_needed)`, then `allocate` (inside `orchestrate_tick`), then stamps the tick with `acted_intent`. `/v1/snapshot` still calls `reserve_policy` without a price (Sunny). That snapshot tick keeps intent `hold` until that route passes the LZ number.
 
 People page: `docs/humans/policy-intent.md`.

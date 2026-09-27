@@ -969,6 +969,106 @@ button.ack-zone.is-selected .label {
   stroke-width: 4px;
 }
 
+.tape-stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: min(100%, 28rem);
+  max-width: 36rem;
+}
+
+.dam {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dam-title {
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.dam-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.dam-swatch::before {
+  content: "";
+  width: var(--space-2);
+  height: var(--space-2);
+  background: var(--ink);
+}
+
+.dam-swatch-now::before {
+  background: none;
+  border: 1px solid var(--ink);
+}
+
+.dam-swatch-peak::before {
+  width: var(--space-3);
+  height: 0;
+  background: none;
+  border-top: 1px solid var(--muted);
+}
+
+.dam-rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.dam-zone {
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.dam-bars {
+  display: block;
+  width: 100%;
+  height: var(--space-5);
+}
+
+.dam-bar {
+  fill: var(--line);
+}
+
+.dam-bar.is-charge {
+  fill: var(--ink);
+}
+
+.dam-peak,
+.dam-now {
+  fill: none;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.dam-peak {
+  stroke: var(--muted);
+}
+
+.dam-now {
+  stroke: var(--ink);
+}
+
+.dam-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .tick-keys {
   display: grid;
   gap: 0;

@@ -13,10 +13,11 @@
 1. `fetch_outages` / `fetch_price` (`signal.py`). Timeouts stay secret-free.
 2. `live_posting_rows` / `live_price_rows` reuse `load_ercot_reports.posting_rows` / `price_rows`. `file_name` is null. Upsert keys stay `(report, posted_at)` and `(settlement_point, interval_ending)`. Archive events are never deleted.
 3. Rate the same NP3 body (`reject_stale` + `compute_risk`). Stale or broken is risk None (60% fail-safe).
-4. Hydrate HOLD / AUTO from `public.operator_settings` onto `var/state.json` (table wins; empty or failed leaves the local file). Then `loop.run(..., live=True, frames=[one 0.40 MW frame], live_risk=..., live_price=...)`. No second ERCOT login. HOLD still delivers 0. Detail: `docs/agents/operator-settings.md`.
-5. `persist_latest` copies the run into `public.runs`. Missing keys print `skipped: no_config`.
+4. Hydrate HOLD / AUTO from `public.operator_settings` onto `var/state.json` (table wins; empty or failed leaves the local file). Then `loop.run(..., live=True, frames=[one 0.40 MW frame], live_risk=..., live_price=..., live_zone_prices=...)`. No second ERCOT login for outage or price. HOLD still delivers 0. Detail: `docs/agents/operator-settings.md`.
+5. Day-ahead prices (added 2026-09-27). Inside that `loop.run`, when the outage fetch succeeded, `loop.read_live_dam` reads today's DAM file (plus tomorrow's from 13:30 CT) from `var/dam/`, and fetches only a day that is not cached (one ERCOT login for that fetch). So ERCOT is asked for DAM once per day, not every 5 minutes. A failed day logs `fetch_dam_prices failed`, is not cached, and is tried again next cycle; the tick uses the $25/$60 bands for zones without hours. The tick carries `dam_hours`, `dam_label` `ercot`, `dam_as_of`, `zone_hours_needed`, `zone_charge_hours` and `zone_charge_why`. Detail: `docs/agents/dam-forecast.md`.
+6. `persist_latest` copies the run into `public.runs`. Missing keys print `skipped: no_config`.
 
-`--loop` sleeps `tick_minutes` (default 5). `--dry-run` skips both upserts.
+`--loop` sleeps `tick_minutes` (default 5). `--dry-run` skips both upserts (it still fetches DAM into `var/dam/`).
 
 ## Schema
 

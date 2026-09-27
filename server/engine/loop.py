@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 from dataclasses import asdict, replace
+from functools import lru_cache
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from server.engine.fleet import (
     save_fleet,
     save_rollups,
     scale_target_mw,
+    zone_hours_needed,
 )
 from server.engine.fleet_state import STATE_PATH, load_fleet_mode, write_fleet_mode
 from server.engine.orchestration import cycle_rollups, orchestrate_tick, plant_line, zone_acks
@@ -28,12 +30,17 @@ from server.engine.score import new_board, update
 from server.engine.tick_emit import build_tick_emit
 from server.engine.signal import (
     CENTRAL,
+    DAM_SOURCE,
     LIVE_SOURCE,
     PRICE_SOURCE,
     SignalUnavailable,
+    dam_days_published,
+    dam_window,
+    fetch_dam_prices,
     load_price,
     load_signal,
     load_zone_prices,
+    read_dam_prices,
     stamp_price,
     to_signal,
 )
@@ -41,6 +48,9 @@ from server.engine.telemetry import TelemetryState
 
 LOG_DIR = Path("var") / "logs"
 RUNS_DIR = Path("var") / "runs"
+# Live DAM day files. DAM is set once a day, so the live worker fetches each day once.
+DAM_CACHE_DIR = Path("var") / "dam"
+RECORDED_DAM_LABEL = f"recorded:{DAM_SOURCE}"
 SETTINGS_KEYS = ("fleet_size", "home_kwh", "home_max_kw", "base_reserve_pct", "storm_reserve_pct",
                  "charge_threshold_usd_mwh", "discharge_threshold_usd_mwh", "tick_minutes",
                  "telemetry_feed")
@@ -65,6 +75,7 @@ _FLEET_DEFAULTS = {
     # Simulation bands, not Base specs. Short test settings omit them.
     "charge_threshold_usd_mwh": 25.0,
     "discharge_threshold_usd_mwh": 60.0,
+    "round_trip_pct": 89.0,
     # read_settings() turns the battery feed on. A caller that does not ask for it runs without.
     "telemetry_feed": False,
 }
@@ -163,6 +174,54 @@ def read_live_zone_prices(settings):
     return zone_prices
 
 
+def read_live_dam(settings, now, id_token=None, cache_dir=DAM_CACHE_DIR):
+    """NP4-190-CD bodies for the days published at `now`, from var/dam/ or one fetch per missing day.
+
+    A day that fails (tomorrow's not posted yet, ERCOT down) is logged and left out, so the tick
+    falls back to the price bands for the hours it lacks. Never raises.
+    """
+    bodies = []
+    for day in dam_days_published(now):
+        path = Path(cache_dir) / f"np4_190_cd_{day:%Y%m%d}.json"
+        if path.exists():
+            bodies.append(json.loads(path.read_text()))
+            continue
+        try:
+            body = fetch_dam_prices(settings, day.isoformat(), id_token=id_token)
+        except SignalUnavailable as exc:
+            log_event("fetch_dam_prices", "failed", ok=False, reason=str(exc), source=DAM_SOURCE, day=str(day))
+            print(f"live: DAM {day} unknown | {exc} | source: {DAM_SOURCE}")
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(body))
+        log_event("fetch_dam_prices", "ok", source=DAM_SOURCE, day=str(day), rows=len(body["data"]))
+        bodies.append(body)
+    return bodies
+
+
+@lru_cache(maxsize=64)
+def _recorded_dam(path):
+    return json.loads(Path(path).read_text())
+
+
+def frame_dam(frame, live=False, live_dam=None):
+    """(dam_hours, dam_label, dam_as_of) for one tick: the next 24 DAM hours per zone, or ({}, "none", None).
+
+    Live reads the bodies the live worker fetched; a tape reads its frame's day files. A missing or
+    broken file is logged and the tick falls back to the price bands.
+    """
+    try:
+        bodies = list(live_dam or []) if live else [_recorded_dam(path) for path in frame.dam_fixtures]
+        window = dam_window(read_dam_prices(bodies), datetime.fromisoformat(frame.ts)) if bodies else {}
+    except (OSError, ValueError, SignalUnavailable) as exc:
+        log_event("dam", "failed", ok=False, reason=f"{type(exc).__name__}: {exc}", tick=frame.tick)
+        return {}, "none", None
+    if not window:
+        return {}, "none", None
+    dates = sorted({body["delivery_date"] for body in bodies if body.get("delivery_date")})
+    return window, "ercot" if live else RECORDED_DAM_LABEL, ",".join(dates) or None
+
+
 def synthetic_frames(settings, start):
     """The frames used by --live with no tape: a flat target, labeled synthetic, no price."""
     step = timedelta(minutes=settings["tick_minutes"])
@@ -209,7 +268,7 @@ def write_run_files(runs_dir, run_id, record):
 
 
 def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=False,
-               live_risk=None, live_price=None, live_zone_prices=None):
+               live_risk=None, live_price=None, live_zone_prices=None, live_dam=None):
     """One tick through the fleet. Mutates `homes`; writes no files (log_event aside).
 
     apply_events → compute_risk → reserve_policy → orchestrate_tick → TickResult.
@@ -241,11 +300,18 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
         zone_price_label = "ercot" if live else frame.zone_price_label
     # policy.py lets a fleet-wide reason (signal missing, ERCOT HIGH) win over a zone warning.
     # Zone prices give each zone its own charge/hold/discharge band; with none, one fleet band.
-    # County alerts carry JEV's P(yes) per county; JEV gates each county's alert floor.
+    # County alerts name counties (FIPS to NWS event); a named county keeps the storm reserve.
+    # DAM hours pick each zone's cheapest hours to charge in; hours needed reads the planner's view.
+    dam_hours, dam_label, dam_as_of = frame_dam(frame, live, live_dam)
+    hours_needed = {}
+    if dam_hours:
+        plan_view = homes if telemetry is None else telemetry.reported_homes(homes)
+        hours_needed = zone_hours_needed(plan_view, settings, grid_down_zones(frame))
     policy = reserve_policy(
         risk, settings, alerted, mode=mode,
         price_usd_mwh=priced["price_usd_mwh"], price_label=priced["price_label"],
         zone_prices=zone_prices, county_alerts=frame.events.get("weather_counties"),
+        dam_hours=dam_hours, zone_hours_needed=hours_needed,
     )
     # Demo tape (100 homes) keeps 0.40. Live/archive scale to the fleet cap / call target.
     target_mw = scale_target_mw(frame.target_mw, settings)
@@ -287,18 +353,25 @@ def play_frame(frame, homes, settings, baseline, mode, telemetry=None, live=Fals
         grid_down_zones=sorted(grid_down_zones(frame)),
         county_reserve_pct=dict(policy.county_reserve_pct),
         county_reasons=dict(policy.county_reasons),
+        dam_hours=dam_hours,
+        dam_label=dam_label,
+        dam_as_of=dam_as_of,
+        zone_hours_needed=hours_needed,
+        zone_charge_hours=dict(policy.zone_charge_hours),
+        zone_charge_why=dict(policy.zone_charge_why),
     )
     return result, cycle, policy, frame, risk
 
 
 def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, state_path=None,
         frames=None, live_risk=_UNSET, live_price=_UNSET, baseline_path=BASELINE_PATH,
-        live_zone_prices=_UNSET):
+        live_zone_prices=_UNSET, live_dam=_UNSET):
     """Play every frame of the tape through the fleet. Returns the run record written to disk.
 
     live=True fetches ERCOT once and uses that risk on every tick, ignoring the frames' risk
     fixtures. With no tape it plays SYNTHETIC_TICKS synthetic frames. A caller that already
-    fetched (the live worker) may pass `frames`, `live_risk`, `live_price`, and `live_zone_prices`.
+    fetched (the live worker) may pass `frames`, `live_risk`, `live_price`, `live_zone_prices`,
+    and `live_dam` (NP4-190-CD bodies, see read_live_dam).
     baseline_path lets a past storm be rated against the month before it, not against today's baseline.
 
     Each tick is apply_events → compute_risk → reserve_policy → orchestrate_tick (allocate, send, confirm, drain) → zone_acks → TickResult.
@@ -322,8 +395,13 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         live_risk = None
         live_price = None
         live_zone_prices = {}
+        live_dam = []
     if frames is None:
         frames = load_tape(tape_path) if tape_path else synthetic_frames(settings, datetime.now(CENTRAL))
+    if live and live_dam is _UNSET:
+        # The first frame's clock picks which days are published (the live worker passes "now").
+        clock = datetime.fromisoformat(frames[0].ts) if frames else datetime.now(CENTRAL)
+        live_dam = read_live_dam(settings, clock) if live_risk is not None else []
     if live:
         fleet_path = fleet_homes_path(runs_dir)
         homes = load_or_seed_homes(settings, fleet_path)
@@ -339,7 +417,8 @@ def run(tape_path, settings, log_dir=LOG_DIR, runs_dir=RUNS_DIR, live=False, sta
         write_operator_mode(state_path, mode)
         result, cycle, policy, frame, _risk = play_frame(
             frame, homes, settings, baseline, mode, telemetry=telemetry, live=live,
-            live_risk=live_risk, live_price=live_price, live_zone_prices=live_zone_prices)
+            live_risk=live_risk, live_price=live_price, live_zone_prices=live_zone_prices,
+            live_dam=live_dam)
         board = update(board, result, homes)
         brief = write_brief(result)
         log_event("tick", "ok", **asdict(result), brief=brief)

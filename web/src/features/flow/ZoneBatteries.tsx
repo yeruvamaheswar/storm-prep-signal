@@ -9,14 +9,13 @@ import {
   fmtMw,
   zoneFloorText,
 } from "./flowMath"
-import type { ActiveAlert, BatteryState, FlowCounty, FlowHome, FlowZoneRow } from "./types"
+import type { BatteryState, FlowCounty, FlowHome, FlowZoneRow } from "./types"
 
 type Props = {
   zone: string
   row: FlowZoneRow | undefined
   homes: FlowHome[]
   counties: FlowCounty[]
-  alerts: ActiveAlert[]
   stepSeconds: number
   pack: { kwh: number; kw: number } | null
   onClose: () => void
@@ -30,7 +29,7 @@ const UNDER_FLOOR_WHY = {
 const LEGEND: BatteryState[] = ["selling", "charging", "holding", "reserved", "at_floor", "below_floor", "islanded", "unconfirmed", "stale", "dead"]
 
 /** One cell per battery, grouped by county. The fill moves to the new charge over one playback step (real kW, sped up). */
-export function ZoneBatteries({ zone, row, homes, counties, alerts, stepSeconds, pack, onClose }: Props) {
+export function ZoneBatteries({ zone, row, homes, counties, stepSeconds, pack, onClose }: Props) {
   const inZone = homes.filter((home) => home.zone === zone)
   const present = new Set(inZone.map((home) => home.state))
   const startedUnder = inZone.filter((home) => home.under_floor_why === "started_under").length
@@ -57,7 +56,7 @@ export function ZoneBatteries({ zone, row, homes, counties, alerts, stepSeconds,
           {group.fips ? (
             <header className="flow-county-head">
               <h3>{group.name}</h3>
-              <span className="flow-muted">{group.fips} · {countyFloorNote(group, row?.reason, alerts)}</span>
+              <span className="flow-muted">{group.fips} · {countyFloorNote(group, row?.reason)}</span>
             </header>
           ) : null}
           <div className="flow-cells">

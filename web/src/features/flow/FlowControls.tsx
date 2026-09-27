@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { FlowRequest } from "./api"
 import {
   WEATHER_STEP_LABEL,
+  chosenAlertId,
   currentWeatherStep,
   fmtScenarioTime,
   timeLapseLabel,
@@ -62,7 +63,7 @@ export function FlowControls({ scenarios, state, onSend }: Props) {
   const scenarioId = picked || active?.id || list[0]?.id || ""
   const alerts = active?.alerts ?? []
   const sent = new Set((state?.alerts ?? []).map((a) => a.id))
-  const chosenAlert = alertId || alerts.find((a) => !sent.has(a.id))?.id || ""
+  const chosenAlert = chosenAlertId(alerts, sent, alertId)
   const playing = state?.status === "playing"
   const speeds = state?.speeds ?? scenarios?.speeds ?? []
 

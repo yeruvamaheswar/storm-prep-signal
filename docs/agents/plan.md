@@ -193,8 +193,7 @@ The log is JSON Lines: one object per line, in `var/logs/<run_id>.jsonl`.
 - `RISK_MARGIN_PCT` (15): how far above the lead-matched baseline the peak must be for risk HIGH.
 - `LOOKAHEAD_HOURS` (6): how many hours, starting with the current hour, are in the window.
 - `FETCH_TIMEOUT_S` (3): the timeout for each network call.
-- `JEV_API_KEY`: **optional**, for a possible later add-on worker. It is not used in Slices 0–6
-  and the code must never require it.
+- `JEV_API_KEY`: removed 2026-09-27 with JEV (see `docs/agents/grid-flow.md`, "Why JEV was removed").
 
 ## Slices
 
@@ -324,7 +323,7 @@ var/               logs and state (git-ignored)
 
 1. **Total**: all three categories (Resource + IRR + NewEquip) across the 4 zones. The
    driving zone is the zone with the largest sum.
-2. **`JEV_API_KEY`**: optional, for a later add-on worker. Not used in Slices 0–6 and never required.
+2. **`JEV_API_KEY`**: JEV was removed 2026-09-27 (see `docs/agents/grid-flow.md`, "Why JEV was removed").
 3. **Python**: 3.13 (the installed `.venv`).
 4. **Approved**: A/R/S (now in Slice 3), and the 90-minute staleness limit.
 

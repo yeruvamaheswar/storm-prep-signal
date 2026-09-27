@@ -8,6 +8,8 @@ But when the grid calls, the homes sell from spare energy even on a hold price. 
 
 Each load zone uses its own price when we have one. A $10 Houston charges while an $80 West does not. When the grid calls, the expensive and middle zones share the call, and cheap zones sell only what is left. A zone under a storm warning never sells on price.
 
+When we have ERCOT's day-ahead prices, a zone charges in its cheapest hours of the next 24 and waits when a cheaper hour is coming (`docs/humans/dam-forecast.md`).
+
 A battery under its backup floor always charges back up to that floor, at any price. A storm warning raises the floor, so batteries refill before the storm lands. That tick says charge, with the reason `reserve_refill`.
 
 Discharge still never goes below the backup floor. The per-home kilowatt number is signed: plus means sell, minus means charge.

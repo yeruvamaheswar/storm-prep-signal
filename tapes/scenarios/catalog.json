@@ -83,7 +83,9 @@
       "tape": "tapes/scenarios/price-spike.json",
       "baseline": "data/fixtures/tuning-2026/baseline.json",
       "provenance": "tapes/scenarios/price-spike.provenance.json",
-      "alerts": [],
+      "alerts": [
+        "tuning2026-dallas-heat-advisory"
+      ],
       "grid_down_overlay": false
     },
     {

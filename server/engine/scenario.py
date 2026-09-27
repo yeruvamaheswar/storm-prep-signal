@@ -20,7 +20,6 @@ from server.engine.brief import write_brief
 from server.engine.events import start_run
 from server.engine.fleet import assign_county, county_name, home_label, new_fleet, zone_counties
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
-from server.engine.policy import JEV_YES_AT
 from server.engine.score import new_board, update
 from server.engine.telemetry import TelemetryState
 from server.engine.tick_emit import build_tick_emit
@@ -28,7 +27,6 @@ from server.engine.tick_emit import build_tick_emit
 SCENARIO_DIR = Path("var") / "scenario"
 CATALOG_PATH = Path("tapes") / "scenarios" / "catalog.json"
 ALERT_DIR = Path("data") / "fixtures" / "nws"
-JEV_DIR = Path("data") / "fixtures" / "jev"
 # 25 homes per zone, so every battery can be drawn on the page.
 SCENARIO_FLEET_SIZE = 100
 # Wide on purpose: some batteries start under the 30% floor, some near full.
@@ -52,8 +50,12 @@ HONEST_LIMITS = (
     "Weather alerts are real archived NWS text; the operator chooses when to send them.",
     "Hand-placed overlays are labeled as overlays.",
     "Pack: 25 kWh, 11.4 kW (example settings, not Base specs), shown in time-lapse.",
-    "JEV readings are recorded once per alert and county. A county's alert floor rises only when JEV "
-    "says yes; no reading keeps the storm reserve.",
+    "A county an alert names keeps the storm reserve whatever the alert type; the alert's other zone "
+    "counties keep the base floor. No model weighs how dangerous the alert is.",
+    "Charge hours are sized per zone (its homes' room kWh over their max kW, summed), not per home.",
+    "The payback check uses day-ahead (DAM) prices, not the real-time prices that will actually happen.",
+    "DAM prices are fetched once a day. If ERCOT posts late, Live runs on today's hours until tomorrow's arrive.",
+    "The 89% battery round trip is an example figure (Powerwall 3 datasheet), not a Base spec.",
 )
 
 
@@ -127,24 +129,6 @@ def alert_zones(alert, settings):
     """Load zones named by the alert's roster counties, and codes that match no county."""
     counties, unknown = alert_counties(alert, settings)
     return sorted({zone for zone, _, _ in counties}), unknown
-
-
-def load_jev(alert_id, fips, jev_dir=JEV_DIR):
-    return read_json(Path(jev_dir) / alert_id / f"{fips}.json", None)
-
-
-def jev_probability(reading):
-    """P(yes) from a recorded reading, or None when there is no usable reading."""
-    probability = (reading or {}).get("probability")
-    return float(probability) if isinstance(probability, (int, float)) else None
-
-
-def jev_decision(reading):
-    """What the reading alone asks of the county's floor, before any fleet-wide reason."""
-    probability = jev_probability(reading)
-    if probability is None:
-        return "raise_no_reading"
-    return "raise" if probability >= JEV_YES_AT else "keep_base"
 
 
 # --- request inbox (the API writes, the worker reads) ---
@@ -257,8 +241,8 @@ def home_state(home, emit, floor_pct, floor_reason, grid_down):
     # Drained to its floor: everything above it was sold, so there is nothing left to give.
     if soc_pct <= floor_pct + FLOOR_BAND_PCT:
         return "at_floor"
-    # jev_no and not_in_alert keep the base floor, so nothing is reserved beyond normal.
-    if floor_reason not in ("normal", "jev_no", "not_in_alert", "", None):
+    # not_in_alert keeps the base floor, so nothing is reserved beyond normal.
+    if floor_reason not in ("normal", "not_in_alert", "", None):
         return "reserved"
     return "holding"
 
@@ -266,12 +250,11 @@ def home_state(home, emit, floor_pct, floor_reason, grid_down):
 class Session:
     """One scenario playing on a seeded random fleet. Mutated only by the worker process."""
 
-    def __init__(self, settings, catalog, log_dir=SCENARIO_DIR / "logs", alert_dir=ALERT_DIR,
-                 jev_dir=JEV_DIR):
+    def __init__(self, settings, catalog, log_dir=SCENARIO_DIR / "logs", alert_dir=ALERT_DIR):
         self.settings = with_fleet_defaults(settings)
         self.settings["fleet_size"] = SCENARIO_FLEET_SIZE
         self.catalog = catalog
-        self.log_dir, self.alert_dir, self.jev_dir = Path(log_dir), Path(alert_dir), Path(jev_dir)
+        self.log_dir, self.alert_dir = Path(log_dir), Path(alert_dir)
         self.scenario = None
         self.frames, self.baseline, self.sidecar = [], None, {}
         self.index, self.playing, self.speed = 0, False, DEFAULT_SPEED
@@ -366,15 +349,9 @@ class Session:
         if any(a["id"] == alert_id for a in self.active_alerts):
             raise ValueError("alert already sent")
         sent_tick = self.frames[self.index].tick if self.index < len(self.frames) else None
-        jev_by_county = {}
-        for zone, fips, name in counties:
-            reading = load_jev(alert_id, fips, self.jev_dir)
-            jev_by_county[fips] = {"county_name": name, "zone": zone, "reading": reading,
-                                   "decision": jev_decision(reading)}
-        anchor = next((fips for zone, fips, _ in counties if fips == self.settings["zones"][zone]), None)
+        named = [{"fips": fips, "county_name": name, "zone": zone} for zone, fips, name in counties]
         self.active_alerts.append({**alert_summary(alert), "zones": zones, "sent_at_tick": sent_tick,
-                                   "jev": jev_by_county[anchor]["reading"] if anchor else None,
-                                   "jev_by_county": jev_by_county})
+                                   "named_counties": named})
         self.note(f"alert sent: {alert.get('event')} for {', '.join(zones)}, applies from the next tick")
 
     def set_grid_down(self, zone, down):
@@ -407,20 +384,16 @@ class Session:
     def overlay(self, frame):
         """This frame with the operator's overlays added to its events.
 
-        Alerts go in as counties with their JEV P(yes), never as whole zones, so JEV gates each floor.
+        Alerts go in as the counties they name, never as whole zones, so an unnamed county keeps base.
         """
         events = dict(frame.events)
         counties = dict(events.get("weather_counties", {}))
         for alert in self.active_alerts:
             if not self.alert_active(alert, frame.ts):
                 continue
-            for fips, row in alert["jev_by_county"].items():
-                probability = jev_probability(row["reading"])
-                # Two alerts on one county: keep the more cautious; no reading is the most cautious.
-                if fips in counties:
-                    probability = None if probability is None or counties[fips] is None \
-                        else max(probability, counties[fips])
-                counties[fips] = probability
+            for row in alert["named_counties"]:
+                # Two alerts on one county both raise it, so the first event name is kept.
+                counties.setdefault(row["fips"], alert.get("event"))
         if counties:
             events["weather_counties"] = counties
         if self.grid_down_zones:

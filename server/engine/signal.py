@@ -1,7 +1,7 @@
 """Load an NP3-233-CD response and turn it into the signal that compute_risk reads."""
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -22,8 +22,14 @@ REPORT_URL = "https://api.ercot.com/api/public-reports/np3-233-cd/hourly_res_out
 PRICE_URL = "https://api.ercot.com/api/public-reports/np6-905-cd/spp_node_zone_hub"
 PRICE_PATH = Path("var") / "signal" / "latest_np6.json"
 PRICE_SOURCE = "ERCOT NP6-905-CD"
-# The headline price (and the wall's readPrice()) is LZ_NORTH. DAM NP4-190 stays out.
+# The headline price (and the wall's readPrice()) is LZ_NORTH.
 SETTLEMENT_POINT = "LZ_NORTH"
+# Day-Ahead Market settlement point prices: hourly, per load zone, posted the day before.
+DAM_URL = "https://api.ercot.com/api/public-reports/np4-190-cd/dam_stlmnt_pnt_prices"
+DAM_SOURCE = "ERCOT NP4-190-CD"
+DAM_HOURS_AHEAD = 24
+# ERCOT posts the next day's DAM results in the early afternoon; from this Central time we treat them as out.
+DAM_POSTED_AT = (13, 30)
 # The four load zones the fleet is split into. server/api/prices.py reuses this map.
 ZONE_POINTS = {"Houston": "LZ_HOUSTON", "North": "LZ_NORTH", "South": "LZ_SOUTH", "West": "LZ_WEST"}
 ZONE_PRICE_PATH = Path("var") / "signal" / "latest_np6_zones.json"
@@ -165,6 +171,99 @@ def fetch_zone_prices(settings, now, save_to=ZONE_PRICE_PATH, id_token=None):
     save_to.parent.mkdir(parents=True, exist_ok=True)
     save_to.write_text(json.dumps(merged))
     return merged
+
+
+def fetch_dam_prices(settings, delivery_date, id_token=None):
+    """NP4-190-CD for the four load zones on one delivery day (a date string), one login, one body.
+
+    Four GETs, as fetch_zone_prices. Any failed GET fails the whole fetch, so a day is
+    never half there. Returns {source, delivery_date, fields, data}; the caller saves it.
+    """
+    username, password, key = (os.getenv(name, "") for name in
+                               ("ERCOT_USERNAME", "ERCOT_PASSWORD", "ERCOT_SUBSCRIPTION_KEY"))
+    if not (username and password and key):
+        raise SignalUnavailable("ERCOT credentials missing from .env")
+    timeout = settings["fetch_timeout_s"]
+    merged = None
+    try:
+        token = id_token or get_id_token(username, password, timeout)
+        for point in ZONE_POINTS.values():
+            report = requests.get(DAM_URL, timeout=timeout,
+                                  params={"settlementPoint": point, "deliveryDateFrom": delivery_date,
+                                          "deliveryDateTo": delivery_date, "size": 100},
+                                  headers={"Authorization": f"Bearer {token}",
+                                           "Ocp-Apim-Subscription-Key": key})
+            if report.status_code == 401:
+                raise SignalUnavailable("auth rejected (HTTP 401)")
+            if report.status_code != 200:
+                raise SignalUnavailable(f"ERCOT DAM request failed (HTTP {report.status_code})")
+            raw = json.loads(report.text)
+            if merged is None:
+                merged = {"source": f"{DAM_SOURCE} dam_stlmnt_pnt_prices", "delivery_date": delivery_date,
+                          "fields": raw["fields"], "data": []}
+            names = [field["name"] for field in merged["fields"]]
+            merged["data"] += [[row.get(name) for name in names] for row in rows_by_name(raw)]
+    except requests.Timeout:
+        raise SignalUnavailable(f"ERCOT did not answer within {timeout:g} s") from None
+    except (ValueError, KeyError, TypeError):
+        raise SignalUnavailable("ERCOT reply was not the expected JSON") from None
+    except requests.RequestException as exc:
+        raise SignalUnavailable(f"network error reaching ERCOT ({type(exc).__name__})") from None
+    if not merged or not merged["data"]:
+        raise SignalUnavailable(f"no DAM prices for {delivery_date}")
+    return merged
+
+
+def dam_days_published(now):
+    """Delivery days whose DAM prices are out at `now`: today, plus tomorrow from DAM_POSTED_AT."""
+    local = now.astimezone(CENTRAL)
+    days = [local.date()]
+    if (local.hour, local.minute) >= DAM_POSTED_AT:
+        days.append(local.date() + timedelta(days=1))
+    return days
+
+
+def dam_hour_start(delivery_date, hour_ending, dst_flag):
+    """UTC start of a DAM hour. HE 01:00 starts at 00:00 Central; DSTFlag marks the repeated fall-back hour."""
+    wall = datetime.fromisoformat(delivery_date) + timedelta(hours=int(str(hour_ending).split(":")[0]) - 1)
+    return wall.replace(tzinfo=CENTRAL, fold=1 if dst_flag else 0).astimezone(timezone.utc)
+
+
+def read_dam_prices(raws):
+    """Zone name to [(UTC hour start, $/MWh)], sorted, from one or more NP4-190-CD bodies.
+
+    Keyed by field names, never column position. Points outside ZONE_POINTS are ignored.
+    """
+    zone_of = {point: zone for zone, point in ZONE_POINTS.items()}
+    hours = {}
+    try:
+        for raw in raws:
+            for row in rows_by_name(raw):
+                zone = zone_of.get(row.get("settlementPoint"))
+                if zone is None:
+                    continue
+                start = dam_hour_start(row["deliveryDate"], row["hourEnding"], row.get("DSTFlag"))
+                hours.setdefault(zone, {})[start] = float(row["settlementPointPrice"])
+    except (KeyError, TypeError, ValueError):
+        raise SignalUnavailable("ERCOT DAM reply was not the expected JSON") from None
+    return {zone: sorted(by_start.items()) for zone, by_start in hours.items()}
+
+
+def dam_window(hours_by_zone, now, hours_ahead=DAM_HOURS_AHEAD):
+    """Zone to [{hour_start, usd_mwh}] from the hour holding `now` up to `hours_ahead` hours later.
+
+    A zone without the current hour is left out: the rule cannot say "now" without it.
+    hour_start is Central ISO 8601, the shape TickResult.dam_hours carries.
+    """
+    now_utc = now.astimezone(timezone.utc)
+    end = now_utc.replace(minute=0, second=0, microsecond=0) + timedelta(hours=hours_ahead)
+    window = {}
+    for zone, hours in hours_by_zone.items():
+        kept = [(start, usd) for start, usd in hours if start + timedelta(hours=1) > now_utc and start < end]
+        if kept and kept[0][0] <= now_utc:
+            window[zone] = [{"hour_start": start.astimezone(CENTRAL).isoformat(timespec="minutes"),
+                             "usd_mwh": usd} for start, usd in kept]
+    return window
 
 
 def price_interval_end(delivery_date, hour, interval):
