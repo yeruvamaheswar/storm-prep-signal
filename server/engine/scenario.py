@@ -22,7 +22,7 @@ from server.engine.fleet import new_fleet
 from server.engine.loop import load_tape, play_frame, with_fleet_defaults
 from server.engine.order_log import order_timelines
 from server.engine.score import new_board, update
-from server.engine.telemetry import TelemetryState
+from server.engine.telemetry import TelemetryState, data_status, plan_status
 from server.engine.tick_emit import build_tick_emit
 
 SCENARIO_DIR = Path("var") / "scenario"
@@ -380,17 +380,19 @@ class Session:
         frame = self.overlay(self.frames[self.index])
         self.mode = frame.events.get("operator", self.mode)
         soc_before = {home.home_id: round(100 * home.soc_kwh / home.capacity_kwh, 2) for home in self.homes}
+        feed_status = self.feed_statuses()
         result, cycle, policy, scaled, risk = play_frame(
             frame, self.homes, self.settings, self.baseline, self.mode, telemetry=self.telemetry)
         self.board = update(self.board, result, self.homes)
         emit = build_tick_emit(scaled, self.homes, cycle)
-        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before)
+        self.last = self.describe_tick(result, emit, policy, scaled, risk, cycle, soc_before, feed_status)
         self.history = (self.history + [{
             "tick": result.tick, "ts": result.ts, "target_mw": result.target_mw,
             "delivered_mw": result.delivered_mw, "charging_mw": self.last["charging_mw"],
             "missed_mw": result.missed_mw, "unconfirmed_mw": cycle.unconfirmed_mw,
             "reserve_pct": result.reserve_pct, "risk_level": result.risk_level,
             "reasons": list(result.reasons), "breaches": result.breaches,
+            "intent": result.intent, "intent_reason": result.intent_reason,
         }])[-HISTORY_POINTS:]
         self.index += 1
         if self.index >= len(self.frames):
@@ -398,7 +400,19 @@ class Session:
             self.note("scenario finished")
         return True
 
-    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before):
+    def feed_statuses(self):
+        """Each home's data status as the next plan will read it, or None without a feed.
+
+        orchestrate_tick plans from telemetry.reported_homes before any reading of the new tick
+        arrives, so the age of the newest accepted reading is the same now as at plan time.
+        The feed moves its clock on when the tick finishes, so this is taken before play_frame.
+        """
+        if self.telemetry is None:
+            return None
+        return {home_id: data_status(hs, self.telemetry.base_s, self.telemetry.settings)
+                for home_id, hs in self.telemetry.homes.items()}
+
+    def describe_tick(self, result, emit, policy, frame, risk, cycle, soc_before, feed_status=None):
         tick = {**asdict(result), "brief": write_brief(result)}
         policy_view = {"reserve_pct": policy.reserve_pct, "zone_reserve_pct": policy.zone_reserve_pct}
         grid_down = set(frame.events.get("grid_down", []))
@@ -412,7 +426,10 @@ class Session:
             homes.append({"id": home.home_id, "zone": home.zone, "soc_pct": round(100 * home.soc_kwh / home.capacity_kwh, 2),
                           "soc_before_pct": soc_before.get(home.home_id),
                           "kw": round(kw, 3), "state": state, "status": home.status, "floor_pct": floor_pct,
-                          "under_floor_why": self.under_floor_why(home, state, floor_pct)})
+                          "under_floor_why": self.under_floor_why(home, state, floor_pct),
+                          # What allocate saw: the reported status with the feed, else the home's own.
+                          "plan_status": (home.status if feed_status is None
+                                          else plan_status(home.status, feed_status[home.home_id]))})
             row = zones.setdefault(home.zone, {
                 "selling_mw": result.zone_delivered_mw.get(home.zone, 0.0),
                 "charging_mw": result.zone_charging_mw.get(home.zone, 0.0),

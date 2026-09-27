@@ -75,6 +75,8 @@ export type FlowHome = {
   status: string
   floor_pct: number
   under_floor_why?: "started_under" | "floor_raised" | null
+  /** The status the planner used (telemetry reports). Not "live" means no order this tick. */
+  plan_status?: string
 }
 
 export type FlowZoneRow = {
@@ -173,6 +175,9 @@ export type HistoryPoint = {
   risk_level?: string | null
   reasons?: string[]
   breaches?: number
+  /** Copied from the tick (controller.acted_intent); never re-derived. */
+  intent?: string
+  intent_reason?: string
 }
 
 export type OrderKind =

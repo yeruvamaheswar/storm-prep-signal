@@ -214,3 +214,34 @@ def test_api_only_records_requests_and_the_worker_applies_them(client, tmp_path)
     assert state["status"] == "playing"
     assert state["tick_index"] == 3 and len(state["homes"]) == 100
     assert state["provenance"]["posting"]["report"] == "NP3-233-CD"
+
+
+def test_history_points_carry_the_ticks_own_intent(tmp_path):
+    s = session(tmp_path)
+    s.start("heather", 42)
+    for _ in range(80):
+        s.step()
+        tick, point = s.last["result"], s.history[-1]
+        assert point["intent"] == tick["intent"]
+        assert point["intent_reason"] == tick["intent_reason"]
+    assert "charge" in {p["intent"] for p in s.history}
+
+
+def test_home_rows_carry_the_status_the_planner_used(tmp_path):
+    # Without a feed the planner reads the engine's own homes, so both statuses agree.
+    s = play(tmp_path, 42, 5)
+    assert all(h["plan_status"] == h["status"] for h in s.last["homes"])
+    # With the feed the planner reads the reports: the stale and dead counts in the reasons are its view.
+    s = Session({**SETTINGS, "telemetry_feed": True},
+                load_catalog(ROOT / "tapes" / "scenarios" / "catalog.json"), log_dir=tmp_path / "feed")
+    s.start("heather", 42)
+    differs = 0
+    for _ in range(80):
+        s.step()
+        reasons = s.last["result"]["reasons"]
+        for status in ("stale", "dead"):
+            code = next((r for r in reasons if r.startswith(f"homes_{status}:")), None)
+            count = int(code.split(":")[1]) if code else 0
+            assert sum(h["plan_status"] == status for h in s.last["homes"]) == count
+        differs += sum(h["plan_status"] != h["status"] for h in s.last["homes"])
+    assert differs > 0

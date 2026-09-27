@@ -32,6 +32,8 @@ People page: `docs/humans/grid-flow.md`. Motion rule: `DESIGN.md` section 7, `/f
 2. The worker reads new requests (by `seq`), applies them to its `Session` (`server/engine/scenario.py`), and when the time-lapse clock says so, plays one frame through `loop.play_frame` with the session's own fleet.
 3. Active alert zones are added to that frame's `events["weather"]`; grid-down zones go to `events["grid_down"]`. The engine then decides the tick with the usual rules.
 4. The worker writes `var/scenario/state.json`: the tick, each home's `{soc_pct, kw, state, zone}`, zone MW selling and charging, floors and reasons, that tick's provenance rows, active alerts with their JEV reading, overlays, the seed and starting-charge histogram, and a short history.
+   - Each home row also carries `status` (the engine's own view) and `plan_status` (added 2026-09-26, Task 12): the status the planner used. With the telemetry feed on, the plan reads the batteries' reports (`telemetry.reported_homes`), so a home can be `status "live"` but `plan_status "stale"`; the planner gave it no order, and the tick's `homes_stale:N` counts it. Without the feed both are the same.
+   - Each history point carries the tick's `intent` and `intent_reason` (added 2026-09-26, Task 12), copied from the tick, never re-derived. See `docs/agents/policy-intent.md` for the values.
 5. The page polls `GET /v1/scenario/state` every 500 ms. A state file older than 10 s reads as `worker_not_running`.
 
 Requests left over from an earlier worker are not replayed; the page asks again.
